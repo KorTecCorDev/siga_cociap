@@ -205,6 +205,19 @@
     &__motivo {
         color: #92400e;
     }
+
+    // Sección ÚNICA al final de la carga (consulta de notas e historial del
+    // docente, 21/09/2026): va suelta tras las cards, no dentro de una.
+    &--carga {
+        margin: 0 0 $spacing-lg;
+    }
+
+    // Subtítulo por competencia dentro de la sección única.
+    &__competencia {
+        margin: $spacing-md 0 4px;
+        font-weight: 600;
+        color: $text-primary;
+    }
 }
 
 

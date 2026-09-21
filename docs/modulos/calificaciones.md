@@ -1057,6 +1057,28 @@ que un grado de otro nivel no dé un listado vacío que parezca real.
   contra `insertablesPorPeriodo`, las dos ramas de `esInsertable` y los filtros.
   `verif_extraordinaria_lote.php` y `verif_roster_evaluacion.php` siguen verdes.
 
+### La extraordinaria, en UNA sección al final de la carga (21/09/2026)
+
+En `/consulta-notas/{p}/carga/{c}` y en el historial del docente (por carga y por área), el
+bloque «Calificación extraordinaria — Registro Académico» ya **no va bajo cada competencia**:
+es **una sola sección al final**, agrupada por competencia (partial
+`consulta-notas/_extraordinarias-carga.php`). Motivo del usuario: el alumno puede traer del
+colegio de origen competencias que aquí **no se trabajaron**, y esas no tenían tabla bajo la
+cual colgar el aviso.
+
+- **Datos:** `RectificacionModel::getExtraordinariasDeCargas(array $cargaIds, $periodoId)`.
+  Parte del **dato vivo** (`calificaciones.extraordinaria = 1`) y no de la auditoría, como
+  `alumnosConExtraordinaria`: una reversión a mano no deja fantasmas. La nota es la **vigente**
+  (si luego se rectificó, sale la rectificada). Motivo, autor y fecha: la **última** auditoría
+  `tipo='extraordinaria'` de la tupla. No depende del bloqueo.
+- `_tabla.php` ya no recibe `$extraordinarias`, y los bloques de los controladores ya no llevan
+  esa clave. **La grilla y el resumen del docente NO cambian**: siguen con
+  `docente/_extraordinaria-info.php` por competencia (`getExtraordinariasDeCompetencia`).
+- La columna del criterio extraordinario ya no se pintaba desde el 18/09
+  (`criterios_ordinarios()`); eso no cambió.
+- Verificado en `verif_extraordinaria_bloqueo.php` §E y §F; contra la carga 429 del I
+  Bimestre, la sección lista las mismas 23 que la consulta vieja por competencia.
+
 ## Fixes importantes aplicados (sesión 2)
 - `periodos.nombre_display` es la columna correcta (no `nombre`). Si ves
   `Unknown column 'p.nombre'` en queries de periodos, verificar esto.

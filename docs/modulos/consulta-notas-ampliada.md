@@ -353,3 +353,11 @@ filtros** en Criterios. Desde el 26/08 hay uno solo, en la card de `_nav.php`.
 - **Las vistas profundas** (`seccion`, `carga`, `docente`, `conducta`, `transversales`,
   `asistencia`) **no llevan selector**: no son pestañas y cada una tiene sus propios
   parámetros de ruta.
+
+## Extraordinarias: una sección al final de la carga (21/09/2026)
+
+`/consulta-notas/{p}/carga/{c}` ya no explica las calificaciones extraordinarias bajo cada
+competencia: van en **una sola sección al final de la página**, agrupada por competencia, que
+incluye también las competencias sin tabla propia en la carga. Detalle y datos en
+`docs/modulos/calificaciones.md` («La extraordinaria, en UNA sección al final de la carga»).
+

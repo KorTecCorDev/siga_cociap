@@ -642,6 +642,66 @@ class RectificacionModel extends BaseModel
         return false;
     }
     /**
+     * Calificaciones EXTRAORDINARIAS de una o varias cargas en un periodo, para
+     * la sección ÚNICA al final de /consulta-notas/{p}/carga/{c} y del
+     * historial del docente (21/09/2026; antes iba un bloque bajo cada
+     * competencia). Incluye competencias SIN tabla propia en la carga: el
+     * alumno puede traer del colegio de origen competencias que aquí no se
+     * trabajaron.
+     *
+     * Parte del DATO VIVO (`calificaciones.extraordinaria = 1`), como
+     * `CalificacionModel::alumnosConExtraordinaria`, no de la auditoría: una
+     * reversión a mano no deja fantasmas. La nota es la vigente (si luego se
+     * rectificó, sale la rectificada, que es la que va a la boleta).
+     *
+     * @return array filas ordenadas por competencia y alumno: carga_id,
+     *               competencia_id, competencia_nombre, codigo_minedu,
+     *               matricula_id, nota, estudiante, motivo, rectificado_en, registrador
+     */
+    public function getExtraordinariasDeCargas(array $cargaIds, int $periodoId): array
+    {
+        $cargaIds = array_values(array_unique(array_filter(array_map('intval', $cargaIds))));
+        if ($cargaIds === []) {
+            return [];
+        }
+        $marcas = implode(',', array_fill(0, count($cargaIds), '?'));
+
+        return $this->query("
+            SELECT
+                cal.carga_id,
+                cal.competencia_id,
+                comp.nombre_completo  AS competencia_nombre,
+                comp.codigo_minedu,
+                cal.matricula_id,
+                cal.nota_numerica     AS nota,
+                CONCAT(p.apellido_paterno, ' ', p.apellido_materno, ', ', p.nombres) AS estudiante,
+                r.motivo,
+                r.rectificado_en,
+                CONCAT(pu.apellido_paterno, ' ', pu.nombres) AS registrador
+            FROM calificaciones cal
+            INNER JOIN competencias comp ON comp.id = cal.competencia_id
+            INNER JOIN matriculas m      ON m.id = cal.matricula_id
+            INNER JOIN estudiantes e     ON e.id = m.estudiante_id
+            INNER JOIN personas p        ON p.id = e.persona_id
+            -- La ÚLTIMA auditoría del alta (motivo y quién): la reversión a
+            -- mano no borra la auditoría, por eso el dato vivo manda arriba.
+            LEFT JOIN rectificaciones_calificacion r
+                   ON r.id = (SELECT MAX(r2.id) FROM rectificaciones_calificacion r2
+                              WHERE r2.matricula_id   = cal.matricula_id
+                                AND r2.carga_id       = cal.carga_id
+                                AND r2.competencia_id = cal.competencia_id
+                                AND r2.periodo_id     = cal.periodo_id
+                                AND r2.tipo           = 'extraordinaria')
+            LEFT JOIN usuarios u   ON u.id = r.rectificado_por
+            LEFT JOIN personas pu  ON pu.id = u.persona_id
+            WHERE cal.carga_id IN ({$marcas})
+              AND cal.periodo_id     = ?
+              AND cal.extraordinaria = 1
+            ORDER BY comp.orden, comp.id, " . orden_alfabetico('p') . "
+        ", array_merge($cargaIds, [$periodoId]));
+    }
+
+    /**
      * Calificaciones extraordinarias registradas en una competencia+carga+
      * periodo, con el motivo y quién las registró. Alimenta el bloque
      * informativo de las vistas de solo lectura (historial del docente,

@@ -156,11 +156,37 @@ try {
     echo "\n=== C. La limpieza de fantasmas NO borra el bloqueo creado ===\n";
     $anioMod->eliminarBloqueosDeCierre($periodo);
     $ok($bloqueo($itA) === ['cierre'], 'el bloqueo de A sobrevive a eliminarBloqueosDeCierre');
+
+    echo "\n=== E. Sección única de extraordinarias al final de la carga ===\n";
+    // Sale del DATO VIVO, sin depender del bloqueo: se le quita otra vez el
+    // bloqueo a A (dentro de la transacción) y la sección la sigue listando.
+    $pdo->prepare("DELETE FROM bloqueos_competencia WHERE carga_id = ? AND competencia_id = ? AND periodo_id = ?")
+        ->execute([(int) $itA['carga_id'], (int) $itA['competencia_id'], $periodo]);
+    $enSeccion = array_filter(
+        $rectMod->getExtraordinariasDeCargas([(int) $itA['carga_id']], $periodo),
+        static fn (array $r): bool => (int) $r['matricula_id'] === $mid
+            && (int) $r['competencia_id'] === (int) $itA['competencia_id']
+    );
+    $ok(count($enSeccion) === 1, 'una competencia SIN tabla propia (sin bloqueo) aparece en la sección final');
+    $fila = array_values($enSeccion)[0] ?? [];
+    $ok((int) ($fila['nota'] ?? -1) === 16 && trim((string) ($fila['motivo'] ?? '')) !== '',
+        'con su nota viva (16) y el motivo de la auditoría');
 } catch (Throwable $e) {
     echo "  [ERROR] " . $e->getMessage() . "\n";
     $fallos++;
 } finally {
     $pdo->rollBack();
+}
+
+echo "\n=== F. Las vistas: la sección va una vez, al final ===\n";
+$tabla = file_get_contents(ROOT_PATH . '/resources/views/consulta-notas/_tabla.php');
+$ok(!str_contains($tabla, 'extraordinaria-info__titulo'),
+    '_tabla.php ya no pinta el bloque bajo cada competencia');
+foreach (['consulta-notas/carga.php', 'docente/historial-carga.php'] as $vista) {
+    $src = file_get_contents(ROOT_PATH . '/resources/views/' . $vista);
+    $pos = strrpos($src, '_extraordinarias-carga.php');
+    $ok($pos !== false && $pos > strrpos($src, 'endforeach'),
+        "{$vista} incluye la sección única DESPUÉS del bucle de competencias");
 }
 
 echo "\n=== D. ROLLBACK — la base vuelve a su estado inicial ===\n";

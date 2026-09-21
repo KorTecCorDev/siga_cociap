@@ -153,6 +153,9 @@ class CalificacionController extends BaseController
             'carga'        => $carga,
             'periodo'      => $periodo,
             'competencias' => $competencias,
+            // Sección ÚNICA de extraordinarias al final (21/09/2026).
+            'extraordinariasCarga' => (new RectificacionModel())
+                ->getExtraordinariasDeCargas([$cargaId], $periodoId),
             'exonerados'   => $exonerados,
         ]);
     }
@@ -198,18 +201,6 @@ class CalificacionController extends BaseController
             }
             unset($al);
 
-            // Calificaciones extraordinarias de RA en esta competencia: el
-            // docente debe verlas claramente diferenciadas (con motivo) de su
-            // registro ordinario del bimestre.
-            $extraordinarias = [];
-            foreach ($resumen['criterios'] as $cr) {
-                if (!empty($cr['extraordinario'])) {
-                    $extraordinarias = (new RectificacionModel())
-                        ->getExtraordinariasDeCompetencia($cargaId, $competenciaId, $periodoId);
-                    break;
-                }
-            }
-
             $bloques[] = [
                 'competencia' => [
                     'nombre_completo' => $b['nombre_completo'],
@@ -218,7 +209,6 @@ class CalificacionController extends BaseController
                 ],
                 'criterios'       => $resumen['criterios'],
                 'alumnos'         => $resumen['alumnos'],
-                'extraordinarias' => $extraordinarias,
             ];
         }
         return $bloques;
@@ -445,6 +435,9 @@ class CalificacionController extends BaseController
             'carga'        => $carga,
             'periodo'      => $periodo,
             'competencias' => $competencias,
+            // Sección ÚNICA de extraordinarias al final, de todas las cargas del área.
+            'extraordinariasCarga' => (new RectificacionModel())
+                ->getExtraordinariasDeCargas(array_column($cargasArea, 'carga_id'), $periodoId),
             'exonerados'   => $exonerados,
         ]);
     }
