@@ -71,56 +71,66 @@ $hayFiltro = array_filter($f) !== [];
             calificación extraordinaria.
         </p>
 
-        <form method="GET" action="<?= url('rectificaciones') ?>" class="form-inline mb-md">
-            <label class="form-label" for="fPeriodo">Bimestre</label>
-            <select id="fPeriodo" name="periodo_id" class="form-select">
-                <option value="0">Todos los cerrados</option>
-                <?php foreach ($opciones['periodos'] ?? [] as $p): ?>
-                    <option value="<?= (int) $p['id'] ?>"<?= (int) $p['id'] === $f['periodo_id'] ? ' selected' : '' ?>>
-                        <?= e($p['nombre_display']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+        <form method="GET" action="<?= url('rectificaciones') ?>" class="rect-filtros mb-md">
+            <div class="form-group">
+                <label class="form-label" for="fPeriodo">Bimestre</label>
+                <select id="fPeriodo" name="periodo_id" class="form-select">
+                    <option value="0">Todos los cerrados</option>
+                    <?php foreach ($opciones['periodos'] ?? [] as $p): ?>
+                        <option value="<?= (int) $p['id'] ?>"<?= (int) $p['id'] === $f['periodo_id'] ? ' selected' : '' ?>>
+                            <?= e($p['nombre_display']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
 
-            <label class="form-label" for="fNivel">Nivel</label>
-            <select id="fNivel" name="nivel_id" class="form-select">
-                <option value="0">Todos</option>
-                <?php foreach ($niveles as $nid => $nNombre): ?>
-                    <option value="<?= $nid ?>"<?= $nid === $f['nivel_id'] ? ' selected' : '' ?>><?= e($nNombre) ?></option>
-                <?php endforeach; ?>
-            </select>
+            <div class="form-group">
+                <label class="form-label" for="fNivel">Nivel</label>
+                <select id="fNivel" name="nivel_id" class="form-select">
+                    <option value="0">Todos</option>
+                    <?php foreach ($niveles as $nid => $nNombre): ?>
+                        <option value="<?= $nid ?>"<?= $nid === $f['nivel_id'] ? ' selected' : '' ?>><?= e($nNombre) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
 
-            <label class="form-label" for="fGrado">Grado</label>
-            <select id="fGrado" name="grado_id" class="form-select">
-                <option value="0">Todos</option>
-                <?php foreach ($grados as $nid => $gs): ?>
-                    <optgroup label="<?= e($niveles[$nid]) ?>">
-                        <?php foreach ($gs as $gid => $gNombre): ?>
-                            <option value="<?= $gid ?>"<?= $gid === $f['grado_id'] ? ' selected' : '' ?>><?= e($gNombre) ?></option>
-                        <?php endforeach; ?>
-                    </optgroup>
-                <?php endforeach; ?>
-            </select>
+            <div class="form-group">
+                <label class="form-label" for="fGrado">Grado</label>
+                <select id="fGrado" name="grado_id" class="form-select">
+                    <option value="0">Todos</option>
+                    <?php foreach ($grados as $nid => $gs): ?>
+                        <optgroup label="<?= e($niveles[$nid]) ?>">
+                            <?php foreach ($gs as $gid => $gNombre): ?>
+                                <option value="<?= $gid ?>"<?= $gid === $f['grado_id'] ? ' selected' : '' ?>><?= e($gNombre) ?></option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                    <?php endforeach; ?>
+                </select>
+            </div>
 
-            <label class="form-label" for="fSeccion">Sección</label>
-            <select id="fSeccion" name="seccion_id" class="form-select">
-                <option value="0">Todas</option>
-                <?php $grupo = null; foreach ($opciones['secciones'] ?? [] as $s):
-                    $rotulo = $s['nivel'] . ' — ' . $s['grado'];
-                    if ($rotulo !== $grupo): ?>
-                        <?= $grupo !== null ? '</optgroup>' : '' ?><optgroup label="<?= e($rotulo) ?>">
-                    <?php $grupo = $rotulo; endif; ?>
-                    <option value="<?= (int) $s['id'] ?>"<?= (int) $s['id'] === $f['seccion_id'] ? ' selected' : '' ?>>
-                        <?= e($s['grado'] . ' "' . $s['nombre'] . '"') ?>
-                    </option>
-                <?php endforeach; ?>
-                <?= $grupo !== null ? '</optgroup>' : '' ?>
-            </select>
+            <div class="form-group">
+                <label class="form-label" for="fSeccion">Sección</label>
+                <select id="fSeccion" name="seccion_id" class="form-select">
+                    <option value="0">Todas</option>
+                    <?php $grupo = null; foreach ($opciones['secciones'] ?? [] as $s):
+                        $rotulo = $s['nivel'] . ' — ' . $s['grado'];
+                        if ($rotulo !== $grupo): ?>
+                            <?= $grupo !== null ? '</optgroup>' : '' ?><optgroup label="<?= e($rotulo) ?>">
+                        <?php $grupo = $rotulo; endif; ?>
+                        <option value="<?= (int) $s['id'] ?>"<?= (int) $s['id'] === $f['seccion_id'] ? ' selected' : '' ?>>
+                            <?= e($s['grado'] . ' "' . $s['nombre'] . '"') ?>
+                        </option>
+                    <?php endforeach; ?>
+                    <?= $grupo !== null ? '</optgroup>' : '' ?>
+                </select>
+            </div>
 
-            <button type="submit" class="btn btn--primary btn--sm">Filtrar</button>
-            <?php if ($hayFiltro): ?>
-                <a href="<?= url('rectificaciones') ?>" class="btn btn--secondary btn--sm">Quitar filtros</a>
-            <?php endif; ?>
+            <div class="rect-filtros__acciones">
+                <button type="submit" class="btn btn--primary btn--sm">Filtrar</button>
+                <?php if ($hayFiltro): ?>
+                    <a href="<?= url('rectificaciones') ?>" class="btn btn--secondary btn--sm">Quitar filtros</a>
+                <?php endif; ?>
+            </div>
         </form>
 
         <?php if (empty($pendientes)): ?>

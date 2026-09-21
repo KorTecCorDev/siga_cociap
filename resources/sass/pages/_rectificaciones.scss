@@ -24,6 +24,24 @@
     line-height: 1.4;
 }
 
+// Filtros del listado de estudiantes sin notas (21/09/2026): cada etiqueta
+// sobre su select, en una grilla que baja de columnas sola. En línea
+// (.form-inline) la etiqueta quedaba huérfana al final de una fila.
+.rect-filtros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: $spacing-sm $spacing-md;
+    align-items: end;
+
+    .form-group { margin-bottom: 0; }
+
+    &__acciones {
+        display: flex;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+    }
+}
+
 // Motivo en tablas de historial: no estira la fila, recorta con elipsis.
 .rect-motivo {
     max-width: 280px;

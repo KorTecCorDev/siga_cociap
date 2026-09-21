@@ -5,6 +5,33 @@
 > **Versión desplegada: v1.0.1** (`config/app.php` + tag anotado `v1.0.1`).
 
 
+## 🔄 AJUSTES TRAS PROBAR NOTIFICACIONES (21/09/2026) — en `dev`, sin merge
+
+Diez observaciones del usuario; dos ya estaban resueltas desde el 18/09. Ocho commits (del
+`0a2b3e3` al `9b6cfaf`, más `73e8b59` y el de los filtros). Detalle en el doc de cada módulo:
+botón «← Dashboard» en la bandeja · competencia recortada a 120 (migración **`061`** +
+`reparar_notas_externas_truncadas.php`) · 403 sin anidar y páginas de error con `errores.css` ·
+colegio de origen en el aviso · boleta sin notas → aviso y botones inertes · listado de
+`/rectificaciones` (sin ninguna nota en un cerrado) · ficha de matrícula «datos a la vista,
+acción aparte» · extraordinaria: asegura el bloqueo y va en una sección única al final.
+
+**Probado en Chrome con sesión de Registro Académico (21/09):** fichas 693 (26 notas de origen,
+competencia de 126 caracteres entera, sin `<details>`) y 698 (botones inertes con
+`pointer-events:none`, aviso de «sin calificaciones» con HTTP 200, Cerrar vuelve a la ficha;
+matrícula inexistente sigue en 404) · `/rectificaciones`: 5 filas, filtro por nivel (2) y
+por bimestre con clic real (1), «Calificar (N)» = filas del lote en 698/B1, 698/B2 y 694/B1 ·
+`/consulta-notas/1/carga/429`: una sección al final, fuera de las cards, 23 notas y sin
+columna extraordinaria; cargas 182, 295 y 354 agrupan 5, 3 y 3 competencias · a 375 px
+ninguna de las seis páginas tocadas desborda · RA en una ruta de docente: 403 con un solo
+`<!DOCTYPE>` y `errores.css`. Ajuste que salió de la prueba: los filtros de
+`/rectificaciones` pasaron de `.form-inline` a una grilla (`.rect-filtros`), porque la
+etiqueta «Grado» quedaba huérfana.
+
+- [ ] **Pendiente, con sesión DOCENTE:** `/docente/calificaciones/429/historial/1` (ZAMBRANO)
+      debe mostrar la sección única de extraordinarias al final. Comparte el partial con la
+      consulta, que sí se probó.
+- [ ] **Antes del merge:** `061` en producción + el script de reparación (ver §4 más abajo).
+
 ## ✅ PRUEBAS EN NAVEGADOR DE LA EXTRAORDINARIA — LAS 6 PASADAS (21/09/2026)
 
 Cerradas el 21/09/2026 en la **laptop** (`PROBOOK450`, migraciones hasta la `060`, ids del
