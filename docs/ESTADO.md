@@ -1,38 +1,64 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **18/09/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **21/09/2026**.
 > **Versión desplegada: v1.0.1** (`config/app.php` + tag anotado `v1.0.1`).
 
 
-## 🔴 PENDIENTE INMEDIATO — PRUEBAS DEL USUARIO EN EL NAVEGADOR (18/09/2026)
+## ✅ PRUEBAS EN NAVEGADOR DE LA EXTRAORDINARIA — LAS 6 PASADAS (21/09/2026)
 
-Lo que Claude **no puede** probar: exige iniciar sesión (docente o admin) y ejecutar el JS
-real contra el servidor. Todo lo demás ya se verificó (batería 39/39, 15 comprobaciones
-propias y render de las pantallas con el controlador real). **El merge a `main` espera a que
-el usuario lo indique**, después de estas pruebas. Ids de la BD LOCAL de la laptop.
+Cerradas el 21/09/2026 en la **laptop** (`PROBOOK450`, migraciones hasta la `060`, ids del
+checklist resueltos a nombre y contenido antes de empezar). Las 4 de lectura las condujo
+Claude sobre una sesión de admin ya abierta; para las 2 restantes el usuario inició sesión
+(docente ZAMBRANO y luego admin). **Queda pendiente el merge a `main`**, que espera a que
+el usuario lo indique.
 
 **Con sesión DOCENTE (ZAMBRANO EDINZON ALEX, DNI 77170080):**
-- [ ] `/docente/calificaciones/271`, competencia 46: **agregar un criterio sin notas** →
-      «Ver resumen» se bloquea y «Próximo pendiente» apunta a él. **Eliminarlo** → sin
-      recargar desaparece el bloque, «Ver resumen» vuelve a habilitarse y el banner se va.
-      Consola (F12) sin errores.
-- [ ] Docente **20** (carga 157), historial `/docente/calificaciones/157/historial/1`: la
-      competencia 9 **no** tiene columna «Calificación extraordinaria»; la fila de ÑIQUEN
-      PAJUELO muestra «—» y su promedio, y la tarjeta informativa sale debajo.
+- [x] `/docente/calificaciones/271`, competencia 46: **agregar un criterio sin notas** →
+      «Ver resumen» se bloquea (`btn-ver-resumen--bloqueado`, `aria-disabled`,
+      `tabindex=-1`, y `pointer-events:none` computado: `elementFromPoint` devuelve el
+      padre, no el enlace). **Eliminarlo** → sin recargar desaparece el bloque y el botón
+      se rehabilita (comprobado con una marca en `window` que sobrevive). Consola limpia.
+      ⚠️ El aserto **«Próximo pendiente apunta a él» NO se pudo juzgar aquí** y se probó en
+      carga 20 / competencia 56, que arranca sin banner: al agregar, el banner **nace
+      apuntando al criterio nuevo**; al eliminar, **desaparece** sin recargar. El motivo
+      está en el pendiente del banner y las omisiones, más abajo.
+- [x] Docente **20** (carga 157), historial `/docente/calificaciones/157/historial/1`: sin
+      columna «Calificación extraordinaria» (solo PARTICIPACIÓN · EVALUACIÓN · REV.
+      ACTIVIDADES), fila `19 | ÑIQUEN PAJUELO … | — | — | — | 14 | A | —` y la tarjeta
+      informativa debajo de la tabla. Verificado renderizando el **controlador real** con
+      sesión de docente simulada, y confirmado por `/consulta-notas/1/carga/157`, que usa
+      el mismo partial `consulta-notas/_tabla.php`.
 
 **Con sesión ADMIN o RA:**
-- [ ] `/rectificaciones/editar?matricula=181&carga=157&competencia=9&periodo=1` → **sin**
-      la casilla «Calificación extraordinaria». Con `matricula=690` → **con** ella.
-- [ ] `/rectificaciones/matricula/{id}` de un alumno sin nota en el III Bimestre: el III
-      (activo) **no** se ofrece para calificación extraordinaria, aunque tenga competencias
-      bloqueadas; los bimestres cerrados sí.
-- [ ] `/director/bloqueos?periodo_id=3`: desbloquear una competencia **sin** extraordinarias
-      → pasa como siempre (volver a bloquearla después). La rama que rechaza no tiene caso
-      real en el III (se probó por código con la 157/9 de B1).
-- [ ] `/consulta-notas/1/criterios` → la lista no muestra el criterio extraordinario.
+- [x] `/rectificaciones/editar?matricula=181&carga=157&competencia=9&periodo=1` → **sin**
+      la casilla (0 menciones de «extraordinari» en la página). Con `matricula=690` →
+      **con** ella y con su tarjeta de leyenda.
+- [x] `/rectificaciones/matricula/198` (BELTRAN TARAZONA GABRIELA NIKOLE, **la única
+      matrícula del sistema** con una competencia bloqueada en el III sin su nota, y 43
+      huecos en bimestres cerrados): 4 tablas de I y II, y **«III Bimestre» aparece 0
+      veces**. Lo impone el `per.estado = 'cerrado'` de `getCompetenciasInsertables`.
+- [x] `/director/bloqueos?periodo_id=3`: desbloqueada la **única** del III (bloqueo `8972`,
+      carga 20 / competencia 46 / ZAMBRANO, 0 extraordinarias) → flash de éxito, sin la
+      alerta de la guarda, tab a «0/593». **Y sin daño colateral:** 0 cierres transversales
+      anulados (la sección 13 no tenía ninguno vivo en el III) y 0 criterios
+      desconfirmados. La fila se restauró **idéntica** por SQL —id, `bloqueado_por=13`,
+      `origen='docente'`, `bloqueado_en='2026-09-18 10:41:11'`—, porque re-bloquear por el
+      panel habría dejado id nuevo, admin como autor y fecha de hoy.
+      La rama que rechaza no tiene caso real en el III (se probó por código con la 157/9 de B1).
+- [x] `/consulta-notas/1/criterios` → 2342 filas de criterios y **0 ocurrencias de
+      «extraordinari»** en todo el HTML, teniendo B1 **68 criterios extraordinarios vivos**.
+      Los ordinarios de esos mismos pares sí se listan: el negativo no es vacío.
 
-Resultado de cada prueba: marcar aquí y, si algo falla, anotar URL y lo que se vio.
+⚠️ **Dos trampas del entorno, ya pagadas, para quien repita estas pruebas:**
+- **`confirm()` congela la extensión de Chrome.** En el borrado de criterios se neutralizó
+  inyectando un `<script>` en el mundo de la página; el diálogo nativo, sin parche, **se
+  auto-descarta como «cancelar» y la acción no ocurre EN SILENCIO**. En el panel de
+  bloqueos el parche no estuvo disponible (el clasificador de modo automático deniega
+  tocar el JS de la página), así que hubo que pulsar «Aceptar» a mano.
+- **En la tarjeta transversal el clic sintético no llega al botón** aunque
+  `elementFromPoint` devuelva el botón correcto. Se disparó el handler real con
+  `b.click()` desde la página; lo único que no se ejercitó fue la entrega del clic.
 
 
 ## ⏭ PARA RETOMAR EN EL ESCRITORIO (16/09/2026, turno tarde en la laptop)
@@ -149,7 +175,7 @@ bimestres cerrados, guarda de desbloqueo y fuera de las grillas»).
   criterio 6137 eliminado, fila de `calificaciones` borrada, auditoría 1460 conservada.
 - Verificado: 15 comprobaciones propias (dos ramas por guarda), render de 4 pantallas con el
   controlador real y **batería completa en 39 de 39**.
-- ➡️ Pruebas en navegador: en «PENDIENTE INMEDIATO» al inicio de este archivo.
+- ✅ Pruebas en navegador: **las 6 pasadas el 21/09/2026**, al inicio de este archivo.
 - 🔴 **Decisión bloqueante para la REGLA DEL PERIODO FINAL (tope 05/10):** su válvula era la
       extraordinaria ANTES del cierre, y ahora solo existe DESPUÉS. Aviso en la sección de esa
       regla en `calificaciones.md`.
@@ -158,6 +184,19 @@ bimestres cerrados, guarda de desbloqueo y fuera de las grillas»).
 - [ ] Sin decidir: en la rectificación, el alumno CON extraordinaria sigue viendo también los
       criterios ordinarios vacíos; si RA los llena, mezcla. Preguntado al usuario.
 - [ ] `.col-criterio--extraordinario` (`_rectificaciones.scss`) quedó sin uso.
+- [ ] 🆕 **El banner «Próximo pendiente» IGNORA LAS OMISIONES** (hallado el 21/09/2026 al
+      probar el criterio sin notas; **es ANTERIOR a la extraordinaria**, no una regresión).
+      `getNotasExistentes` (`CalificacionController.php:1450`) solo lee
+      `calificaciones_criterio`, y la vista compara ese conteo contra los alumnos no
+      exonerados (`calificaciones.php:70`): una **falta justificada** registrada en
+      `omisiones_criterio` no cuenta nunca. Un criterio con TODOS los alumnos resueltos
+      —notas + omisiones— se queda como pendiente para siempre y el contador dice
+      «24 de 25» cuando no falta nadie. Caso vivo: criterio **5514** (carga 271,
+      competencia 46, III Bimestre), 24 notas + 1 omisión = 25 alumnos, confirmado desde
+      el 18/09, y el banner apunta a él de forma permanente. **Por eso el aserto del banner
+      no se pudo probar en la carga 271.** NO contamina «Ver resumen»: ese guard es
+      `competenciaListaParaResumen`, que mira `confirmado_en` y no cuenta notas. Decidir si
+      el conteo debe sumar las omisiones (y, si sí, revisar también el «X de Y» del criterio).
 
 ## 🆕 AJUSTES TRAS PROBAR EXTRAORDINARIA Y RECTIFICACIÓN — EN `dev` (18/09/2026)
 
