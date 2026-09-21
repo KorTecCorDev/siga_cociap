@@ -27,9 +27,10 @@ ninguna de las seis páginas tocadas desborda · RA en una ruta de docente: 403 
 `/rectificaciones` pasaron de `.form-inline` a una grilla (`.rect-filtros`), porque la
 etiqueta «Grado» quedaba huérfana.
 
-- [ ] **Pendiente, con sesión DOCENTE:** `/docente/calificaciones/429/historial/1` (ZAMBRANO)
-      debe mostrar la sección única de extraordinarias al final. Comparte el partial con la
-      consulta, que sí se probó.
+- [x] **Con sesión DOCENTE (ZAMBRANO), 21/09:** `/docente/calificaciones/429/historial/1`
+      muestra la sección única al final, fuera de las cards, con las 23 notas y sin columna
+      extraordinaria; la carga 352 (B1 y B2) muestra la suya con 1. `/docente/notas-origen/693`
+      pinta la competencia de 126 caracteres entera y, sin colegio anotado, no pinta el bloque.
 - [ ] **Antes del merge:** `061` en producción + el script de reparación (ver §4 más abajo).
 
 ## ✅ PRUEBAS EN NAVEGADOR DE LA EXTRAORDINARIA — LAS 6 PASADAS (21/09/2026)
