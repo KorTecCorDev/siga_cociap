@@ -664,6 +664,32 @@ class CalificacionModel extends BaseModel
     }
 
     /**
+     * Asegura el bloqueo de una competencia que recibe una calificación
+     * EXTRAORDINARIA (21/09/2026). Sin él la nota quedaba registrada e
+     * INVISIBLE: la boleta solo muestra competencias bloqueadas, y una que
+     * nadie de la sección evaluó pierde su bloqueo del cierre al limpiar los
+     * fantasmas. Es justo el caso del alumno que trae del colegio de origen
+     * competencias que aquí no se trabajaron.
+     *
+     * `origen = 'cierre'`: la extraordinaria solo nace en bimestres CERRADOS,
+     * así que el bloqueo es el que el cierre habría dejado. `INSERT IGNORE`:
+     * si ya estaba bloqueada (el caso normal), no toca nada. La limpieza de
+     * fantasmas NO lo borra (`SIN_EXTRAORDINARIAS_BC`).
+     */
+    public function asegurarBloqueoExtraordinaria(
+        int $cargaId,
+        int $competenciaId,
+        int $periodoId,
+        int $usuarioId
+    ): bool {
+        return $this->execute("
+            INSERT IGNORE INTO bloqueos_competencia
+                (carga_id, competencia_id, periodo_id, bloqueado_por, origen)
+            VALUES (?, ?, ?, ?, 'cierre')
+        ", [$cargaId, $competenciaId, $periodoId, $usuarioId]);
+    }
+
+    /**
      * ¿Se puede marcar una competencia académica de esta carga como
      * "no se evaluó" sin dejar la carga totalmente sin calificaciones?
      *

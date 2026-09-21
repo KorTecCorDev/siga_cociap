@@ -301,6 +301,11 @@ class RectificacionController extends BaseController
         $this->calModel->marcarCalificacionExtraordinaria(
             $matriculaId, $cargaId, $competenciaId, $periodoId
         );
+        // Sin bloqueo, la boleta no la mostraría (competencia que nadie de la
+        // sección evaluó). No-op si ya estaba bloqueada.
+        $this->calModel->asegurarBloqueoExtraordinaria(
+            $cargaId, $competenciaId, $periodoId, $usuarioId
+        );
         // ⚠️ La conclusión de una TRANSVERSAL no vive en `calificaciones`: la
         // boleta la lee de `conclusiones_transversales`, que escribe el tutor.
         // Guardarla en el sitio equivocado la dejaría registrada e INVISIBLE.

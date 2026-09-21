@@ -152,8 +152,8 @@ $obligatoriaTxt = $literalesConclusion === []
                                 <?php endif; ?>
                                 <?php if ($sinBloqueo): ?>
                                     <div class="rect-lote__aviso">
-                                        La competencia no está bloqueada: la nota quedará registrada,
-                                        pero no saldrá en la boleta hasta que el docente la bloquee.
+                                        La competencia no está bloqueada: al guardar la nota se
+                                        bloquea, para que salga en la boleta.
                                     </div>
                                 <?php endif; ?>
                             </td>

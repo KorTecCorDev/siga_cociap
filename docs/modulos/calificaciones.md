@@ -890,11 +890,17 @@ exigen conclusión sale del mismo `conclusionObligatoria` que valida el POST. (E
 `rectificaciones.js` sí los tiene a mano, con un comentario que lo avisa; el código nuevo
 no repite eso.)
 
-⚠️ **Hueco conocido, NO introducido aquí:** `guardarExtraordinaria` **no crea** la fila de
-`bloqueos_competencia`, y la boleta solo muestra competencias bloqueadas. Hoy no muerde
-—las 6 matrículas reales tienen el **100 %** de sus insertables bloqueadas—, pero una
-competencia que nadie evaluó dejaría la nota invisible. La grilla **marca esas filas con
-un aviso** y deja guardar: es el comportamiento que ya existía y no se cambió sin pedirlo.
+✅ **Hueco CERRADO el 21/09/2026** (antes: «`guardarExtraordinaria` no crea la fila de
+`bloqueos_competencia`»). Una competencia que nadie de la sección evaluó pierde su bloqueo
+del cierre al limpiar los fantasmas, y la extraordinaria que RA le registraba quedaba
+**invisible** en la boleta. Es justo el caso del alumno que trae del colegio de origen
+competencias que aquí no se trabajaron. Ahora `escribirExtraordinaria` (punto único del alta
+individual y del lote) llama a `CalificacionModel::asegurarBloqueoExtraordinaria`:
+`INSERT IGNORE` con `origen='cierre'` (la extraordinaria solo nace en cerrados), no-op si ya
+estaba bloqueada, y la limpieza de fantasmas no lo borra (`SIN_EXTRAORDINARIAS_BC`). El aviso
+de la grilla ahora dice que se bloquea al guardar. Verificador:
+`verif_extraordinaria_bloqueo.php` (llama al método REAL por reflexión; falla contra el
+código anterior en 3 asertos).
 
 **Verificación:** `database/verificaciones/verif_extraordinaria_lote.php` (escribe y hace
 rollback). Sobre la matrícula 690: +25 en `calificaciones`, +25 marcadas
