@@ -450,6 +450,7 @@ $labelDoc = [
         <?php elseif ($matricula['estado'] === 'desactivado'): ?>
             <p class="text-sm text-muted mb-sm">Matrícula desactivada: la boleta se emite solo como <strong>borrador</strong> (sin QR ni firma) y no constituye documento oficial.</p>
         <?php endif; ?>
+        <?php if (!empty($tieneBoleta)): ?>
         <div class="btn-group">
             <a href="<?= url('matriculas/' . $matricula['id'] . '/boleta') ?>" target="_blank" rel="noopener"
                class="btn btn--secondary">Ver boleta digital</a>
@@ -459,6 +460,18 @@ $labelDoc = [
                 Imprimir boleta
             </a>
         </div>
+        <?php else: ?>
+        <?php // Sin bimestre publicable con competencias bloqueadas: visibles pero
+              // inertes, con el motivo (21/09/2026). Misma regla que la ruta. ?>
+        <div class="btn-group">
+            <span class="btn btn--secondary is-disabled" aria-disabled="true">Ver boleta digital</span>
+            <span class="btn btn--secondary is-disabled" aria-disabled="true">
+                <span class="btn-icon btn-icon--print" aria-hidden="true"></span>
+                Imprimir boleta
+            </span>
+        </div>
+        <p class="text-sm text-muted">Aún no tiene calificaciones oficiales.</p>
+        <?php endif; ?>
     </div>
 </div>
 

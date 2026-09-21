@@ -1185,3 +1185,29 @@ También hubo que sumar `p.estado` a la query de `index()`, que no lo traía.
 > 🐛 **Preexistente, sin corregir:** la vista usa `badge badge--success` para el conteo de
 > boletas y ese modificador **no existe** en el SASS (el equivalente se llama `--activo`),
 > así que ese badge sale sin fondo. Fuera del alcance de este cambio.
+
+## Estudiante SIN calificaciones oficiales: aviso y botones inertes (21/09/2026)
+
+Antes, `/matriculas/{id}/boleta[/imprimir]` y `/docente/boleta/{id}[/imprimir]` devolvían
+**404** cuando el alumno no tenía ningún bimestre publicable (cerrado, o activo con Hito A)
+con competencias bloqueadas, y la ficha de matrícula ofrecía los botones igual. El 404
+decía «no existe», y la matrícula sí existe.
+
+- **Regla, PUNTO ÚNICO:** `BoletaModel::periodoPublicableConNotas` (antes privada en
+  `BoletaController`). La leen las dos rutas internas **y** `MatriculaController::show`,
+  con el mismo corte del trasladado (solo cerrados). Si la ficha y la ruta leyeran reglas
+  distintas, un botón activo podría llevar al aviso.
+- **Ruta:** sin periodo → `BoletaController::sinCalificaciones()`: página suelta
+  `boleta/sin-calificaciones.php`, **HTTP 200**, con `errores.css` y el botón Cerrar de los
+  documentos (`.btn-boleta--cerrar` + `print-fit.js`). Matrícula **inexistente** en gestión:
+  sigue siendo **404** (`notFound()`); fuera de alcance del docente: **403**.
+- **Botones:** la ficha (`matriculas/show.php`) los pinta **visibles e inertes**
+  (`.btn.is-disabled`, `aria-disabled`, sin `href`) con «Aún no tiene calificaciones
+  oficiales.». `/padre/notas` hace lo mismo cuando `$areas` está vacío (su empty-state ya da
+  el motivo). La nómina del docente ya los ocultaba (`tiene_boleta`), sin cambios.
+- ⚠️ **Diferencia conocida, no tocada:** las rutas **por token** (`/boleta/digital|ver/{token}`)
+  NO pasan por esta regla: sin notas pintan la **boleta vacía** (4 columnas en «—»). Es el
+  documento público y su formato anual es fijo; no se cambió sin pedirlo.
+- Verificador: `verif_boleta_sin_calificaciones.php` (solo lectura; compara la regla con un
+  control escrito a mano en las 537 matrículas del año, las dos ramas).
+

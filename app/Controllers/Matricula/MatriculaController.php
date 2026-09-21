@@ -15,6 +15,7 @@ use App\Models\NotaExternaModel;
 use App\Models\NotificacionModel;
 use App\Models\AnioAcademicoModel;
 use App\Models\RectificacionModel;
+use App\Models\BoletaModel;
 use Core\Session;
 use Core\View;
 
@@ -823,7 +824,17 @@ class MatriculaController extends BaseController
             ? (new RectificacionModel())->insertablesPorPeriodo((int) $id)
             : [];
 
+        // ¿Hay boleta que abrir? MISMA regla y mismo corte que la ruta
+        // /matriculas/{id}/boleta (BoletaController::resolverBoletaGestion): el
+        // trasladado consumado solo cuenta bimestres cerrados. Sin boleta, los
+        // botones salen desactivados en vez de llevar al aviso (21/09/2026).
+        $esTrasladado = $matricula['estado'] === 'desactivado' && $matricula['tipo'] === 'trasladado';
+        $tieneBoleta  = (new BoletaModel())->periodoPublicableConNotas(
+            (int) $matricula['anio_id'], (int) $id, $esTrasladado
+        ) !== null;
+
         $this->view('matriculas/show', [
+            'tieneBoleta'          => $tieneBoleta,
             'registraLlegadaTarde' => $registraLlegadaTarde,
             'pendientesExtra'      => $pendientesExtra,
             'titulo'       => 'Detalle de matrícula',
