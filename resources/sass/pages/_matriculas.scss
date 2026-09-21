@@ -366,44 +366,24 @@
     }
 }
 
-// ── Registrar notas de un estudiante que llegó tarde (show) ──────
-// Dos <details> cuyo summary ES el botón: al pulsarlo se despliega su
-// sección debajo, a ancho completo de la grilla (las tablas no caben en
-// una columna de 280px).
-.mat-llegada {
+// ── Secciones de contenido variable a todo el ancho (show) ──────
+// Regla «datos a la vista, acción aparte» (21/09/2026, docs/modulos/ui.md):
+// notas de origen, notas autorizadas SIAGIE y la card de registro ocupan la
+// fila entera de la grilla (sus tablas no caben en una columna de 280px).
+// Antes eran <details> cerrados dentro de una sola card: los datos quedaban
+// escondidos y no se imprimían.
+.mat-seccion-ancha {
     grid-column: 1 / -1;
 
-    &__panel {
-        margin-top: $spacing-sm;
-
-        > summary {
-            list-style: none;
-            &::-webkit-details-marker { display: none; }
-            &::marker               { display: none; }
-        }
-
-        &[open] > .mat-llegada__boton {
-            background: $bg-secondary;
-            border-color: $color-info;
-        }
+    // Título + acciones: en móvil las acciones bajan a su propia línea.
+    .card__header {
+        flex-wrap: wrap;
+        gap: $spacing-sm;
     }
+}
 
-    &__boton {
-        display: flex;
-        width: 100%;
-        justify-content: flex-start;
-        text-align: left;
-        cursor: pointer;
-    }
-
-    &__contenido {
-        margin-top: $spacing-sm;
-        padding: $spacing-md;
-        border: 1px solid $border-color;
-        border-left: 4px solid $color-info;
-        border-radius: $border-radius;
-    }
-
+// Filas de acción de la card «Registrar notas fuera del registro del docente».
+.mat-llegada {
     &__lista {
         list-style: none;
         margin: 0 0 $spacing-md;

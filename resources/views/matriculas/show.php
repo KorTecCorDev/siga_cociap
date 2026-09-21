@@ -177,192 +177,196 @@ $labelDoc = [
         </div>
     </div>
 
-    <!-- Notas del colegio de origen.
-         Regla del colegio (10/09/2026): NO entran en la boleta del COCIAP; son
-         informativas para los docentes con carga en la seccion del estudiante.
-         ⚠️ Ya NO se exige tipo === 'nuevo': ese candado dejaba fuera a la mitad
-         de los casos reales (3 de los 6 estudiantes que llegaron con un
-         bimestre cerrado por delante figuran como 'continuador'). Quien
-         registra decide si corresponde; el sistema no lo deduce de un flag.
+    <?php
+    // ── Secciones de CONTENIDO VARIABLE — regla «datos a la vista, acción aparte»
+    // (21/09/2026, ver docs/modulos/ui.md). Una sección CON datos es una card
+    // abierta con sus acciones en la cabecera; SIN datos no se pinta, y queda
+    // solo su botón en la card «Registrar notas fuera del registro del docente».
+    // Nunca datos detrás de un <details> cerrado (tampoco se imprimen).
+    //
+    // Notas del colegio de origen — regla del colegio (10/09/2026): NO entran
+    // en la boleta del COCIAP; son informativas para los docentes con carga en
+    // su sección. Sin filtro por tipo ni estado (ningún flag detecta al que
+    // llegó tarde), salvo el trasladado de SALIDA ($registraLlegadaTarde).
+    $verOrigen = !empty($registraLlegadaTarde) && !empty($notasExternas);
+    $verSiagie = $puedeGestionar && !empty($notasAutSiagie);
+    $midNS     = (int) ($matNotasSiagie ?? $mid);
 
-         Registro de un estudiante que LLEGÓ TARDE (18/09/2026): dos entradas
-         explícitas, cada una despliega su sección. Sin filtro por tipo ni
-         estado; solo se oculta para el trasladado de SALIDA (ya no está en el
-         colegio). Son <details> nativos: sin JS. -->
-    <?php if (!empty($registraLlegadaTarde) || $puedeGestionar): ?>
-    <div class="card mat-llegada">
+    // Botones de la card de registro: solo los de secciones que aún no tienen
+    // datos (las que sí, llevan su acción en su propia cabecera).
+    $regOrigen   = !empty($registraLlegadaTarde) && $puedeMatricular && empty($notasExternas);
+    $regExtra    = !empty($registraLlegadaTarde) && $puedeGestionar;
+    $regSiagie   = $puedeGestionar && empty($notasAutSiagie);
+    $verRegistro = $regOrigen || $regExtra || $regSiagie;
+    ?>
+
+    <?php if ($verOrigen): ?>
+    <div class="card mat-seccion-ancha">
+        <div class="card__body">
+            <div class="card__header card__header--between">
+                <p class="form-section-title">
+                    Notas del colegio de origen
+                    <?php $proc = PROCEDENCIA_ORIGEN; $procIcono = true; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                </p>
+                <?php if ($puedeMatricular): ?>
+                <div class="btn-group">
+                    <a href="<?= url('matriculas/' . $mid . '/notas-externas') ?>" class="btn btn--secondary btn--sm">
+                        Agregar o corregir notas
+                    </a>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php // El "a dónde va" sale del punto único (PROCEDENCIAS_NOTA): es
+                  // lo que de verdad separa a las secciones vecinas de esta ficha. ?>
+            <p class="proc-destino"><?= e(procedencia_nota(PROCEDENCIA_ORIGEN)['destino']) ?></p>
+            <?php if (!empty($notasExternas[0]['colegio_origen'])): ?>
+                <p class="text-sm">Procede de <strong><?= e($notasExternas[0]['colegio_origen']) ?></strong></p>
+            <?php endif; ?>
+            <div class="tabla-notas-wrapper">
+                <table class="tabla-notas">
+                    <thead><tr><th>Área (origen)</th><th>Competencia</th><th>Periodo</th><th class="text-center">Nota</th><th>Área nuestra</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($notasExternas as $n): ?>
+                        <tr>
+                            <td class="text-sm"><?= e($n['area_nombre']) ?></td>
+                            <td class="text-sm"><?= e($n['competencia_nombre']) ?></td>
+                            <td class="text-sm"><?= e($n['periodo_nombre']) ?></td>
+                            <td class="text-center"><span class="matricula-badge matricula-badge--nuevo"><?= e($n['nota_literal']) ?></span></td>
+                            <td class="text-sm text-muted">
+                                <?= e($n['area_mapeada_boleta'] ?: $n['area_mapeada'] ?: 'Sin mapear') ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($verSiagie): ?>
+    <?php // Nota que dirección autoriza para un alumno NO evaluado: va SOLO al
+          // acta SIAGIE. Sale también para un trasladado (antes, card suelta). ?>
+    <div class="card mat-seccion-ancha">
+        <div class="card__body">
+            <div class="card__header card__header--between">
+                <p class="form-section-title">
+                    Notas autorizadas para SIAGIE (dirección)
+                    <?php $proc = PROCEDENCIA_SIAGIE; $procIcono = true; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                </p>
+                <div class="btn-group">
+                    <a href="<?= url('matriculas/' . $midNS . '/notas-siagie') ?>" class="btn btn--secondary btn--sm">Gestionar notas autorizadas</a>
+                    <a href="<?= url('matriculas/' . $midNS . '/notas-siagie/informe') ?>" target="_blank" class="btn btn--secondary btn--sm">Informe imprimible</a>
+                </div>
+            </div>
+            <p class="proc-destino"><?= e(procedencia_nota(PROCEDENCIA_SIAGIE)['destino']) ?></p>
+            <div class="tabla-notas-wrapper">
+                <table class="tabla-notas">
+                    <thead><tr><th>Bimestre</th><th>Competencia</th><th class="text-center">Nota</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($notasAutSiagie as $na): ?>
+                        <tr>
+                            <td class="text-sm"><?= e($na['periodo_nombre']) ?></td>
+                            <td class="text-sm"><?= e($na['competencia_nombre']) ?></td>
+                            <td class="text-center"><span class="matricula-badge matricula-badge--nuevo"><?= e($na['nota_literal']) ?></span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($verRegistro): ?>
+    <div class="card mat-seccion-ancha">
         <div class="card__body">
             <p class="form-section-title">Registrar notas fuera del registro del docente</p>
             <p class="text-muted text-sm">
-                Elige qué vas a registrar. Las notas del colegio anterior son solo
-                informativas; las de bimestres cerrados son nuestras y van a la boleta y al
-                SIAGIE; la nota autorizada por dirección va solo al SIAGIE.
+                Las notas del colegio anterior son solo informativas; las de bimestres
+                cerrados son nuestras y van a la boleta y al SIAGIE; la nota autorizada por
+                dirección va solo al SIAGIE.
             </p>
-
-            <?php if (!empty($registraLlegadaTarde)): ?>
-            <details class="mat-llegada__panel">
-                <summary class="btn btn--secondary mat-llegada__boton">
-                    Registrar notas de I bimestre (solo informativo)
-                </summary>
-                <div class="mat-llegada__contenido">
-            <p class="form-section-title">
-                Notas del colegio de origen
-                <?php $proc = PROCEDENCIA_ORIGEN; $procIcono = true; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
-            </p>
-            <?php // El "a donde va" sale del punto unico (PROCEDENCIAS_NOTA): es
-                  // lo que de verdad separa a las tres cards vecinas de esta ficha. ?>
-            <p class="proc-destino"><?= e(procedencia_nota(PROCEDENCIA_ORIGEN)['destino']) ?></p>
-            <p class="text-muted text-sm">
-                Calificaciones que el estudiante trae de su colegio anterior.
-                Al registrarlas se avisa a los docentes con carga en su sección.
-            </p>
-            <?php if (empty($notasExternas)): ?>
-                <div class="empty-state"><p>Sin notas del colegio de origen.</p></div>
-            <?php else: ?>
-                <div class="tabla-notas-wrapper">
-                    <table class="tabla-notas">
-                        <thead><tr><th>Área (origen)</th><th>Competencia</th><th>Periodo</th><th class="text-center">Nota</th><th>Área nuestra</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($notasExternas as $n): ?>
-                            <tr>
-                                <td class="text-sm"><?= e($n['area_nombre']) ?></td>
-                                <td class="text-sm"><?= e($n['competencia_nombre']) ?></td>
-                                <td class="text-sm"><?= e($n['periodo_nombre']) ?></td>
-                                <td class="text-center"><span class="matricula-badge matricula-badge--nuevo"><?= e($n['nota_literal']) ?></span></td>
-                                <td class="text-sm text-muted">
-                                    <?= e($n['area_mapeada_boleta'] ?: $n['area_mapeada'] ?: 'Sin mapear') ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-            <div class="btn-group">
-                <?php if ($puedeMatricular): ?>
-                <a href="<?= url('matriculas/' . $mid . '/notas-externas') ?>" class="btn btn--secondary btn--sm">
-                    <?= empty($notasExternas) ? 'Registrar notas de origen' : 'Agregar o corregir notas' ?>
-                </a>
+            <ul class="mat-llegada__lista">
+                <?php if ($regOrigen): ?>
+                <li class="mat-llegada__item">
+                    <span>
+                        Notas del colegio de origen
+                        <?php $proc = PROCEDENCIA_ORIGEN; $procIcono = false; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                    </span>
+                    <a href="<?= url('matriculas/' . $mid . '/notas-externas') ?>" class="btn btn--secondary btn--sm">
+                        Registrar notas de origen
+                    </a>
+                </li>
                 <?php endif; ?>
-            </div>
-                </div>
-            </details>
 
-            <?php if ($puedeGestionar): ?>
-            <details class="mat-llegada__panel">
-                <summary class="btn btn--secondary mat-llegada__boton">
-                    Registrar notas de bimestres cerrados (Boleta SIAGIE-SIGACOCIAP)
-                </summary>
-                <div class="mat-llegada__contenido">
-                    <p class="form-section-title">
-                        Calificación extraordinaria
-                        <?php $proc = PROCEDENCIA_EXTRAORDINARIA; $procIcono = true; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
-                    </p>
-                    <p class="proc-destino"><?= e(procedencia_nota(PROCEDENCIA_EXTRAORDINARIA)['destino']) ?></p>
-                    <?php if (empty($pendientesExtra)): ?>
-                        <div class="empty-state"><p>No hay competencias sin nota en bimestres cerrados.</p></div>
-                    <?php else: ?>
-                        <ul class="mat-llegada__lista">
-                            <?php foreach ($pendientesExtra as $pe): ?>
-                            <li class="mat-llegada__item">
-                                <span>
-                                    <strong><?= e($pe['periodo_nombre']) ?></strong>
-                                    — <?= (int) $pe['total'] ?> competencia(s) sin nota
-                                </span>
-                                <a href="<?= url('rectificaciones/extraordinaria/lote?matricula=' . $mid . '&periodo=' . (int) $pe['periodo_id']) ?>"
-                                   class="btn btn--primary btn--sm">
-                                    Calificar todo el bimestre (<?= (int) $pe['total'] ?>)
-                                </a>
-                            </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
-                    <div class="btn-group">
+                <?php if ($regExtra): ?>
+                    <?php foreach ($pendientesExtra as $pe): ?>
+                    <li class="mat-llegada__item">
+                        <span>
+                            <strong><?= e($pe['periodo_nombre']) ?></strong>
+                            — <?= (int) $pe['total'] ?> competencia(s) sin nota
+                            <?php $proc = PROCEDENCIA_EXTRAORDINARIA; $procIcono = false; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                        </span>
+                        <a href="<?= url('rectificaciones/extraordinaria/lote?matricula=' . $mid . '&periodo=' . (int) $pe['periodo_id']) ?>"
+                           class="btn btn--primary btn--sm">
+                            Calificar todo el bimestre (<?= (int) $pe['total'] ?>)
+                        </a>
+                    </li>
+                    <?php endforeach; ?>
+                    <li class="mat-llegada__item">
+                        <span>
+                            Notas de bimestres cerrados
+                            <?php if (empty($pendientesExtra)): ?>
+                                <span class="text-muted text-sm">— ninguna competencia sin nota</span>
+                            <?php endif; ?>
+                        </span>
                         <a href="<?= url('rectificaciones/matricula/' . $mid) ?>" class="btn btn--secondary btn--sm">
                             Ver detalle por competencia
                         </a>
-                    </div>
-                </div>
-            </details>
-            <?php endif; ?>
-            <?php endif; ?>
-            <?php if ($puedeGestionar): ?>
-            <?php // Tercer panel (18/09/2026): antes era una card suelta de la grilla.
-                  // Misma data y mismo enlace; solo cambia donde se presenta. Nota que
-                  // dirección autoriza para un alumno NO evaluado: va SOLO al acta SIAGIE. ?>
-            <details class="mat-llegada__panel">
-                <summary class="btn btn--secondary mat-llegada__boton">
-                    Registrar nota autorizada solo para SIAGIE (no va a la boleta)
-                </summary>
-                <div class="mat-llegada__contenido">
-                    <p class="form-section-title">
-                        Notas autorizadas para SIAGIE (dirección)
-                        <?php $proc = PROCEDENCIA_SIAGIE; $procIcono = true; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
-                    </p>
-                    <p class="proc-destino"><?= e(procedencia_nota(PROCEDENCIA_SIAGIE)['destino']) ?></p>
-                    <p class="text-muted text-sm">
-                        Notas que dirección autoriza para un alumno <strong>no evaluado</strong>
-                        (con un motivo de omisión registrado).
-                    </p>
-                    <?php if (empty($notasAutSiagie)): ?>
-                        <div class="empty-state"><p>Sin notas autorizadas registradas.</p></div>
-                    <?php else: ?>
-                        <div class="tabla-notas-wrapper">
-                            <table class="tabla-notas">
-                                <thead><tr><th>Bimestre</th><th>Competencia</th><th class="text-center">Nota</th></tr></thead>
-                                <tbody>
-                                <?php foreach ($notasAutSiagie as $na): ?>
-                                    <tr>
-                                        <td class="text-sm"><?= e($na['periodo_nombre']) ?></td>
-                                        <td class="text-sm"><?= e($na['competencia_nombre']) ?></td>
-                                        <td class="text-center"><span class="matricula-badge matricula-badge--nuevo"><?= e($na['nota_literal']) ?></span></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php endif; ?>
-                    <?php $midNS = (int) ($matNotasSiagie ?? $mid); ?>
-                    <div class="btn-group">
-                        <a href="<?= url('matriculas/' . $midNS . '/notas-siagie') ?>" class="btn btn--secondary btn--sm">Gestionar notas autorizadas</a>
-                        <?php if (!empty($notasAutSiagie)): ?>
-                            <a href="<?= url('matriculas/' . $midNS . '/notas-siagie/informe') ?>" target="_blank" class="btn btn--secondary btn--sm">Informe imprimible</a>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </details>
-            <?php endif; ?>
+                    </li>
+                <?php endif; ?>
+
+                <?php if ($regSiagie): ?>
+                <li class="mat-llegada__item">
+                    <span>
+                        Nota autorizada solo para SIAGIE (no va a la boleta)
+                        <?php $proc = PROCEDENCIA_SIAGIE; $procIcono = false; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                    </span>
+                    <a href="<?= url('matriculas/' . $midNS . '/notas-siagie') ?>" class="btn btn--secondary btn--sm">
+                        Registrar nota autorizada
+                    </a>
+                </li>
+                <?php endif; ?>
+            </ul>
         </div>
     </div>
     <?php endif; ?>
 
     <!-- Exoneraciones (áreas/subáreas sin evaluación este año) — SOLO consulta:
-         el registro vive como acción desplegable en "Gestión de la matrícula"
-         (la card angosta del grid no da espacio para el formulario). -->
+         el registro vive como acción desplegable en "Gestión de la matrícula".
+         Sin exoneraciones no se pinta (regla «datos a la vista», 21/09/2026). -->
+    <?php if (!empty($exoneraciones)): ?>
     <div class="card">
         <div class="card__body">
             <p class="form-section-title">Exoneraciones</p>
-
-            <?php if (empty($exoneraciones)): ?>
-                <div class="empty-state"><p>Sin exoneraciones vigentes.</p></div>
-            <?php else: ?>
-                <div class="info-grid">
-                    <?php foreach ($exoneraciones as $ex): ?>
-                    <div class="info-item">
-                        <span class="info-item__label">
-                            <?= e($ex['area_nombre'] . ($ex['subarea_nombre'] ? ' — ' . $ex['subarea_nombre'] : '')) ?>
-                        </span>
-                        <span class="info-item__value"><?= e($ex['motivo']) ?></span>
-                        <span class="text-sm text-muted">
-                            Registrada el <?= e(date('d/m/Y', strtotime($ex['registrado_en']))) ?>
-                            por <?= e($ex['registrado_por_nombre']) ?>
-                        </span>
-                    </div>
-                    <?php endforeach; ?>
+            <div class="info-grid">
+                <?php foreach ($exoneraciones as $ex): ?>
+                <div class="info-item">
+                    <span class="info-item__label">
+                        <?= e($ex['area_nombre'] . ($ex['subarea_nombre'] ? ' — ' . $ex['subarea_nombre'] : '')) ?>
+                    </span>
+                    <span class="info-item__value"><?= e($ex['motivo']) ?></span>
+                    <span class="text-sm text-muted">
+                        Registrada el <?= e(date('d/m/Y', strtotime($ex['registrado_en']))) ?>
+                        por <?= e($ex['registrado_por_nombre']) ?>
+                    </span>
                 </div>
-            <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
         </div>
     </div>
+    <?php endif; ?>
 
     <!-- Constancia de traslado -->
     <?php if ($traslado): ?>

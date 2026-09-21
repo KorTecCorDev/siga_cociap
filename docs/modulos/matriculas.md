@@ -852,3 +852,22 @@ MariaDB **recortaba el exceso en silencio**, sin error. El importador llena la c
 - ⚠️ **Cualquier otra columna de texto del repo tiene el mismo riesgo**: sin modo estricto, un
   texto largo se guarda cortado y nadie se entera. No se auditó el resto de tablas.
 
+### La ficha sin `<details>`: datos a la vista, acción aparte (21/09/2026)
+
+Deroga la presentación de «Dos botones en la ficha» (18/09): los tres paneles plegables de
+«Registrar notas fuera del registro del docente» se deshicieron según la regla nueva de
+`docs/modulos/ui.md` («Secciones de CONTENIDO VARIABLE»). **No cambia ningún dato ni guarda de
+rol**, solo dónde y cuándo se pinta cada cosa:
+
+- **Notas del colegio de origen**: card propia a todo el ancho, **solo si hay notas** (y no es
+  un trasladado de salida). Acción en la cabecera: «Agregar o corregir notas» (quien matricula).
+  Muestra además «Procede de …» si se anotó el colegio.
+- **Notas autorizadas para SIAGIE**: card propia, **solo si hay notas** y admin/RA. Acciones:
+  «Gestionar» e «Informe imprimible». Sigue saliendo para un trasladado.
+- **Registrar notas fuera del registro del docente**: solo acciones, una fila por sección que
+  aún no tiene datos, y los bimestres con competencias sin nota («Calificar todo el bimestre
+  (N)» + «Ver detalle por competencia»). Si no queda ninguna acción, la card no sale.
+- **Exoneraciones**: solo si hay alguna (su registro sigue en «Gestión de la matrícula»).
+- SASS: `.mat-seccion-ancha` sustituye al `grid-column` de `.mat-llegada`; los estilos
+  `__panel/__boton/__contenido` del `<details>` se retiraron.
+

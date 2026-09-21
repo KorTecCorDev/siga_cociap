@@ -1100,3 +1100,27 @@ sale de una **entrada SASS propia**, `resources/sass/errores.scss` (el `gulpfile
 - Medido en Chrome el 21/09: 403 real (sesión de docente en `/rectificaciones`) con un solo
   `<!DOCTYPE>` y sin sidebar; en iframe de 375px, código a 64px y sin scroll horizontal.
 
+## Secciones de CONTENIDO VARIABLE: «datos a la vista, acción aparte» (21/09/2026)
+
+**Regla de UI/UX para toda sección nueva cuyo contenido depende de si hay datos** (pedida por
+el usuario como criterio permanente). Nació en `/matriculas/{id}`.
+
+1. **Con datos:** la sección es una **card visible y abierta**, con sus datos a la vista y sus
+   **acciones en la cabecera** (`card__header card__header--between` dentro del `card__body`,
+   como la card «Estudiante»; `flex-wrap` para que las acciones bajen de línea en móvil).
+2. **Sin datos:** la card **no se pinta**. Lo que queda es su **botón de acción**, agrupado con
+   los de otras secciones vacías en una card de registro. Nada de cards vacías con un
+   empty-state que ocupan sitio para decir «no hay nada».
+3. **Nunca datos detrás de un `<details>` cerrado.** Esconde lo que el usuario vino a ver y,
+   además, un `<details>` cerrado **no se imprime** (ver «Un `<details>` cerrado NO IMPRIME SU
+   CONTENIDO» más arriba).
+4. Una sección que **siempre** tiene contenido (datos del estudiante, apoderados) no entra en
+   la regla: se pinta siempre.
+
+**Aplicación en `/matriculas/{id}`:** «Notas del colegio de origen» y «Notas autorizadas para
+SIAGIE (dirección)» salieron de sus `<details>` a cards propias a todo el ancho
+(`.mat-seccion-ancha`), solo con datos. «Registrar notas fuera del registro del docente» quedó
+como lista de acciones (`.mat-llegada__lista`), una fila por sección sin datos, más los bimestres
+con competencias sin nota. «Exoneraciones» se pinta solo si hay alguna. Traslado y retorno ya
+cumplían la regla.
+
