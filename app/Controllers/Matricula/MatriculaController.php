@@ -1398,7 +1398,12 @@ class MatriculaController extends BaseController
                 NotificacionModel::TIPO_NOTAS_ORIGEN,
                 'Notas del colegio de origen: ' . $matricula['nombre_completo'],
                 'Se registraron las calificaciones que ' . $matricula['nombre_completo']
-                    . ' trae de su colegio anterior. Son informativas: no aparecen en la boleta del COCIAP.',
+                    . ' trae de su colegio anterior.'
+                    // El colegio se escribe EN el mensaje (21/09/2026): la bandeja
+                    // solo pinta título y mensaje. Queda fijo aunque luego se
+                    // corrija en notas_externas; las anteriores no lo llevan.
+                    . ($colegio !== null ? ' Procede de: ' . $colegio . '.' : '')
+                    . ' Son informativas: no aparecen en la boleta del COCIAP.',
                 'docente/notas-origen/' . (int) $id
             );
         } catch (\Exception $e) {

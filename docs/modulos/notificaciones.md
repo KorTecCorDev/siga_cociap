@@ -98,6 +98,17 @@ puede marcar la notificación de otro aunque adivine el id**.
 **«Ver detalle» marca leída** con un `fetch` con `keepalive: true`: el enlace navega en el
 mismo clic y sin `keepalive` el navegador podía cancelar la petición.
 
+**La bandeja tiene «← Dashboard»** como primer hijo de `.page-header` (21/09/2026), el mismo
+patrón de `consulta-notas/index.php`.
+
+**Colegio de origen en el aviso de notas de origen (21/09/2026).** `storeNotasExternas`
+escribe «Procede de: <colegio>.» **dentro del `mensaje`** cuando se anotó el colegio (es
+opcional). Se eligió escribirlo y no derivarlo al pintar: la bandeja solo pinta título y
+mensaje y no sabe de módulos. Consecuencia aceptada: **las notificaciones anteriores no lo
+llevan**, y si luego se corrige el colegio en `notas_externas`, el aviso conserva el de
+entonces. En el detalle (`/docente/notas-origen/{id}`) el colegio pasó del subtítulo a un
+`info-item` propio; si no se anotó, no se pinta.
+
 ### Destinos del comunicado — casillas COMBINABLES
 
 *Todos los docentes* · *Docentes de una sección* · *Dirección* · *Personal administrativo*.

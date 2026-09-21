@@ -28,12 +28,24 @@
         <p class="page-subtitle">
             <?= e($estudiante['nombre_completo']) ?> ·
             <?= e($estudiante['grado_nombre']) ?> "<?= e($estudiante['seccion_nombre']) ?>"
-            <?php if (!empty($colegio)): ?>
-                · Procede de <strong><?= e($colegio) ?></strong>
-            <?php endif; ?>
         </p>
     </div>
 </div>
+
+<?php // El colegio de origen, a la vista y no perdido en el subtítulo (21/09/2026).
+      // Es opcional al registrar: si no se anotó, no se pinta nada. ?>
+<?php if (!empty($colegio)): ?>
+<div class="card mb-md">
+    <div class="card__body">
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-item__label">Colegio de origen</span>
+                <span class="info-item__value"><?= e($colegio) ?></span>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="flash flash--warning">
     Estas <?= (int) $total ?> calificaciones vienen del <strong>colegio anterior</strong> del
