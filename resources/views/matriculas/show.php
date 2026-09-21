@@ -194,10 +194,10 @@ $labelDoc = [
 
     // Botones de la card de registro: solo los de secciones que aún no tienen
     // datos (las que sí, llevan su acción en su propia cabecera).
-    $regOrigen   = !empty($registraLlegadaTarde) && $puedeMatricular && empty($notasExternas);
-    $regExtra    = !empty($registraLlegadaTarde) && $puedeGestionar;
-    $regSiagie   = $puedeGestionar && empty($notasAutSiagie);
-    $verRegistro = $regOrigen || $regExtra || $regSiagie;
+    $puedeRegistrarOrigen   = !empty($registraLlegadaTarde) && $puedeMatricular && empty($notasExternas);
+    $puedeRegistrarExtra    = !empty($registraLlegadaTarde) && $puedeGestionar;
+    $puedeRegistrarSiagie   = $puedeGestionar && empty($notasAutSiagie);
+    $verRegistro = $puedeRegistrarOrigen || $puedeRegistrarExtra || $puedeRegistrarSiagie;
     ?>
 
     <?php if ($verOrigen): ?>
@@ -288,7 +288,7 @@ $labelDoc = [
                 dirección va solo al SIAGIE.
             </p>
             <ul class="mat-llegada__lista">
-                <?php if ($regOrigen): ?>
+                <?php if ($puedeRegistrarOrigen): ?>
                 <li class="mat-llegada__item">
                     <span>
                         Notas del colegio de origen
@@ -300,7 +300,7 @@ $labelDoc = [
                 </li>
                 <?php endif; ?>
 
-                <?php if ($regExtra): ?>
+                <?php if ($puedeRegistrarExtra): ?>
                     <?php foreach ($pendientesExtra as $pe): ?>
                     <li class="mat-llegada__item">
                         <span>
@@ -327,7 +327,7 @@ $labelDoc = [
                     </li>
                 <?php endif; ?>
 
-                <?php if ($regSiagie): ?>
+                <?php if ($puedeRegistrarSiagie): ?>
                 <li class="mat-llegada__item">
                     <span>
                         Nota autorizada solo para SIAGIE (no va a la boleta)
