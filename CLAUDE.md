@@ -425,6 +425,11 @@ lo compila Gulp, `config/database.php` no lleva secretos, `routes/web.php` es la
   la anidaría dentro de otra. Existe desde el 07/08/2026 — antes varios
   controladores lo llamaban sin que estuviera definido (fatal en local, página de
   error genérica en prod)
+- **403:** siempre `$this->forbidden()` (`BaseController`, `never`), gemelo de
+  `notFound()`; `requireRole` ya lo usa. NUNCA `$this->view('shared/403')`: anidaba
+  la página dentro del layout (21/09/2026). Las páginas `shared/403|404|500` cargan
+  **`public/css/errores.css`** (entrada SASS propia `resources/sass/errores.scss`),
+  no `app.css`
 - **Auth: por controlador — NO hay middleware.** `app/Middleware/AuthMiddleware.php`
   nunca se usó y se eliminó (commit `eb0e9cf`, 20/06/2026). No reintroducir una capa
   de middleware sin acordarlo antes.

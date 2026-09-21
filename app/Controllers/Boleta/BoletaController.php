@@ -217,9 +217,7 @@ class BoletaController extends BaseController
         ", [$matriculaId, $docenteId]);
 
         if (!$mat) {
-            http_response_code(403);
-            $this->view('shared/403');
-            exit;
+            $this->forbidden();
         }
 
         $periodoId = $this->periodoPublicableConNotas((int) $mat['anio_id'], $matriculaId);

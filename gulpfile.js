@@ -38,7 +38,9 @@ const proxyURL = 'localhost';
 // ── Tarea: compilar SASS ─────────────────────────────────────
 function compilarSass() {
     return gulp
-        .src('resources/sass/app.scss')   // archivo principal de entrada
+        // app.scss = la app; errores.scss = páginas de error sueltas
+        // (shared/403|404|500), que no cargan app.css. Salen app.css y errores.css.
+        .src(['resources/sass/app.scss', 'resources/sass/errores.scss'])
         .pipe(plumber({
             errorHandler: function(err) {
                 console.error('❌ Error SASS:', err.message);

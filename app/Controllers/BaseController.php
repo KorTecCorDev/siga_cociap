@@ -81,6 +81,21 @@ abstract class BaseController
         exit;
     }
 
+    /**
+     * Corta la petición con un 403 real: código HTTP + página "Acceso
+     * denegado" + exit. Gemelo de `notFound()`, por la MISMA razón:
+     * `shared/403.php` es una página HTML completa, y pasarla por
+     * `$this->view()` la anidaba dentro de `layouts/app.php` — un documento
+     * dentro de otro, con el menú lateral alrededor y sin estilo responsive
+     * (21/09/2026).
+     */
+    protected function forbidden(): never
+    {
+        http_response_code(403);
+        require VIEW_PATH . '/shared/403.php';
+        exit;
+    }
+
     /** Redirige con mensaje flash de éxito */
     protected function redirectWithSuccess(string $url, string $mensaje): never
     {
@@ -119,9 +134,7 @@ abstract class BaseController
     {
         $this->requireAuth();
         if (!Session::hasRole($roles)) {
-            http_response_code(403);
-            $this->view('shared/403');
-            exit;
+            $this->forbidden();
         }
     }
 

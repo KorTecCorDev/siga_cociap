@@ -1,0 +1,80 @@
+// ============================================================
+// errores.scss — SIGA-COCIAP
+// Páginas de error sueltas: shared/403.php, 404.php y 500.php.
+// Compilado por Gulp → public/css/errores.css (entrada propia, NO app.css).
+//
+// Por qué una entrada aparte (21/09/2026): esas páginas NO cargan el layout
+// ni app.css — se pintan con `require` directo desde `notFound()`,
+// `forbidden()`, `Router::notFound()` y `render_error_page()`. Antes
+// llevaban su CSS en un <style> dentro del PHP, contra la regla de "nunca
+// CSS inline", y sin media query: en un móvil quedaban con 40px de padding
+// y un código de 96px.
+//
+// Los valores son los que ya tenían, copiados tal cual (no dependen de
+// base/variables a propósito: son páginas de emergencia y no deben romperse
+// si cambia la paleta de la app).
+// ============================================================
+
+body {
+    font-family: system-ui, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    background: #f8fafc;
+    color: #334155;
+}
+
+.error-page {
+    text-align: center;
+    padding: 40px;
+    max-width: 480px;
+
+    &__codigo {
+        font-size: 96px;
+        font-weight: 700;
+        color: #e2e8f0;
+        line-height: 1;
+
+        &--403 { color: #fee2e2; }
+    }
+
+    h1 {
+        font-size: 24px;
+        margin: 12px 0 8px;
+    }
+
+    p {
+        color: #64748b;
+        margin: 0 0 24px;
+    }
+
+    a {
+        display: inline-block;
+        padding: 10px 24px;
+        background: #2563eb;
+        color: #fff;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 14px;
+
+        &:hover { background: #1d4ed8; }
+    }
+}
+
+// Móvil: gutter de 16px y tipografía que no desborda a 320-375px.
+@media (max-width: 480px) {
+    .error-page {
+        padding: 24px 16px;
+
+        &__codigo { font-size: 64px; }
+
+        h1 { font-size: 20px; }
+
+        a {
+            display: block;
+            padding: 12px 16px;
+        }
+    }
+}

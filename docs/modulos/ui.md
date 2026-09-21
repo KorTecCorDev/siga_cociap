@@ -1081,3 +1081,22 @@ dos vistas de notas de origen y en la bandeja de notificaciones.
 
 **El icono solo donde hay sitio** (cards y cabeceras); en las grillas densas el chip va con el
 nombre corto a 10px, como el badge de siempre. La variable `$procIcono` lo decide.
+
+## Páginas de error (403 / 404 / 500): sueltas, con su propio CSS (21/09/2026)
+
+Son **documentos HTML completos** que se pintan con `require` directo, **sin layout**:
+`BaseController::notFound()`, `BaseController::forbidden()`, `Router::notFound()` y
+`render_error_page()`. Por eso **no cargan `app.css`**: enlazan `public/css/errores.css`, que
+sale de una **entrada SASS propia**, `resources/sass/errores.scss` (el `gulpfile` compila
+`app.scss` y `errores.scss`).
+
+- 🔴 **Nunca `$this->view('shared/403')`.** Así estaba `requireRole`: la página de error
+  quedaba **anidada dentro de `layouts/app.php`** (dos `<!DOCTYPE>`, el menú lateral
+  alrededor) y en móvil se veía rota. Mismo bug que ya tuvo el 404.
+- Antes llevaban el CSS en un `<style>` dentro del PHP, sin media query. Ahora, a ≤480px,
+  el gutter baja a 16px, el código a 64px y el botón ocupa el ancho.
+- `errores.scss` **no importa `base/variables` a propósito**: es la página de emergencia y no
+  debe romperse si cambia la paleta de la app.
+- Medido en Chrome el 21/09: 403 real (sesión de docente en `/rectificaciones`) con un solo
+  `<!DOCTYPE>` y sin sidebar; en iframe de 375px, código a 64px y sin scroll horizontal.
+
