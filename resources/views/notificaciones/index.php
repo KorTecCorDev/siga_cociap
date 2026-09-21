@@ -14,6 +14,7 @@
 ?>
 
 <div class="page-header">
+    <a href="<?= url('/') ?>" class="btn btn--secondary btn--sm">← Dashboard</a>
     <div>
         <h1 class="page-title">Notificaciones</h1>
         <p class="page-subtitle">
