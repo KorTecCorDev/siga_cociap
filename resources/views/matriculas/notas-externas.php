@@ -132,7 +132,7 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
             <div class="form-group">
                 <label class="form-label" for="colegio_origen">Colegio de origen</label>
                 <input type="text" id="colegio_origen" name="colegio_origen" class="form-input"
-                       maxlength="200" value="<?= e($notas[0]['colegio_origen'] ?? '') ?>"
+                       maxlength="<?= \App\Models\NotaExternaModel::MAX_COLEGIO ?>" value="<?= e($notas[0]['colegio_origen'] ?? '') ?>"
                        placeholder="Nombre de la institución educativa anterior">
                 <p class="text-sm text-muted">Se aplica a todas las filas de este envío.</p>
             </div>
@@ -158,19 +158,19 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
                         <tr class="notas-origen__fila">
                             <td>
                                 <input type="text" name="periodo_nombre[]" class="form-input"
-                                       maxlength="30" placeholder="I Bimestre"
+                                       maxlength="<?= \App\Models\NotaExternaModel::MAX_PERIODO ?>" placeholder="I Bimestre"
                                        value="<?= e($f['periodo_nombre']) ?>"
                                        aria-label="Periodo">
                             </td>
                             <td>
                                 <input type="text" name="area_nombre[]" class="form-input"
-                                       maxlength="120" placeholder="Matemática"
+                                       maxlength="<?= \App\Models\NotaExternaModel::MAX_AREA ?>" placeholder="Matemática"
                                        value="<?= e($f['area_nombre']) ?>"
                                        aria-label="Área del colegio de origen">
                             </td>
                             <td>
                                 <input type="text" name="competencia_nombre[]" class="form-input"
-                                       maxlength="120" placeholder="Resuelve problemas de cantidad"
+                                       maxlength="<?= \App\Models\NotaExternaModel::MAX_COMPETENCIA ?>" placeholder="Resuelve problemas de cantidad"
                                        value="<?= e($f['competencia_nombre']) ?>"
                                        aria-label="Competencia">
                             </td>

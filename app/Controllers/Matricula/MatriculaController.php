@@ -1308,6 +1308,11 @@ class MatriculaController extends BaseController
         $literales = (array) $this->input('nota_literal', []);
         $areaIds  = (array) $this->input('area_id', []);
 
+        if ($colegio !== null && mb_strlen($colegio) > NotaExternaModel::MAX_COLEGIO) {
+            $this->redirectWithError($volver,
+                'El nombre del colegio de origen pasa de ' . NotaExternaModel::MAX_COLEGIO . ' caracteres.');
+        }
+
         $filas    = [];
         $sinNota  = 0;   // filas con competencia pero sin calificación: se omiten
         foreach ($areas as $i => $areaNombre) {
@@ -1339,6 +1344,17 @@ class MatriculaController extends BaseController
                 || !in_array($literal, NotaExternaModel::LITERALES, true)) {
                 $this->redirectWithError($volver,
                     'La fila ' . ($i + 1) . ' tiene nota pero le falta área, competencia o periodo.');
+            }
+
+            // 🔴 RECHAZAR, NO RECORTAR: sin modo estricto, MariaDB cortaría el
+            // exceso en silencio y guardaría otra competencia (migración 061).
+            if (mb_strlen($periodo) > NotaExternaModel::MAX_PERIODO
+                || mb_strlen($areaNombre) > NotaExternaModel::MAX_AREA
+                || mb_strlen($comp) > NotaExternaModel::MAX_COMPETENCIA) {
+                $this->redirectWithError($volver,
+                    'La fila ' . ($i + 1) . ' tiene un texto demasiado largo (periodo hasta '
+                    . NotaExternaModel::MAX_PERIODO . ', área hasta ' . NotaExternaModel::MAX_AREA
+                    . ' y competencia hasta ' . NotaExternaModel::MAX_COMPETENCIA . ' caracteres).');
             }
 
             $filas[] = [

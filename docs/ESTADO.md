@@ -133,9 +133,12 @@ con sesión de director.
 - [ ] Consola del navegador sin errores en todo el recorrido.
 
 ### 4. Despliegue (solo con §5–§7 en verde)
-1. **`057`, `058`, `059` y `060` en PRODUCCIÓN, a mano y ANTES del merge.** El
+1. **`057`, `058`, `059`, `060` y `061` en PRODUCCIÓN, a mano y ANTES del merge.** El
    auto-deploy publica código, no repara datos. Ensayadas dos veces seguidas en BD
-   desechable (057–059 el 11/09, 060 el 16/09).
+   desechable (057–059 el 11/09, 060 el 16/09). La `061` (21/09) se aplicó dos veces
+   seguidas en la BD local de la laptop. **Tras la `061`**, correr
+   `php database/reparar_notas_externas_truncadas.php` (simula) y luego con
+   `--confirmar`: completa las competencias que MariaDB recortó a 120 caracteres.
 2. `chore(release): v1.0.2`, **preguntar antes del merge** `--no-ff` a `main`, tag anotado
    y push.
 3. Al desplegar: cabeceras de `notificaciones.md` y `usuarios-direccion.md`, y registrar el

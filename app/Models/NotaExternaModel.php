@@ -27,6 +27,18 @@ class NotaExternaModel extends BaseModel
 
     public const LITERALES = ['AD', 'A', 'B', 'C'];
 
+    /**
+     * Largo máximo de cada texto, IGUAL al de su columna. El `sql_mode` del
+     * servidor no es estricto: lo que pase de aquí MariaDB lo recorta en
+     * silencio (así se cortó una competencia a 120, migración 061). El
+     * controlador rechaza en vez de dejar que se recorte, y la vista usa los
+     * mismos valores en su `maxlength`.
+     */
+    public const MAX_PERIODO     = 30;
+    public const MAX_AREA        = 120;
+    public const MAX_COMPETENCIA = 255;
+    public const MAX_COLEGIO     = 200;
+
     /** Currícula ya leída, por matrícula. Ver `curriculaParaImportar()`. */
     private array $curriculaCache = [];
 

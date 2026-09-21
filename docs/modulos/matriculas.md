@@ -832,3 +832,23 @@ Dos duplicaciones que traía la primera versión del importador, ambas medidas:
   área. Lo que no calza con el plan va **al final**. No filtra nada, y «Tu área» sigue.
   Medido con la 693: 23 filas en orden del plan, y EPT y Religión (del otro colegio) al final.
 
+### La competencia se recortaba a 120 caracteres (21/09/2026, migración 061)
+
+🔴 **`competencia_nombre` era `VARCHAR(120)` y el `sql_mode` del servidor NO es estricto**:
+MariaDB **recortaba el exceso en silencio**, sin error. El importador llena la competencia con
+`competencias.nombre_completo` (TEXT), y **7 competencias del plan pasan de 120** (la más larga,
+185). El docente veía la competencia cortada en `/docente/notas-origen/{id}` (fila 152 de la
+693: «…biodiversidad, Tierra y Uni»).
+
+- **Migración `061`**: la columna pasa a `VARCHAR(255)`. Sigue en la UNIQUE `uq_nota_externa`
+  (~1630 bytes de 3072).
+- **Reparación:** `database/reparar_notas_externas_truncadas.php` (simula por defecto,
+  `--confirmar` aplica; aborta si la 061 no está). Completa el nombre solo si **una única**
+  competencia del plan empieza por el texto recortado; lo ambiguo lo lista y no lo toca.
+- **Rechazar, no recortar:** `NotaExternaModel::MAX_PERIODO/AREA/COMPETENCIA/COLEGIO` son
+  **exactamente** el ancho de cada columna. `storeNotasExternas` rechaza lo que no cabe y el
+  formulario usa las mismas constantes en su `maxlength`. `verif_notas_origen.php` §7f compara
+  constantes con `information_schema` e ida y vuelta con la competencia más larga.
+- ⚠️ **Cualquier otra columna de texto del repo tiene el mismo riesgo**: sin modo estricto, un
+  texto largo se guarda cortado y nadie se entera. No se auditó el resto de tablas.
+

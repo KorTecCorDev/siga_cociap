@@ -332,6 +332,58 @@ try {
     $ok(str_contains($ctrlSrc, 'AnioAcademicoModel())->getPeriodos'),
         'el importador y las casillas leen los bimestres del modelo, una sola vez');
 
+    echo "\n=== 7f. RECORTE SILENCIOSO — ancho de columnas (migración 061) ===\n";
+    // El `sql_mode` no es estricto: lo que no cabe se RECORTA sin error. Por eso
+    // las constantes MAX_* del modelo tienen que ser EXACTAMENTE el ancho de su
+    // columna (si la columna crece y la constante no, se rechaza de más; si la
+    // constante crece y la columna no, vuelve el recorte silencioso).
+    $anchos = [];
+    foreach ($pdo->query("
+        SELECT COLUMN_NAME, CHARACTER_MAXIMUM_LENGTH AS ancho
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notas_externas'
+    ")->fetchAll(PDO::FETCH_ASSOC) as $c) {
+        $anchos[$c['COLUMN_NAME']] = (int) $c['ancho'];
+    }
+    foreach ([
+        'periodo_nombre'     => App\Models\NotaExternaModel::MAX_PERIODO,
+        'area_nombre'        => App\Models\NotaExternaModel::MAX_AREA,
+        'competencia_nombre' => App\Models\NotaExternaModel::MAX_COMPETENCIA,
+        'colegio_origen'     => App\Models\NotaExternaModel::MAX_COLEGIO,
+    ] as $col => $max) {
+        $ok(($anchos[$col] ?? 0) === $max, "{$col}: columna " . ($anchos[$col] ?? '?') . " = constante {$max}");
+    }
+
+    $maxPlan = $contar("SELECT MAX(CHAR_LENGTH(nombre_completo)) FROM competencias");
+    $ok($maxPlan <= App\Models\NotaExternaModel::MAX_COMPETENCIA,
+        "la competencia más larga del plan ({$maxPlan}) cabe en la columna");
+
+    // Ida y vuelta con la competencia más larga del plan: se guarda ENTERA.
+    $larga = (string) $pdo->query("
+        SELECT nombre_completo FROM competencias
+        ORDER BY CHAR_LENGTH(nombre_completo) DESC LIMIT 1
+    ")->fetchColumn();
+    $externas->registrarLote($mid, [[
+        'periodo_nombre' => 'Verif 7f', 'area_nombre' => 'Área 7f',
+        'competencia_nombre' => $larga, 'nota_literal' => 'A',
+    ]], null, 1);
+    $guardada = (string) $pdo->query("
+        SELECT competencia_nombre FROM notas_externas
+        WHERE matricula_id = {$mid} AND periodo_nombre = 'Verif 7f'
+    ")->fetchColumn();
+    $ok($guardada === $larga, 'la competencia de ' . mb_strlen($larga) . ' caracteres vuelve entera ('
+        . mb_strlen($guardada) . ')');
+
+    // La guarda del servidor rechaza (no recorta): anclada en el fuente, porque
+    // invocarla acaba en redirect()+exit y mataría el script antes del ROLLBACK.
+    $ok(str_contains($ctrlSrc, 'mb_strlen($comp) > NotaExternaModel::MAX_COMPETENCIA'),
+        'el servidor rechaza una competencia más larga que la columna');
+    $vistaSrc = file_get_contents(ROOT_PATH . '/resources/views/matriculas/notas-externas.php');
+    $ok(str_contains($vistaSrc, 'maxlength="<?= \App\Models\NotaExternaModel::MAX_COMPETENCIA ?>"'),
+        'el formulario usa la misma constante en su maxlength');
+    $ok($contar("SELECT COUNT(*) FROM notas_externas WHERE CHAR_LENGTH(competencia_nombre) = 120") === 0,
+        'no queda ninguna competencia recortada a 120 (reparar_notas_externas_truncadas.php)');
+
 } catch (Throwable $e) {
     echo "  [ERROR] " . $e->getMessage() . "\n";
     $fallos++;
