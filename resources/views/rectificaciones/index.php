@@ -48,6 +48,131 @@
 <div id="buscadorResultados" class="buscador-resultados" aria-live="polite"
      data-target-base="/rectificaciones/matricula/"></div>
 
+<?php
+// ── Estudiantes SIN NINGUNA nota en un bimestre cerrado (21/09/2026) ──
+// RectificacionModel::matriculasSinNotasEnCerrados. El «Calificar (N)» cuenta
+// con el mismo SQL que la ficha y el lote. Filtros por GET, sin JS: si se
+// eligen varios ámbitos, manda el más específico (sección > grado > nivel).
+$f = $filtros ?? ['periodo_id' => 0, 'nivel_id' => 0, 'grado_id' => 0, 'seccion_id' => 0];
+$niveles = [];
+$grados  = [];
+foreach ($opciones['secciones'] ?? [] as $s) {
+    $niveles[(int) $s['nivel_id']] = $s['nivel'];
+    $grados[(int) $s['nivel_id']][(int) $s['grado_id']] = $s['grado'];
+}
+$hayFiltro = array_filter($f) !== [];
+?>
+<div class="card mt-md">
+    <div class="card__body">
+        <p class="form-section-title">Estudiantes sin calificación en bimestres cerrados</p>
+        <p class="text-sm text-muted">
+            Estudiantes que no tienen <strong>ninguna</strong> calificación en un bimestre
+            ya cerrado (por ejemplo, porque llegaron tarde). Se completan con la
+            calificación extraordinaria.
+        </p>
+
+        <form method="GET" action="<?= url('rectificaciones') ?>" class="form-inline mb-md">
+            <label class="form-label" for="fPeriodo">Bimestre</label>
+            <select id="fPeriodo" name="periodo_id" class="form-select">
+                <option value="0">Todos los cerrados</option>
+                <?php foreach ($opciones['periodos'] ?? [] as $p): ?>
+                    <option value="<?= (int) $p['id'] ?>"<?= (int) $p['id'] === $f['periodo_id'] ? ' selected' : '' ?>>
+                        <?= e($p['nombre_display']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
+            <label class="form-label" for="fNivel">Nivel</label>
+            <select id="fNivel" name="nivel_id" class="form-select">
+                <option value="0">Todos</option>
+                <?php foreach ($niveles as $nid => $nNombre): ?>
+                    <option value="<?= $nid ?>"<?= $nid === $f['nivel_id'] ? ' selected' : '' ?>><?= e($nNombre) ?></option>
+                <?php endforeach; ?>
+            </select>
+
+            <label class="form-label" for="fGrado">Grado</label>
+            <select id="fGrado" name="grado_id" class="form-select">
+                <option value="0">Todos</option>
+                <?php foreach ($grados as $nid => $gs): ?>
+                    <optgroup label="<?= e($niveles[$nid]) ?>">
+                        <?php foreach ($gs as $gid => $gNombre): ?>
+                            <option value="<?= $gid ?>"<?= $gid === $f['grado_id'] ? ' selected' : '' ?>><?= e($gNombre) ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                <?php endforeach; ?>
+            </select>
+
+            <label class="form-label" for="fSeccion">Sección</label>
+            <select id="fSeccion" name="seccion_id" class="form-select">
+                <option value="0">Todas</option>
+                <?php $grupo = null; foreach ($opciones['secciones'] ?? [] as $s):
+                    $rotulo = $s['nivel'] . ' — ' . $s['grado'];
+                    if ($rotulo !== $grupo): ?>
+                        <?= $grupo !== null ? '</optgroup>' : '' ?><optgroup label="<?= e($rotulo) ?>">
+                    <?php $grupo = $rotulo; endif; ?>
+                    <option value="<?= (int) $s['id'] ?>"<?= (int) $s['id'] === $f['seccion_id'] ? ' selected' : '' ?>>
+                        <?= e($s['grado'] . ' "' . $s['nombre'] . '"') ?>
+                    </option>
+                <?php endforeach; ?>
+                <?= $grupo !== null ? '</optgroup>' : '' ?>
+            </select>
+
+            <button type="submit" class="btn btn--primary btn--sm">Filtrar</button>
+            <?php if ($hayFiltro): ?>
+                <a href="<?= url('rectificaciones') ?>" class="btn btn--secondary btn--sm">Quitar filtros</a>
+            <?php endif; ?>
+        </form>
+
+        <?php if (empty($pendientes)): ?>
+            <div class="empty-state">
+                <p><?= $hayFiltro
+                    ? 'Ningún estudiante sin calificaciones para este filtro.'
+                    : 'Todos los estudiantes tienen calificaciones en los bimestres cerrados.' ?></p>
+            </div>
+        <?php else: ?>
+            <div class="tabla-notas-wrapper">
+                <table class="tabla-notas">
+                    <thead>
+                        <tr>
+                            <th>Estudiante</th>
+                            <th>Sección</th>
+                            <th>Bimestre</th>
+                            <th class="text-center">Por calificar</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pendientes as $pe): ?>
+                        <tr>
+                            <td class="text-sm"><?= e($pe['nombre']) ?></td>
+                            <td class="text-sm"><?= e($pe['nivel'] . ' — ' . $pe['grado'] . ' "' . $pe['seccion'] . '"') ?></td>
+                            <td class="text-sm"><?= e($pe['periodo_nombre']) ?></td>
+                            <td class="text-center"><strong><?= (int) $pe['total'] ?></strong></td>
+                            <td>
+                                <div class="btn-group">
+                                    <?php // total 0: no hay carga activa ni competencia que admita la
+                                          // extraordinaria; el lote se abriría vacío. ?>
+                                    <?php if ((int) $pe['total'] > 0): ?>
+                                    <a href="<?= url('rectificaciones/extraordinaria/lote?matricula=' . (int) $pe['matricula_id'] . '&periodo=' . (int) $pe['periodo_id']) ?>"
+                                       class="btn btn--primary btn--sm">Calificar (<?= (int) $pe['total'] ?>)</a>
+                                    <?php endif; ?>
+                                    <a href="<?= url('rectificaciones/matricula/' . (int) $pe['matricula_id']) ?>"
+                                       class="btn btn--secondary btn--sm">Ver detalle</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-sm text-muted">
+                <?= count($pendientes) ?> fila(s) —
+                <?= count(array_unique(array_column($pendientes, 'matricula_id'))) ?> estudiante(s).
+            </p>
+        <?php endif; ?>
+    </div>
+</div>
+
 <?php if (!empty($historial)): ?>
 <div class="card mt-md">
     <div class="card__body">

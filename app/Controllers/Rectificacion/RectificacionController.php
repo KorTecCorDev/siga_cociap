@@ -43,11 +43,26 @@ class RectificacionController extends BaseController
         $this->transModel       = new TransversalModel();
     }
 
-    /** GET /rectificaciones — buscador de estudiante + historial reciente. */
+    /**
+     * GET /rectificaciones — buscador de estudiante, estudiantes con
+     * competencias SIN NOTA en bimestres cerrados (filtrable, 21/09/2026) e
+     * historial reciente. Los filtros llegan por GET y el modelo los reduce a
+     * enteros; nunca se interpolan.
+     */
     public function index(): void
     {
+        $filtros = [
+            'periodo_id' => (int) $this->query('periodo_id', 0),
+            'nivel_id'   => (int) $this->query('nivel_id', 0),
+            'grado_id'   => (int) $this->query('grado_id', 0),
+            'seccion_id' => (int) $this->query('seccion_id', 0),
+        ];
+
         $this->view('rectificaciones/index', [
             'titulo'       => 'Rectificación de calificaciones',
+            'pendientes'   => $this->model->matriculasSinNotasEnCerrados($filtros),
+            'filtros'      => $filtros,
+            'opciones'     => $this->model->opcionesFiltroPendientes(),
             'historial'    => $this->model->getHistorial(20),
             'page_scripts' => ['buscador-estudiante'],
         ]);

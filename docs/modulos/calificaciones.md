@@ -1026,6 +1026,31 @@ bloqueos del cierre, forzada en transacción: con los datos reales ningún bloqu
 cierre tiene extraordinarias), la guarda del controlador en sus dos ramas, las pantallas
 generadas con el controlador real y la batería completa en 39 de 39.
 
+### Listado en `/rectificaciones`: estudiantes SIN NINGUNA nota en un bimestre cerrado (21/09/2026)
+
+`/rectificaciones` ya no es solo un buscador: lista a los estudiantes que no tienen **ninguna**
+fila en `calificaciones` en un bimestre **cerrado** (en ninguna carga, transversales incluidas),
+típicamente los que llegaron tarde. Filtros por GET, sin JS: bimestre (solo cerrados), nivel,
+grado y sección; si llegan varios, **manda el más específico** (sección > grado > nivel), para
+que un grado de otro nivel no dé un listado vacío que parezca real.
+
+- ⚠️ **Por qué NO es «tiene alguna competencia insertable».** Fue lo primero que se midió y
+  daba los **524 estudiantes (998 filas)**: el universo insertable incluye las competencias que
+  el docente no evaluó a **nadie** de la sección. Con «lo que sus compañeros sí tienen» salían
+  64. El usuario eligió el criterio estricto: hoy son **5 filas** (691, 694, 695 y 698 en el
+  I Bimestre; 698 también en el II).
+- **«Calificar (N)»** cuenta con el **mismo SQL** que la ficha y el lote, así que N coincide con
+  las filas que abre el lote. Con N = 0 no se ofrece el botón.
+- **Punto único de «insertable».** `sqlInsertables()` y `sqlTransversalesInsertables()` son
+  ahora el único sitio con esas condiciones; los usan `getCompetenciasInsertables`,
+  `getTransversalesInsertables` y el listado (`matriculasSinNotasEnCerrados`).
+  **`esInsertable` era una COPIA a mano** de la consulta: ahora pregunta a
+  `getCompetenciasInsertables`, como ya hacía `esInsertableTransversal`.
+- Roster: `roster_evaluacion()`. Año académico activo.
+- Verificador: `verif_rectificaciones_pendientes.php` (solo lectura): control a mano, conteo
+  contra `insertablesPorPeriodo`, las dos ramas de `esInsertable` y los filtros.
+  `verif_extraordinaria_lote.php` y `verif_roster_evaluacion.php` siguen verdes.
+
 ## Fixes importantes aplicados (sesión 2)
 - `periodos.nombre_display` es la columna correcta (no `nombre`). Si ves
   `Unknown column 'p.nombre'` en queries de periodos, verificar esto.

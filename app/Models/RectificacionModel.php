@@ -233,8 +233,24 @@ class RectificacionModel extends BaseModel
      */
     public function getCompetenciasInsertables(int $matriculaId): array
     {
-        return $this->query("
+        return $this->query($this->sqlInsertables('m.id = ?'), [$matriculaId]);
+    }
+
+    /**
+     * SQL de las competencias INSERTABLES — PUNTO ÚNICO de sus condiciones
+     * (21/09/2026). Lo usan `getCompetenciasInsertables` (una matrícula),
+     * `esInsertable` (el re-chequeo del POST) y `matriculasSinNotasEnCerrados`
+     * (el listado de /rectificaciones). Antes `esInsertable` era una COPIA a
+     * mano de esta consulta: dos reglas copiadas divergen sin síntoma.
+     *
+     * @param string $filtroMatriculas condición sobre `m` (y opcionalmente
+     *               `per`), SOLO con placeholders: nunca entrada interpolada.
+     */
+    private function sqlInsertables(string $filtroMatriculas): string
+    {
+        return "
             SELECT DISTINCT
+                m.id                  AS matricula_id,
                 per.id                AS periodo_id,
                 per.numero            AS periodo_numero,
                 per.nombre_display    AS periodo_nombre,
@@ -267,7 +283,7 @@ class RectificacionModel extends BaseModel
                     ON bc.carga_id       = ca.id
                    AND bc.competencia_id = c.id
                    AND bc.periodo_id     = per.id
-            WHERE m.id = ?
+            WHERE {$filtroMatriculas}
               AND a.tipo <> 'transversal'
               AND per.estado = 'cerrado'
               AND NOT EXISTS (
@@ -288,7 +304,7 @@ class RectificacionModel extends BaseModel
                     )
               )
             ORDER BY per.numero, a.orden, c.orden
-        ", [$matriculaId]);
+        ";
     }
 
     /**
@@ -303,45 +319,156 @@ class RectificacionModel extends BaseModel
         int $competenciaId,
         int $periodoId
     ): bool {
-        $fila = $this->queryOne("
-            SELECT 1
-            FROM matriculas m
-            INNER JOIN cargas_academicas ca ON ca.id = ?
-                                           AND ca.seccion_id = m.seccion_id
-                                           AND ca.estado     = 'activa'
-            INNER JOIN competencias c
-                    ON c.id = ?
-                   AND (
-                       (c.subarea_id IS NOT NULL AND c.subarea_id = ca.subarea_id)
-                       OR (c.area_id IS NOT NULL AND c.area_id    = ca.area_id)
-                   )
-            LEFT  JOIN subareas sa ON sa.id = ca.subarea_id
-            LEFT  JOIN areas a     ON a.id  = COALESCE(ca.area_id, sa.area_id)
-            INNER JOIN periodos per ON per.id = ? AND per.anio_id = m.anio_id
-            WHERE m.id = ?
-              AND a.tipo <> 'transversal'
-              AND per.estado = 'cerrado'
-              AND NOT EXISTS (
-                  SELECT 1 FROM calificaciones cal
-                  WHERE cal.matricula_id   = m.id
-                    AND cal.carga_id       = ca.id
-                    AND cal.competencia_id = c.id
-                    AND cal.periodo_id     = per.id
-              )
-              AND NOT EXISTS (
-                  SELECT 1 FROM exoneraciones exo
-                  WHERE exo.matricula_id = m.id
-                    AND exo.anio_id      = m.anio_id
-                    AND exo.revocado_en  IS NULL
-                    AND (
-                        (exo.area_id    IS NOT NULL AND exo.area_id    = a.id)
-                        OR (exo.subarea_id IS NOT NULL AND exo.subarea_id = ca.subarea_id)
-                    )
-              )
-            LIMIT 1
-        ", [$cargaId, $competenciaId, $periodoId, $matriculaId]);
+        // Se PREGUNTA al universo de la matrícula en vez de repetir sus
+        // condiciones (como `esInsertableTransversal`): mismo SQL, cero copias.
+        foreach ($this->getCompetenciasInsertables($matriculaId) as $c) {
+            if ((int) $c['carga_id'] === $cargaId
+                && (int) $c['competencia_id'] === $competenciaId
+                && (int) $c['periodo_id'] === $periodoId) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-        return $fila !== null;
+    /**
+     * Opciones de los filtros del listado de pendientes: bimestres CERRADOS y
+     * secciones del año activo con su grado y nivel (la vista arma con ellas
+     * los selects de nivel, grado y sección).
+     *
+     * @return array{periodos: array, secciones: array}
+     */
+    public function opcionesFiltroPendientes(): array
+    {
+        return [
+            'periodos' => $this->query("
+                SELECT p.id, p.numero, p.nombre_display
+                FROM periodos p
+                INNER JOIN anios_academicos a ON a.id = p.anio_id AND a.estado = 'activo'
+                WHERE p.estado = 'cerrado'
+                ORDER BY p.numero
+            "),
+            'secciones' => $this->query("
+                SELECT s.id, s.nombre, g.id AS grado_id, g.nombre_display AS grado,
+                       n.id AS nivel_id, n.nombre AS nivel
+                FROM secciones s
+                INNER JOIN grados g ON g.id = s.grado_id
+                INNER JOIN niveles n ON n.id = g.nivel_id
+                INNER JOIN anios_academicos a ON a.id = s.anio_id AND a.estado = 'activo'
+                ORDER BY n.id, g.numero, s.nombre
+            "),
+        ];
+    }
+
+    /**
+     * Filtros del listado, a enteros y con UN solo ámbito: manda el más
+     * específico (sección > grado > nivel). Así un grado de otro nivel elegido
+     * a la vez que un nivel no produce un listado vacío que parezca real.
+     */
+    private function normalizarFiltrosPendientes(array $f): array
+    {
+        $n = [
+            'periodo_id' => max(0, (int) ($f['periodo_id'] ?? 0)),
+            'nivel_id'   => max(0, (int) ($f['nivel_id'] ?? 0)),
+            'grado_id'   => max(0, (int) ($f['grado_id'] ?? 0)),
+            'seccion_id' => max(0, (int) ($f['seccion_id'] ?? 0)),
+        ];
+        if ($n['seccion_id'] > 0) { $n['grado_id'] = 0; $n['nivel_id'] = 0; }
+        elseif ($n['grado_id'] > 0) { $n['nivel_id'] = 0; }
+        return $n;
+    }
+
+    /**
+     * LISTADO de /rectificaciones (21/09/2026): estudiantes SIN NINGUNA
+     * calificación en un bimestre CERRADO — típicamente, los que llegaron
+     * tarde. Una fila por estudiante y bimestre.
+     *
+     * ⚠️ NO es "tiene alguna competencia insertable". Medido el 21/09/2026: con
+     * esa regla salían los 524 estudiantes (998 filas), porque también cuenta
+     * las competencias que el docente no evaluó a NADIE de la sección. El
+     * usuario eligió el criterio estricto: cero filas en `calificaciones` para
+     * ese bimestre (en ninguna carga, transversales incluidas).
+     *
+     * `total` = cuántas competencias se le pueden calificar en ese bimestre,
+     * y sale del MISMO SQL que la ficha y el lote (`sqlInsertables` +
+     * `sqlTransversalesInsertables`): el «Calificar (N)» coincide con las filas
+     * que abre el lote. Lo protege `verif_rectificaciones_pendientes.php`.
+     *
+     * Roster: `roster_evaluacion()` — sin trasladados ni retirados, y en un
+     * retorno de grado solo la matrícula que se evalúa. Año académico activo.
+     *
+     * @param array $filtros periodo_id, nivel_id, grado_id, seccion_id (enteros; 0 = todos)
+     * @return array [{matricula_id, nombre, nivel, grado, seccion, periodo_id,
+     *                 periodo_numero, periodo_nombre, total}]
+     */
+    public function matriculasSinNotasEnCerrados(array $filtros): array
+    {
+        $filtros = $this->normalizarFiltrosPendientes($filtros);
+
+        $cond   = '';
+        $params = [];
+        if ($filtros['periodo_id'] > 0) {
+            $cond .= ' AND per.id = ?';
+            $params[] = $filtros['periodo_id'];
+        }
+        if ($filtros['seccion_id'] > 0) {
+            $cond .= ' AND m.seccion_id = ?';
+            $params[] = $filtros['seccion_id'];
+        } elseif ($filtros['grado_id'] > 0) {
+            $cond .= ' AND g.id = ?';
+            $params[] = $filtros['grado_id'];
+        } elseif ($filtros['nivel_id'] > 0) {
+            $cond .= ' AND n.id = ?';
+            $params[] = $filtros['nivel_id'];
+        }
+
+        $filas = $this->query("
+            SELECT m.id                AS matricula_id,
+                   CONCAT(p.apellido_paterno, ' ', p.apellido_materno, ', ', p.nombres) AS nombre,
+                   n.nombre            AS nivel,
+                   g.nombre_display    AS grado,
+                   s.nombre            AS seccion,
+                   per.id              AS periodo_id,
+                   per.numero          AS periodo_numero,
+                   per.nombre_display  AS periodo_nombre
+            FROM matriculas m
+            INNER JOIN anios_academicos aa ON aa.id = m.anio_id AND aa.estado = 'activo'
+            INNER JOIN periodos per ON per.anio_id = m.anio_id AND per.estado = 'cerrado'
+            INNER JOIN estudiantes e ON e.id = m.estudiante_id
+            INNER JOIN personas    p ON p.id = e.persona_id
+            INNER JOIN secciones   s ON s.id = m.seccion_id
+            INNER JOIN grados      g ON g.id = s.grado_id
+            INNER JOIN niveles     n ON n.id = g.nivel_id
+            WHERE NOT EXISTS (
+                      SELECT 1 FROM calificaciones cal
+                      WHERE cal.matricula_id = m.id
+                        AND cal.periodo_id   = per.id
+                  )
+              " . roster_evaluacion('m') . "{$cond}
+            ORDER BY n.id, g.numero, s.nombre, " . orden_alfabetico('p') . ", per.numero
+        ", $params);
+        if ($filas === []) {
+            return [];
+        }
+
+        // Cuántas competencias se le pueden calificar: el MISMO SQL de la ficha
+        // y del lote, filtrado a estas matrículas.
+        $ids    = array_values(array_unique(array_map('intval', array_column($filas, 'matricula_id'))));
+        $marcas = implode(',', array_fill(0, count($ids), '?'));
+        $total  = [];
+        foreach ([$this->sqlInsertables("m.id IN ({$marcas})"),
+                  $this->sqlTransversalesInsertables("m.id IN ({$marcas})")] as $sql) {
+            foreach ($this->query($sql, $ids) as $c) {
+                $clave = (int) $c['matricula_id'] . '-' . (int) $c['periodo_id'];
+                $total[$clave] = ($total[$clave] ?? 0) + 1;
+            }
+        }
+        foreach ($filas as &$f) {
+            $f['total'] = $total[(int) $f['matricula_id'] . '-' . (int) $f['periodo_id']] ?? 0;
+        }
+        unset($f);
+
+        return $filas;
     }
 
     /**
@@ -410,9 +537,23 @@ class RectificacionModel extends BaseModel
      */
     public function getTransversalesInsertables(int $matriculaId): array
     {
-        return $this->query("
+        return $this->query($this->sqlTransversalesInsertables('m.id = ?'), [$matriculaId]);
+    }
+
+    /**
+     * SQL de las transversales insertables — PUNTO ÚNICO de sus tres
+     * candados. Lo comparten `getTransversalesInsertables` (y por él
+     * `esInsertableTransversal`) y `matriculasSinNotasEnCerrados`.
+     *
+     * @param string $filtroMatriculas condición sobre `m` (y opcionalmente
+     *               `per`), SOLO con placeholders.
+     */
+    private function sqlTransversalesInsertables(string $filtroMatriculas): string
+    {
+        return "
             SELECT * FROM (
                 SELECT
+                    m.id               AS matricula_id,
                     per.id             AS periodo_id,
                     per.numero         AS periodo_numero,
                     per.nombre_display AS periodo_nombre,
@@ -463,7 +604,7 @@ class RectificacionModel extends BaseModel
                         ON ct.seccion_id = m.seccion_id
                        AND ct.periodo_id = per.id
                        AND ct.anulado_en IS NULL
-                WHERE m.id = ?
+                WHERE {$filtroMatriculas}
                   -- Sin nota en NINGUNA carga: la boleta agrega por competencia.
                   AND NOT EXISTS (
                       SELECT 1 FROM calificaciones cal
@@ -474,7 +615,7 @@ class RectificacionModel extends BaseModel
             ) t
             WHERE t.carga_id IS NOT NULL
             ORDER BY t.periodo_numero, t.area_id, t.competencia_id
-        ", [$matriculaId]);
+        ";
     }
 
     /**
