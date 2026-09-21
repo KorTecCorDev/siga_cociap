@@ -1079,6 +1079,31 @@ cual colgar el aviso.
 - Verificado en `verif_extraordinaria_bloqueo.php` §E y §F; contra la carga 429 del I
   Bimestre, la sección lista las mismas 23 que la consulta vieja por competencia.
 
+### EXCEPCIÓN: las extraordinarias de Ética del I Bimestre 2026 no se explican al docente (21/09/2026)
+
+Ese bimestre **ningún docente evaluó Ética y Valores**. Por acuerdo de dirección, Registro
+Académico ingresó una calificación administrativa uniforme: **276 extraordinarias** en 11
+cargas de tutoría, con el mismo motivo. No es trabajo del docente, así que **al rol `docente`
+no se le muestra la explicación** (sección final del historial, por carga y por área, y aviso
+por competencia de la grilla y del resumen). Admin, Registro Académico y los directores la
+siguen viendo, también en `/consulta-notas`.
+
+- **Qué se oculta:** SOLO la explicación (motivo, autor, fecha). La nota sigue en la tabla del
+  docente y en **toda** boleta, también la que abre el docente desde su nómina.
+- **Regla, decidida por el usuario:** área Ética (`AREA_ETICA_NOMBRE_BOLETA`, nunca por id) +
+  **I Bimestre** (número, no id de periodo) + **año 2026**. No es una marca por registro: es
+  una excepción **puntual**. Otro año, una extraordinaria de Ética del I Bimestre sí se le
+  explica al docente, y la de Ética del **II Bimestre** (alumno que llegó tarde) sigue visible.
+- **PUNTO ÚNICO:** `RectificacionModel::sqlSinReservadasDireccion` + las constantes
+  `RESERVADA_DIRECCION_ANIO/PERIODO`. `getExtraordinariasDeCargas` y
+  `getExtraordinariasDeCompetencia` la aplican con `$paraDocente = true`, que el
+  `Docente\CalificacionController` pasa como `Session::hasRole('docente')` en sus 4 llamadas.
+- Verificador: `verif_extraordinarias_reservadas.php` (solo lectura): lista del docente =
+  completa − reservadas en los 71 pares carga+periodo (276 de 276), las dos ramas que NO se
+  ocultan (Ética de otro bimestre, otra área del I Bimestre) y el cableado. Probado en Chrome
+  con ZAMBRANO: la carga 429 del I Bimestre ya no muestra la sección y la tabla conserva sus 15;
+  Geometría (carga 352) sigue mostrando su extraordinaria.
+
 ## Fixes importantes aplicados (sesión 2)
 - `periodos.nombre_display` es la columna correcta (no `nombre`). Si ves
   `Unknown column 'p.nombre'` en queries de periodos, verificar esto.

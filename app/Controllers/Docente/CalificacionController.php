@@ -154,8 +154,10 @@ class CalificacionController extends BaseController
             'periodo'      => $periodo,
             'competencias' => $competencias,
             // Sección ÚNICA de extraordinarias al final (21/09/2026).
+            // Las de Ética del I Bimestre 2026 son reservadas a dirección: al
+            // DOCENTE no se le explican (RectificacionModel::RESERVADA_DIRECCION_*).
             'extraordinariasCarga' => (new RectificacionModel())
-                ->getExtraordinariasDeCargas([$cargaId], $periodoId),
+                ->getExtraordinariasDeCargas([$cargaId], $periodoId, Session::hasRole('docente')),
             'exonerados'   => $exonerados,
         ]);
     }
@@ -437,7 +439,7 @@ class CalificacionController extends BaseController
             'competencias' => $competencias,
             // Sección ÚNICA de extraordinarias al final, de todas las cargas del área.
             'extraordinariasCarga' => (new RectificacionModel())
-                ->getExtraordinariasDeCargas(array_column($cargasArea, 'carga_id'), $periodoId),
+                ->getExtraordinariasDeCargas(array_column($cargasArea, 'carga_id'), $periodoId, Session::hasRole('docente')),
             'exonerados'   => $exonerados,
         ]);
     }
@@ -576,7 +578,7 @@ class CalificacionController extends BaseController
                 if (!empty($cr['extraordinario'])) {
                     $cid = (int) ($comp['carga_id'] ?? $cargaFallback);
                     $out[$cid . '-' . (int) $comp['id']] = (new RectificacionModel())
-                        ->getExtraordinariasDeCompetencia($cid, (int) $comp['id'], $periodoId);
+                        ->getExtraordinariasDeCompetencia($cid, (int) $comp['id'], $periodoId, Session::hasRole('docente'));
                     break;
                 }
             }
@@ -1562,7 +1564,7 @@ class CalificacionController extends BaseController
         foreach ($resumen['criterios'] as $cr) {
             if (!empty($cr['extraordinario'])) {
                 $extraordinarias = (new RectificacionModel())
-                    ->getExtraordinariasDeCompetencia($cargaId, $competenciaId, (int) $periodo['id']);
+                    ->getExtraordinariasDeCompetencia($cargaId, $competenciaId, (int) $periodo['id'], Session::hasRole('docente'));
                 break;
             }
         }

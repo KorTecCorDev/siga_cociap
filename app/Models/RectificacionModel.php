@@ -21,6 +21,29 @@ class RectificacionModel extends BaseModel
     protected string $table = 'rectificaciones_calificacion';
 
     /**
+     * EXCEPCIÓN PUNTUAL (21/09/2026): las extraordinarias de ÉTICA Y VALORES
+     * del I BIMESTRE 2026 son RESERVADAS A DIRECCIÓN y NO se muestran al
+     * DOCENTE (sí a admin, Registro Académico y los directores).
+     *
+     * Por qué: ese bimestre Ética no la evaluó ningún docente. Por acuerdo de
+     * dirección, Registro Académico ingresó una calificación administrativa
+     * uniforme (276 notas, 11 cargas de tutoría, todas extraordinarias). No es
+     * un dato del trabajo del docente y no debe explicársele como tal.
+     *
+     * Qué se oculta: SOLO la explicación (sección/aviso con motivo y autor) en
+     * las pantallas del docente. La nota sigue en su tabla y en TODA boleta.
+     * Decisiones del usuario: regla por área+bimestre+año (no una marca por
+     * registro), SOLO 2026 (otro año, una extraordinaria de Ética del I
+     * Bimestre sí la ve el docente), y la extraordinaria normal de Ética del
+     * II Bimestre (alumno que llegó tarde) sigue visible.
+     *
+     * Ética se identifica por `nombre_boleta` (AREA_ETICA_NOMBRE_BOLETA),
+     * NUNCA por id; el bimestre por número y año, no por id de periodo.
+     */
+    public const RESERVADA_DIRECCION_ANIO    = 2026;
+    public const RESERVADA_DIRECCION_PERIODO = 1;
+
+    /**
      * Datos de la matrícula objetivo (estudiante + ubicación + nivel).
      * Incluye `nivel_codigo` ('prim'/'sec') para resolver la obligatoriedad
      * de la conclusión descriptiva.
@@ -658,7 +681,7 @@ class RectificacionModel extends BaseModel
      *               competencia_id, competencia_nombre, codigo_minedu,
      *               matricula_id, nota, estudiante, motivo, rectificado_en, registrador
      */
-    public function getExtraordinariasDeCargas(array $cargaIds, int $periodoId): array
+    public function getExtraordinariasDeCargas(array $cargaIds, int $periodoId, bool $paraDocente = false): array
     {
         $cargaIds = array_values(array_unique(array_filter(array_map('intval', $cargaIds))));
         if ($cargaIds === []) {
@@ -697,8 +720,9 @@ class RectificacionModel extends BaseModel
             WHERE cal.carga_id IN ({$marcas})
               AND cal.periodo_id     = ?
               AND cal.extraordinaria = 1
+              " . ($paraDocente ? $this->sqlSinReservadasDireccion('cal.competencia_id', 'cal.periodo_id') : '') . "
             ORDER BY comp.orden, comp.id, " . orden_alfabetico('p') . "
-        ", array_merge($cargaIds, [$periodoId]));
+        ", array_merge($cargaIds, [$periodoId], $paraDocente ? [AREA_ETICA_NOMBRE_BOLETA] : []));
     }
 
     /**
@@ -711,7 +735,8 @@ class RectificacionModel extends BaseModel
     public function getExtraordinariasDeCompetencia(
         int $cargaId,
         int $competenciaId,
-        int $periodoId
+        int $periodoId,
+        bool $paraDocente = false
     ): array {
         return $this->query("
             SELECT
@@ -731,8 +756,30 @@ class RectificacionModel extends BaseModel
               AND r.competencia_id = ?
               AND r.periodo_id     = ?
               AND r.tipo           = 'extraordinaria'
+              " . ($paraDocente ? $this->sqlSinReservadasDireccion('r.competencia_id', 'r.periodo_id') : '') . "
             ORDER BY " . orden_alfabetico('p') . ", r.id
-        ", [$cargaId, $competenciaId, $periodoId]);
+        ", array_merge([$cargaId, $competenciaId, $periodoId], $paraDocente ? [AREA_ETICA_NOMBRE_BOLETA] : []));
+    }
+
+    /**
+     * PUNTO ÚNICO de la excepción «reservadas a dirección» (ver la constante
+     * RESERVADA_DIRECCION_ANIO). Devuelve un `AND NOT (...)` que excluye las
+     * extraordinarias de Ética del I Bimestre 2026. Lleva UN placeholder: el
+     * llamante añade AREA_ETICA_NOMBRE_BOLETA a los parámetros. Las columnas
+     * son alias del propio código, nunca entrada del usuario.
+     */
+    private function sqlSinReservadasDireccion(string $colCompetencia, string $colPeriodo): string
+    {
+        return "AND NOT (
+                  EXISTS (SELECT 1 FROM competencias cxr
+                          INNER JOIN areas axr ON axr.id = cxr.area_id
+                          WHERE cxr.id = {$colCompetencia} AND axr.nombre_boleta = ?)
+                  AND EXISTS (SELECT 1 FROM periodos pxr
+                              INNER JOIN anios_academicos ayr ON ayr.id = pxr.anio_id
+                              WHERE pxr.id = {$colPeriodo}
+                                AND pxr.numero = " . self::RESERVADA_DIRECCION_PERIODO . "
+                                AND ayr.anio   = " . self::RESERVADA_DIRECCION_ANIO . ")
+              )";
     }
 
     /** Registra una fila de auditoría de rectificación. Retorna el ID nuevo. */

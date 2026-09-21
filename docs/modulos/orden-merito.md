@@ -897,3 +897,11 @@ notas B1), conservando el anclaje de retornos. Es un CASO ESPECIAL de reconstruc
 regla general del código sigue filtrando por tipo (Fase A) y produce 519/520, por eso NO se
 debe correr `backfill_orden_merito.php` en prod (sobrescribiría el 528). El candado 046
 mantiene el oficial inmutable (B1 publicado → futuras correcciones van a `orden_merito_rectificado`).
+
+## Otra regla que identifica a Ética por su nombre (21/09/2026)
+
+Además de los 3 sitios del vínculo Ética ↔ Ed. Religiosa, `RectificacionModel::sqlSinReservadasDireccion`
+identifica Ética por `AREA_ETICA_NOMBRE_BOLETA` para no explicarle al docente las extraordinarias
+del I Bimestre 2026 (ver `calificaciones.md`). **No toca el mérito** (las extraordinarias ya están
+fuera de él), pero si cambia el `nombre_boleta` de Ética, esa regla deja de aplicar sin avisar.
+
