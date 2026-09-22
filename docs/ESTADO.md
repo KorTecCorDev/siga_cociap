@@ -5,6 +5,16 @@
 > **Versión desplegada: v1.0.1** (`config/app.php` + tag anotado `v1.0.1`).
 
 
+## ✅ NOTIFICACIONES — AUDITORÍA DEL MÓDULO (22/09/2026) — CERRADO en `dev`, sin merge
+
+Salieron 6 hallazgos contra `docs/modulos/notificaciones.md` y se corrigieron 3: el contador de la
+bandeja en vivo (subtítulo y «Marcar todas» siguen a la campana), la hora en cada notificación y
+el filtro de activos en el destino «Docentes de una sección» (`verif_notificaciones.php`, rama
+nueva probada A/B: falla sin el arreglo). Los otros 3 quedan anotados en el §9 del doc del módulo.
+- [x] **Prueba en navegador DEL USUARIO (22/09, todas pasaron; docente con avisos sin leer):** marcar una → el subtítulo
+      baja a N-1 como la campana · marcar la última → «No tienes notificaciones sin leer.» y sin
+      «Marcar todas» · la hora junto a la fecha · «Ver detalle» sigue marcando y navega · consola limpia.
+
 ## ✅ AJUSTES TRAS PROBAR NOTIFICACIONES (21-22/09/2026) — CERRADO en `dev`, sin merge
 
 **Cerrado el 22/09/2026:** el usuario probó en navegador todo el bloque de la calificación

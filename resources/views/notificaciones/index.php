@@ -17,7 +17,8 @@
     <a href="<?= url('/') ?>" class="btn btn--secondary btn--sm">← Dashboard</a>
     <div>
         <h1 class="page-title">Notificaciones</h1>
-        <p class="page-subtitle">
+        <?php // `data-notif-resumen`: el JS lo reescribe al marcar una sin recargar. ?>
+        <p class="page-subtitle" data-notif-resumen>
             <?php if ($noLeidas > 0): ?>
                 Tienes <strong><?= (int) $noLeidas ?></strong>
                 <?= $noLeidas === 1 ? 'notificación sin leer' : 'notificaciones sin leer' ?>.
@@ -36,7 +37,7 @@
             </a>
         <?php endif; ?>
         <?php if ($noLeidas > 0): ?>
-            <form method="POST" action="<?= url('notificaciones/leer-todas') ?>">
+            <form method="POST" action="<?= url('notificaciones/leer-todas') ?>" data-notif-leer-todas>
                 <?= csrf_field() ?>
                 <button type="submit" class="btn btn--secondary btn--sm">Marcar todas como leídas</button>
             </form>
@@ -77,6 +78,7 @@
                 <?php endif; ?>
                 <span class="notif__fecha">
                     <?= e(fecha_es(substr((string) $n['created_at'], 0, 10))) ?>
+                    · <?= e(substr((string) $n['created_at'], 11, 5)) ?>
                 </span>
             </div>
 

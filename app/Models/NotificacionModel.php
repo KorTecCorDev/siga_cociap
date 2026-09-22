@@ -175,13 +175,18 @@ class NotificacionModel extends BaseModel
         ", array_values($rolCodigos));
     }
 
-    /** Docentes con carga activa en una sección del año activo. */
+    /**
+     * Docentes ACTIVOS con carga activa en una sección del año activo. El
+     * filtro por `usuarios.estado` (22/09/2026) faltaba aquí, aunque los otros
+     * destinos y crearParaDocentesDeSeccion() sí lo aplicaban.
+     */
     public function docentesDeSeccion(int $seccionId): array
     {
         return $this->query("
             SELECT DISTINCT ca.docente_id AS id
             FROM cargas_academicas ca
             INNER JOIN anios_academicos aa ON aa.id = ca.anio_id AND aa.estado = 'activo'
+            INNER JOIN usuarios u          ON u.id = ca.docente_id AND u.estado = 'activo'
             WHERE ca.seccion_id = ? AND ca.estado = 'activa'
         ", [$seccionId]);
     }

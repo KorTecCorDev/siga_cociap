@@ -101,6 +101,13 @@ mismo clic y sin `keepalive` el navegador podía cancelar la petición.
 **La bandeja tiene «← Dashboard»** como primer hijo de `.page-header` (21/09/2026), el mismo
 patrón de `consulta-notas/index.php`.
 
+**Contador en vivo y hora (22/09/2026).** Al marcar UNA como leída sin recargar, el JS baja la
+campana **y también** el subtítulo «Tienes N sin leer» (`data-notif-resumen`), con el mismo
+contador que devuelve el servidor. Al llegar a 0 quita el botón «Marcar todas»
+(`data-notif-leer-todas`). Antes solo bajaba la campana y la página se contradecía. Cada
+notificación muestra además la **hora** junto a la fecha, con el mismo formato del historial de
+enviados.
+
 **Colegio de origen en el aviso de notas de origen (21/09/2026).** `storeNotasExternas`
 escribe «Procede de: <colegio>.» **dentro del `mensaje`** cuando se anotó el colegio (es
 opcional). Se eligió escribirlo y no derivarlo al pintar: la bandeja solo pinta título y
@@ -114,7 +121,8 @@ entonces. En el detalle (`/docente/notas-origen/{id}`) el colegio pasó del subt
 *Todos los docentes* · *Docentes de una sección* · *Dirección* · *Personal administrativo*.
 `NotificacionModel::destinatariosDeComunicado()` **une** los grupos marcados,
 **deduplica por usuario** y **excluye a quien envía** (lo que mandó lo ve en el historial).
-Solo usuarios `activo`. El select de secciones ofrece **solo las del año activo**
+Solo usuarios `activo`: el destino *Docentes de una sección* (`docentesDeSeccion`) **no lo
+filtraba hasta el 22/09/2026**, aunque este doc ya lo prometía. El select de secciones ofrece **solo las del año activo**
 (`seccionesParaComunicado()`): antes usaba `SeccionModel::listarConTutor()`, que incluye
 el año planificado, y esas secciones daban siempre «No hay destinatarios».
 
@@ -137,7 +145,7 @@ un registro ya válido.
 
 ## 8. Verificación
 
-`database/verificaciones/verif_notificaciones.php` (16/09/2026, **37 comprobaciones**),
+`database/verificaciones/verif_notificaciones.php` (16/09/2026, **37 comprobaciones** al 22/09),
 escribe en transacción y termina en rollback: aviso uno por docente, las DOS ramas del
 refresco (sin leer → refresca; leído → crea), inactivos fuera, aislamiento entre bandejas,
 `alertas` intacta, roles (dirección recibe y no emite), unión de destinos sin duplicados
@@ -159,6 +167,19 @@ Pendiente:
 1. **`058` y `060` en PRODUCCIÓN, a mano y ANTES del merge** (van en la cola
    `057`→`060`; ver `docs/ESTADO.md`).
 2. Al desplegar, actualizar la cabecera de este doc.
+
+**Hallazgos de la auditoría del 22/09/2026 que NO se corrigieron** (el usuario eligió el 1, 2
+y 3: contador en vivo, hora y activos en «sección»). Hoy tienen 0 casos en la BD:
+- **Enlace que se rompe.** El acceso a `/docente/notas-origen/{m}` se evalúa con la sección
+  ACTUAL (`NotaExternaModel::docenteTieneAcceso`). Si el alumno cambia de sección o el docente
+  pierde la carga, el «Ver detalle» del aviso da 404. **Resolverlo junto con
+  `cambio-seccion.md`**, que es lo que lo va a destapar.
+- **El docente que llega después no se entera.** Un docente asignado a la sección DESPUÉS del
+  registro no recibe el aviso de notas de origen que ya existían. Es una regla del colegio por
+  decidir, no un bug.
+- **Sin tope de `mensaje` en el servidor** (TEXT). Una sección inexistente combinada con otro
+  destino choca con `fk_comunicado_seccion`. Los dos casos terminan en el error genérico «No se
+  pudo enviar», y el segundo solo ocurre alterando el formulario.
 
 **Diferido (no se implementa sin decisión):** paginación o limpieza de la bandeja (hoy
 muestra las 100 más recientes).

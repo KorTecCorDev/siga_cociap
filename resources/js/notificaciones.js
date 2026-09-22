@@ -70,6 +70,34 @@
         }
     }
 
+    /**
+     * Refleja el mismo contador en la cabecera de la bandeja: el subtítulo y
+     * «Marcar todas». Sin esto la campana bajaba y la página seguía diciendo
+     * «Tienes N sin leer». Mismo texto que pinta la vista en PHP.
+     */
+    function pintarResumen(noLeidas) {
+        var resumen = document.querySelector('[data-notif-resumen]');
+        if (resumen) {
+            resumen.textContent = '';
+            if (noLeidas > 0) {
+                var n = document.createElement('strong');
+                n.textContent = String(noLeidas);
+                resumen.appendChild(document.createTextNode('Tienes '));
+                resumen.appendChild(n);
+                resumen.appendChild(document.createTextNode(noLeidas === 1
+                    ? ' notificación sin leer.'
+                    : ' notificaciones sin leer.'));
+            } else {
+                resumen.textContent = 'No tienes notificaciones sin leer.';
+            }
+        }
+
+        if (noLeidas === 0) {
+            var todas = document.querySelector('[data-notif-leer-todas]');
+            if (todas) todas.remove();
+        }
+    }
+
     function marcarLeida(item, boton) {
         var id = item.dataset.notifId;
         if (!id) return;
@@ -96,6 +124,7 @@
                 if (punto) punto.remove();
                 if (boton) boton.remove();
                 pintarCampana(res.noLeidas || 0);
+                pintarResumen(res.noLeidas || 0);
             })
             .catch(function () { /* silencioso: marcar leída no es crítico */ });
     }

@@ -204,6 +204,13 @@ try {
     $soloSeccion = $notifs->destinatariosDeComunicado([N::DESTINO_SECCION], $seccionId, $emisor);
     sort($soloSeccion);
     $ok($soloSeccion === $idsDocentes, 'solo «sección» = docentes activos con carga en ella');
+    // La rama que EXCLUYE (22/09/2026): antes nadie probaba un inactivo aquí.
+    $pdo->prepare("UPDATE usuarios SET estado = 'inactivo' WHERE id = ?")->execute([$docB]);
+    $sinB = $notifs->destinatariosDeComunicado([N::DESTINO_SECCION], $seccionId, $emisor);
+    sort($sinB);
+    $ok($sinB === array_values(array_diff($idsDocentes, [$docB, $emisor])),
+        "solo «sección» deja fuera al docente {$docB} inactivo y conserva a los demás");
+    $pdo->prepare("UPDATE usuarios SET estado = 'activo' WHERE id = ?")->execute([$docB]);
     $soloDir = $notifs->destinatariosDeComunicado([N::DESTINO_DIRECCION], null, $emisor);
     $ok(array_diff($soloDir, $rolesIn(ROLES_DIRECCION)) === [], 'solo «dirección» no trae a nadie más');
 
