@@ -2,14 +2,13 @@
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **22/09/2026**.
-> **Versión desplegada: v1.0.1** (`config/app.php` + tag anotado `v1.0.1`).
-> `config/app.php` ya dice **1.0.2** en `dev`: es la release preparada abajo, aún sin merge.
+> **Versión desplegada: v1.0.2** (`config/app.php` + tag anotado `v1.0.2`, 22/09/2026).
 
 
-## 🚀 RELEASE v1.0.2 — PREPARADA, esperando la orden de merge (22/09/2026)
+## 🟢 RELEASE v1.0.2 — DESPLEGADA EN PRODUCCIÓN (22/09/2026)
 
-`dev` → `main` son **50 commits** (desde el merge de v1.0.1), fast-forward posible y sin
-conflictos. Reúne notificaciones y comunicados, notas del colegio de origen (importador,
+Merge `--no-ff` `0cf974d` en `main`, tag anotado `v1.0.2`, push el 22/09. **45 commits**
+desde el merge de v1.0.1, sin conflictos (árbol de `main` idéntico a `dev`). Reúne notificaciones y comunicados, notas del colegio de origen (importador,
 conclusión, competencia a 255), calificación extraordinaria en lote y en sección única,
 listado de `/rectificaciones`, ficha «datos a la vista», páginas de error y Dirección en
 `/admin/cuadros`.
@@ -34,12 +33,19 @@ listado de `/rectificaciones`, ficha «datos a la vista», páginas de error y D
     promedio. Los datos de prueba se restauraron idénticos a una foto previa (fechas incluidas).
 - Salió un solo defecto, de texto, corregido en `e9108fd`: «Se omitieron 1 fila sin nota».
 
-**Al dar la orden:** `merge --no-ff` a `main`, tag anotado `v1.0.2`, push. Después:
-cabeceras de estado de los docs de módulo, registro del deploy aquí y la línea «Versión
-desplegada» de arriba.
+**Después del deploy:** se corrigieron 9 cabeceras de estado, en 7 docs de módulo, que
+decían «en `dev`» o «sin desplegar». Dos eran de esta release (`notificaciones.md` y la
+sección «bimestres CERRADOS» de `usuarios-direccion.md`); **las otras siete llevaban así
+desde antes de la v1.0.1** — el hueco de proceso que advierte CLAUDE.md.
+
+**Pendiente de producción:**
+- [ ] Confirmar que se corrió `php database/reparar_notas_externas_truncadas.php --confirmar`
+      (primero sin `--confirmar`, que solo simula).
+- [ ] Revisar en `https://sigacociap.net`: login, la campana, una boleta y
+      `/matriculas/{id}/notas-externas`.
 
 
-## 🔄 CONCLUSIÓN EN NOTAS DE ORIGEN + BARRIDO DE TEXTOS (22/09/2026) — en `dev`, sin merge
+## ✅ CONCLUSIÓN EN NOTAS DE ORIGEN + BARRIDO DE TEXTOS (22/09/2026) — desplegado en v1.0.2
 
 **Migración `062`** (`notas_externas.conclusion_descriptiva`): la conclusión del informe del
 colegio anterior se registra y se muestra. **Opcional para los cuatro literales** — aquí no rige
@@ -57,7 +63,7 @@ que ya era falso), el aviso de empates del docente y la copia doble del resumen.
       como docente (conclusión y banner recortado) · el flash al guardar · la notificación que
       recibe el docente · `/rectificaciones/extraordinaria/lote` y el resumen de una transversal.
 
-## ✅ NOTIFICACIONES — AUDITORÍA DEL MÓDULO (22/09/2026) — CERRADO en `dev`, sin merge
+## ✅ NOTIFICACIONES — AUDITORÍA DEL MÓDULO (22/09/2026) — desplegado en v1.0.2
 
 Salieron 6 hallazgos contra `docs/modulos/notificaciones.md` y se corrigieron 3: el contador de la
 bandeja en vivo (subtítulo y «Marcar todas» siguen a la campana), la hora en cada notificación y
@@ -67,7 +73,7 @@ nueva probada A/B: falla sin el arreglo). Los otros 3 quedan anotados en el §9 
       baja a N-1 como la campana · marcar la última → «No tienes notificaciones sin leer.» y sin
       «Marcar todas» · la hora junto a la fecha · «Ver detalle» sigue marcando y navega · consola limpia.
 
-## ✅ AJUSTES TRAS PROBAR NOTIFICACIONES (21-22/09/2026) — CERRADO en `dev`, sin merge
+## ✅ AJUSTES TRAS PROBAR NOTIFICACIONES (21-22/09/2026) — desplegado en v1.0.2
 
 **Cerrado el 22/09/2026:** el usuario probó en navegador todo el bloque de la calificación
 extraordinaria (excepción de Ética + tabla compacta) y lo dio por terminado. **Solo queda el
@@ -4254,6 +4260,9 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **22/09/2026 — DEPLOY v1.0.2.** `main` pasó de `e51349d` a `0cf974d` (merge `--no-ff`
+  de `dev` en `fd6d287`, 45 commits), tag anotado `v1.0.2`. Migraciones `057`–`062` aplicadas
+  a mano en producción ANTES del push. Verificación previa en la sección «RELEASE v1.0.2».
 - 🟡 **04/09/2026 — PUSH A `dev`, NO ES UN DEPLOY. `origin/dev` pasó de `6e54c9b` a
   `ce2502c`.** Un solo commit (19 archivos, +1670/−165) porque los dos bloques de
   CUADROS tocan los mismos archivos y separarlos exigía partir hunks a mano.

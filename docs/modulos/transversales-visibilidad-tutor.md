@@ -240,8 +240,8 @@ Script de solo lectura en `database/verificaciones/`:
 
 ## 5. LO QUE SE CONSTRUYÓ — las 4 fases (06/08/2026). Manda sobre §1-§3.
 
-**Estado: en `dev`, sin desplegar. La migración `051` NO se ha aplicado en ningún
-entorno.** Se implementó en dos tandas el mismo día: primero F1+F2 (el defecto del cierre
+**Estado: DESPLEGADO** (a más tardar en la v1.0.1, 08/09/2026; corregido el 22/09 — la cabecera se quedó en «dev» al desplegar). La `051` se aplicó en producción el 06/08 y en local el 07/08
+(ver `docs/ESTADO.md`). Se implementó en dos tandas el mismo día: primero F1+F2 (el defecto del cierre
 forzado y su limpieza), después F3+F4 (la visibilidad del tutor y el desacople del gate).
 
 ### 🔴 La secuencia de despliegue, y por qué choca con el cierre de B2

@@ -172,7 +172,7 @@ snapshot ya existente y la compuerta. F1, F2 son independientes y de menor riesg
 
 ## 8. LO QUE SE IMPLEMENTÓ (25-26/07/2026) — manda esta sección
 
-Todo en `dev`, sin migración nueva. Un commit por fase; los scripts de verificación
+Desplegado (a más tardar en la v1.0.1, 08/09/2026; corregido el 22/09 — la cabecera se quedó en «dev» al desplegar), sin migración nueva. Un commit por fase; los scripts de verificación
 viven en `database/verificaciones/`.
 
 | Fase | Commit | Qué quedó |

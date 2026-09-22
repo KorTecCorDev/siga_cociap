@@ -1,8 +1,8 @@
 # Notificaciones — bandeja interna
 
-> **Estado: CERRADO en `dev` el 16/09/2026 y PROBADO en navegador con sesión** (docente,
-> RA, admin y director) en la BD local de la laptop. Migraciones `058` y `060` **solo en
-> LOCAL**: ninguna en producción y sin merge a `main`. Despliegue en `docs/ESTADO.md`.
+> **Estado: DESPLEGADO en producción con la v1.0.2 (22/09/2026).** Migraciones `058` y `060`
+> aplicadas en producción antes del merge. Probado en navegador con sesión de docente, RA,
+> admin y director (16/09) y otra vez con admin, director y docente (22/09).
 > Módulos relacionados: `matriculas.md` (el evento que la estrena), `usuarios-direccion.md`.
 
 ## 1. Por qué existe

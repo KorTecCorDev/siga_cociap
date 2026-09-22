@@ -1,10 +1,9 @@
 # Módulo: Usuarios de Dirección (supervisión en solo lectura)
 
-> **Estado: EN `dev`, SIN DESPLEGAR ni PROBAR EN NAVEGADOR (24/08/2026).**
-> Las 7 fases están implementadas y las 5 verificaciones automáticas en verde,
-> pero **nadie ha abierto todavía una sola pantalla**. La migración **055** ya
-> está aplicada en LOCAL (9 roles, `director_academico` = id 9) y sigue
-> **pendiente en producción**.
+> **Estado: DESPLEGADO** (a más tardar en la v1.0.1, 08/09/2026; corregido el 22/09 — la cabecera se quedó en «dev» al desplegar). La migración **055** está aplicada en los dos entornos.
+> Con sesión real de **Director EBR** se probaron notificaciones (16/09) y `/admin/cuadros`
+> completo (22/09). **Sigue sin probarse con el rol Director académico** (no hay usuario de
+> prueba).
 > Después de las 7 fases se añadió el **explorador de criterios** (ver su sección):
 > también sin probar en navegador.
 
@@ -906,7 +905,8 @@ Las FILAS conservan su `avoid`.
 
 ## Dirección solo ve bimestres CERRADOS (08/09/2026)
 
-Aprobado y **construido el mismo día**. En `dev`, **sin desplegar**. Sin migración.
+Aprobado y **construido el mismo día**. **Desplegado con la v1.0.2 (22/09/2026)** y probado
+ese día con sesión de Director EBR. Sin migración.
 Extiende la «regla del dato oficial» de arriba al **bimestre entero**.
 
 ### Por qué
