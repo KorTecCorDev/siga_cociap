@@ -21,20 +21,13 @@ if (empty($extraordinarias)) {
         ordinario del bimestre</strong>: fueron ingresadas por Registro
         Académico con autorización, por el motivo registrado.
     </p>
-    <ul class="extraordinaria-info__lista">
-        <?php foreach ($extraordinarias as $ex): ?>
-            <li class="extraordinaria-info__item">
-                <strong><?= e($ex['estudiante']) ?></strong>
-                — nota <?= fmt_nota((int) $ex['nota_nueva']) ?> ·
-                <?= e(nota_a_literal((int) $ex['nota_nueva'])) ?>
-                <span class="extraordinaria-info__meta">
-                    Registrada por <?= e($ex['registrador'] ?: 'Registro Académico') ?>
-                    el <?= e(fecha_es(substr((string) $ex['rectificado_en'], 0, 10))) ?>
-                </span>
-                <span class="extraordinaria-info__motivo">
-                    Motivo: <?= e($ex['motivo']) ?>
-                </span>
-            </li>
-        <?php endforeach; ?>
-    </ul>
+    <?php
+    // Esta consulta sale de la auditoría (`nota_nueva`); la tabla compartida
+    // espera `nota`, como la de la sección de la carga.
+    $filasEx = array_map(
+        fn($ex) => $ex + ['nota' => $ex['nota_nueva']],
+        $extraordinarias
+    );
+    require VIEW_PATH . '/shared/_extraordinarias-tabla.php';
+    ?>
 </div>

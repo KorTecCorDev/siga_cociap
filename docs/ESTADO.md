@@ -5,7 +5,12 @@
 > **Versión desplegada: v1.0.1** (`config/app.php` + tag anotado `v1.0.1`).
 
 
-## 🔄 AJUSTES TRAS PROBAR NOTIFICACIONES (21/09/2026) — en `dev`, sin merge
+## ✅ AJUSTES TRAS PROBAR NOTIFICACIONES (21-22/09/2026) — CERRADO en `dev`, sin merge
+
+**Cerrado el 22/09/2026:** el usuario probó en navegador todo el bloque de la calificación
+extraordinaria (excepción de Ética + tabla compacta) y lo dio por terminado. **Solo queda el
+merge a `main`**, que espera a que él lo pida, con la `061` y el script de reparación en
+producción ANTES (casilla de abajo).
 
 Diez observaciones del usuario; dos ya estaban resueltas desde el 18/09. Ocho commits (del
 `0a2b3e3` al `9b6cfaf`, más `73e8b59` y el de los filtros). Detalle en el doc de cada módulo:
@@ -37,6 +42,14 @@ etiqueta «Grado» quedaba huérfana.
 I Bimestre 2026 no le explican al DOCENTE su motivo (sí a admin, RA y directores). Detalle en
 `docs/modulos/calificaciones.md`.
 
+**Extraordinarias en tabla compacta (22/09):** tras la prueba, el usuario pidió poder ocultar la
+sección porque en Ética los 23 renglones repetían motivo, autor y fecha. Se descartó el acordeón
+(«datos a la vista»). Ahora hay una tabla por grupo de auditoría, con los datos comunes una sola vez
+(`shared/_extraordinarias-tabla.php`). Rige en la consulta, el historial y la grilla/resumen del docente.
+- [x] **Prueba en navegador DEL USUARIO (22/09, todas pasaron):** `/consulta-notas/1/carga/429` (una tabla de 23),
+      `/consulta-notas/1/carga/432` (dos grupos: 28 + 1), `/docente/calificaciones/352/historial/1`
+      y la grilla de la 352 como docente, a 375 px y en vista de impresión.
+
 ### ⏭ PARA RETOMAR EN CASA (21/09/2026, fin del turno en la laptop)
 `dev` pusheado (`6034bd8`), **sin merge**. En este orden:
 1. `git pull` en `dev`. No hace falta `gulp build`: `app.css` y `errores.css` van en el commit.
@@ -45,13 +58,13 @@ I Bimestre 2026 no le explican al DOCENTE su motivo (sí a admin, RA y directore
 3. Correr `verif_extraordinarias_reservadas.php`, `verif_extraordinaria_bloqueo.php`,
    `verif_rectificaciones_pendientes.php`, `verif_boleta_sin_calificaciones.php` y
    `verif_notas_origen.php`.
-4. - [ ] **Prueba en navegador DEL USUARIO — la excepción de Ética:**
-   - [ ] Docente ZAMBRANO: `/docente/calificaciones/429/historial/1` SIN la sección de
+4. - [x] **Prueba en navegador DEL USUARIO — la excepción de Ética (22/09, todas pasaron):**
+   - [x] Docente ZAMBRANO: `/docente/calificaciones/429/historial/1` SIN la sección de
          extraordinarias; la tabla conserva sus 15.
-   - [ ] Registro Académico o un director: `/consulta-notas/1/carga/429` CON la sección
+   - [x] Registro Académico o un director: `/consulta-notas/1/carga/429` CON la sección
          (23 notas). **Es lo único que Claude no vio en pantalla.**
-   - [ ] Una extraordinaria normal (Geometría, carga 352) sigue visible al docente.
-   - [ ] La boleta de un alumno de esa sección muestra su nota de Ética del I Bimestre igual
+   - [x] Una extraordinaria normal (Geometría, carga 352) sigue visible al docente.
+   - [x] La boleta de un alumno de esa sección muestra su nota de Ética del I Bimestre igual
          para todos.
 
 ## ✅ PRUEBAS EN NAVEGADOR DE LA EXTRAORDINARIA — LAS 6 PASADAS (21/09/2026)

@@ -39,25 +39,9 @@ foreach ($extraordinariasCarga as $ex) {
                 <span class="competencia-card__codigo"><?= e($comp['codigo']) ?></span>
             <?php endif; ?>
         </p>
-        <ul class="extraordinaria-info__lista">
-            <?php foreach ($comp['filas'] as $ex): ?>
-                <li class="extraordinaria-info__item">
-                    <strong><?= e($ex['estudiante']) ?></strong>
-                    — nota <?= fmt_nota((int) $ex['nota']) ?> ·
-                    <?= e(nota_a_literal((int) $ex['nota'])) ?>
-                    <?php if (!empty($ex['rectificado_en'])): ?>
-                    <span class="extraordinaria-info__meta">
-                        Registrada por <?= e($ex['registrador'] ?: 'Registro Académico') ?>
-                        el <?= e(fecha_es(substr((string) $ex['rectificado_en'], 0, 10))) ?>
-                    </span>
-                    <?php endif; ?>
-                    <?php if (!empty($ex['motivo'])): ?>
-                    <span class="extraordinaria-info__motivo">
-                        Motivo: <?= e($ex['motivo']) ?>
-                    </span>
-                    <?php endif; ?>
-                </li>
-            <?php endforeach; ?>
-        </ul>
+        <?php
+        $filasEx = $comp['filas'];
+        require VIEW_PATH . '/shared/_extraordinarias-tabla.php';
+        ?>
     <?php endforeach; ?>
 </div>

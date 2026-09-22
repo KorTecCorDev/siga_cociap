@@ -201,27 +201,27 @@
         line-height: 1.5;
     }
 
-    &__lista {
-        margin: 0;
-        padding-left: 18px;
-    }
-
-    &__item {
-        margin-bottom: $spacing-sm;
+    // Tabla compacta (22/09/2026, `shared/_extraordinarias-tabla.php`): quién,
+    // cuándo y por qué van UNA vez por grupo en `__comun`, no en cada alumno.
+    &__comun {
+        margin: $spacing-sm 0 4px;
+        font-size: $font-size-sm;
+        color: $text-primary;
         line-height: 1.5;
-
-        &:last-child { margin-bottom: 0; }
     }
 
-    &__meta,
     &__motivo {
         display: block;
-        font-size: $font-size-sm;
-        color: $text-muted;
+        color: #92400e;
     }
 
-    &__motivo {
-        color: #92400e;
+    // Fondo blanco: la tabla se lee sobre el ámbar del aviso.
+    &__tabla {
+        margin-bottom: $spacing-sm;
+        background: $bg-white;
+        border-radius: $border-radius-sm;
+
+        &:last-child { margin-bottom: 0; }
     }
 
     // Sección ÚNICA al final de la carga (consulta de notas e historial del

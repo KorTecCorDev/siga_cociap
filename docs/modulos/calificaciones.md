@@ -1079,6 +1079,28 @@ cual colgar el aviso.
 - Verificado en `verif_extraordinaria_bloqueo.php` §E y §F; contra la carga 429 del I
   Bimestre, la sección lista las mismas 23 que la consulta vieja por competencia.
 
+#### Formato: tabla compacta, los datos comunes una sola vez (22/09/2026)
+
+Las dos vistas (la sección de la carga y la card del docente, `_extraordinaria-info.php`)
+pintaban una lista donde **cada alumno repetía** «Registrada por… el… / Motivo: …». Con
+Ética del I Bimestre (23 a 29 notas por sección, todas con la misma auditoría) era un muro de
+texto. El usuario pidió poder ocultarlo. **Se descartó el acordeón** porque viola «datos a la
+vista» (`ui.md`) y un `<details>` cerrado no se imprime. La solución fue quitar la repetición.
+
+- **Punto único del marcado:** `shared/_extraordinarias-tabla.php`. Recibe `$filasEx`
+  (`estudiante`, `nota`, `registrador`, `rectificado_en`, `motivo`); la card del docente
+  normaliza `nota_nueva → nota` antes de incluirlo.
+- **Agrupa por registrador + fecha + motivo.** Cada grupo lleva una línea
+  «N notas · Registradas por X el F», su motivo y una tabla N.º | Apellidos y nombres | Nota |
+  Literal. **Un motivo nunca se repite ni se atribuye a otro grupo.** Los grupos van del más
+  grande al más chico (usort estable) y los alumnos, en orden alfabético.
+- Caso real con dos grupos: **carga 432** (28 por la calificación administrativa del 06/08 + 1
+  por matrícula tardía del 10/09).
+- Si una fila no tiene auditoría (`LEFT JOIN`), su grupo sale sin «Registrada por» y sin motivo,
+  igual que antes.
+- Las variables del partial llevan el sufijo `Ex` porque se incluye dentro de los bucles de
+  `calificaciones.php` y no debe pisar las del llamador.
+
 ### EXCEPCIÓN: las extraordinarias de Ética del I Bimestre 2026 no se explican al docente (21/09/2026)
 
 Ese bimestre **ningún docente evaluó Ética y Valores**. Por acuerdo de dirección, Registro
