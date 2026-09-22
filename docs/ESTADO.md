@@ -20,10 +20,16 @@ alta que habría duplicado las faltas (`retorno-grado.md`).
 - [x] `verif_conducta_asistencia_extraordinaria.php` (nuevo, 27 asertos con rollback, las dos
       ramas) y `verif_rectificaciones_pendientes.php` (control a mano ampliado) en verde. Batería
       completa: 44/44.
-- [ ] **Prueba en navegador con sesión de RA o admin:** lote de 690 B1 (solo las dos filas),
-      697 B1 (notas + las dos filas), listado con la columna «Falta», boleta antes y después,
-      historial de conducta y asistencia con el chip, imprimibles con asterisco, 375 px.
-- [ ] **Antes del merge:** `063` en PRODUCCIÓN, a mano.
+- [x] **Prueba en navegador (22/09, sesión de RA):** el usuario registró 690 B1 (solo las dos
+      filas) y 698 B1 (conducta sin notas en el bimestre); la boleta los pinta en `todos`,
+      `oficial` y `archivo`. Claude probó: 7 POST forjados rechazados sin escribir (pisar conducta y
+      asistencia de 690, la 692 del retorno, literal inválido, tope 150, sin motivo, lote vacío);
+      chip en historial de conducta y asistencia de las secciones 7 y 9; asterisco y nota al pie
+      en el imprimible; matriz del II Bimestre con fila temporal (borrada); JS del lote con clic
+      real; 375 px sin desborde. **Dos ajustes salieron de la prueba:** «Falta: Notas» decía
+      solo «Conducta, Asistencia» con 26 competencias pendientes (696, 693), y en la matriz el
+      chip en la columna Nota ensanchaba la grilla (1203 px en 1137): pasó junto al nombre.
+- [x] **Antes del merge:** `063` en PRODUCCIÓN, a mano — aplicada por el usuario el 22/09/2026.
 
 
 ## 🟢 RELEASE v1.0.2 — DESPLEGADA EN PRODUCCIÓN (22/09/2026)
