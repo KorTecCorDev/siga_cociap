@@ -1,8 +1,42 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **21/09/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **22/09/2026**.
 > **Versión desplegada: v1.0.1** (`config/app.php` + tag anotado `v1.0.1`).
+> `config/app.php` ya dice **1.0.2** en `dev`: es la release preparada abajo, aún sin merge.
+
+
+## 🚀 RELEASE v1.0.2 — PREPARADA, esperando la orden de merge (22/09/2026)
+
+`dev` → `main` son **50 commits** (desde el merge de v1.0.1), fast-forward posible y sin
+conflictos. Reúne notificaciones y comunicados, notas del colegio de origen (importador,
+conclusión, competencia a 255), calificación extraordinaria en lote y en sección única,
+listado de `/rectificaciones`, ficha «datos a la vista», páginas de error y Dirección en
+`/admin/cuadros`.
+
+**Migraciones `057` a `062`: ya aplicadas en producción** (confirmado por el usuario el
+22/09). Falta confirmar que `reparar_notas_externas_truncadas.php --confirmar` se corrió allá.
+
+**Verificación del 22/09/2026 (escritorio):**
+- BD local con la `062` · **43 verificadores**: 40 en verde y 3 sin escenario aplicable, ningún rojo.
+- **Chrome, tres sesiones reales:**
+  - **Admin:** notas de origen completas (con y sin conclusión, fila omitida, «+ Añadir fila»
+    clona la pareja y el POST queda alineado, importador y sus dos guardas, 375 px sin
+    desborde); §6 los cuatro 404 limpios; §7 30 páginas en 200 sin errores PHP, boletas
+    digital e imprimible sin fuga de notas de origen, consola limpia.
+  - **Director (EBR):** §5 entera — selector con solo I y II, `periodo_id=3` cae al II,
+    imprimir el activo da 404 y el II 200, series que terminan en el II, asistencia del III
+    en vivo (sección 13; la 23 da 404 porque no tiene competencias bloqueadas en el III, no
+    por el rol). Sin botones que lleven a un 403, y el 403 sale limpio.
+  - **Docente (ZAMBRANO):** campana con el aviso nuevo y el texto recortado; «Ver detalle»
+    lo marca leído y navega; detalle con conclusiones y «Tu área»; guardar una nota por el
+    flujo normal (carga 318, criterio 5518) guarda, reconfirma el criterio y recalcula el
+    promedio. Los datos de prueba se restauraron idénticos a una foto previa (fechas incluidas).
+- Salió un solo defecto, de texto, corregido en `e9108fd`: «Se omitieron 1 fila sin nota».
+
+**Al dar la orden:** `merge --no-ff` a `main`, tag anotado `v1.0.2`, push. Después:
+cabeceras de estado de los docs de módulo, registro del deploy aquí y la línea «Versión
+desplegada» de arriba.
 
 
 ## 🔄 CONCLUSIÓN EN NOTAS DE ORIGEN + BARRIDO DE TEXTOS (22/09/2026) — en `dev`, sin merge
@@ -18,7 +52,7 @@ de filas omitidas), el banner del docente, el motivo del lote de extraordinarias
 que ya era falso), el aviso de empates del docente y la copia doble del resumen. Regla nueva en
 `docs/modulos/ui.md` («QUÉ DICE UN AVISO») y asertos en `verif_banners_aviso.php`.
 
-- [ ] **Prueba en navegador DEL USUARIO:** `/matriculas/693/notas-externas` (registrar con y sin
+- [x] **Prueba en navegador DEL USUARIO:** `/matriculas/693/notas-externas` (registrar con y sin
       conclusión, «Ya registradas», «+ Añadir fila», importar, 375 px) · `/docente/notas-origen/693`
       como docente (conclusión y banner recortado) · el flash al guardar · la notificación que
       recibe el docente · `/rectificaciones/extraordinaria/lote` y el resumen de una transversal.
@@ -64,7 +98,7 @@ etiqueta «Grado» quedaba huérfana.
       muestra la sección única al final, fuera de las cards, con las 23 notas y sin columna
       extraordinaria; la carga 352 (B1 y B2) muestra la suya con 1. `/docente/notas-origen/693`
       pinta la competencia de 126 caracteres entera y, sin colegio anotado, no pinta el bloque.
-- [ ] **Antes del merge:** `061` en producción + el script de reparación (ver §4 más abajo).
+- [x] **Antes del merge:** `061` en producción + el script de reparación (ver §4 más abajo). **Migraciones: confirmado el 22/09**; el script de reparación, por confirmar.
 
 **Excepción de Ética (commit `6034bd8`, 21/09):** las extraordinarias de Ética y Valores del
 I Bimestre 2026 no le explican al DOCENTE su motivo (sí a admin, RA y directores). Detalle en
@@ -201,26 +235,26 @@ cero**. Probarlas exige crear una extraordinaria sobre una competencia bloqueada
 **§5 — Dirección solo ve bimestres CERRADOS en `/admin/cuadros`** (en la laptop: I y II
 cerrados = ids 1 y 2; III activo = id 3). Es la primera vez que `/admin/cuadros` se abre
 con sesión de director.
-- [ ] Director: el selector solo ofrece bimestres cerrados; el activo no aparece.
-- [ ] Director: las series de evolución terminan en el último cerrado (sin caída final).
-- [ ] Director: `/admin/cuadros/imprimir?periodo_id=3` → **404**; con `periodo_id=2` funciona.
-- [ ] Director: `/admin/cuadros?periodo_id=3` no muestra el activo.
-- [ ] Admin y RA: siguen viendo el III **en vivo**, como antes.
-- [ ] Director: `/consulta-notas/3/seccion/{s}/asistencia` sigue en vivo (excepción que se conserva).
+- [x] Director: el selector solo ofrece bimestres cerrados; el activo no aparece.
+- [x] Director: las series de evolución terminan en el último cerrado (sin caída final).
+- [x] Director: `/admin/cuadros/imprimir?periodo_id=3` → **404**; con `periodo_id=2` funciona.
+- [x] Director: `/admin/cuadros?periodo_id=3` no muestra el activo.
+- [ ] Admin y RA: siguen viendo el III **en vivo**, como antes. ⚠️ 22/09: admin abre `/admin/cuadros?periodo_id=3` (200), pero no se comprobó el selector ni con RA.
+- [x] Director: `/consulta-notas/3/seccion/{s}/asistencia` sigue en vivo (excepción que se conserva).
 
 **§6 — 404 limpios** (con admin; una sola página, sin barra duplicada):
-- [ ] `/matriculas/999999/notas-siagie/informe`
-- [ ] `/matriculas/999999/retorno`
-- [ ] `/matriculas/999999/trasladar`
-- [ ] `/traslados/999999/imprimir`
+- [x] `/matriculas/999999/notas-siagie/informe`
+- [x] `/matriculas/999999/retorno`
+- [x] `/matriculas/999999/trasladar`
+- [x] `/traslados/999999/imprimir`
 
 **§7 — Regresión general**
-- [ ] Login y dashboard con cada rol; la campana solo para docente, RA, admin y directores.
-- [ ] Un docente registra y guarda una nota por el flujo normal.
-- [ ] Boleta digital e imprimible de un alumno cualquiera, igual que en producción.
-- [ ] Orden de mérito de un grado, igual que en producción.
-- [ ] `/rectificaciones` de un alumno sin casos especiales.
-- [ ] Consola del navegador sin errores en todo el recorrido.
+- [ ] Login y dashboard con cada rol; la campana solo para docente, RA, admin y directores. ⚠️ 22/09: probado con admin, director y docente; RA no.
+- [x] Un docente registra y guarda una nota por el flujo normal.
+- [ ] Boleta digital e imprimible de un alumno cualquiera, igual que en producción. ⚠️ 22/09: sin errores y sin fuga de notas de origen; no se comparó contra producción.
+- [ ] Orden de mérito de un grado, igual que en producción. ⚠️ 22/09: `/director/orden-merito` carga sin errores; no se comparó contra producción.
+- [ ] `/rectificaciones` de un alumno sin casos especiales. ⚠️ 22/09: solo el listado `/rectificaciones` (200); la página de un alumno no se abrió.
+- [x] Consola del navegador sin errores en todo el recorrido.
 
 ### 4. Despliegue (solo con §5–§7 en verde)
 1. **`057`, `058`, `059`, `060` y `061` en PRODUCCIÓN, a mano y ANTES del merge.** El
