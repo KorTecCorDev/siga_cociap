@@ -166,8 +166,12 @@ $k = $bloques['matricula']['kpis'];
     <?php // ── 3b. ESTUDIANTES EN RIESGO ───────────────────────────── ?>
     <?php // `--tabla` porque el bloque es un listado, no un panel: son las
           // tablas por grado las que deben poder cortar entre hojas sin partir
-          // un grado por la mitad. ?>
-    <section class="cuadros-print__bloque cuadros-print__bloque--tabla">
+          // un grado por la mitad.
+          //
+          // `--hoja-nueva` (22/09/2026): el listado empieza en hoja propia y
+          // Conducta tambien, asi que estas hojas se pueden separar del informe
+          // y entregar solas (tutoria, psicopedagogia). ?>
+    <section class="cuadros-print__bloque cuadros-print__bloque--tabla cuadros-print__bloque--hoja-nueva">
         <h2 class="cuadros-print__h2">Estudiantes en riesgo</h2>
 
         <?php
@@ -203,8 +207,9 @@ $k = $bloques['matricula']['kpis'];
 
     <?php // ── 4. CONDUCTA ─────────────────────────────────────────── ?>
     <?php // En papel NO hay pestañas: el informe se lee entero de una vez, y un
-          // bloque oculto en una hoja impresa simplemente no existe. ?>
-    <section class="cuadros-print__bloque">
+          // bloque oculto en una hoja impresa simplemente no existe.
+          // En hoja nueva: cierra el listado de riesgo (ver su comentario). ?>
+    <section class="cuadros-print__bloque cuadros-print__bloque--hoja-nueva">
         <h2 class="cuadros-print__h2">Conducta</h2>
         <div class="cuadros-kpis">
             <?php // Sin conducta calificada NO se imprimen las tarjetas de

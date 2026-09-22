@@ -973,6 +973,31 @@ foreach ($periodos as $p) {
             && !str_contains($htmlPrint, '<details'),
         $filas === 0 ? 'sin casos' : substr_count($html, '<details class="riesgo-detalle"') . ' plegado(s) en pantalla, 0 en papel');
 
+    // ── Formato A4 de riesgo: informe agrupado (22/09/2026) ───────────
+    // En papel cada estudiante es una franja de grupo y el desglose va en la
+    // MISMA tabla del grado. La version anterior anidaba una sub-tabla por
+    // estudiante con su caption («Competencias en C · NOMBRE», el nombre dos
+    // veces) y su thead: 118 encabezados al nivel del de la tabla.
+    $anidadas = 0;
+    preg_match_all('~<table class="tabla-notas cuadros-top riesgo-informe">(.*?)</table>~s', $htmlPrint, $mInf);
+    foreach ($mInf[1] ?? [] as $cuerpo) {
+        if (str_contains($cuerpo, '<table')) { $anidadas++; }
+    }
+    $chk("el A4 de $etiquetaP lista el riesgo agrupado: una tabla por grado, sin sub-tablas ni nombre repetido",
+        count($mInf[1] ?? []) === $nRiesgo
+            && $anidadas === 0
+            && !str_contains($htmlPrint, 'Competencias en C &middot;')
+            && substr_count($htmlPrint, 'class="riesgo-informe__alumno"') === $filas,
+        count($mInf[1] ?? []) . " tabla(s) · $anidadas anidada(s) · "
+            . substr_count($htmlPrint, 'class="riesgo-informe__alumno"') . " franja(s) para $filas estudiante(s)");
+
+    // Riesgo y Conducta empiezan hoja: el listado se puede entregar suelto.
+    $chk("en el A4 de $etiquetaP riesgo y conducta empiezan en hoja nueva",
+        substr_count($htmlPrint, 'cuadros-print__bloque--hoja-nueva') === 2
+            && (bool) preg_match('~--hoja-nueva">\s*<h2 class="cuadros-print__h2">Estudiantes en riesgo<~', $htmlPrint)
+            && (bool) preg_match('~--hoja-nueva">\s*<h2 class="cuadros-print__h2">Conducta<~', $htmlPrint),
+        substr_count($htmlPrint, 'cuadros-print__bloque--hoja-nueva') . ' salto(s)');
+
     // 🔴 LA FILA DEL DESGLOSE NO PUEDE LLEVAR `data-riesgo-fila`. Ese atributo
     // es lo que `cuadros-riesgo.js` cuenta para el TOTAL y para "Mostrando N de
     // 118": si se le colara, el contador diria el doble y nadie veria un error.

@@ -1099,8 +1099,103 @@ tr.fila-riesgo-detalle > td {
         tr       { page-break-inside: avoid; }
     }
 
-    .riesgo-detalle__caption { font-size: 8px; padding: 2px 3px; }
     .riesgo-detalle__aviso   { font-size: 8px; padding: 2px 3px; }
+
+    // ── Estudiantes en riesgo: INFORME AGRUPADO (22/09/2026) ─────────
+    // Marcado propio del papel (`_estudiantes-riesgo-print.php`): una tabla por
+    // grado, UN encabezado —el del desglose— y cada estudiante una franja de
+    // grupo en su propio <tbody>. Sustituye a la rejilla de nueve columnas con
+    // una sub-tabla por estudiante, que imprimia el nombre dos veces y 118
+    // encabezados al mismo nivel que el de la tabla.
+    //
+    // La jerarquia va por PESO y BORDE, nunca por color: encabezado gris y en
+    // negrita; franja sin relleno, con borde superior grueso y el nombre en
+    // negrita. Sobrevive a la fotocopia en blanco y negro.
+    .riesgo-informe__grado { page-break-inside: auto; border: 0; overflow: visible; }
+
+    .riesgo-informe {
+        table-layout: fixed;
+        font-size: 9px;   // un punto sobre el resto del A4: es el listado que mas se lee
+        page-break-inside: auto;
+
+        thead { display: table-header-group; }   // el encabezado vuelve en cada hoja
+        tr    { page-break-inside: avoid; }
+
+        td { vertical-align: top; }
+
+        // `.tabla-notas tr:last-child td` (0,2,2) quita el borde inferior de la
+        // ultima fila, y aqui cada estudiante es un <tbody>: sin esto, la
+        // ultima competencia de cada uno quedaba abierta por abajo.
+        tr:last-child td { border-bottom: 1px solid #000; }
+    }
+
+    .riesgo-informe__area    { width: 20%; }
+    .riesgo-informe__curso   { width: 15%; }
+    .riesgo-informe__comp    { width: 41%; }
+    .riesgo-informe__nota    { width: 7%; }
+    .riesgo-informe__docente { width: 17%; }
+
+    .riesgo-informe__caption {
+        caption-side: top;
+        text-align: left;
+        font-size: 10px;
+        font-weight: 700;
+        padding: $spacing-sm 0 3px;
+    }
+
+    .riesgo-informe__caption-n { font-weight: 400; }
+
+    // Un estudiante nunca se parte entre hojas: su bloque son 4-15 filas.
+    .riesgo-informe__alumno {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    // (0,3,2): le gana a `.cuadros-print thead th` y al `th` de `.cuadros-top`,
+    // que pondrian el gris del encabezado a la franja.
+    .riesgo-informe .riesgo-informe__grupo th {
+        text-align: left;
+        font-weight: 400;
+        font-size: inherit;
+        color: #000;
+        white-space: normal;
+        background: transparent;
+        border-top: 1.5px solid #000;
+        padding: 3px 4px;
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+
+    .riesgo-informe__nombre {
+        display: block;
+        font-weight: 700;
+        font-size: 9.5px;
+    }
+
+    .riesgo-informe__dato {
+        display: block;
+        font-size: 8px;
+        color: #333;
+    }
+
+    // Doble clase: tiene que ganarle a `.tabla-pie`, que va mas abajo con la
+    // misma especificidad.
+    .tabla-pie.riesgo-informe__leer {
+        border: 1px solid #000;
+        padding: $spacing-xs $spacing-sm;
+        margin-bottom: $spacing-sm;
+        page-break-inside: avoid;
+    }
+
+    .riesgo-informe__leer-titulo { font-size: 9px; margin: 0 0 2px; }
+
+    // Arranca en hoja nueva. Lo llevan «Estudiantes en riesgo» y la seccion que
+    // la sigue (Conducta), asi el listado ocupa hojas propias y se puede
+    // entregar suelto.
+    &__bloque--hoja-nueva {
+        break-before: page;
+        page-break-before: always;
+    }
 
     tr.fila-riesgo-detalle > td { padding: 0; background: transparent; }
 

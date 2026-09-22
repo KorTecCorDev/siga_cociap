@@ -28,6 +28,9 @@
  *                true; `imprimir.php` no lo define a proposito, y sin el no se
  *                emiten ni el buscador ni los chips. Mismo idioma que `$abierta`
  *                en `_tabla-grafico.php`: el partial es uno, las superficies dos.
+ *                Desde el 22/09/2026 el flag decide tambien el FORMATO de las
+ *                tablas: sin el, se delega en `_estudiantes-riesgo-print.php`
+ *                (informe agrupado). Banda, filtrado y cifras siguen aqui.
  */
 
 $porGrado     = $bloques['merito']['por_grado'] ?? [];
@@ -58,6 +61,55 @@ foreach ($riesgoGrados as $g) {
     $porNivel[$nid] ??= ['nombre' => $g['grado']['nivel_nombre'], 'n' => 0];
     $porNivel[$nid]['n'] += count($g['en_riesgo']);
 }
+
+// ── Pie «como leer» ──────────────────────────────────────────────────
+// El texto es UNO para las dos superficies y se coloca segun cual sea: en
+// pantalla al final, como siempre; en papel ANTES de las tablas (22/09/2026),
+// porque quien lee una hoja impresa no puede preguntar y la explicacion al
+// final llegaba tarde. En papel lleva ademas titulo y la escala literal, que
+// sale de `escala_rangos()` —nunca umbrales escritos a mano—.
+//
+// Va suelto (`--suelto`) porque no cuelga de ningun wrapper: dentro se
+// desplaza con el scroll horizontal y la card lo recorta por su overflow.
+$pintarPie = static function (bool $interactivo, int $riesgoMinC): void { ?>
+    <div class="tabla-pie tabla-pie--suelto<?= $interactivo ? '' : ' riesgo-informe__leer' ?>">
+        <?php if (!$interactivo): ?>
+            <p class="riesgo-informe__leer-titulo"><strong>Cómo leer este listado</strong></p>
+        <?php endif; ?>
+        <p class="text-sm text-muted">
+            Se lista a cada estudiante con <strong><?= $riesgoMinC ?> competencias en C
+            o más</strong> en el bimestre, ordenado de más C a menos; a igual número de C,
+            primero el promedio más bajo. No hay tope por grado: un grado puede aportar una
+            fila o quince, y un grado sin ningún caso no aparece.
+        </p>
+        <p class="text-sm text-muted">
+            Las cifras salen del <strong>orden de mérito</strong>: cuentan solo las competencias
+            ya bloqueadas por el docente o por el cierre, sin las áreas exoneradas ni las notas
+            extraordinarias. En un bimestre abierto la lista <strong>crece conforme se bloquean
+            competencias</strong>. Los conteos AD, A, B y C suman el total de competencias evaluadas.
+        </p>
+        <?php if (!$interactivo): ?>
+            <p class="text-sm text-muted">
+                Escala:
+                <?php $rangos = escala_rangos(); $partes = []; ?>
+                <?php foreach ($rangos as $lit => $rango) {
+                    $partes[] = '<strong>' . e($lit) . '</strong> ' . e($rango)
+                              . ' (' . e(descripcion_literal($lit)) . ')';
+                } ?>
+                <?= implode(' &middot; ', $partes) ?>.
+                Cada estudiante aparece una vez, con su sección, su puesto en el grado y su
+                promedio; debajo, una fila por cada competencia en C, con el área, el curso,
+                la nota y el docente que la registró.
+            </p>
+        <?php endif; ?>
+        <p class="text-sm text-muted">
+            No confundir con <strong>«Promedio en C»</strong> del bloque de Calificaciones:
+            aquélla cuenta a quien tiene el <strong>promedio general</strong> por debajo de
+            <?= (int) NOTA_MIN_B ?>, por nivel. Se puede acumular varias C y aun así aprobar
+            de promedio.
+        </p>
+    </div>
+<?php };
 ?>
 
 <div class="cuadros-riesgo">
@@ -149,6 +201,16 @@ foreach ($riesgoGrados as $g) {
     <div class="empty-state cuadros-riesgo__sin-resultados" id="riesgo-sin-resultados" hidden>
         <p>Ningún estudiante de la lista coincide con la búsqueda o el filtro.</p>
     </div>
+    <?php else: ?>
+    <?php // ── PAPEL: informe agrupado (22/09/2026) ─────────────────────────
+          // Otro marcado, no el de pantalla con estilos distintos: la rejilla de
+          // nueve columnas + una sub-tabla por estudiante imprimia el nombre dos
+          // veces y 118 encabezados al mismo nivel que el de la tabla. Ver el
+          // partial. El pie «como leer» va ANTES de las tablas. ?>
+    <?php $pintarPie(false, $riesgoMinC); ?>
+    <?php require VIEW_PATH . '/admin/cuadros/_estudiantes-riesgo-print.php'; ?>
+</div>
+<?php return; ?>
     <?php endif; ?>
 
     <?php // UNA TABLA POR GRADO, no una sola con columna "Grado". Es el patron
@@ -265,7 +327,6 @@ foreach ($riesgoGrados as $g) {
                                             que se omite para no mostrar dos cifras distintas.
                                         </p>
                                     <?php elseif (!empty($det)): ?>
-                                        <?php if ($interactivo): ?>
                                         <?php // Nace cerrado: 778 filas abiertas de golpe (B1)
                                               // convertirian la seccion en un muro. El navegador
                                               // ya sabe abrirlo al buscar con Ctrl+F.
@@ -277,17 +338,8 @@ foreach ($riesgoGrados as $g) {
                                             <summary class="riesgo-detalle__summary">
                                                 Ver las <?= count($det) ?> competencias en C
                                             </summary>
-                                        <?php endif; ?>
 
                                         <table class="tabla-notas riesgo-detalle__tabla">
-                                            <?php if (!$interactivo): ?>
-                                                <?php // En papel no hay `<summary>` que diga de quien
-                                                      // es este bloque, y una tabla puede quedar en otra
-                                                      // hoja que su fila madre. El <caption> lo ancla. ?>
-                                                <caption class="riesgo-detalle__caption">
-                                                    Competencias en C &middot; <?= e($al['nombre_completo']) ?>
-                                                </caption>
-                                            <?php endif; ?>
                                             <thead>
                                                 <tr>
                                                     <th scope="col">Área</th>
@@ -318,9 +370,7 @@ foreach ($riesgoGrados as $g) {
                                             </tbody>
                                         </table>
 
-                                        <?php if ($interactivo): ?>
                                         </details>
-                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -331,28 +381,8 @@ foreach ($riesgoGrados as $g) {
         </div>
     <?php endforeach; ?>
 
-    <?php // El pie es UNO SOLO y al final, fuera de todos los bloques: repetirlo
-          // en cada grado seria ruido. Va suelto (`--suelto`) porque no cuelga de
-          // ningun wrapper: dentro se desplaza con el scroll horizontal y la card
-          // lo recorta por su overflow. ?>
-    <div class="tabla-pie tabla-pie--suelto">
-        <p class="text-sm text-muted">
-            Se lista a cada estudiante con <strong><?= $riesgoMinC ?> competencias en C
-            o más</strong> en el bimestre, ordenado de más C a menos; a igual número de C,
-            primero el promedio más bajo. No hay tope por grado: un grado puede aportar una
-            fila o quince, y un grado sin ningún caso no aparece.
-        </p>
-        <p class="text-sm text-muted">
-            Las cifras salen del <strong>orden de mérito</strong>: cuentan solo las competencias
-            ya bloqueadas por el docente o por el cierre, sin las áreas exoneradas ni las notas
-            extraordinarias. En un bimestre abierto la lista <strong>crece conforme se bloquean
-            competencias</strong>. Las columnas AD, A, B y C suman el total de competencias.
-        </p>
-        <p class="text-sm text-muted">
-            No confundir con <strong>«Promedio en C»</strong> del bloque de Calificaciones:
-            aquélla cuenta a quien tiene el <strong>promedio general</strong> por debajo de
-            <?= (int) NOTA_MIN_B ?>, por nivel. Se puede acumular varias C y aun así aprobar
-            de promedio.
-        </p>
-    </div>
+    <?php // El pie es UNO SOLO, fuera de todos los bloques: repetirlo en cada
+          // grado seria ruido. En pantalla va al final, como siempre; en papel
+          // va ANTES de las tablas (ver `$pintarPie` arriba). ?>
+    <?php if ($interactivo) { $pintarPie(true, $riesgoMinC); } ?>
 </div>

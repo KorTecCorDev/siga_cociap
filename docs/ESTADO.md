@@ -5,6 +5,23 @@
 > **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
 
 
+## 🆕 CUADROS A4 — «Estudiantes en riesgo» como informe agrupado — EN `dev` (22/09/2026)
+
+Solo papel (`/admin/cuadros/imprimir`); la pantalla no cambia. La sección empieza **en hoja
+nueva** y Conducta también. Cada grado es **una tabla con un solo encabezado** (Área · Curso ·
+Competencia en C · Nota · Docente) y cada estudiante **una franja de grupo** (`<tbody>` propio,
+`th scope="rowgroup"`, `break-inside: avoid`) con sección, puesto, promedio y perfil
+AD/A/B/C. Desaparecen la sub-tabla por estudiante, su caption con el nombre repetido y sus 118
+encabezados. El pie «Cómo leer este listado» pasa **antes** de las tablas y suma la escala
+(`escala_rangos()`). Partial nuevo `_estudiantes-riesgo-print.php`. Detalle en
+`docs/modulos/usuarios-direccion.md`.
+
+- [x] `verif_direccion_superficies.php` en verde, con 2 asertos nuevos (agrupado sin anidadas
+      ni nombre repetido: 118 franjas en B1 y 77 en B2; saltos de hoja en riesgo y conducta).
+- [ ] **Vista previa de impresión en Chrome** (B1 y B2): los saltos de hoja, el encabezado
+      repetido en cada hoja y que ningún estudiante quede partido. No se puede probar sin sesión.
+
+
 ## 🟢 CONDUCTA Y ASISTENCIA EXTRAORDINARIAS EN EL LOTE (22/09/2026) — DESPLEGADO en v1.0.3
 
 **Migración `063`** (`extraordinaria` + `motivo_extraordinaria` en `inasistencias` y

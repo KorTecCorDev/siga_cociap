@@ -901,6 +901,40 @@ y JS), así que el único sitio donde se puede arreglar es la propia vista.
 grado se pasa de hoja y el `avoid` lo empujaría entero, dejando media página en blanco.
 Las FILAS conservan su `avoid`.
 
+### Formato A4 de «Estudiantes en riesgo»: informe agrupado (22/09/2026)
+
+Estado: **en `dev`**, sin desplegar. **Solo papel**: la pantalla conserva su rejilla de nueve
+columnas con el desglose plegado.
+
+**Qué fallaba en el papel.** Debajo de cada fila de 9 columnas iba una sub-tabla con
+`<caption>` «Competencias en C · NOMBRE» (**el nombre dos veces**) y **su propio `thead`**,
+con el mismo gris y peso que el de la tabla: 118 encabezados en B1 al mismo nivel visual,
+apilados con el que se repite en cada hoja. Además, «Competencias» significaba tres cosas en
+la misma rejilla, «12 de 47» no decía qué contaba y el «cómo leer» llegaba al final.
+
+**Cómo queda.**
+- `_estudiantes-riesgo.php` conserva la banda, el filtrado de grados y `riesgo_resumen()`
+  (punto único de las dos superficies). Sin `$riesgoInteractivo` delega las tablas en
+  **`_estudiantes-riesgo-print.php`**.
+- **Una tabla por grado con UN encabezado**, el del desglose (Área · Curso · Competencia en C
+  · Nota · Docente), que se repite en cada hoja. **Cada estudiante es un `<tbody>`** cuya
+  primera fila es un `th scope="rowgroup"` con el nombre y dos líneas de datos: «Sección ·
+  Puesto N de T · Promedio» y «N competencias en C de M evaluadas (AD · A · B · C)».
+- `break-inside: avoid` en cada `<tbody>` (son 4-15 filas): un estudiante nunca se parte
+  entre hojas ni queda su franja huérfana al pie.
+- La jerarquía va por **peso y borde**, no por color: encabezado gris, franja sin relleno con
+  borde superior grueso. Resiste la fotocopia. La letra sube a 9px (el resto del A4 va a 8px).
+- «Cómo leer este listado» va **antes** de las tablas y añade la escala con
+  `escala_rangos()` + `descripcion_literal()`.
+- `cuadros-print__bloque--hoja-nueva` en **Estudiantes en riesgo y Conducta**: el listado
+  ocupa hojas propias y se puede entregar suelto.
+
+⚠️ El partial de papel **no** usa `cuadros-top--riesgo` (nueve anchos en % desarmarían sus
+cinco columnas) ni `cuadros-top__bloque--riesgo` (el verificador lo cuenta en pantalla).
+**Sí** lleva `data-riesgo-detalle`, uno por estudiante: es lo que prueba que el desglose
+sigue impreso. `verif_direccion_superficies.php` vigila además que no haya tablas anidadas ni
+el caption «Competencias en C ·», y los dos saltos de hoja.
+
 ---
 
 ## Dirección solo ve bimestres CERRADOS (08/09/2026)
