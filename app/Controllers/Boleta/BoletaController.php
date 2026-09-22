@@ -186,7 +186,8 @@ class BoletaController extends BaseController
      * un nivel donde tiene carga activa) y devuelve el periodo a mostrar (el más
      * reciente con notas bloqueadas) junto con el estado de la matrícula, para que
      * el entry point fuerce la vista previa si está desactivada.
-     * Responde 403 si está fuera de alcance, 404 si no hay periodos.
+     * Responde 403 si está fuera de alcance y el aviso de sinCalificaciones()
+     * si no hay periodo publicable con notas.
      *
      * @return array{periodo_id: int, estado_matricula: string}
      */
@@ -217,17 +218,13 @@ class BoletaController extends BaseController
         ", [$matriculaId, $docenteId]);
 
         if (!$mat) {
-            http_response_code(403);
-            $this->view('shared/403');
-            exit;
+            $this->forbidden();
         }
 
-        $periodoId = $this->periodoPublicableConNotas((int) $mat['anio_id'], $matriculaId);
+        $periodoId = $this->boletaModel->periodoPublicableConNotas((int) $mat['anio_id'], $matriculaId);
 
         if ($periodoId === null) {
-            http_response_code(404);
-            require VIEW_PATH . '/shared/404.php';
-            exit;
+            $this->sinCalificaciones();
         }
 
         return ['periodo_id' => $periodoId, 'estado_matricula' => $mat['estado']];
@@ -302,10 +299,11 @@ class BoletaController extends BaseController
      * los roles de gestion de matricula pueden abrir cualquier matricula,
      * incluidas las desactivadas (traslado/baja).
      * - TRASLADADO consumado: ancla al ultimo bimestre CERRADO con notas (su
-     *   boleta es exclusivamente OFICIAL; sin cerrados no hay boleta -> 404,
+     *   boleta es exclusivamente OFICIAL; sin cerrados no hay boleta -> aviso,
      *   su documento de salida es la constancia de traslado).
      * - Resto: ultimo periodo publicable (cerrado u activo con Hito A).
-     * 404 si la matricula no existe o no hay periodo elegible.
+     * 404 si la matricula no existe; aviso de sinCalificaciones() si no hay
+     * periodo elegible.
      *
      * @return array{periodo_id: int, estado_matricula: string, tipo: string}
      */
@@ -320,14 +318,17 @@ class BoletaController extends BaseController
             && $mat['estado'] === 'desactivado'
             && $mat['tipo']   === 'trasladado';
 
-        $periodoId = $mat
-            ? $this->periodoPublicableConNotas((int) $mat['anio_id'], $matriculaId, $esTrasladado)
-            : null;
+        // Matrícula inexistente: 404 de verdad. Existe pero sin notas: aviso.
+        if (!$mat) {
+            $this->notFound();
+        }
+
+        $periodoId = $this->boletaModel->periodoPublicableConNotas(
+            (int) $mat['anio_id'], $matriculaId, $esTrasladado
+        );
 
         if ($periodoId === null) {
-            http_response_code(404);
-            require VIEW_PATH . '/shared/404.php';
-            exit;
+            $this->sinCalificaciones();
         }
 
         return [
@@ -338,38 +339,16 @@ class BoletaController extends BaseController
     }
 
     /**
-     * Ultimo periodo PUBLICABLE con notas del alumno: cerrado (OFICIAL) o activo
-     * con boletas aprobadas (BORRADOR, Hito A). Un bimestre en registro aun NO
-     * tiene boleta. Con $soloCerrados = true considera UNICAMENTE bimestres
-     * cerrados (trasladados: su boleta es exclusivamente oficial). Retorna el id
-     * o null si no hay ninguno. Compartido por el flujo del docente y el de
-     * gestion de matriculas.
+     * Aviso "aún no tiene calificaciones oficiales" en lugar del 404 (21/09/2026).
+     * La matrícula EXISTE y el usuario puede verla: un 404 decía "no existe", que
+     * era falso. Página suelta con `require` (como `notFound()`), HTTP 200 y el
+     * botón Cerrar de los documentos: estas rutas se abren en pestaña nueva.
+     * La regla de "tiene boleta" es `BoletaModel::periodoPublicableConNotas`.
      */
-    private function periodoPublicableConNotas(int $anioId, int $matriculaId, bool $soloCerrados = false): ?int
+    private function sinCalificaciones(): never
     {
-        $condicionEstado = $soloCerrados
-            ? "p.estado = 'cerrado'"
-            : "(p.estado = 'cerrado'
-                   OR (p.estado = 'activo' AND p.boletas_aprobadas_en IS NOT NULL))";
-
-        $periodo = $this->calModel->queryOne("
-            SELECT p.id
-            FROM periodos p
-            WHERE p.anio_id = ?
-              AND {$condicionEstado}
-              AND EXISTS (
-                  SELECT 1 FROM calificaciones cal
-                  INNER JOIN bloqueos_competencia bc
-                      ON bc.carga_id = cal.carga_id
-                     AND bc.competencia_id = cal.competencia_id
-                     AND bc.periodo_id = cal.periodo_id
-                  WHERE cal.matricula_id = ? AND cal.periodo_id = p.id
-              )
-            ORDER BY p.numero DESC
-            LIMIT 1
-        ", [$anioId, $matriculaId]);
-
-        return $periodo ? (int) $periodo['id'] : null;
+        require VIEW_PATH . '/boleta/sin-calificaciones.php';
+        exit;
     }
 
     /** Estado de boleta ('registro'|'borrador'|'oficial') de un periodo. */

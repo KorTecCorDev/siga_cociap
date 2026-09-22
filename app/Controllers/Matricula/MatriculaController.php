@@ -11,6 +11,11 @@ use App\Models\ExoneracionModel;
 use App\Models\NotaAutorizadaSiagieModel;
 use App\Models\DirectorEbrModel;
 use App\Models\OrdenMeritoModel;
+use App\Models\NotaExternaModel;
+use App\Models\NotificacionModel;
+use App\Models\AnioAcademicoModel;
+use App\Models\RectificacionModel;
+use App\Models\BoletaModel;
 use Core\Session;
 use Core\View;
 
@@ -34,6 +39,7 @@ class MatriculaController extends BaseController
     private ExoneracionModel $exoneraciones;
     private NotaAutorizadaSiagieModel $notasAut;
     private OrdenMeritoModel $ordenMerito;
+    private NotaExternaModel $notasExternasModel;
 
     /** Tipos de vínculo disponibles: valor BD => etiqueta mostrada. */
     private const TIPOS_VINCULO = [
@@ -119,6 +125,7 @@ class MatriculaController extends BaseController
         $this->exoneraciones = new ExoneracionModel();
         $this->notasAut    = new NotaAutorizadaSiagieModel();
         $this->ordenMerito = new OrdenMeritoModel();
+        $this->notasExternasModel = new NotaExternaModel();
     }
 
     /** Catálogo de tipos de vínculo (para reutilizar desde otros módulos). */
@@ -807,12 +814,34 @@ class MatriculaController extends BaseController
         // detalle— verian esos tres botones y se toparian con un 403.
         $puedeMatricular = has_role(self::ROLES_MATRICULAN);
 
+        // Registrar notas de un estudiante que llegó tarde (18/09/2026): SIN
+        // filtro por tipo o estado —ningún flag detecta el caso, lo decide
+        // quien registra—, salvo el trasladado de SALIDA, que ya no está en el
+        // colegio. Los bimestres pendientes solo los ve admin/RA, que son
+        // quienes pueden abrir la grilla de Rectificación.
+        $registraLlegadaTarde = $matricula['tipo'] !== 'trasladado';
+        $pendientesExtra = ($registraLlegadaTarde && $puedeGestionar)
+            ? (new RectificacionModel())->insertablesPorPeriodo((int) $id)
+            : [];
+
+        // ¿Hay boleta que abrir? MISMA regla y mismo corte que la ruta
+        // /matriculas/{id}/boleta (BoletaController::resolverBoletaGestion): el
+        // trasladado consumado solo cuenta bimestres cerrados. Sin boleta, los
+        // botones salen desactivados en vez de llevar al aviso (21/09/2026).
+        $esTrasladado = $matricula['estado'] === 'desactivado' && $matricula['tipo'] === 'trasladado';
+        $tieneBoleta  = (new BoletaModel())->periodoPublicableConNotas(
+            (int) $matricula['anio_id'], (int) $id, $esTrasladado
+        ) !== null;
+
         $this->view('matriculas/show', [
+            'tieneBoleta'          => $tieneBoleta,
+            'registraLlegadaTarde' => $registraLlegadaTarde,
+            'pendientesExtra'      => $pendientesExtra,
             'titulo'       => 'Detalle de matrícula',
             'matricula'    => $matricula,
             'vinculos'     => $this->apoderados->getVinculos((int) $matricula['estudiante_id']),
             'documentos'   => $this->model->getDocumentos((int) $id),
-            'notasExternas'=> $this->model->getNotasExternas((int) $id),
+            'notasExternas'=> $this->notasExternasModel->getDeMatricula((int) $id),
             'tiposVinculo' => self::TIPOS_VINCULO,
             'retorno'      => $retorno,
             'traslado'     => $this->traslados->getUltimaPorMatricula((int) $id),
@@ -1172,52 +1201,251 @@ class MatriculaController extends BaseController
     }
 
     // ── GET /matriculas/{id}/notas-externas ──────────────────────
+    //
+    // NOTAS DEL COLEGIO DE ORIGEN. Regla del colegio (10/09/2026): NO entran en
+    // la boleta del COCIAP —la boleta lleva solo lo cursado aquí—; son
+    // INFORMATIVAS para los docentes con carga en la sección del estudiante.
+    //
+    // ⚠️ Ya NO se exige `tipo === 'nuevo'`. Ese candado dejaba la pantalla fuera
+    // del alcance de la mitad de los casos reales: de los 6 estudiantes que hoy
+    // llegaron con un bimestre cerrado por delante, 3 figuran como
+    // 'continuador'. El `tipo` no distingue este caso —y `tipo_matricula` menos
+    // aún: sus 173 filas 'traslado_entrada' tienen el bimestre completo—, así
+    // que la decisión de si corresponde registrar es de quien registra, no de
+    // un flag. Ver docs/modulos/matriculas.md.
     public function notasExternas(string $id): void
     {
         $this->requireRole(self::ROLES_MATRICULAN);
         $matricula = $this->requireMatricula((int) $id);
-        if ($matricula['tipo'] !== 'nuevo') {
-            $this->redirectWithError(url('matriculas/' . $id),
-                'Las notas externas solo aplican a traslados de entrada (tipo nuevo).');
+
+        $mid       = (int) $id;
+        $curricula = $this->notasExternasModel->curriculaParaImportar($mid);
+        $yaHay     = $this->notasExternasModel->getDeMatricula($mid);
+
+        // Los bimestres del año, UNA sola lectura para los dos usos que tienen
+        // aquí: el importador y las casillas de la card. Sale de
+        // `AnioAcademicoModel::getPeriodos()`, que ya existía y los devuelve
+        // ordenados por número — antes eran dos consultas idénticas escritas a
+        // mano en este mismo método.
+        $periodos = (new AnioAcademicoModel())->getPeriodos((int) $matricula['anio_id']);
+
+        // ── Importación de la currícula ──────────────────────────
+        //
+        // Transcribir a mano el informe del colegio anterior son 27-29
+        // competencias POR BIMESTRE. Como la mayoría de colegios sigue el mismo
+        // Currículo Nacional, se traen las nuestras ya escritas.
+        //
+        // ⚠️ NO ESCRIBE NADA: solo PRE-RELLENA las filas del formulario de
+        // siempre, que siguen siendo editables. Guardar sigue siendo el POST.
+        // Por eso el camino manual —el de una currícula extranjera— queda
+        // intacto: es literalmente el mismo formulario, solo que en blanco.
+        $periodosPedidos = array_map('intval', (array) $this->query('periodos', []));
+        $areasPedidas    = array_map('intval', (array) $this->query('areas', []));
+        $filasImportadas = [];
+        $importar        = (bool) $this->query('importar');
+
+        // 🔴 IMPORTAR SIN ELEGIR NADA NO PUEDE SER UN SILENCIO. Sin esta guarda
+        // la pantalla recargaba idéntica y parecía que el botón no funcionaba.
+        // El JS tampoco deja enviar el formulario vacío: la comprobación está
+        // en las dos capas, como el resto del proyecto.
+        if ($importar && ($periodosPedidos === [] || $areasPedidas === [])) {
+            Session::flash('warning', $periodosPedidos === []
+                ? 'Marca al menos un bimestre para traer sus competencias.'
+                : 'Marca al menos un área para traer sus competencias.');
+            redirect(url('matriculas/' . $mid . '/notas-externas'));
+        }
+
+        if ($importar) {
+            // Lo ya registrado se excluye: importar dos veces no duplica filas
+            // en pantalla. La clave es la misma que la UNIQUE (migración 059).
+            $registradas = [];
+            foreach ($yaHay as $n) {
+                $registradas[$n['periodo_nombre'] . '||' . $n['area_nombre'] . '||' . $n['competencia_nombre']] = true;
+            }
+
+            foreach ($periodos as $p) {
+                if (!in_array((int) $p['id'], $periodosPedidos, true)) {
+                    continue;
+                }
+                foreach ($curricula as $area) {
+                    if (!in_array((int) $area['area_id'], $areasPedidas, true)) {
+                        continue;
+                    }
+                    foreach ($area['competencias'] as $comp) {
+                        $clave = $p['nombre_display'] . '||' . $area['area_nombre'] . '||' . $comp;
+                        if (isset($registradas[$clave])) {
+                            continue;
+                        }
+                        $filasImportadas[] = [
+                            'periodo_nombre'     => $p['nombre_display'],
+                            'area_nombre'        => $area['area_nombre'],
+                            'area_id'            => (int) $area['area_id'],
+                            'competencia_nombre' => $comp,
+                        ];
+                    }
+                }
+            }
         }
 
         $this->view('matriculas/notas-externas', [
-            'titulo'    => 'Notas externas (traslado)',
+            'titulo'    => 'Notas del colegio de origen',
             'matricula' => $matricula,
-            'notas'     => $this->model->getNotasExternas((int) $id),
+            'notas'     => $yaHay,
+            'areas'     => $this->notasExternasModel->areasDeLaSeccion($mid),
+            'curricula' => $curricula,
+            'periodos'  => $periodos,
+            'filasImportadas' => $filasImportadas,
+            'page_scripts'    => ['notas-externas'],
         ]);
     }
 
     // ── POST /matriculas/{id}/notas-externas ─────────────────────
+    //
+    // Alta EN LOTE: el informe de progreso del colegio de origen llega como un
+    // documento entero, así que se captura entero y en una transacción. Las
+    // filas incompletas se omiten sin error (el formulario nace con filas de
+    // más para que no haya que ir añadiéndolas de una en una).
     public function storeNotasExternas(string $id): void
     {
         $this->requireRole(self::ROLES_MATRICULAN);
         $this->validateCsrf();
         $matricula = $this->requireMatricula((int) $id);
 
-        $area    = trim((string) $this->input('area_nombre'));
-        $comp    = trim((string) $this->input('competencia_nombre'));
-        $periodo = trim((string) $this->input('periodo_nombre'));
-        $literal = $this->input('nota_literal');
+        $volver  = url('matriculas/' . $id . '/notas-externas');
+        $colegio = trim((string) $this->input('colegio_origen')) ?: null;
+        $areas   = (array) $this->input('area_nombre', []);
+        $comps   = (array) $this->input('competencia_nombre', []);
+        $periodos = (array) $this->input('periodo_nombre', []);
+        $literales = (array) $this->input('nota_literal', []);
+        $areaIds  = (array) $this->input('area_id', []);
+        // Conclusión descriptiva del informe de origen (migración 062):
+        // OPCIONAL para los cuatro literales, nunca bloquea el guardado.
+        $conclusiones = (array) $this->input('conclusion_descriptiva', []);
 
-        if ($area === '' || $comp === '' || $periodo === ''
-            || !in_array($literal, ['AD', 'A', 'B', 'C'], true)) {
-            $this->redirectWithError(url('matriculas/' . $id . '/notas-externas'),
-                'Completa área, competencia, periodo y nota literal válida.');
+        if ($colegio !== null && mb_strlen($colegio) > NotaExternaModel::MAX_COLEGIO) {
+            $this->redirectWithError($volver,
+                'El nombre del colegio de origen pasa de ' . NotaExternaModel::MAX_COLEGIO . ' caracteres.');
         }
 
-        $this->model->registrarNotaExterna([
-            'matricula_id'       => (int) $id,
-            'periodo_nombre'     => $periodo,
-            'competencia_nombre' => $comp,
-            'area_nombre'        => $area,
-            'nota_literal'       => $literal,
-            'colegio_origen'     => trim((string) $this->input('colegio_origen')) ?: null,
-            'registrado_por'     => (int) (Session::user()['id'] ?? 0),
-        ]);
+        $filas    = [];
+        $sinNota  = 0;   // filas con competencia pero sin calificación: se omiten
+        foreach ($areas as $i => $areaNombre) {
+            $areaNombre = trim((string) $areaNombre);
+            $comp       = trim((string) ($comps[$i] ?? ''));
+            $periodo    = trim((string) ($periodos[$i] ?? ''));
+            $literal    = (string) ($literales[$i] ?? '');
 
-        $this->redirectWithSuccess(url('matriculas/' . $id . '/notas-externas'),
-            'Nota externa registrada.');
+            // 🔴 SIN NOTA, NO SE REGISTRA — y no es un error.
+            //
+            // Antes se omitía solo la fila con los CUATRO campos vacíos, lo que
+            // bastaba mientras el formulario nacía en blanco. Con el importador
+            // deja de valer: una fila importada llega con periodo, área y
+            // competencia llenos y la nota vacía, así que importar 58 y llenar
+            // 20 reventaba el guardado en la fila 21. Y es el caso NORMAL: el
+            // informe de origen no trae todas las competencias del plan.
+            //
+            // Las omitidas se cuentan y se dicen en el mensaje de éxito, para
+            // que la omisión no sea silenciosa.
+            if ($literal === '') {
+                if ($areaNombre !== '' || $comp !== '' || $periodo !== '') {
+                    $sinNota++;
+                }
+                continue;
+            }
+
+            // Con nota, los tres datos que la identifican son obligatorios.
+            if ($areaNombre === '' || $comp === '' || $periodo === ''
+                || !in_array($literal, NotaExternaModel::LITERALES, true)) {
+                $this->redirectWithError($volver,
+                    'La fila ' . ($i + 1) . ' tiene nota pero le falta área, competencia o periodo.');
+            }
+
+            // 🔴 RECHAZAR, NO RECORTAR: sin modo estricto, MariaDB cortaría el
+            // exceso en silencio y guardaría otra competencia (migración 061).
+            $conclusion = trim((string) ($conclusiones[$i] ?? ''));
+            if (mb_strlen($conclusion) > NotaExternaModel::MAX_CONCLUSION) {
+                $this->redirectWithError($volver,
+                    'La conclusión de la fila ' . ($i + 1) . ' pasa de '
+                    . NotaExternaModel::MAX_CONCLUSION . ' caracteres.');
+            }
+
+            if (mb_strlen($periodo) > NotaExternaModel::MAX_PERIODO
+                || mb_strlen($areaNombre) > NotaExternaModel::MAX_AREA
+                || mb_strlen($comp) > NotaExternaModel::MAX_COMPETENCIA) {
+                $this->redirectWithError($volver,
+                    'La fila ' . ($i + 1) . ' tiene un texto demasiado largo (periodo hasta '
+                    . NotaExternaModel::MAX_PERIODO . ', área hasta ' . NotaExternaModel::MAX_AREA
+                    . ' y competencia hasta ' . NotaExternaModel::MAX_COMPETENCIA . ' caracteres).');
+            }
+
+            $filas[] = [
+                'periodo_nombre'     => $periodo,
+                'competencia_nombre' => $comp,
+                'area_nombre'        => $areaNombre,
+                'area_id'            => (int) ($areaIds[$i] ?? 0) ?: null,
+                'nota_literal'       => $literal,
+                'conclusion_descriptiva' => $conclusion !== '' ? $conclusion : null,
+            ];
+        }
+
+        if ($filas === []) {
+            $this->redirectWithError($volver, 'No ingresaste ninguna nota.');
+        }
+
+        // La transacción la owna el controlador: el modelo ya no la abre, para
+        // que el lote se pueda envolver desde fuera (PDO no anida).
+        $this->notasExternasModel->beginTransaction();
+        try {
+            $n = $this->notasExternasModel->registrarLote(
+                (int) $id, $filas, $colegio, (int) (Session::user()['id'] ?? 0)
+            );
+            $this->notasExternasModel->commit();
+        } catch (\Exception $e) {
+            $this->notasExternasModel->rollback();
+            log_error('Error al registrar notas del colegio de origen', [
+                'matricula' => (int) $id, 'filas' => count($filas),
+                'error' => $e->getMessage(),
+            ]);
+            $this->redirectWithError($volver, 'No se pudo registrar. No se guardó ninguna nota.');
+        }
+
+        // Aviso a los docentes con carga en su sección: estas notas NO salen en
+        // la boleta, así que sin la notificación el docente no sabría que
+        // existen. Fuera de la transacción del lote a propósito: que falle el
+        // aviso no puede tumbar un registro ya válido.
+        try {
+            (new NotificacionModel())->crearParaDocentesDeSeccion(
+                (int) $id,
+                NotificacionModel::TIPO_NOTAS_ORIGEN,
+                'Notas del colegio de origen: ' . $matricula['nombre_completo'],
+                'Se registraron las calificaciones que ' . $matricula['nombre_completo']
+                    . ' trae de su colegio anterior.'
+                    // El colegio se escribe EN el mensaje (21/09/2026): la bandeja
+                    // solo pinta título y mensaje. Queda fijo aunque luego se
+                    // corrija en notas_externas; las anteriores no lo llevan.
+                    . ($colegio !== null ? ' Procede de: ' . $colegio . '.' : ''),
+                    // Ya NO se explica aquí la política («no aparecen en la
+                    // boleta», 22/09/2026): el aviso dice qué pasó, y la
+                    // pantalla del detalle es la que explica qué hacer.
+                'docente/notas-origen/' . (int) $id
+            );
+        } catch (\Exception $e) {
+            log_error('No se pudo notificar a los docentes de las notas de origen', [
+                'matricula' => (int) $id, 'error' => $e->getMessage(),
+            ]);
+        }
+
+        $this->redirectWithSuccess($volver,
+            $n . ($n === 1 ? ' nota registrada' : ' notas registradas') . '.'
+            // Las filas sin calificación se omiten a propósito (el informe de
+            // origen no trae todas las competencias del plan), pero se dicen:
+            // una omisión silenciosa parecería una pérdida de datos.
+            // El conteo de DOCENTES AVISADOS se quitó el 22/09/2026: es mecánica
+            // del sistema, no algo que quien registra pueda accionar. Las filas
+            // omitidas sí se dicen: hablan de lo que él mismo tecleó.
+            . ($sinNota > 0
+                ? ($sinNota === 1 ? ' Se omitió 1 fila sin nota.' : ' Se omitieron ' . $sinNota . ' filas sin nota.')
+                : ''));
     }
 
     // ── Notas autorizadas por dirección para SIAGIE (informe aparte) ─────
@@ -1387,9 +1615,10 @@ class MatriculaController extends BaseController
     {
         $matricula = $this->model->findById($id);
         if (!$matricula) {
-            http_response_code(404);
-            $this->view('shared/404');
-            exit;
+            // `notFound()` es el punto único del 404 (BaseController): responde
+            // 404 y carga `shared/404.php` SIN layout. Con `view()` esa página
+            // —que es un HTML completo— quedaba anidada dentro del layout.
+            $this->notFound();
         }
         return $matricula;
     }

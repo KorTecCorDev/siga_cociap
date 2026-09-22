@@ -30,8 +30,13 @@ RewriteRule (^|/)\.(?!well-known) - [F,L]
 # Carpetas internas del proyecto (no contienen assets publicos)
 RewriteRule ^(app|core|config|database|resources|storage)(/|$) - [F,L]
 
-# Extensiones sensibles (volcados, docs, logs, configs)
-RewriteRule \.(sql|md|log|lock|sh|ya?ml|dist)$ - [F,L]
+# Extensiones sensibles (volcados, docs, logs, configs, padrones)
+# csv: 17/09/2026 — `public/matriculados.csv` (528 estudiantes con DNI, apoderado,
+# domicilio y celular) se servia al publico. La app NO genera ni consume .csv.
+RewriteRule \.(sql|md|log|lock|sh|ya?ml|dist|csv)$ - [F,L]
+
+# Scripts temporales de uso unico que nunca deben quedar servidos
+RewriteRule (^|/)(hash|import_matriculas)\.php$ - [F,L]
 
 # ── Front controller: todo lo demas pasa por public/ ────────────────
 RewriteRule ^$ public/ [L]

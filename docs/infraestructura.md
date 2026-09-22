@@ -67,6 +67,26 @@ Todo el QR usa la librería local `qrcode.min.js` (boleta digital, footer A4, ho
 códigos). **NO se usa `chart.googleapis.com` en ningún lado**; no se filtran códigos a
 terceros. (Las menciones a Google Charts en este documento quedaron obsoletas.)
 
+### 🔴 Datos personales servidos desde `public/` (17/09/2026)
+`public/matriculados.csv` (**528 estudiantes**: DNI, nombre, DNI y nombre del apoderado,
+domicilio y celular) y `public/hash.php` (una contraseña en texto plano, que imprime su
+bcrypt al abrirlo) estaban **versionados**, así que el auto-deploy los publicaba bajo el
+document root. La lista de extensiones negadas del `.htaccess` raíz no incluía `.csv`, y
+`hash.php` no tenía regla propia: se servían al público.
+
+- Los dos salen del repo (`git rm --cached`) y entran al `.gitignore`. El auto-deploy borra
+  lo no versionado, así que el merge a `main` los retira del servidor — pero **conviene
+  borrarlos a mano antes**, porque la exposición es inmediata.
+- El `.htaccess` **raíz y el de `public/`** niegan ahora `.csv` y los scripts de uso único
+  (`hash.php`, `import_matriculas.php`). **La app no genera ni consume `.csv`**
+  (comprobado), así que no rompe nada. Medido en local: `/matriculados.csv` y `/hash.php`
+  dan **403**, y `css`, `robots.txt` y el front controller siguen en 200.
+- La contraseña filtrada **no coincide con ninguno de los 40 usuarios** de la copia local
+  (comprobado con `password_verify`). Aun así no debe reutilizarse: está en el historial.
+- ⚠️ **El repositorio de GitHub era PÚBLICO**, así que ambos archivos son legibles en el
+  historial aunque se borren de `HEAD`. Poner el repo en privado corta esa vía; reescribir
+  el historial es una decisión aparte.
+
 ### Seguridad — estado y pendientes
 Las fases 3 y 4 del endurecimiento están CERRADAS y en prod (interpolaciones SQL
 auditadas, entradas públicas validadas, subida de imágenes reforzada, `error_log`

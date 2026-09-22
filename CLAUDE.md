@@ -191,7 +191,9 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | **CERRAR un bimestre en producción** (secuencia, consultas, verificación) | `docs/runbooks/cierre-de-bimestre.md` |
 | Compuerta temporal de edición y los 4 registros del bimestre | `docs/modulos/cierre-cuatro-registros.md` |
 | Boleta con todas las competencias del plan y guion donde no hay dato | `docs/modulos/boleta-competencias-completas.md` |
-| **Notas de bimestres cerrados para quien llegó después** | `docs/modulos/registro-retroactivo-notas.md` |
+| **Notas del COLEGIO DE ORIGEN** (trasladado: informativas, nunca en boleta) | `docs/modulos/matriculas.md` |
+| **Completar notas de un bimestre CERRADO** (llegó tarde: extraordinaria, en lote) | `docs/modulos/calificaciones.md` |
+| **Notificaciones y comunicados** (bandeja, campana, avisos al docente) | `docs/modulos/notificaciones.md` |
 | **Consulta de notas con transversales y conducta** | `docs/modulos/consulta-notas-ampliada.md` |
 | **Bloqueos fantasma del cierre + visibilidad del tutor** | `docs/modulos/transversales-visibilidad-tutor.md` |
 | **Cambio de sección a mitad de bimestre** (mudanza, convalidación, reversión) | `docs/modulos/cambio-seccion.md` |
@@ -351,6 +353,10 @@ Versión de una línea; el porqué completo está en el doc del módulo.
 - **PDO preparado siempre**; `cargas_academicas` y `criterios` NO tienen UNIQUE KEY →
   proteger duplicados con `WHERE NOT EXISTS`.
 - **NUNCA CSS inline en PHP** — todo en SASS bajo `resources/sass/` + `gulp build`.
+- **Secciones de contenido variable: «datos a la vista, acción aparte»** (21/09/2026).
+  Con datos, card abierta con sus acciones en la cabecera; sin datos, no se pinta y
+  queda solo su botón. NUNCA datos detrás de un `<details>` cerrado (tampoco se
+  imprime). Rige para toda sección nueva. Ver `docs/modulos/ui.md`.
 - **El auto-deploy de Hostinger borra TODO lo no versionado** en cada push →
   secretos y archivos subidos viven fuera del repo (`~/siga_secrets/`, `~/siga_uploads/`).
 - **Git: `dev` = trabajo, `main` = producción (auto-deploy). PREGUNTAR antes de
@@ -423,6 +429,11 @@ lo compila Gulp, `config/database.php` no lleva secretos, `routes/web.php` es la
   la anidaría dentro de otra. Existe desde el 07/08/2026 — antes varios
   controladores lo llamaban sin que estuviera definido (fatal en local, página de
   error genérica en prod)
+- **403:** siempre `$this->forbidden()` (`BaseController`, `never`), gemelo de
+  `notFound()`; `requireRole` ya lo usa. NUNCA `$this->view('shared/403')`: anidaba
+  la página dentro del layout (21/09/2026). Las páginas `shared/403|404|500` cargan
+  **`public/css/errores.css`** (entrada SASS propia `resources/sass/errores.scss`),
+  no `app.css`
 - **Auth: por controlador — NO hay middleware.** `app/Middleware/AuthMiddleware.php`
   nunca se usó y se eliminó (commit `eb0e9cf`, 20/06/2026). No reintroducir una capa
   de middleware sin acordarlo antes.

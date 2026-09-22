@@ -1,6 +1,40 @@
 # PLAN — Registro retroactivo de calificaciones en bimestres cerrados
 
-> **Estado: PLAN DE IMPLEMENTACIÓN LISTO, SIN IMPLEMENTAR** (05/08/2026). Escrito para
+> # ⛔ PLAN DEROGADO Y SUSTITUIDO EL 10/09/2026 — NO IMPLEMENTAR
+>
+> **Se conserva por su análisis, que sigue siendo válido y caro de rehacer** (la medida
+> de los 45 usos de `nota_numerica`, el universo de los 6 casos, el estado de la
+> extraordinaria). **Lo que NO vale ya es su diseño.**
+>
+> **Qué lo derogó:** el colegio precisó la regla y partió en DOS lo que este plan trataba
+> como una sola cosa, con destinos **opuestos**:
+>
+> | | Notas del **colegio de origen** | Notas **nuestras** no registradas |
+> |---|---|---|
+> | ¿Van a la boleta? | **NO** — el Informe de Progreso del COCIAP lleva solo lo cursado aquí | **SÍ**, como cualquier nota |
+> | ¿Quién las ve? | solo el **docente** con carga en su sección | familia, boleta y SIAGIE |
+> | Escala | **literal** puro | **numérica** 00-20, literal derivado |
+> | Dónde vive | `notas_externas` (+ `area_id`, migración **`057`**) | `calificaciones`, vía calificación **extraordinaria** |
+> | Doc | `matriculas.md` | `calificaciones.md` |
+>
+> **Decisiones de este plan que caen:**
+> - **D2** (literal puro con numeral en guion) → el caso 2 es numérico; el caso 1 no tiene celda de boleta.
+> - **D4** (nota al pie «calificaciones convalidadas del colegio de origen») → **muere**: nada convalidado llega a la boleta.
+> - **D6** (unificar extraordinaria + retroactivo y retirar el flujo de la extraordinaria) → **innecesaria**: bajo la partición, la extraordinaria **es** el caso 2. Se le añadió captura en LOTE y se dejó el motor intacto.
+> - **D7** (`notas_externas` desaparece) → **invertida**: su esquema es exactamente el caso 1, y que la boleta no la lea —lo que este plan llamó «mecanismo muerto»— resulta ser **el comportamiento pedido**.
+> - **§7.1 (¿van al SIAGIE?)** → **se cierra sola**: las de origen no son nuestras y no van al acta; las del caso 2 ya se exportan.
+> - **`calificaciones_retroactivas` NO se construye**, y con ella la migración **`049` queda liberada** (hueco permanente; las nuevas fueron la `057` y la `058`).
+>
+> **Lo que SÍ sobrevivió, y sigue en producción:** la **F1** (asistencia de un bimestre sin
+> registro en guion, desplegada el 07/08/2026) es independiente de todo esto y no se toca.
+>
+> **Dónde está ahora la funcionalidad:** `docs/modulos/matriculas.md` (notas del colegio de
+> origen), `docs/modulos/calificaciones.md` (extraordinaria en lote) y
+> `docs/modulos/notificaciones.md` (el aviso al docente).
+
+---
+
+> **Estado original: PLAN DE IMPLEMENTACIÓN LISTO, SIN IMPLEMENTAR** (05/08/2026). Escrito para
 > retomarse en frío. **Empezar por §6 F0**, que es bloqueante y solo lectura.
 > Decisiones cerradas en §4; lo único abierto (SIAGIE) en §7, y no bloquea F1-F3.
 > Módulos relacionados: `calificaciones.md`, `boletas.md`, `matriculas.md`,

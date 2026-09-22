@@ -38,6 +38,45 @@ class BoletaModel extends BaseModel
     }
 
     /**
+     * Ultimo periodo PUBLICABLE con notas del alumno: cerrado (OFICIAL) o activo
+     * con boletas aprobadas (BORRADOR, Hito A). Un bimestre en registro aun NO
+     * tiene boleta. Con $soloCerrados = true considera UNICAMENTE bimestres
+     * cerrados (trasladados: su boleta es exclusivamente oficial). Retorna el id
+     * o null si no hay ninguno.
+     *
+     * PUNTO UNICO (21/09/2026; antes privado en BoletaController): lo usan las
+     * rutas internas de boleta (docente y gestion) y la ficha de matricula para
+     * decidir si ofrece los botones. Si ambos no leyeran la misma regla, un
+     * boton activo podria llevar al aviso de "sin calificaciones".
+     */
+    public function periodoPublicableConNotas(int $anioId, int $matriculaId, bool $soloCerrados = false): ?int
+    {
+        $condicionEstado = $soloCerrados
+            ? "p.estado = 'cerrado'"
+            : "(p.estado = 'cerrado'
+                   OR (p.estado = 'activo' AND p.boletas_aprobadas_en IS NOT NULL))";
+
+        $periodo = $this->queryOne("
+            SELECT p.id
+            FROM periodos p
+            WHERE p.anio_id = ?
+              AND {$condicionEstado}
+              AND EXISTS (
+                  SELECT 1 FROM calificaciones cal
+                  INNER JOIN bloqueos_competencia bc
+                      ON bc.carga_id = cal.carga_id
+                     AND bc.competencia_id = cal.competencia_id
+                     AND bc.periodo_id = cal.periodo_id
+                  WHERE cal.matricula_id = ? AND cal.periodo_id = p.id
+              )
+            ORDER BY p.numero DESC
+            LIMIT 1
+        ", [$anioId, $matriculaId]);
+
+        return $periodo ? (int) $periodo['id'] : null;
+    }
+
+    /**
      * Arma la boleta anual completa de un alumno.
      *
      * COMPUERTA DEL HITO A (09/07/2026): un bimestre aporta NOTAS segun su estado

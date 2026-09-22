@@ -1034,3 +1034,122 @@ una página ligera y una pestaña recién creada (`Page.captureScreenshot timed 
 la página y no sirve reintentar: es distinto del «captura en blanco por encima de ~7 000 px»
 ya documentado. **Las mediciones numéricas por `getBoundingClientRect` y `getComputedStyle`
 sí funcionan**, y son las que prueban el cambio.
+
+
+## Chip de PROCEDENCIA de una nota (10/09/2026)
+
+> PUNTO ÚNICO: `PROCEDENCIAS_NOTA` en `app/Helpers/helpers.php`.
+> Markup: `resources/views/shared/_procedencia-chip.php`.
+> Estilos: `resources/sass/components/_procedencia.scss`.
+
+Conviven **tres** mecanismos que producen notas fuera del registro ordinario del docente, y
+hasta hoy solo uno llevaba marca, así que se confundían — sobre todo en la ficha de
+matrícula, donde sus cards son vecinas:
+
+| Categoría | Dónde vive | A dónde va la nota |
+|---|---|---|
+| **Calificación extraordinaria** | `calificaciones.extraordinaria = 1` | Boleta **y** SIAGIE. No al mérito. |
+| **Notas del colegio de origen** | `notas_externas` | **Solo al docente.** Nunca a la boleta. |
+| **Autorizada para SIAGIE** | `notas_autorizadas_siagie` | **Solo al acta.** Ni boleta ni mérito. |
+
+⚠️ **La categoría es DERIVABLE, no se guarda.** Cada mecanismo vive en su propia tabla. Si
+algún día alguien propone una columna `categoria`, es señal de que dos mecanismos se están
+mezclando en una misma tabla.
+
+### 🔴 EL COLOR NO DISTINGUE: distinguen el NOMBRE y el ICONO
+
+Los tres chips comparten forma —el **borde punteado**, que ya significaba «esto no salió de
+tu registro»— y **solo la extraordinaria conserva el ámbar**, porque es la única que llega a
+la boleta y por tanto pide atención.
+
+Es lo que exige el sistema de color de arriba: **rojo y ámbar son de ESTADO** y los cuatro
+colores de concepto (azul cargas, teal tutoría, púrpura conducta, naranja nómina) **ya tienen
+dueño**. Inventar dos tintes más habría chocado con él: el índigo que quedaba libre se
+confunde con el púrpura de Conducta a tamaño de chip. **No añadir colores a esta familia.**
+
+Los tres iconos (`edit-pen`, `social-city`, `doc-add`) son **distintos entre sí** y no
+coinciden con ninguna card del dashboard — la misma regla del glifo fijo por concepto. Lo
+comprueba `verif_notas_origen.php` §7d, que además verifica que los SVG existen.
+
+### Dónde se pinta
+
+`.extra-badge` **se conserva como alias** y su aspecto **no cambió ni un pixel**: era el
+nombre que ya usaban `docente/calificaciones.php`, `docente/resumen-competencia.php` y
+`consulta-notas/_tabla.php`, que ahora sacan el texto del punto único en vez de tenerlo a
+mano. El chip se pinta además en la ficha de matrícula (con la línea de **destino**), en las
+dos vistas de notas de origen y en la bandeja de notificaciones.
+
+**El icono solo donde hay sitio** (cards y cabeceras); en las grillas densas el chip va con el
+nombre corto a 10px, como el badge de siempre. La variable `$procIcono` lo decide.
+
+## Páginas de error (403 / 404 / 500): sueltas, con su propio CSS (21/09/2026)
+
+Son **documentos HTML completos** que se pintan con `require` directo, **sin layout**:
+`BaseController::notFound()`, `BaseController::forbidden()`, `Router::notFound()` y
+`render_error_page()`. Por eso **no cargan `app.css`**: enlazan `public/css/errores.css`, que
+sale de una **entrada SASS propia**, `resources/sass/errores.scss` (el `gulpfile` compila
+`app.scss` y `errores.scss`).
+
+- 🔴 **Nunca `$this->view('shared/403')`.** Así estaba `requireRole`: la página de error
+  quedaba **anidada dentro de `layouts/app.php`** (dos `<!DOCTYPE>`, el menú lateral
+  alrededor) y en móvil se veía rota. Mismo bug que ya tuvo el 404.
+- Antes llevaban el CSS en un `<style>` dentro del PHP, sin media query. Ahora, a ≤480px,
+  el gutter baja a 16px, el código a 64px y el botón ocupa el ancho.
+- `errores.scss` **no importa `base/variables` a propósito**: es la página de emergencia y no
+  debe romperse si cambia la paleta de la app.
+- Medido en Chrome el 21/09: 403 real (sesión de docente en `/rectificaciones`) con un solo
+  `<!DOCTYPE>` y sin sidebar; en iframe de 375px, código a 64px y sin scroll horizontal.
+
+## QUÉ DICE UN AVISO — mecánica y política fuera (22/09/2026)
+
+Regla de redacción para **todo banner, flash y toast** del sistema, nacida de un barrido
+completo (47 banners en 29 vistas + los mensajes de acción de 34 controladores).
+
+**Un aviso dice QUÉ PASÓ y QUÉ HACER.** Fuera de él:
+
+1. **Mecánica interna.** Cuántas notificaciones creó el sistema, cuántas filas descartó por su
+   cuenta, nombres de tablas, de columnas o de algoritmos («la cascada de desempate»), o que
+   algo «se guarda en la auditoría». El lector no lo acciona y envejece mal: el aviso del lote
+   de extraordinarias prometía que «el docente lo verá», y desde el 21/09 eso es **falso** para
+   las reservadas a dirección.
+2. **Política interna que su lector no puede accionar.** Al docente no se le explican las
+   reglas de boleta ni de orden de mérito de las notas del colegio de origen: se le dice que
+   son informativas y que no tiene que hacer nada con ellas.
+3. **La segunda copia dentro de la MISMA pantalla.** Entre pantallas distintas sí puede
+   repetirse: cada una se abre suelta.
+
+**Sí se dice**, y no se recortó:
+- El acuse de que la acción funcionó («12 notas registradas.»).
+- Los conteos de **lo que el propio usuario escribió** («Se omitieron 4 filas sin nota»): una
+  omisión silenciosa parece pérdida de datos.
+- La información que esa audiencia necesita aunque sea una regla del colegio (la **media beca**
+  del 1.º del grado, en las vistas de docentes y de familias).
+- Que a un rol de solo lectura se le diga que no puede hacer algo y a quién acudir.
+
+Anclado en `verif_banners_aviso.php`: los asertos comprueban que las frases retiradas **no han
+vuelto**, no una redacción concreta.
+
+## Secciones de CONTENIDO VARIABLE: «datos a la vista, acción aparte» (21/09/2026)
+
+**Regla de UI/UX para toda sección nueva cuyo contenido depende de si hay datos** (pedida por
+el usuario como criterio permanente). Nació en `/matriculas/{id}`.
+
+1. **Con datos:** la sección es una **card visible y abierta**, con sus datos a la vista y sus
+   **acciones en la cabecera** (`card__header card__header--between` dentro del `card__body`,
+   como la card «Estudiante»; `flex-wrap` para que las acciones bajen de línea en móvil).
+2. **Sin datos:** la card **no se pinta**. Lo que queda es su **botón de acción**, agrupado con
+   los de otras secciones vacías en una card de registro. Nada de cards vacías con un
+   empty-state que ocupan sitio para decir «no hay nada».
+3. **Nunca datos detrás de un `<details>` cerrado.** Esconde lo que el usuario vino a ver y,
+   además, un `<details>` cerrado **no se imprime** (ver «Un `<details>` cerrado NO IMPRIME SU
+   CONTENIDO» más arriba).
+4. Una sección que **siempre** tiene contenido (datos del estudiante, apoderados) no entra en
+   la regla: se pinta siempre.
+
+**Aplicación en `/matriculas/{id}`:** «Notas del colegio de origen» y «Notas autorizadas para
+SIAGIE (dirección)» salieron de sus `<details>` a cards propias a todo el ancho
+(`.mat-seccion-ancha`), solo con datos. «Registrar notas fuera del registro del docente» quedó
+como lista de acciones (`.mat-llegada__lista`), una fila por sección sin datos, más los bimestres
+con competencias sin nota. «Exoneraciones» se pinta solo si hay alguna. Traslado y retorno ya
+cumplían la regla.
+

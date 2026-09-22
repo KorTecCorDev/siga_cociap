@@ -179,6 +179,15 @@ sin depender de nadie**.
   estudiantes calificados; el botón se deshabilita y `bloquearRA` lo revalida en servidor).
   ~~Reabrir es libre.~~ **Reabrir exige el bimestre ACTIVO** (06/08/2026, ver abajo).
 
+### No se desbloquea una competencia con calificaciones extraordinarias (18/09/2026)
+
+Segunda guarda, después de `abortarSiPeriodoCerrado`: `desbloquear` y
+`liberarTransversalCompetencia` abortan con los nombres de los alumnos
+(`abortarSiHayExtraordinarias`), y `limpiarBloqueosCierre` **conserva** esas competencias
+y lo dice en el mensaje. Sin ella, la nota de RA se mezclaba con la del docente en
+`calcularPromedio`. Punto único y motivo en `calificaciones.md` («Solo bimestres cerrados,
+guarda de desbloqueo…»).
+
 ### Las 4 reaperturas del panel exigen el bimestre reabierto (06/08/2026)
 
 **Punto único: `BloqueoController::abortarSiPeriodoCerrado`**, que consumen las cuatro

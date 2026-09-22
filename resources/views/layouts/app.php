@@ -46,6 +46,23 @@
                 <span class="navbar__user-icon navbar__user-icon--<?= $iconoUsuario ?>" aria-hidden="true"></span>
                 <?= e(nombre_corto($auth_user['nombres'] ?? '', $auth_user['apellido_paterno'] ?? '')) ?>
             </span>
+            <?php
+            // Campana de notificaciones (migración 058). BaseController deja
+            // este global en NULL para los roles que no reciben avisos, así que
+            // la campana solo existe para quien tiene bandeja.
+            if (isset($notificaciones_no_leidas)):
+                $nNotif = (int) $notificaciones_no_leidas;
+            ?>
+            <a href="<?= url('notificaciones') ?>"
+               class="navbar__notif<?= $nNotif > 0 ? ' navbar__notif--pendientes' : '' ?>"
+               aria-label="Notificaciones<?= $nNotif > 0 ? ' (' . $nNotif . ' sin leer)' : '' ?>"
+               title="Notificaciones">
+                <span class="navbar__notif-ico" aria-hidden="true"></span>
+                <?php if ($nNotif > 0): ?>
+                    <span class="navbar__notif-badge"><?= $nNotif > 99 ? '99+' : $nNotif ?></span>
+                <?php endif; ?>
+            </a>
+            <?php endif; ?>
             <a href="<?= url('logout') ?>" class="navbar__logout">
                 Cerrar sesión
             </a>

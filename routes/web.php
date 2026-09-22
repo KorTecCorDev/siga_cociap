@@ -21,6 +21,19 @@ $router->get( '/logout',         'Auth\AuthController@logout');
 $router->get('/',          'DashboardController@index');
 $router->get('/dashboard', 'DashboardController@index');
 
+// ─── Notificaciones (bandeja interna, migración 058) ─────────
+// La bandeja la ve cualquier usuario autenticado y solo muestra LAS SUYAS
+// (el modelo filtra por usuario_id también al marcar leída). Redactar
+// comunicados es de admin/registro_academico: el gate va POR MÉTODO, porque
+// los tres roles de dirección son SOLO LECTURA y sí entran a su bandeja.
+// Todas literales: no hay patrón {id} en este bloque.
+$router->get( '/notificaciones',              'NotificacionController@index');
+$router->post('/notificaciones/leer',         'NotificacionController@leer');
+$router->post('/notificaciones/leer-todas',   'NotificacionController@leerTodas');
+$router->get( '/notificaciones/comunicado',   'NotificacionController@comunicado');
+$router->post('/notificaciones/comunicado',   'NotificacionController@guardarComunicado');
+$router->get( '/notificaciones/enviados',     'NotificacionController@enviados');
+
 // ─── Admin — Currículo Académico ────────────────────────────
 $router->get( '/admin/curriculum',                                  'Admin\CurriculumController@index');
 $router->post('/admin/curriculum/areas/{id}/editar',               'Admin\CurriculumController@guardarArea');
@@ -202,6 +215,8 @@ $router->get( '/rectificaciones/editar',          'Rectificacion\RectificacionCo
 $router->post('/rectificaciones/guardar',         'Rectificacion\RectificacionController@guardar');
 $router->get( '/rectificaciones/extraordinaria',  'Rectificacion\RectificacionController@extraordinaria');
 $router->post('/rectificaciones/extraordinaria/guardar', 'Rectificacion\RectificacionController@guardarExtraordinaria');
+$router->get( '/rectificaciones/extraordinaria/lote', 'Rectificacion\RectificacionController@extraordinariaLote');
+$router->post('/rectificaciones/extraordinaria/lote/guardar', 'Rectificacion\RectificacionController@guardarExtraordinariaLote');
 $router->get( '/rectificaciones/matricula/{id}',  'Rectificacion\RectificacionController@matricula');
 
 // ─── Consulta de calificaciones (solo lectura) ───────────────
@@ -242,6 +257,12 @@ $router->post('/traslados/{id}/anular',    'Matricula\TrasladoController@anular'
 $router->get( '/docente/inicio',                       'Docente\PanelController@index');
 $router->get( '/docente/nomina',                       'Docente\PanelController@nomina');
 $router->get( '/docente/nomina/{seccion_id}/imprimir', 'Docente\PanelController@nominaImprimir');
+
+// Notas del COLEGIO DE ORIGEN de un estudiante de MI seccion (migracion 057).
+// Solo lectura e informativas: NO salen en la boleta del COCIAP. La guarda
+// (tener carga activa en esa seccion) esta en el controlador, que responde 404
+// si no se cumple. Se llega desde la notificacion que genera Registro Academico.
+$router->get( '/docente/notas-origen/{matricula}',     'Docente\PanelController@notasOrigen');
 $router->get( '/docente/horario/imprimir',             'Docente\PanelController@horarioImprimir');
 // Boletas del docente (validadas por nivel). La literal /imprimir va ANTES del
 // patron generico para que el router no capture "imprimir" como matricula_id.

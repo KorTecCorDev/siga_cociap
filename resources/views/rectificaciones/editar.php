@@ -7,8 +7,13 @@
  * @var int   $cargaId
  * @var int   $competenciaId
  * @var int   $periodoId
+ * @var array $literalesConclusion literales que EXIGEN conclusión en este nivel
+ * @var array|null $old        lo escrito antes de un rechazo del servidor
+ *                             (notas por criterio, conclusion, motivo)
  */
 $esPrimaria = ($info['nivel_codigo'] ?? '') === 'prim';
+$old        = is_array($old ?? null) ? $old : null;
+$oldNotas   = is_array($old['notas'] ?? null) ? $old['notas'] : [];
 
 $nombreComp = $meta['nombre_corto'] ?: $meta['competencia_nombre'];
 if (($meta['area_tipo'] ?? '') === 'con_subareas' && !empty($meta['subarea_nombre'])) {
@@ -33,10 +38,6 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
     </div>
 </div>
 
-<?php if ($flash_error): ?>
-    <div class="flash flash--error"><?= e($flash_error) ?></div>
-<?php endif; ?>
-
 <div class="card mb-md">
     <div class="card__body">
         <div class="info-grid">
@@ -57,7 +58,12 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
     </div>
 </div>
 
-<form method="POST" action="<?= url('rectificaciones/guardar') ?>" class="card">
+<form method="POST" action="<?= url('rectificaciones/guardar') ?>" class="card"
+      id="rectEditarForm"
+      data-nota-min-ad="<?= NOTA_MIN_AD ?>"
+      data-nota-min-a="<?= NOTA_MIN_A ?>"
+      data-nota-min-b="<?= NOTA_MIN_B ?>"
+      data-literales-conclusion="<?= e(implode(',', $literalesConclusion ?? [])) ?>">
     <div class="card__body">
         <?= csrf_field() ?>
         <input type="hidden" name="matricula_id"   value="<?= (int) $info['matricula_id'] ?>">
@@ -89,7 +95,13 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($criterios as $cr): ?>
+                    <?php foreach ($criterios as $cr):
+                        // Tras un rechazo manda lo que se ESCRIBIÓ, no lo de la BD:
+                        // repintar la BD hacía guardar la nota vieja sin aviso.
+                        $valorCrit = array_key_exists((int) $cr['id'], $oldNotas)
+                            ? trim((string) $oldNotas[(int) $cr['id']])
+                            : ($cr['nota'] !== null ? (string) (int) $cr['nota'] : '');
+                    ?>
                     <tr>
                         <td>
                             <div class="rect-comp__nombre"><?= e($cr['nombre']) ?></div>
@@ -101,7 +113,7 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
                             <input type="number" min="0" max="20" step="1"
                                    class="form-input rect-nota-input"
                                    name="notas[<?= (int) $cr['id'] ?>]"
-                                   value="<?= $cr['nota'] !== null ? (int) $cr['nota'] : '' ?>"
+                                   value="<?= e($valorCrit) ?>"
                                    inputmode="numeric">
                         </td>
                     </tr>
@@ -111,16 +123,19 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
         </div>
 
         <div class="form-group mt-md">
-            <label class="form-label" for="conclusion">Conclusión descriptiva</label>
+            <label class="form-label" for="conclusion">
+                Conclusión descriptiva
+                <span class="text-danger" data-rect-concl-obligatoria hidden>*</span>
+            </label>
             <textarea id="conclusion" name="conclusion" class="form-input" rows="3"
-                      placeholder="Conclusión descriptiva (opcional según el resultado)."><?= e($meta['conclusion_actual'] ?? '') ?></textarea>
+                      placeholder="Conclusión descriptiva (opcional según el resultado)."><?= e($old !== null ? (string) ($old['conclusion'] ?? '') : ($meta['conclusion_actual'] ?? '')) ?></textarea>
             <p class="text-sm text-muted"><?= $obligatoriaTxt ?></p>
         </div>
 
         <div class="form-group">
             <label class="form-label" for="motivo">Motivo de la rectificación <span class="text-danger">*</span></label>
             <textarea id="motivo" name="motivo" class="form-input" rows="3" required
-                      placeholder="Fundamenta el porqué de la corrección."></textarea>
+                      placeholder="Fundamenta el porqué de la corrección."><?= e((string) ($old['motivo'] ?? '')) ?></textarea>
         </div>
 
         <div class="btn-group form-actions">

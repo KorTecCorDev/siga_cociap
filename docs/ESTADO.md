@@ -1,11 +1,563 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **08/09/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **22/09/2026**.
 > **Versión desplegada: v1.0.1** (`config/app.php` + tag anotado `v1.0.1`).
+> `config/app.php` ya dice **1.0.2** en `dev`: es la release preparada abajo, aún sin merge.
 
 
+## 🚀 RELEASE v1.0.2 — PREPARADA, esperando la orden de merge (22/09/2026)
 
+`dev` → `main` son **50 commits** (desde el merge de v1.0.1), fast-forward posible y sin
+conflictos. Reúne notificaciones y comunicados, notas del colegio de origen (importador,
+conclusión, competencia a 255), calificación extraordinaria en lote y en sección única,
+listado de `/rectificaciones`, ficha «datos a la vista», páginas de error y Dirección en
+`/admin/cuadros`.
+
+**Migraciones `057` a `062`: ya aplicadas en producción** (confirmado por el usuario el
+22/09). Falta confirmar que `reparar_notas_externas_truncadas.php --confirmar` se corrió allá.
+
+**Verificación del 22/09/2026 (escritorio):**
+- BD local con la `062` · **43 verificadores**: 40 en verde y 3 sin escenario aplicable, ningún rojo.
+- **Chrome, tres sesiones reales:**
+  - **Admin:** notas de origen completas (con y sin conclusión, fila omitida, «+ Añadir fila»
+    clona la pareja y el POST queda alineado, importador y sus dos guardas, 375 px sin
+    desborde); §6 los cuatro 404 limpios; §7 30 páginas en 200 sin errores PHP, boletas
+    digital e imprimible sin fuga de notas de origen, consola limpia.
+  - **Director (EBR):** §5 entera — selector con solo I y II, `periodo_id=3` cae al II,
+    imprimir el activo da 404 y el II 200, series que terminan en el II, asistencia del III
+    en vivo (sección 13; la 23 da 404 porque no tiene competencias bloqueadas en el III, no
+    por el rol). Sin botones que lleven a un 403, y el 403 sale limpio.
+  - **Docente (ZAMBRANO):** campana con el aviso nuevo y el texto recortado; «Ver detalle»
+    lo marca leído y navega; detalle con conclusiones y «Tu área»; guardar una nota por el
+    flujo normal (carga 318, criterio 5518) guarda, reconfirma el criterio y recalcula el
+    promedio. Los datos de prueba se restauraron idénticos a una foto previa (fechas incluidas).
+- Salió un solo defecto, de texto, corregido en `e9108fd`: «Se omitieron 1 fila sin nota».
+
+**Al dar la orden:** `merge --no-ff` a `main`, tag anotado `v1.0.2`, push. Después:
+cabeceras de estado de los docs de módulo, registro del deploy aquí y la línea «Versión
+desplegada» de arriba.
+
+
+## 🔄 CONCLUSIÓN EN NOTAS DE ORIGEN + BARRIDO DE TEXTOS (22/09/2026) — en `dev`, sin merge
+
+**Migración `062`** (`notas_externas.conclusion_descriptiva`): la conclusión del informe del
+colegio anterior se registra y se muestra. **Opcional para los cuatro literales** — aquí no rige
+la obligatoriedad por nivel del COCIAP, porque no es evaluación nuestra. Detalle en
+`docs/modulos/matriculas.md`.
+
+**Barrido completo de textos** (47 banners + mensajes de acción de 34 controladores). Se
+recortaron 6: el aviso de notas de origen y su flash (sin el conteo de docentes avisados, con el
+de filas omitidas), el banner del docente, el motivo del lote de extraordinarias (prometía algo
+que ya era falso), el aviso de empates del docente y la copia doble del resumen. Regla nueva en
+`docs/modulos/ui.md` («QUÉ DICE UN AVISO») y asertos en `verif_banners_aviso.php`.
+
+- [x] **Prueba en navegador DEL USUARIO:** `/matriculas/693/notas-externas` (registrar con y sin
+      conclusión, «Ya registradas», «+ Añadir fila», importar, 375 px) · `/docente/notas-origen/693`
+      como docente (conclusión y banner recortado) · el flash al guardar · la notificación que
+      recibe el docente · `/rectificaciones/extraordinaria/lote` y el resumen de una transversal.
+
+## ✅ NOTIFICACIONES — AUDITORÍA DEL MÓDULO (22/09/2026) — CERRADO en `dev`, sin merge
+
+Salieron 6 hallazgos contra `docs/modulos/notificaciones.md` y se corrigieron 3: el contador de la
+bandeja en vivo (subtítulo y «Marcar todas» siguen a la campana), la hora en cada notificación y
+el filtro de activos en el destino «Docentes de una sección» (`verif_notificaciones.php`, rama
+nueva probada A/B: falla sin el arreglo). Los otros 3 quedan anotados en el §9 del doc del módulo.
+- [x] **Prueba en navegador DEL USUARIO (22/09, todas pasaron; docente con avisos sin leer):** marcar una → el subtítulo
+      baja a N-1 como la campana · marcar la última → «No tienes notificaciones sin leer.» y sin
+      «Marcar todas» · la hora junto a la fecha · «Ver detalle» sigue marcando y navega · consola limpia.
+
+## ✅ AJUSTES TRAS PROBAR NOTIFICACIONES (21-22/09/2026) — CERRADO en `dev`, sin merge
+
+**Cerrado el 22/09/2026:** el usuario probó en navegador todo el bloque de la calificación
+extraordinaria (excepción de Ética + tabla compacta) y lo dio por terminado. **Solo queda el
+merge a `main`**, que espera a que él lo pida, con la `061` y el script de reparación en
+producción ANTES (casilla de abajo).
+
+Diez observaciones del usuario; dos ya estaban resueltas desde el 18/09. Ocho commits (del
+`0a2b3e3` al `9b6cfaf`, más `73e8b59` y el de los filtros). Detalle en el doc de cada módulo:
+botón «← Dashboard» en la bandeja · competencia recortada a 120 (migración **`061`** +
+`reparar_notas_externas_truncadas.php`) · 403 sin anidar y páginas de error con `errores.css` ·
+colegio de origen en el aviso · boleta sin notas → aviso y botones inertes · listado de
+`/rectificaciones` (sin ninguna nota en un cerrado) · ficha de matrícula «datos a la vista,
+acción aparte» · extraordinaria: asegura el bloqueo y va en una sección única al final.
+
+**Probado en Chrome con sesión de Registro Académico (21/09):** fichas 693 (26 notas de origen,
+competencia de 126 caracteres entera, sin `<details>`) y 698 (botones inertes con
+`pointer-events:none`, aviso de «sin calificaciones» con HTTP 200, Cerrar vuelve a la ficha;
+matrícula inexistente sigue en 404) · `/rectificaciones`: 5 filas, filtro por nivel (2) y
+por bimestre con clic real (1), «Calificar (N)» = filas del lote en 698/B1, 698/B2 y 694/B1 ·
+`/consulta-notas/1/carga/429`: una sección al final, fuera de las cards, 23 notas y sin
+columna extraordinaria; cargas 182, 295 y 354 agrupan 5, 3 y 3 competencias · a 375 px
+ninguna de las seis páginas tocadas desborda · RA en una ruta de docente: 403 con un solo
+`<!DOCTYPE>` y `errores.css`. Ajuste que salió de la prueba: los filtros de
+`/rectificaciones` pasaron de `.form-inline` a una grilla (`.rect-filtros`), porque la
+etiqueta «Grado» quedaba huérfana.
+
+- [x] **Con sesión DOCENTE (ZAMBRANO), 21/09:** `/docente/calificaciones/429/historial/1`
+      muestra la sección única al final, fuera de las cards, con las 23 notas y sin columna
+      extraordinaria; la carga 352 (B1 y B2) muestra la suya con 1. `/docente/notas-origen/693`
+      pinta la competencia de 126 caracteres entera y, sin colegio anotado, no pinta el bloque.
+- [x] **Antes del merge:** `061` en producción + el script de reparación (ver §4 más abajo). **Migraciones: confirmado el 22/09**; el script de reparación, por confirmar.
+
+**Excepción de Ética (commit `6034bd8`, 21/09):** las extraordinarias de Ética y Valores del
+I Bimestre 2026 no le explican al DOCENTE su motivo (sí a admin, RA y directores). Detalle en
+`docs/modulos/calificaciones.md`.
+
+**Extraordinarias en tabla compacta (22/09):** tras la prueba, el usuario pidió poder ocultar la
+sección porque en Ética los 23 renglones repetían motivo, autor y fecha. Se descartó el acordeón
+(«datos a la vista»). Ahora hay una tabla por grupo de auditoría, con los datos comunes una sola vez
+(`shared/_extraordinarias-tabla.php`). Rige en la consulta, el historial y la grilla/resumen del docente.
+- [x] **Prueba en navegador DEL USUARIO (22/09, todas pasaron):** `/consulta-notas/1/carga/429` (una tabla de 23),
+      `/consulta-notas/1/carga/432` (dos grupos: 28 + 1), `/docente/calificaciones/352/historial/1`
+      y la grilla de la 352 como docente, a 375 px y en vista de impresión.
+
+### ⏭ PARA RETOMAR EN CASA (21/09/2026, fin del turno en la laptop)
+`dev` pusheado (`6034bd8`), **sin merge**. En este orden:
+1. `git pull` en `dev`. No hace falta `gulp build`: `app.css` y `errores.css` van en el commit.
+2. **Aplicar la `061` en la BD local de casa** y correr
+   `php database/reparar_notas_externas_truncadas.php` (simula) y luego con `--confirmar`.
+3. Correr `verif_extraordinarias_reservadas.php`, `verif_extraordinaria_bloqueo.php`,
+   `verif_rectificaciones_pendientes.php`, `verif_boleta_sin_calificaciones.php` y
+   `verif_notas_origen.php`.
+4. - [x] **Prueba en navegador DEL USUARIO — la excepción de Ética (22/09, todas pasaron):**
+   - [x] Docente ZAMBRANO: `/docente/calificaciones/429/historial/1` SIN la sección de
+         extraordinarias; la tabla conserva sus 15.
+   - [x] Registro Académico o un director: `/consulta-notas/1/carga/429` CON la sección
+         (23 notas). **Es lo único que Claude no vio en pantalla.**
+   - [x] Una extraordinaria normal (Geometría, carga 352) sigue visible al docente.
+   - [x] La boleta de un alumno de esa sección muestra su nota de Ética del I Bimestre igual
+         para todos.
+
+## ✅ PRUEBAS EN NAVEGADOR DE LA EXTRAORDINARIA — LAS 6 PASADAS (21/09/2026)
+
+Cerradas el 21/09/2026 en la **laptop** (`PROBOOK450`, migraciones hasta la `060`, ids del
+checklist resueltos a nombre y contenido antes de empezar). Las 4 de lectura las condujo
+Claude sobre una sesión de admin ya abierta; para las 2 restantes el usuario inició sesión
+(docente ZAMBRANO y luego admin). **Queda pendiente el merge a `main`**, que espera a que
+el usuario lo indique.
+
+**Con sesión DOCENTE (ZAMBRANO EDINZON ALEX, DNI 77170080):**
+- [x] `/docente/calificaciones/271`, competencia 46: **agregar un criterio sin notas** →
+      «Ver resumen» se bloquea (`btn-ver-resumen--bloqueado`, `aria-disabled`,
+      `tabindex=-1`, y `pointer-events:none` computado: `elementFromPoint` devuelve el
+      padre, no el enlace). **Eliminarlo** → sin recargar desaparece el bloque y el botón
+      se rehabilita (comprobado con una marca en `window` que sobrevive). Consola limpia.
+      ⚠️ El aserto **«Próximo pendiente apunta a él» NO se pudo juzgar aquí** y se probó en
+      carga 20 / competencia 56, que arranca sin banner: al agregar, el banner **nace
+      apuntando al criterio nuevo**; al eliminar, **desaparece** sin recargar. El motivo
+      está en el pendiente del banner y las omisiones, más abajo.
+- [x] Docente **20** (carga 157), historial `/docente/calificaciones/157/historial/1`: sin
+      columna «Calificación extraordinaria» (solo PARTICIPACIÓN · EVALUACIÓN · REV.
+      ACTIVIDADES), fila `19 | ÑIQUEN PAJUELO … | — | — | — | 14 | A | —` y la tarjeta
+      informativa debajo de la tabla. Verificado renderizando el **controlador real** con
+      sesión de docente simulada, y confirmado por `/consulta-notas/1/carga/157`, que usa
+      el mismo partial `consulta-notas/_tabla.php`.
+
+**Con sesión ADMIN o RA:**
+- [x] `/rectificaciones/editar?matricula=181&carga=157&competencia=9&periodo=1` → **sin**
+      la casilla (0 menciones de «extraordinari» en la página). Con `matricula=690` →
+      **con** ella y con su tarjeta de leyenda.
+- [x] `/rectificaciones/matricula/198` (BELTRAN TARAZONA GABRIELA NIKOLE, **la única
+      matrícula del sistema** con una competencia bloqueada en el III sin su nota, y 43
+      huecos en bimestres cerrados): 4 tablas de I y II, y **«III Bimestre» aparece 0
+      veces**. Lo impone el `per.estado = 'cerrado'` de `getCompetenciasInsertables`.
+- [x] `/director/bloqueos?periodo_id=3`: desbloqueada la **única** del III (bloqueo `8972`,
+      carga 20 / competencia 46 / ZAMBRANO, 0 extraordinarias) → flash de éxito, sin la
+      alerta de la guarda, tab a «0/593». **Y sin daño colateral:** 0 cierres transversales
+      anulados (la sección 13 no tenía ninguno vivo en el III) y 0 criterios
+      desconfirmados. La fila se restauró **idéntica** por SQL —id, `bloqueado_por=13`,
+      `origen='docente'`, `bloqueado_en='2026-09-18 10:41:11'`—, porque re-bloquear por el
+      panel habría dejado id nuevo, admin como autor y fecha de hoy.
+      La rama que rechaza no tiene caso real en el III (se probó por código con la 157/9 de B1).
+- [x] `/consulta-notas/1/criterios` → 2342 filas de criterios y **0 ocurrencias de
+      «extraordinari»** en todo el HTML, teniendo B1 **68 criterios extraordinarios vivos**.
+      Los ordinarios de esos mismos pares sí se listan: el negativo no es vacío.
+
+⚠️ **Dos trampas del entorno, ya pagadas, para quien repita estas pruebas:**
+- **`confirm()` congela la extensión de Chrome.** En el borrado de criterios se neutralizó
+  inyectando un `<script>` en el mundo de la página; el diálogo nativo, sin parche, **se
+  auto-descarta como «cancelar» y la acción no ocurre EN SILENCIO**. En el panel de
+  bloqueos el parche no estuvo disponible (el clasificador de modo automático deniega
+  tocar el JS de la página), así que hubo que pulsar «Aceptar» a mano.
+- **En la tarjeta transversal el clic sintético no llega al botón** aunque
+  `elementFromPoint` devuelva el botón correcto. Se disparó el handler real con
+  `b.click()` desde la página; lo único que no se ejercitó fue la entrega del clic.
+
+
+## ⏭ PARA RETOMAR EN EL ESCRITORIO (16/09/2026, turno tarde en la laptop)
+
+Sustituye al traspaso del 11/09. `dev` queda pusheado con el cierre de notificaciones,
+**15 commits por delante de `main`** (v1.0.1). **El merge NO se hizo.**
+
+### 1. Antes de abrir nada en el escritorio
+1. `git pull` en `dev`. **No hace falta `gulp build`**: `app.css` y los JS compilados van
+   en el commit.
+2. ⚠️ **Aplicar en la BD LOCAL del escritorio `057` → `058` → `059` → `060`**, las que
+   falten. Cada máquina tiene su copia, y la `060` es de hoy: **sin ella la bandeja y el
+   comunicado revientan** (columna `comunicado_id` y tabla `comunicados`). Comprobar:
+   `SHOW TABLES LIKE 'comunicados'`.
+3. Correr `verif_notificaciones.php` (37), `verif_notas_origen.php` (32) y
+   `verif_extraordinaria_lote.php`. Referencia de la batería completa en la laptop:
+   **39 de 39 en verde desde el 17/09/2026.** El rojo que se daba por normal,
+   `verif_estructura_boleta`, era del verificador: su esperado ignoraba el bloqueo, y sus
+   verdes no discriminaban. Reescrito y probado con mutantes (ver
+   `database/verificaciones/README.md`).
+4. Los ids de las pruebas de abajo son **de la BD de la laptop**. Si la del escritorio
+   difiere, buscar equivalentes antes de concluir que algo falla.
+
+### 2. Checklist de navegador — lo YA PROBADO (16/09, laptop, con sesión)
+Pasaron sin observaciones:
+- **§0 preparación** · **§1 notificaciones completas**: comunicados con las 4 casillas y
+  combinados, validaciones, historial con «leído por X de N», docente (marcar una, todas,
+  «Ver detalle» queda leída), **director con sesión** (campana, marcar leída, 403 al
+  redactar y al historial), refresco de avisos repetidos y móvil.
+- **§2 notas del colegio de origen**: importador, guardas en cliente y servidor, filas sin
+  nota omitidas, competencia compartida por dos áreas, vista del docente con sus dos ramas,
+  y **no aparecen en la boleta**.
+- **§3 extraordinaria en lote**: literal en vivo, conclusión por nivel, transversales,
+  motivo, transacción, **sí aparecen en la boleta**, mérito B1 intacto.
+- **§4 chips de procedencia**: los 3 chips en `/matriculas/693`, `/matriculas/693/notas-externas`,
+  `/consulta-notas/2/carga/295`, y con la docente SAARA SOTELO (id 6) en `/notificaciones`,
+  `/docente/notas-origen/693` y `/docente/calificaciones/295/historial/2`.
+
+🔴 **Dos vistas NO probadas, a sabiendas:** la grilla del docente
+(`/docente/calificaciones/{carga}`) y el resumen de competencia
+(`/docente/calificaciones/{carga}/resumen/{comp}`). Solo muestran el bimestre ACTIVO y en
+local **no hay ninguna extraordinaria en el III Bimestre** (están en I y II). Pintan el
+chip con el mismo partial que `/consulta-notas`, que sí pasó: **riesgo bajo, pero no es
+cero**. Probarlas exige crear una extraordinaria sobre una competencia bloqueada del III.
+
+⚠️ La primera versión del checklist daba **nombres de archivo de vista** en vez de URLs
+(`matriculas/show` → 404). Corregido arriba; si se reutiliza el checklist, usar URLs.
+
+### 3. Lo que FALTA probar (en este orden)
+**§5 — Dirección solo ve bimestres CERRADOS en `/admin/cuadros`** (en la laptop: I y II
+cerrados = ids 1 y 2; III activo = id 3). Es la primera vez que `/admin/cuadros` se abre
+con sesión de director.
+- [x] Director: el selector solo ofrece bimestres cerrados; el activo no aparece.
+- [x] Director: las series de evolución terminan en el último cerrado (sin caída final).
+- [x] Director: `/admin/cuadros/imprimir?periodo_id=3` → **404**; con `periodo_id=2` funciona.
+- [x] Director: `/admin/cuadros?periodo_id=3` no muestra el activo.
+- [ ] Admin y RA: siguen viendo el III **en vivo**, como antes. ⚠️ 22/09: admin abre `/admin/cuadros?periodo_id=3` (200), pero no se comprobó el selector ni con RA.
+- [x] Director: `/consulta-notas/3/seccion/{s}/asistencia` sigue en vivo (excepción que se conserva).
+
+**§6 — 404 limpios** (con admin; una sola página, sin barra duplicada):
+- [x] `/matriculas/999999/notas-siagie/informe`
+- [x] `/matriculas/999999/retorno`
+- [x] `/matriculas/999999/trasladar`
+- [x] `/traslados/999999/imprimir`
+
+**§7 — Regresión general**
+- [ ] Login y dashboard con cada rol; la campana solo para docente, RA, admin y directores. ⚠️ 22/09: probado con admin, director y docente; RA no.
+- [x] Un docente registra y guarda una nota por el flujo normal.
+- [ ] Boleta digital e imprimible de un alumno cualquiera, igual que en producción. ⚠️ 22/09: sin errores y sin fuga de notas de origen; no se comparó contra producción.
+- [ ] Orden de mérito de un grado, igual que en producción. ⚠️ 22/09: `/director/orden-merito` carga sin errores; no se comparó contra producción.
+- [ ] `/rectificaciones` de un alumno sin casos especiales. ⚠️ 22/09: solo el listado `/rectificaciones` (200); la página de un alumno no se abrió.
+- [x] Consola del navegador sin errores en todo el recorrido.
+
+### 4. Despliegue (solo con §5–§7 en verde)
+1. **`057`, `058`, `059`, `060` y `061` en PRODUCCIÓN, a mano y ANTES del merge.** El
+   auto-deploy publica código, no repara datos. Ensayadas dos veces seguidas en BD
+   desechable (057–059 el 11/09, 060 el 16/09). La `061` (21/09) se aplicó dos veces
+   seguidas en la BD local de la laptop. **Tras la `061`**, correr
+   `php database/reparar_notas_externas_truncadas.php` (simula) y luego con
+   `--confirmar`: completa las competencias que MariaDB recortó a 120 caracteres.
+2. `chore(release): v1.0.2`, **preguntar antes del merge** `--no-ff` a `main`, tag anotado
+   y push.
+3. Al desplegar: cabeceras de `notificaciones.md` y `usuarios-direccion.md`, y registrar el
+   deploy aquí.
+
+### 5. Qué entró hoy (16/09) — cierre del módulo de notificaciones
+Detalle en `docs/modulos/notificaciones.md`. **Migración `060`** (`comunicados` +
+`notificaciones.comunicado_id`).
+- **Defectos arreglados:** «Ver detalle» podía no marcar la leída (`keepalive`) · título
+  sin validar en servidor · el select ofrecía secciones del año planificado, que daban
+  «No hay destinatarios» · texto fijo «Registro Académico registró…» · avisos a docentes
+  inactivos.
+- **Decisiones del usuario:** dirección **recibe** comunicados y marca leídas solo SU
+  bandeja (excepción acotada, en `usuarios-direccion.md`) · destino *Personal
+  administrativo* · destinos **combinables**, deduplicados y sin el emisor · avisos
+  repetidos se **refrescan** · **historial de enviados** para todos los emisores.
+- **Verificador propio** `verif_notificaciones.php` (37); sus asertos salieron de
+  `verif_notas_origen.php`.
+- **Diferido sin decisión:** paginación o limpieza de la bandeja (hoy, las 100 más recientes).
+
+⚠️ Al empezar la sesión había un cambio sin commit en `public/js/anio-academico.js`;
+`gulp build` lo regeneró desde su fuente (sin cambios) y quedó igual a `HEAD`. Si aquel
+cambio se hizo a mano en el escritorio, **allí sigue**; en la laptop se perdió.
+
+## 🆕 EXTRAORDINARIA SOLO EN CERRADOS + GUARDA DE DESBLOQUEO — EN `dev` (18/09/2026, tarde)
+
+Dos observaciones del usuario. Sin migración. Detalle en `calificaciones.md` («Solo
+bimestres cerrados, guarda de desbloqueo y fuera de las grillas»).
+- La extraordinaria **solo** se registra en bimestres **cerrados** (antes bastaba con
+  «bloqueada», y se colaba en el activo).
+- **No se desbloquea** una competencia con extraordinarias (individual y transversal abortan;
+  liberar los bloqueos del cierre las conserva). Motivo medido: al desbloquear,
+  `calcularPromedio` mezclaba la nota de RA con las del docente sin aviso.
+- El criterio extraordinario **ya no se pinta como criterio** en ninguna pantalla
+  (`criterios_ordinarios()`); en la rectificación, solo al alumno que lo tiene.
+- **Dato revertido en LOCAL:** la extraordinaria de prueba **1460** (431/271/46, III activo):
+  criterio 6137 eliminado, fila de `calificaciones` borrada, auditoría 1460 conservada.
+- Verificado: 15 comprobaciones propias (dos ramas por guarda), render de 4 pantallas con el
+  controlador real y **batería completa en 39 de 39**.
+- ✅ Pruebas en navegador: **las 6 pasadas el 21/09/2026**, al inicio de este archivo.
+- 🔴 **Decisión bloqueante para la REGLA DEL PERIODO FINAL (tope 05/10):** su válvula era la
+      extraordinaria ANTES del cierre, y ahora solo existe DESPUÉS. Aviso en la sección de esa
+      regla en `calificaciones.md`.
+- [ ] **No existe un flujo para REVERTIR una extraordinaria** (solo se corrige). La guarda de
+      desbloqueo lo hace visible: hoy la única salida es a mano.
+- [ ] Sin decidir: en la rectificación, el alumno CON extraordinaria sigue viendo también los
+      criterios ordinarios vacíos; si RA los llena, mezcla. Preguntado al usuario.
+- [ ] `.col-criterio--extraordinario` (`_rectificaciones.scss`) quedó sin uso.
+- [ ] 🆕 **El banner «Próximo pendiente» IGNORA LAS OMISIONES** (hallado el 21/09/2026 al
+      probar el criterio sin notas; **es ANTERIOR a la extraordinaria**, no una regresión).
+      `getNotasExistentes` (`CalificacionController.php:1450`) solo lee
+      `calificaciones_criterio`, y la vista compara ese conteo contra los alumnos no
+      exonerados (`calificaciones.php:70`): una **falta justificada** registrada en
+      `omisiones_criterio` no cuenta nunca. Un criterio con TODOS los alumnos resueltos
+      —notas + omisiones— se queda como pendiente para siempre y el contador dice
+      «24 de 25» cuando no falta nadie. Caso vivo: criterio **5514** (carga 271,
+      competencia 46, III Bimestre), 24 notas + 1 omisión = 25 alumnos, confirmado desde
+      el 18/09, y el banner apunta a él de forma permanente. **Por eso el aserto del banner
+      no se pudo probar en la carga 271.** NO contamina «Ver resumen»: ese guard es
+      `competenciaListaParaResumen`, que mira `confirmado_en` y no cuenta notas. Decidir si
+      el conteo debe sumar las omisiones (y, si sí, revisar también el «X de Y» del criterio).
+
+## 🆕 AJUSTES TRAS PROBAR EXTRAORDINARIA Y RECTIFICACIÓN — EN `dev` (18/09/2026)
+
+Ocho observaciones de las pruebas en navegador (§A-§B del checklist del 17/09). Sin
+migración. Detalle en `calificaciones.md` («Ajustes tras las pruebas…»), `orden-merito.md`
+(rectificado) y `matriculas.md` (dos botones y orden de la currícula).
+
+🔴 **Lo que parecía un fallo de boleta y de mérito era PÉRDIDA DE LO ESCRITO.** La
+rectificación §B1 de la 181 quedó auditada **17→17** (fila 1461): el rechazo por falta de
+conclusión repintó las notas de la BD y el reenvío guardó la vieja. Arreglado en las dos
+capas. **Hay que REPETIR §B1** (bajar los 3 criterios de la 181 a 10), y la fila 1461 queda
+como traza de la prueba fallida.
+
+- [ ] **Probar en navegador:** §B1 de nuevo · rechazo del servidor que conserva lo escrito
+      (editar y lote) · lote con conclusión opcional y el input nuevo · ficha
+      `/matriculas/693` con los dos botones (y una matrícula `trasladado` sin la card) ·
+      `/docente/notas-origen/693` · grilla del docente con extraordinaria en el bimestre
+      activo (caso 431/271/46) · borrar un criterio vacío con los demás confirmados ·
+      `/admin/control/1/orden-merito-rectificado`.
+- **Probado en Chrome con sesión admin (18/09):** rechazo del servidor que conserva lo
+      escrito (editar y lote), conclusión en vivo, input del lote, ficha con los TRES paneles
+      (el tercero es la antigua card de notas autorizadas SIAGIE) y trasladado con solo el
+      tercero, notas de origen en orden de la currícula, rectificado con resaltado. **NO
+      probado:** guardar §B1, grilla del docente y eliminar criterio (piden sesión docente).
+- ✅ **§B1 repetida en Chrome con sesión admin (18/09, tarde):** conclusión obligatoria en
+      vivo en sus dos ramas (A → no, C → sí), rechazo del servidor que vuelve con 10/10/10 y el
+      motivo, un solo flash, y guardado **17→10** (fila **1541**; el 6115 quedó vacío). Boleta
+      B1 de la 181 con C y su conclusión; en el rectificado la 181 sale resaltada, 1.º → 4.º.
+- ✅ **Grilla y resumen del docente (carga 271, comp 46) renderizados con el controlador
+      REAL** y la sesión simulada del docente 13, sin avisos PHP: el criterio 6137 no se pinta,
+      la card informativa sí (en `comp-46` y en el resumen), y «Próximo pendiente» apunta a un
+      criterio ordinario (5514). Admin **no** puede abrir esa grilla (carga ajena).
+- ➡️ Lo que queda (grilla en pantalla y borrar un criterio vacío) está en «PENDIENTE
+      INMEDIATO» al inicio de este archivo.
+- Verificación sin sesión (18/09): `php -l`, `gulp build`, 6 verificadores en verde
+  (lote, origen, notificaciones, estructura de boleta, universo del mérito, roster) y 10
+  comprobaciones de render con datos reales.
+
+**Pendientes detectados, NO arreglados (fuera de alcance):**
+- [x] ~~El criterio 6115 vacío y editable al rectificar a cualquier compañero~~ — resuelto el
+      18/09 (tarde): `getDetalleCompetencia` solo lo ofrece a quien tiene nota en él.
+- [ ] El alta **individual** (`rectificaciones/extraordinaria`) sigue perdiendo lo escrito
+      tras un rechazo del servidor, como la rectificación antes del arreglo.
+- [ ] Flash duplicado también en `dashboard/index.php`, `docente/inicio.php` y
+      `admin/boletas-publicas/index.php`.
+
+## 🔴 DATOS PERSONALES SERVIDOS DESDE `public/` — EN `dev` (17/09/2026)
+
+Detalle y medición en `docs/infraestructura.md` § «Datos personales servidos desde
+`public/`». En una línea: `public/matriculados.csv` (528 estudiantes con DNI, apoderado,
+domicilio y celular) y `public/hash.php` (contraseña en texto plano) estaban versionados y
+el `.htaccess` no negaba `.csv`. Salen del repo, entran al `.gitignore` y los dos
+`.htaccess` los niegan.
+
+**Pendiente del usuario (NO lo hace el deploy):**
+- [ ] Comprobar en producción qué responden `/matriculados.csv` y `/hash.php`.
+- [ ] **Borrarlos a mano del servidor**: el auto-deploy solo los retira al mergear a `main`.
+- [ ] Repo de GitHub **era público** → pasarlo a privado; el historial conserva los archivos.
+- [ ] Decidir si se reescribe el historial (y, si el colegio lo exige, el aviso por la
+      Ley 29733 de protección de datos personales).
+
+## 🆕 IMPORTAR LA CURRÍCULA + CATEGORÍAS DE PROCEDENCIA — EN `dev` (10/09/2026)
+
+Segundo bloque del mismo día, sobre el módulo de notas del colegio de origen. **Añade la
+migración `059`**, que se suma a la cola de la `057` y la `058`: **ninguna de las tres está
+en producción**.
+
+### Importar la currícula
+
+Transcribir a mano el informe del colegio anterior eran **27-29 competencias POR BIMESTRE**.
+Ahora se traen las del plan de su sección, eligiendo bimestres y áreas. Se apoya en
+`estructuraCompetenciasSeccion()`, que ya existía: no se escribió consulta nueva.
+
+- **Sin subáreas** (son organización interna del COCIAP) y con el **`nombre_completo`** de la
+  competencia, que es la redacción oficial del MINEDU.
+- **Importar no escribe nada**: pre-rellena las filas del formulario de siempre, que siguen
+  editables. **El camino manual para una currícula extranjera queda intacto.**
+- `areasDeLaSeccion()` pasa a **derivar** de `curriculaParaImportar()`: si el select ofreciera
+  otras áreas que el importador, el mapeo se perdería al guardar.
+
+### 🔴 Dos cosas que había que arreglar sí o sí
+
+**1. La UNIQUE perdía filas en silencio (migración `059`).** El COCIAP evalúa la misma
+competencia del MINEDU en dos cursos —«Resuelve problemas de cantidad» en Matemática y en
+Taller de Razonamiento Matemático—, así que con
+`(matricula_id, periodo_nombre, competencia_nombre)` y `ON DUPLICATE KEY UPDATE` importar 29
+guardaba 27. Afectaba a **4 de los 6 estudiantes reales**. ⚠️ **Ya pasaba al teclear a mano**:
+el importador solo lo volvía masivo. Con `area_nombre` en la clave: **0 colisiones**. La tabla
+estaba vacía en los dos entornos.
+
+**2. El guardado rechazaba las filas sin nota.** Se omitía solo la fila con los CUATRO campos
+vacíos, así que una fila importada (periodo, área y competencia llenos, nota vacía) hacía
+**fallar el guardado en la fila 21 de 58** — el caso normal, porque el informe de origen no
+trae todas las competencias. Ahora **sin nota se omite**, y las omitidas **se cuentan en el
+mensaje** para que no sea silencioso.
+
+### Categorías de procedencia
+
+Los tres mecanismos que producen notas fuera del registro del docente —extraordinaria,
+colegio de origen y autorizadas para SIAGIE— llevan **chip de categoría** desde un punto
+único (`PROCEDENCIAS_NOTA` en `helpers.php`), en **7 vistas**.
+
+- **La categoría es DERIVABLE**: cada mecanismo vive en su propia tabla. Sin migración y sin
+  tocar las extraordinarias existentes.
+- 🔴 **El color NO distingue: distinguen el nombre y el icono.** Los tres comparten el borde
+  punteado y **solo la extraordinaria conserva el ámbar**, la única que llega a la boleta. Es
+  lo que exige el sistema de wayfinding (rojo/ámbar son de estado; los 4 colores de concepto
+  ya tienen dueño). **No añadir colores a esta familia.**
+- `.extra-badge` **se conserva como alias y su aspecto no cambió**: las 3 vistas que ya lo
+  usaban ahora sacan el texto del punto único. Su definición duplicada en
+  `_rectificaciones.scss` se retiró.
+
+### Verificación
+
+`verif_notas_origen.php` sube a **33 comprobaciones**, con dos bloques nuevos: el **7c**
+prueba la `059` (importar N competencias guarda N filas y la competencia compartida por dos
+áreas conserva las dos) y el **7d** el punto único de categorías (iconos distintos, SVG
+existentes, un solo ámbar). Los otros dos verificadores siguen en verde.
+
+Render con datos reales: sin importar salen **6 filas**; importando 2 bimestres de la 694,
+**58 filas con su área ya preseleccionada** más 3 en blanco.
+
+🔴 **Sin verificar (necesita sesión):** el envío real del formulario GET de importación, el
+JS de marcar/desmarcar áreas, y cómo se lee el chip en la grilla del docente.
+
+### Correcciones de la revisión previa al despliegue (11/09/2026)
+
+Salieron de revisar el propio diff antes de commitear. Ninguna cambia el comportamiento
+esperado del módulo; las tres primeras están medidas.
+
+1. **La currícula se leía dos veces por carga de pantalla** (la card y `areasDeLaSeccion()`,
+   que deriva de ella). Memorizada por matrícula en `NotaExternaModel`. Medido con
+   `SHOW SESSION STATUS LIKE 'Questions'`: 2 consultas → **0** en la segunda lectura, y otra
+   matrícula sigue leyendo las suyas.
+2. **Dos consultas SQL idénticas de bimestres**, escritas a mano en el controlador, pasan a
+   **una** llamada a `AnioAcademicoModel::getPeriodos()`, que ya existía. Quedan otras dos
+   inline en esa clase, **preexistentes** (notas autorizadas SIAGIE), sin tocar.
+3. **Importar sin marcar bimestre o sin áreas ya no es un silencio**: guarda en servidor
+   (flash `warning` + redirect) **y** en cliente. Las dos ramas probadas con
+   `render_guarda.php`; la rama que deja pasar sigue rindiendo sus filas.
+4. Limpiezas del propio diff: clave muerta `area_tipo`, el `unset` del partial
+   `_procedencia-chip.php` antes del `return` temprano, y el salto de línea final del JS.
+
+🔴 **Y un defecto PREEXISTENTE que la revisión destapó, ya arreglado**: cuatro sitios
+llamaban `$this->view('shared/404')` —lo que CLAUDE.md prohíbe por su nombre— en
+`MatriculaController`, `RetornoGradoController` y `TrasladoController` (dos). `shared/404.php`
+es una página HTML completa, así que el layout la anidaba **dentro de otra página**. Ahora
+usan `notFound()`, que es el punto único. **Quedan 0 usos** de la forma prohibida en `app/`.
+Va en commit aparte porque no nació en este trabajo.
+
+## 🆕 REGISTRO DE CALIFICACIONES DE BIMESTRES CERRADOS — EN `dev` (10/09/2026)
+
+**Lleva DOS migraciones (`057` y `058`), aplicadas SOLO EN LOCAL.** Hay que aplicarlas a
+mano en producción **ANTES** del merge a `main`, como se hizo con la `044` y la `045`.
+Nada de esto está desplegado.
+
+### La decisión que reordenó todo
+
+El colegio precisó la regla y **partió en DOS lo que se trataba como una sola cosa**, con
+destinos **opuestos**:
+
+| | Notas del **colegio de origen** | Notas **nuestras** no registradas |
+|---|---|---|
+| Caso | trasladado que llega de otra IE | matriculado tarde (deudor con prórroga, matrícula provisional) |
+| ¿Boleta y SIAGIE? | **NO** — el Informe de Progreso lleva solo lo cursado aquí | **SÍ**, como cualquier nota |
+| Quién las ve | solo el **docente** con carga en su sección | familia, boleta, acta |
+| Escala | **literal** puro | **numérica** 00-20, literal derivado |
+| Dónde vive | `notas_externas` (+ `area_id`, migración `057`) | `calificaciones`, vía calificación **extraordinaria** |
+
+🔴 **Eso DEROGA el plan del 05/08** (`docs/modulos/registro-retroactivo-notas.md`), que
+mandaba las dos cosas a la boleta con una nota al pie. Caen sus decisiones **D2, D4, D6 y
+D7** y se cierra sola su pregunta abierta del SIAGIE. **`calificaciones_retroactivas` no
+se construye**, y con ella **la migración `049` queda LIBERADA**: hueco permanente, no
+reutilizar el número. Su cabecera ya lo dice; su análisis se conserva porque sigue siendo
+válido y caro de rehacer. La **F1** de aquel plan (asistencia en guion, en producción desde
+el 07/08) es independiente y no se tocó.
+
+### Lo que se descubrió midiendo, y que cambió el diseño
+
+- **La mitad del pedido ya estaba en producción.** La calificación extraordinaria
+  (migración `042`, desde el 16/07) ya hacía numérico→literal, conclusión obligatoria por
+  nivel, motivo, auditoría y exclusión del mérito. **Le faltaba captura en lote, no motor.**
+- **Las 275 extraordinarias son UN solo evento administrativo** (Ética B1, migración `050`):
+  un motivo idéntico, una competencia, un periodo. No es uso orgánico de la función.
+- **`notas_externas` no era un mecanismo muerto.** Que la boleta no la lea —lo que el plan
+  del 05/08 usó para justificar su borrado— resulta ser **el comportamiento pedido**.
+- **Ningún flag detecta el caso.** `matriculas.tipo`: de los 6 casos reales **3 son `nuevo`
+  y 3 `continuador`**. `tipo_matricula='traslado_entrada'`: **173 filas y las 173 con B1
+  completo**. Por eso **lo elige RA al registrar**, con dos entradas explícitas.
+- **La card de notas de origen exigía `tipo === 'nuevo'`** y por eso no existía para la
+  mitad de los casos reales (en todo el año hay **5** matrículas `nuevo`). Candado retirado.
+
+### Qué entró
+
+- **Extraordinaria EN LOTE** (sin migración): grilla del bimestre completo, literal en vivo,
+  conclusión que se revela sola, motivo común, todo en UNA transacción.
+  **PUNTO ÚNICO nuevo: `RectificacionController::escribirExtraordinaria`** — extraído del
+  alta individual, ahora las dos vías escriben por él.
+- **Notas del colegio de origen**: migración `057` (`area_id` NULL = mapeo opcional para el
+  resaltado), `NotaExternaModel` como punto único, captura en lote, card sin candado de
+  `tipo`, y vista de solo lectura del docente con guarda de carga activa.
+- **Módulo de notificaciones**: migración `058`, campana con contador en la barra, bandeja
+  con leída/no leída, y comunicados de admin/RA. **`alertas` NO se tocó** (va tutor→padre,
+  0 filas, otro público).
+- **Las COMPETENCIAS TRANSVERSALES entran en el lote (añadido el 10/09 tras probarlo él en
+  el navegador y preguntar dónde se registraban).** Eran **12 celdas vacías** — 2 por nivel
+  × 6 estudiantes — mientras 23 compañeros de la 690 sí las tenían.
+  - 🔴 **La razón de su exclusión era FALSA en bimestres cerrados.** Decía «una fila cruda
+    no llega a boleta»; medido con escritura + rollback, **sí llega**: la agregación del
+    tutor solo exige bloqueo + cierre vigente, y en un bimestre cerrado ya se cumplen.
+    La exclusión **sigue en pie para el alta individual** y el bimestre en curso.
+  - **Carga dueña DERIVADA del dato** (la que ya evalúa esa transversal en la sección), no
+    elegida a dedo; si nadie la trabajó, la competencia no se ofrece.
+  - 🔴 **La conclusión de una transversal NO vive en `calificaciones`** sino en
+    `conclusiones_transversales`. Por eso `escribirExtraordinaria` recibe
+    `bool $esTransversal` y bifurca. Guardarla mal la dejaría registrada e INVISIBLE, y en
+    primaria una transversal en B o C exige conclusión.
+
+### Verificación
+
+Dos scripts nuevos, ambos escriben y hacen **rollback** (no dejan filas):
+
+- `verif_extraordinaria_lote.php` — 12 comprobaciones. Sobre la matrícula 690: +25 notas,
+  las 25 dejan de ser insertables, **el ranking de B1 no mueve ni una posición** (está
+  publicado y bajo el candado `046`), la boleta gana 25 celdas y ninguna previa cambia.
+- `verif_notas_origen.php` — 15 comprobaciones. La central es **negativa**: registrar notas
+  de origen **no altera ni una celda de boleta** ni el mérito. Incluye las dos ramas de la
+  guarda del docente, el aislamiento entre bandejas y que dirección no emite comunicados.
+
+Las 4 vistas nuevas se renderizaron con datos reales (23 comprobaciones más).
+
+🔴 **Lo que NO se pudo verificar y hay que mirar con sesión abierta:** que el JS corra de
+verdad (literal en vivo, conclusión que aparece, campana que se actualiza sin recargar), el
+flujo completo con redirects y CSRF, y el aspecto de la campana en la barra.
 
 ## 🟢 RELEASE v1.0.1 — DESPLEGADA EN PRODUCCIÓN (08/09/2026)
 
@@ -38,6 +590,72 @@ lo lee nadie todavía**: hoy es documental.
 🔴 **Comprobar en producción lo que no pudo medirse en local**: vista previa de impresión
 (Ctrl+P), el PDF generado desde un móvil frente al de escritorio, y —por el cambio en la
 raíz compartida— una boleta imprimible, una constancia y el reporte de mérito en móvil.
+## 🟡 DIRECCIÓN SOLO VE BIMESTRES CERRADOS (08/09/2026, 2.º del día)
+
+En `dev`, **sin desplegar**. **Sin migración.** Detalle completo en
+`docs/modulos/usuarios-direccion.md` § «Dirección solo ve bimestres CERRADOS».
+
+El plan estaba aprobado desde esa misma mañana y se construyó el mismo día. Extiende al
+**bimestre entero** la «regla del dato oficial»: un director podía abrir `/admin/cuadros`
+sobre el bimestre **activo**, a medio llenar, y ver porcentajes, rankings y una línea de
+tendencia con la misma pinta que los del bimestre cerrado. Y la serie de evolución lo
+incluía: `$bimestresComparables` solo descarta un bimestre si **algún nivel tiene CERO**,
+así que en cuanto los dos tienen algo el último punto cae en picado.
+
+### Qué entró
+
+- **`helpers.php`**: `solo_bimestres_cerrados()`, `periodos_cerrados()` y
+  `ultimo_periodo_cerrado()`, junto a `ROLES_DIRECCION`. 🔴 **Primer helper de punto único
+  del archivo que lee la SESIÓN** — los seis anteriores emiten fragmentos SQL. Es una regla
+  de **audiencia**, no de datos, y el docblock lo dice.
+- **`Admin\CuadrosEstadisticosController`**: `periodosVisibles()`, `elegirPeriodo()` y
+  `serieIds()`. `index()` cae al último cerrado **con banner**; `imprimir()` responde
+  **404** (el A4 va firmado con el sello del Director EBR). Antes `?periodo_id=3` funcionaba
+  en las dos entradas **sin validar nada**.
+- **`_chart-data.php`**: corte de G2, G7 y G11 **por ids** (solo G2 expone `estado`), en el
+  **eje de las series** y nunca en la fuente (G6 la comparte con G7 y desaparecería). Las
+  tres notas de lectura llevan coletilla condicional.
+- **`admin/cuadros/index.php`**: banner `.alert alert--info` y estado vacío explicativo.
+- `admin` y `registro_academico` **no cambian**: `serieIds` es `null` para ellos y la lista
+  sigue trayendo el activo. Esa es la mitad que se rompe en silencio, y tiene sus asertos.
+
+### Correcciones al plan que dejó por escrito
+
+- `verif_direccion_superficies.php:443` **no era un aserto** (es una clave del array que se
+  renderiza); el que exige la celda del bimestre activo en conducta es **`:1062-1078`**.
+- `getPeriodos()` **no lo comparte `/consulta-notas`**: esa pantalla tiene su propio SQL
+  inline. Lo comparte `/admin/control`.
+- Las copias de la comprobación «cerrado» son **16-17 en PHP con 7 redacciones**, no 5.
+
+### Medido
+
+**35 de 36 verificadores en verde**, y los 30 asertos del bloque nuevo también. El único
+rojo es `verif_direccion_superficies.php` con 5 fallos **preexistentes**, reproducidos uno
+a uno en una copia limpia de `HEAD` (`git archive`) contra la misma base.
+
+### 🔴 Pendiente que este trabajo destapó (preexistente, sin arreglar)
+
+**Con el bimestre a la vista sin calificaciones, G2 se calcula pero no tiene dónde
+dibujarse.** `admin/cuadros/index.php:146` cambia la sección entera de calificaciones por
+un estado vacío, y el `<div id="chart-evolucion">` vive dentro; pero `$chartData['evolucion']`
+sí existe, porque sale de los bimestres anteriores. Arrastra su tabla de valores y su nota
+de lectura, en pantalla y en papel. **Para Dirección desaparece con este cambio** (ya no ve
+el bimestre abierto); para `admin` y RA sigue. Arreglarlo es decidir si la evolución ANUAL
+debe vivir dentro de la sección del BIMESTRE. Detalle en `docs/modulos/usuarios-direccion.md`.
+
+⚠️ **La migración 056 lo destapó, no lo causó**: sin ella el verificador abortaba antes del
+render y estos 5 asertos no llegaban a correr nunca.
+
+### Pendiente
+
+- 🔴 **Sin probar en navegador**, y sería la primera vez que una superficie de Dirección se
+  abre **con sesión de director** (id 35 `director_ebr`, id 41 `director_academico`).
+- ⚠️ **La BD del escritorio no es la de la laptop**: III Bimestre con **0** calificaciones
+  aquí frente a 222 allí, así que el «desplome falso» no es observable en este equipo; por
+  eso el corte de las series se mide con fuente sintética.
+- ✅ **Migración 056 aplicada en la BD local del escritorio** el 08/09/2026 (idempotente;
+  10 criterios de conducta, 10 con código). No toca producción.
+
 ## 🟡 CUADROS — responsive del A4 imprimible (08/09/2026)
 
 En `dev`, **sin desplegar**. Sin migración. Commits `53f0faa` (cuadros) y `3a1de82`
@@ -1762,8 +2380,13 @@ pregunta siempre antes.
     migración**: el 07/08 se reportó como "error de documentación" un `limite_notas` de
     B2 distinto, y era simplemente que la copia local llevaba dos días de retraso. El valor
     bueno es el que dice el doc: **`2026-08-04 23:59`**.
-  La **`049`** será la del
-  registro retroactivo de notas, aún sin implementar —
+  🔴 **La `049` quedó LIBERADA el 10/09/2026 y es un HUECO PERMANENTE: no reutilizar ese
+  número.** Estaba reservada para `calificaciones_retroactivas`, del plan de registro
+  retroactivo, y ese plan quedó **derogado**: la funcionalidad se construyó con otro diseño
+  y otras dos migraciones, la **`057`** (`notas_externas.area_id`) y la **`058`**
+  (`notificaciones`). Se deja el hueco a propósito, porque reciclar el número haría que las
+  entradas viejas de este archivo —que hablan de la `049` como «la del registro
+  retroactivo»— apuntaran a otra cosa.
   ⚠️ **la 050 y la 051 se numeraron antes que la 049 a propósito**: son independientes y
   corrían primero. Al aplicarlas, el orden lo manda la dependencia, no el número: la `051`
   exigía que el fix F1 estuviera **antes** en producción, y así se hizo (deploy `cf8bdb2`
@@ -2243,8 +2866,23 @@ pregunta siempre antes.
     resuelve las dos, marcando `es_legado`.
   - **Cierra un hueco de roles real:** `director_general` y `director_ebr` no tienen hoy
     ninguna forma de ver conducta ni el agregado transversal.
-- **NOTAS DE BIMESTRES CERRADOS PARA QUIEN LLEGÓ DESPUÉS — PLAN DE IMPLEMENTACIÓN LISTO,
-  SIN IMPLEMENTAR (05/08/2026).** Plan completo con fases, archivos y SQL:
+- ⛔ **NOTAS DE BIMESTRES CERRADOS PARA QUIEN LLEGÓ DESPUÉS — PLAN DEROGADO Y SUSTITUIDO
+  EL 10/09/2026. NO IMPLEMENTAR NADA DE LO QUE SIGUE EN ESTA ENTRADA.** La funcionalidad se
+  construyó, pero con **otro diseño**: la regla del colegio partió el caso en DOS mecanismos
+  con destinos opuestos (colegio de origen = informativo, nunca en boleta · notas nuestras
+  no registradas = calificación extraordinaria, sí en boleta). Ver el bloque
+  **«REGISTRO DE CALIFICACIONES DE BIMESTRES CERRADOS»** al principio de este archivo, y
+  `matriculas.md` · `calificaciones.md` · `notificaciones.md`.
+  - 🔴 **`calificaciones_retroactivas` NO se construye y la migración `049` queda LIBERADA**
+    (hueco permanente: no reutilizar el número). Las que sí entraron son la `057` y la `058`.
+  - Caen las decisiones **D2, D4, D6 y D7**, y su pregunta abierta del SIAGIE se cierra sola.
+  - La **F1** (asistencia en guion) es independiente y **sigue en producción** desde el 07/08.
+  - **Lo que queda abajo se conserva como ANÁLISIS**, que sigue siendo válido y caro de
+    rehacer (los 45 usos de `nota_numerica`, el universo de los 6 casos, el estado de la
+    extraordinaria). **Su plan de implementación, no.**
+
+- ~~**NOTAS DE BIMESTRES CERRADOS PARA QUIEN LLEGÓ DESPUÉS — PLAN DE IMPLEMENTACIÓN LISTO,
+  SIN IMPLEMENTAR (05/08/2026).**~~ (derogado, ver arriba) Plan completo con fases, archivos y SQL:
   **`docs/modulos/registro-retroactivo-notas.md`** (empezar por §6 **F0**).
   - **Lleva migración `049`** (tabla `calificaciones_retroactivas` + `DROP notas_externas`)
     → al desplegar hay que aplicarla a mano en prod ANTES del merge, como la 044 y la 045.

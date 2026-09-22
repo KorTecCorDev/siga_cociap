@@ -12,6 +12,8 @@
  *
  * @var array      $periodos
  * @var array|null $periodo
+ * @var array|null $serieIds        ids admitidos en las series anuales; null = sin filtro
+ * @var bool       $avisoNoCerrado  se pidió un bimestre fuera de los visibles
  * @var array|null $bloques  { matricula, calificaciones, evolucion, merito,
  *                             empates, reaperturas, conducta,
  *                             conducta_secciones, asistencia,
@@ -58,11 +60,31 @@ require VIEW_PATH . '/admin/cuadros/_chart-data.php';
                 &#128424; Imprimir
             </a>
         <?php endif; ?>
+
+        <?php // El director que llega con `?periodo_id` de un bimestre abierto no
+              // se queda sin pantalla: se le da el ultimo cerrado y se le dice por
+              // que. Sin la frase, el selector "cambia solo" y parece un fallo.
+              if (!empty($avisoNoCerrado) && $periodo): ?>
+            <div class="alert alert--info">
+                Ese bimestre <strong>todavía no está cerrado</strong>. Dirección ve solo
+                bimestres cerrados, así que se muestra
+                <strong><?= e($periodo['nombre_display']) ?> <?= e($periodo['anio']) ?></strong>.
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
 <?php if (!$periodo || !$bloques): ?>
-    <div class="empty-state"><p>No hay bimestres disponibles.</p></div>
+    <div class="empty-state">
+        <?php // Para Direccion "no hay bimestres" seria falso: los hay, pero
+              // ninguno cerrado todavia. Decirlo evita que el tablero parezca roto.
+              if (solo_bimestres_cerrados()): ?>
+            <p>Todavía no hay ningún bimestre cerrado. Este tablero muestra bimestres
+               ya cerrados: en cuanto se cierre el primero aparecerá aquí.</p>
+        <?php else: ?>
+            <p>No hay bimestres disponibles.</p>
+        <?php endif; ?>
+    </div>
 <?php else: ?>
 
 <?php // ── Índice de la página ─────────────────────────────────────────

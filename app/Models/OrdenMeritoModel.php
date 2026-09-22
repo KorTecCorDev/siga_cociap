@@ -1237,6 +1237,27 @@ class OrdenMeritoModel extends BaseModel
         ", [$periodoId]);
     }
 
+    /**
+     * Puesto de grado y promedio de cada matrícula en el snapshot OFICIAL de un
+     * periodo: matricula_id => ['puesto' => int, 'promedio' => float]. Lo usa
+     * la vista del rectificado para mostrar QUÉ cambió frente al oficial.
+     */
+    public function puestosOficiales(int $periodoId): array
+    {
+        $map = [];
+        foreach ($this->query("
+            SELECT matricula_id, puesto_grado, promedio_general
+            FROM orden_merito_snapshot
+            WHERE periodo_id = ?
+        ", [$periodoId]) as $f) {
+            $map[(int) $f['matricula_id']] = [
+                'puesto'   => (int) $f['puesto_grado'],
+                'promedio' => (float) $f['promedio_general'],
+            ];
+        }
+        return $map;
+    }
+
     /** Ranking de grado desde la versión rectificada (mismo shape que el snapshot). */
     public function rankingGradoRectificado(int $gradoId, int $periodoId): array
     {

@@ -110,3 +110,21 @@
         .btn { flex-shrink: 0; }
     }
 }
+
+// ── Orden de mérito RECTIFICADO: comparación con el oficial (18/09/2026) ──
+// Resalta las filas que se movieron frente al documento publicado y pinta
+// el sentido del cambio. Ámbar = "cambió" (estado), no un color de concepto.
+.rect-merito {
+    // Con .tabla-ranking delante para ganarle al fondo blanco de las
+    // columnas sticky (Puesto y Apellidos), como hace .fila-media-beca.
+    @at-root .tabla-ranking tr.rect-merito__fila--cambio td { background: $color-warning-bg; }
+
+    &__delta {
+        font-weight: 600;
+        color: $text-muted;
+
+        &--sube  { color: $color-success; }
+        &--baja  { color: $color-error; }
+        &--nuevo { color: $color-warning; }
+    }
+}

@@ -1,0 +1,131 @@
+// _notificaciones.scss — Bandeja de notificaciones (migración 058)
+// Reutiliza .card, .btn, .page-header, .empty-state y .form-*. Aquí solo lo
+// propio del módulo (prefijo .notif-).
+//
+// Wayfinding: el AZUL de marca señala "sin leer" (es navegación, no un estado
+// de riesgo); el rojo queda reservado al contador de la campana, que sí es un
+// aviso que pide atención.
+
+.notif-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+}
+
+.notif {
+    padding: $spacing-md;
+    border: 1px solid $border-color;
+    border-left: 4px solid $border-color;
+    border-radius: $border-radius;
+    background: $bg-white;
+    box-shadow: $shadow-sm;
+    transition: border-color .15s ease, background .15s ease;
+
+    &--sin-leer {
+        border-left-color: $brand-mid;
+        background: $bg-secondary;
+    }
+
+    &__cabecera {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+        margin-bottom: $spacing-sm;
+    }
+
+    &__tipo {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: $border-radius-sm;
+        border: 1px solid $border-color;
+        background: $bg-secondary;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+        font-weight: 600;
+    }
+
+    // Punto de "sin leer": marca discreta, no compite con el badge de la campana.
+    &__punto {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: $brand-mid;
+    }
+
+    &__fecha {
+        margin-left: auto;
+        font-size: $font-size-sm;
+        color: $text-muted;
+    }
+
+    &__titulo {
+        margin: 0 0 $spacing-xs;
+        font-size: $font-size-lg;
+        font-weight: 700;
+        color: $text-primary;
+    }
+
+    &__mensaje {
+        margin: 0;
+        color: $text-secondary;
+        line-height: 1.55;
+    }
+
+    &__pie {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+        margin-top: $spacing-md;
+    }
+
+    &__emisor {
+        margin-right: auto;
+        font-size: $font-size-sm;
+        color: $text-muted;
+    }
+}
+
+// Opciones de destinatario del comunicado: casilla + descripción en bloque.
+.notif-opcion {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-sm;
+    padding: $spacing-sm;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    cursor: pointer;
+
+    & + & { margin-top: $spacing-sm; }
+
+    &:hover { background: $bg-secondary; }
+
+    span {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+}
+
+.notif-aviso { margin-top: $spacing-sm; }
+
+// Historial de comunicados enviados: reutiliza .notif y añade los destinos
+// y la lectura. Sin color de estado: «leído por X de N» es un dato, no alarma.
+.notif-enviado {
+    &__destinos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+    }
+
+    &__lectura {
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        font-weight: 600;
+    }
+}

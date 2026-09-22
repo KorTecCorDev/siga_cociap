@@ -416,3 +416,10 @@ Las transversales existen en el sistema como **dos objetos distintos**, y hasta 
 - ⚠️ **El área en BD sigue llamándose «Competencias Transversales»** (y «Comp. Transv.»
   en secundaria): son nombres de DATO, no rótulos de UI. `verif_universo_merito.php` y
   `boleta/alumno.php` dependen de ellos — no renombrarlos por coherencia visual.
+
+
+> ⚠️ **Desde el 10/09/2026 hay UNA vía que escribe una transversal fuera del flujo del
+> tutor:** el lote de calificación extraordinaria para bimestres CERRADOS. Solo entra si
+> el cierre de la sección está VIGENTE, y usa como carga la que ya evalúa esa transversal
+> en la sección. **Su conclusión va a `conclusiones_transversales`**, igual que la del
+> tutor. Detalle y candados en `calificaciones.md`, sección «Captura EN LOTE».

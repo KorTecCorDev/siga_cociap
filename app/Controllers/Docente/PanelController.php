@@ -11,6 +11,7 @@ use App\Models\HorarioModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\PublicacionBoletaModel;
 use App\Models\TransversalModel;
+use App\Models\NotaExternaModel;
 use Core\Session;
 use Core\View;
 
@@ -236,6 +237,75 @@ class PanelController extends BaseController
         ]);
     }
 
+
+    /**
+     * GET /docente/notas-origen/{matricula}
+     * Las calificaciones que un estudiante de MI sección trae de su colegio
+     * anterior. SOLO LECTURA.
+     *
+     * Existe porque esas notas NO salen en la boleta (regla del colegio): el
+     * Informe de Progreso del COCIAP lleva solo lo cursado aquí. Sin esta
+     * pantalla el docente no sabría con qué llega el estudiante.
+     *
+     * GUARDA: hay que tener carga ACTIVA en la sección de esa matrícula. Si no,
+     * 404 — ni siquiera se confirma que la matrícula exista.
+     *
+     * El docente ve el informe COMPLETO, con las filas de su(s) área(s)
+     * RESALTADAS: el plan del otro colegio no coincide con el nuestro, así que
+     * recortar por área escondería lo que no tiene equivalente.
+     */
+    public function notasOrigen(string $matriculaId): void
+    {
+        $mid   = (int) $matriculaId;
+        $did   = (int) (Session::user()['id'] ?? 0);
+        $model = new NotaExternaModel();
+
+        // Un admin entra a supervisar (el constructor ya lo admite); un docente
+        // necesita carga en la sección.
+        if (!has_role('admin') && !$model->docenteTieneAcceso($mid, $did)) {
+            $this->notFound();
+        }
+
+        $notas = $model->getDeMatricula($mid);
+        if ($notas === []) {
+            $this->notFound();
+        }
+
+        $estudiante = $this->calModel->queryOne("
+            SELECT TRIM(CONCAT(per.apellido_paterno, ' ', per.apellido_materno, ', ', per.nombres)) AS nombre_completo,
+                   g.nombre_display AS grado_nombre,
+                   s.nombre         AS seccion_nombre
+            FROM matriculas m
+            INNER JOIN estudiantes e ON e.id = m.estudiante_id
+            INNER JOIN personas per  ON per.id = e.persona_id
+            INNER JOIN secciones s   ON s.id = m.seccion_id
+            INNER JOIN grados g      ON g.id = s.grado_id
+            WHERE m.id = ?
+        ", [$mid]);
+        if ($estudiante === null) {
+            $this->notFound();
+        }
+
+        // Agrupadas por periodo, tal y como vienen en el informe de origen, y
+        // dentro de cada periodo en el ORDEN DE LA CURRÍCULA (18/09/2026): lo
+        // que no calza con nuestro plan va al final.
+        $porPeriodo = [];
+        foreach ($notas as $n) {
+            $porPeriodo[(string) $n['periodo_nombre']][] = $n;
+        }
+        foreach ($porPeriodo as $periodoNombre => $filas) {
+            $porPeriodo[$periodoNombre] = $model->ordenarSegunCurricula($mid, $filas);
+        }
+
+        $this->view('docente/notas-origen', [
+            'titulo'      => 'Notas del colegio de origen',
+            'estudiante'  => $estudiante,
+            'porPeriodo'  => $porPeriodo,
+            'misAreas'    => $model->areasDelDocenteEnSeccion($mid, $did),
+            'colegio'     => $notas[0]['colegio_origen'] ?? null,
+            'total'       => count($notas),
+        ]);
+    }
     /**
      * GET /docente/nomina — buscador en vivo de matriculados (aprobados) de los
      * niveles del docente + selector para imprimir la nómina de una sección.

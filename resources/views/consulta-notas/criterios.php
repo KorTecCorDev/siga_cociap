@@ -208,9 +208,6 @@ $qs = array_filter($filtros);
                                                 <?php endif; ?>
                                                 <td class="col-crit">
                                                     <?= e($cr['nombre']) ?>
-                                                    <?php if (!empty($cr['extraordinario'])): ?>
-                                                        <span class="badge badge--warning">extraordinario</span>
-                                                    <?php endif; ?>
                                                 </td>
                                                 <td class="col-desc"><?= $desc === '' ? '' : e($desc) ?></td>
                                             </tr>

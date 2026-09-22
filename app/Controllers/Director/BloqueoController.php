@@ -296,6 +296,34 @@ class BloqueoController extends BaseController
         }
     }
 
+    /**
+     * Guard de los desbloqueos individuales (académica y transversal): no se
+     * libera una competencia con calificaciones EXTRAORDINARIAS de RA
+     * (decisión del usuario, 18/09/2026). Por qué, en
+     * `CalificacionModel::SIN_EXTRAORDINARIAS_BC`; la liberación en bloque del
+     * cierre forzado aplica la misma regla y conserva esas competencias.
+     */
+    private function abortarSiHayExtraordinarias(array $bloqueo, string $back): void
+    {
+        $alumnos = $this->calModel->alumnosConExtraordinaria(
+            (int) $bloqueo['carga_id'],
+            (int) $bloqueo['competencia_id'],
+            (int) $bloqueo['periodo_id']
+        );
+        if ($alumnos === []) {
+            return;
+        }
+
+        $lista = implode('; ', array_slice($alumnos, 0, 5))
+            . (count($alumnos) > 5 ? ' y ' . (count($alumnos) - 5) . ' más' : '');
+        $this->redirectWithError(
+            $back,
+            'No se puede desbloquear: ' . count($alumnos) . ' estudiante(s) tienen calificación '
+            . 'extraordinaria de Registro Académico en esta competencia (' . $lista . '). '
+            . 'Si el docente volviera a editarla, esa nota se mezclaría con las suyas.'
+        );
+    }
+
     public function desbloquear(string $id): void
     {
         $this->requireRole(self::ROLES_ESCRIBEN);
@@ -330,6 +358,7 @@ class BloqueoController extends BaseController
             'No se puede desbloquear con el bimestre cerrado: la competencia desapareceria '
             . 'de la boleta y el docente seguiria sin poder editarla. Reabre el bimestre primero.'
         );
+        $this->abortarSiHayExtraordinarias($bloqueo, $back);
 
         try {
             $this->calModel->beginTransaction();
@@ -441,13 +470,24 @@ class BloqueoController extends BaseController
             $this->redirectWithError($back, 'No se pudieron liberar los bloqueos del cierre forzado.');
         }
 
+        // Las que tienen calificaciones extraordinarias se conservan (misma
+        // regla que el desbloqueo individual): se informa cuántas.
+        $conservadas = $anioModel->bloqueosDeCierreConExtraordinarias($periodoId);
+        $avisoConservadas = $conservadas > 0
+            ? " Se conservaron {$conservadas} bloqueada(s) porque tienen calificaciones extraordinarias de Registro Académico."
+            : '';
+
         if ($liberadas > 0) {
             $this->redirectWithSuccess(
                 $back,
                 "Se liberaron {$liberadas} competencia(s) del cierre forzado. Los docentes pueden volver a editarlas."
+                . $avisoConservadas
             );
         }
-        $this->redirectWithError($back, 'No había bloqueos del cierre forzado para liberar en este periodo.');
+        $this->redirectWithError(
+            $back,
+            'No había bloqueos del cierre forzado para liberar en este periodo.' . $avisoConservadas
+        );
     }
 
     /**
@@ -615,7 +655,7 @@ class BloqueoController extends BaseController
         // El anclaje EXIGE que sea transversal: este endpoint no puede servir
         // para desbloquear una académica saltándose la cascada de `desbloquear`.
         $bloqueo = $this->calModel->queryOne("
-            SELECT bc.id, bc.periodo_id, bc.carga_id,
+            SELECT bc.id, bc.periodo_id, bc.carga_id, bc.competencia_id,
                    ca.seccion_id,
                    comp.nombre_corto AS competencia_nombre
             FROM bloqueos_competencia bc
@@ -642,6 +682,7 @@ class BloqueoController extends BaseController
             . 'desapareceria de la boleta y el docente seguiria sin poder editarla. '
             . 'Reabre el bimestre primero.'
         );
+        $this->abortarSiHayExtraordinarias($bloqueo, $back);
 
         try {
             $this->calModel->beginTransaction();

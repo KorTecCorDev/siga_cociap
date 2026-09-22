@@ -752,23 +752,11 @@ class ConsultaNotasController extends BaseController
             }
             unset($al);
 
-            // Calificaciones extraordinarias de RA (motivo + registrador)
-            // para el bloque informativo del parcial.
-            $extraordinarias = [];
-            foreach ($resumen['criterios'] as $cr) {
-                if (!empty($cr['extraordinario'])) {
-                    $extraordinarias = (new \App\Models\RectificacionModel())
-                        ->getExtraordinariasDeCompetencia($cargaId, $competenciaId, $periodoId);
-                    break;
-                }
-            }
-
             $competencias[] = [
                 'competencia'     => $info,
                 'criterios'       => $resumen['criterios'],
                 'alumnos'         => $resumen['alumnos'],
                 'bloqueado_en'    => $c['bloqueado_en'],
-                'extraordinarias' => $extraordinarias,
                 'es_transversal'  => false,
             ];
         }
@@ -792,7 +780,6 @@ class ConsultaNotasController extends BaseController
                 'criterios'       => $resumen['criterios'],
                 'alumnos'         => $resumen['alumnos'],
                 'bloqueado_en'    => $t['bloqueado_en'],
-                'extraordinarias' => [],
                 'es_transversal'  => true,
             ];
         }
@@ -802,6 +789,10 @@ class ConsultaNotasController extends BaseController
             'periodo'      => $periodo,
             'carga'        => $carga,
             'competencias' => $competencias,
+            // Sección ÚNICA al final (21/09/2026), con las competencias que no
+            // tienen tabla propia en esta carga.
+            'extraordinariasCarga' => (new \App\Models\RectificacionModel())
+                ->getExtraordinariasDeCargas([$cargaId], $periodoId),
             'exonerados'   => $exonerados,
         ]);
     }
@@ -923,8 +914,10 @@ class ConsultaNotasController extends BaseController
 
         // Criterios vivos del periodo, indexados por "carga-competencia". Una
         // sola consulta para todo el bimestre (ver CriterioModel).
+        // Sin el extraordinario de RA (18/09/2026): no es un criterio que el
+        // docente haya definido, y esta pantalla (y su imprimible) lista esos.
         $porPar = [];
-        foreach ($this->criterioModel->getCriteriosPorPeriodo($periodoId) as $cr) {
+        foreach (criterios_ordinarios($this->criterioModel->getCriteriosPorPeriodo($periodoId)) as $cr) {
             $porPar[(int) $cr['carga_id'] . '-' . (int) $cr['competencia_id']][] = $cr;
         }
 

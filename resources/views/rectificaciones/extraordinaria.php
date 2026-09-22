@@ -1,7 +1,7 @@
 <?php
 /**
  * Formulario de CALIFICACIÓN EXTRAORDINARIA: alta de nota (con motivo) a un
- * alumno SIN calificación en una competencia cerrada/bloqueada. La nota se
+ * alumno SIN calificación en una competencia de un bimestre CERRADO. La nota se
  * registra en un criterio único "Calificación extraordinaria" (confirmado,
  * atribuido a RA): va a boleta y SIAGIE, NO cuenta en el orden de mérito.
  * @var array $info          datos del estudiante (incl. nivel_codigo)

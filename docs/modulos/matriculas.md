@@ -628,3 +628,270 @@ entre por su matrícula **oficial**.
 escritas a mano a propósito: si salieran de los helpers no probarían nada.
 
 **Sin cambios en vistas, JS ni SASS**: la forma de `$chartData` no cambia.
+
+
+## Notas del COLEGIO DE ORIGEN (10/09/2026) — informativas, nunca en la boleta
+
+> Migración `057` (`notas_externas.area_id`). Punto único: `NotaExternaModel`.
+> Rutas: `GET|POST /matriculas/{id}/notas-externas` (RA) y
+> `GET /docente/notas-origen/{matricula}` (docente, solo lectura).
+
+### La regla del colegio
+
+El marco legal dice que el colegio destino debe incorporar lo que el estudiante trae. **El
+COCIAP acota esa regla:** el Informe de Progreso que emite **tras** el traslado lleva
+**solo las calificaciones cursadas aquí**. Lo del colegio anterior es **informativo**, y su
+público son los **docentes con carga en su sección**, que necesitan saber con qué llega.
+
+⚠️ **Por eso `BoletaModel` NO lee `notas_externas`, y no debe leerla.** Que estas notas no
+alcancen la boleta **no es un mecanismo a medio hacer: es el comportamiento pedido.** El
+plan del 05/08 llegó a catalogar esa tabla como «mecanismo muerto» y proponía borrarla
+(`docs/modulos/registro-retroactivo-notas.md`, D7): esa decisión quedó **invertida**.
+
+### NO confundir con el otro mecanismo
+
+| | Colegio de **origen** | Notas **nuestras** no registradas |
+|---|---|---|
+| De quién es la nota | del colegio anterior | del COCIAP, quedó en el cuaderno del docente |
+| Boleta y SIAGIE | **NO** | **SÍ** |
+| Escala | **literal** puro (AD/A/B/C) | **numérica** 00-20, literal derivado |
+| Dónde vive | `notas_externas` | `calificaciones` (`extraordinaria=1`) |
+| Por dónde entra | ficha de matrícula | `/rectificaciones/matricula/{id}` |
+
+**Ninguna detección automática decide cuál es cuál: lo elige quien registra.** Las dos
+entradas son explícitas y cada una avisa de la existencia de la otra.
+
+### Por qué no sirve ningún flag para detectar el caso
+
+Medido el 10/09/2026 en la BD:
+
+- `matriculas.tipo` **no distingue**: de los 6 estudiantes que llegaron con un bimestre
+  cerrado por delante, **3 son `nuevo` y 3 `continuador`**.
+- `tipo_matricula = 'traslado_entrada'` **miente**: **173 filas, y las 173 tienen B1
+  completo** (el flag se puso mal en la carga masiva del 19/05).
+
+⚠️ **Consecuencia práctica: la card de notas de origen ya NO exige `tipo === 'nuevo'`.**
+Ese candado —que estuvo en `matriculas/show.php` hasta hoy— dejaba la pantalla fuera del
+alcance de **la mitad de los casos reales**, y en todo el año activo solo hay **5**
+matrículas `nuevo`. **No reintroducirlo, ni sustituirlo por `traslado_entrada`.**
+
+### Mapeo de área: OPCIONAL a propósito
+
+`area_id` (NULL por defecto) enlaza una nota de origen con un área de **nuestro** plan, y
+sirve **solo para resaltarle la fila al docente que dicta esa área**. Es opcional porque el
+plan curricular del otro colegio no tiene por qué coincidir con el nuestro: **obligar a
+traducirlo dejaría fuera lo que no tenga equivalente**. Sin mapeo la fila se ve igual;
+simplemente no se resalta.
+
+Los nombres de área, competencia y periodo siguen en **texto libre** por el mismo motivo.
+
+### Qué ve el docente
+
+El informe **completo**, agrupado por periodo, con las filas de su(s) área(s) resaltadas.
+No se recorta por área: recortar escondería justo lo que no tiene equivalente aquí.
+
+**Guarda:** hay que tener **carga ACTIVA en la sección de esa matrícula**; si no,
+`notFound()` — ni siquiera se confirma que la matrícula exista. Probadas las dos ramas.
+
+### El aviso
+
+Al guardar, `crearParaDocentesDeSeccion` deja **una notificación por docente** de la
+sección (18 en la sección medida), no una por nota. Va **fuera de la transacción del lote**
+a propósito: que falle el aviso no puede tumbar un registro ya válido. Ver
+`docs/modulos/notificaciones.md`.
+
+### Puntos únicos y captura en lote
+
+`NotaExternaModel` es el punto único; `MatriculaModel::getNotasExternas` y
+`registrarNotaExterna` quedan como **delegadores** (no se rompió su interfaz pública). El
+formulario captura **varias filas por envío** —el informe de origen llega como un documento
+entero— y las filas en blanco se descartan sin error.
+
+⚠️ **`registrarLote` NO abre transacción: la owna quien llama.** PDO no anida, y abrirla en
+el modelo impedía envolver el lote desde fuera —empezando por el verificador, que escribe y
+hace rollback—. Mismo criterio que `escribirExtraordinaria`.
+
+### Conclusión descriptiva del informe de origen (22/09/2026)
+
+> Migración **`062`**: `notas_externas.conclusion_descriptiva TEXT NULL`.
+
+El informe del otro colegio trae, junto al literal, la conclusión del docente de allá; hasta
+hoy se transcribía la nota y esa frase se perdía.
+
+- **Opcional para los CUATRO literales y nunca bloquea el guardado.** Aquí **NO rige la
+  obligatoriedad por nivel del COCIAP** (primaria en B y C, secundaria en C) porque **no es
+  una evaluación nuestra**: se transcribe lo que el otro colegio emitió, y si su informe no
+  la trae no se puede inventar. Es la diferencia con `/rectificaciones`, donde la nota sí es
+  del COCIAP y la conclusión sí se exige.
+- Largo máximo en `NotaExternaModel::MAX_CONCLUSION` (1000). El servidor **rechaza, no
+  recorta**, igual que las otras `MAX_*` (el `sql_mode` no es estricto; ver migración `061`).
+- **Volver a guardar la misma competencia PISA la conclusión**, como el resto de la fila: es
+  la regla de reemplazo que la pantalla ya promete.
+- En la captura va en una **fila de continuación** (`notas-origen__fila-conclusion`,
+  `colspan=5`), no como sexta columna: es texto largo y la tabla ya iba justa a 375 px. El
+  «+ Añadir fila» de `notas-externas.js` clona la **pareja** de filas — si alguien vuelve a
+  clonar solo el `<tr>`, los arrays del POST se desalinean.
+- Se muestra en «Ya registradas» y en `/docente/notas-origen/{id}`, bajo la competencia, con
+  `.conclusion-texto`. Las 53 filas anteriores a la migración quedan en NULL a propósito.
+
+### Verificación
+
+`database/verificaciones/verif_notas_origen.php`. La comprobación central es **negativa**:
+registrar notas de origen **no altera ni una celda de la boleta** (29 comparadas) ni el
+orden de mérito (47 filas). **Si algún día una de estas notas aparece en una boleta, ese
+script tiene que ponerse rojo.** El bloque 7g cubre la conclusión descriptiva: con AD (el
+literal que el filtro de desaprobados dejaba fuera), sin ella, y el reemplazo.
+
+### Importar la currícula del COCIAP (10/09/2026)
+
+> Migración **`059`**. `NotaExternaModel::curriculaParaImportar()`.
+> Ruta: la misma, con `?importar=1&periodos[]=&areas[]=`.
+
+Transcribir a mano el informe del colegio anterior son **27-29 competencias POR BIMESTRE**, y
+quien llega en el III trae dos. Como la mayoría de colegios peruanos sigue el **Currículo
+Nacional del MINEDU** —el mismo que usa el COCIAP—, se traen las nuestras ya escritas y RA
+solo pone las notas.
+
+**Se apoya en `CalificacionModel::estructuraCompetenciasSeccion()`**, que ya resolvía las
+áreas con subáreas y añadía las transversales. No se escribió consulta nueva.
+
+- **Sin subáreas** (Aritmética, Plan Lector, Química…): son organización **interna** del
+  COCIAP y el colegio de origen pudo repartirse de otra forma. Se importa el **área** y la
+  **competencia**; atribuirle una división que no usa sería inventarle datos.
+- **`nombre_completo`**, la redacción oficial del currículo nacional: es la que más
+  probablemente coincida con el informe que trae el estudiante.
+- **Varios bimestres a la vez** y **elección de áreas**, porque no todo colegio dicta lo mismo.
+- **Importar NO escribe nada**: solo **pre-rellena las filas del formulario de siempre**, que
+  siguen editables. Guardar sigue siendo el POST. Por eso el **camino manual sobrevive
+  intacto** — es literalmente el mismo formulario, en blanco — y sirve para una currícula
+  extranjera.
+- Lo **ya registrado se excluye**: importar dos veces no duplica filas en pantalla.
+
+⚠️ **`areasDeLaSeccion()` ahora deriva de `curriculaParaImportar()`**, no de una consulta
+propia. Si el `<select>` de mapeo ofreciera un juego de áreas distinto del que importa el
+importador, una fila importada apuntaría a un área que el select no tiene y **el mapeo —y con
+él el resaltado al docente— se perdería al guardar**. Efecto colateral querido: el select ya
+incluye las transversales, que la consulta por cargas no traía.
+
+#### 🔴 La migración `059`: el área entra en la clave única
+
+La UNIQUE era `(matricula_id, periodo_nombre, competencia_nombre)` y el alta usa
+`ON DUPLICATE KEY UPDATE`. El COCIAP **evalúa la misma competencia del MINEDU en dos cursos**:
+
+```
+"Resuelve problemas de cantidad."         Matemática + Taller de Razonamiento Matemático
+"Resuelve problemas de regularidad…"      Matemática + Taller de Pre-Cálculo
+```
+
+Con la clave vieja, la segunda fila **pisaba a la primera en silencio**: importar 29
+guardaba 27. Afectaba a **4 de los 6 estudiantes reales** (2-3 colisiones cada uno; primaria
+0). ⚠️ **No lo trajo el importador: ya pasaba al teclear a mano.** Añadir `area_nombre` a la
+clave deja **0 colisiones**; la tabla estaba vacía en los dos entornos, así que no arrastró
+datos.
+
+#### 🔴 El criterio de «fila vacía» cambió, y no era opcional
+
+Antes se omitía la fila con los **cuatro** campos vacíos. Una fila importada llega con
+periodo, área y competencia llenos y **la nota vacía**, así que importar 58 y llenar 20
+**reventaba el guardado en la fila 21** — y es el caso NORMAL: el informe de origen no trae
+todas las competencias del plan.
+
+Ahora: **sin `nota_literal`, la fila se omite**; con nota, los otros tres son obligatorios.
+Las omitidas **se cuentan y se dicen** en el mensaje de éxito, porque una omisión silenciosa
+parecería pérdida de datos.
+
+#### Importar sin elegir nada AVISA (11/09/2026)
+
+Pulsar «Traer competencias» sin marcar bimestre —o sin ninguna área— recargaba la pantalla
+**idéntica**, y se leía como un botón roto. Ahora hay guarda en las **dos capas**, como el
+resto del proyecto:
+
+- **Servidor** (`MatriculaController::notasExternas`): `Session::flash('warning', …)` y
+  `redirect()` a la misma ruta. Cubre los dos casos con mensajes distintos, y es la que
+  manda: el POST de guardado nunca dependió del JS y esto tampoco.
+- **Cliente** (`notas-externas.js`): no deja enviar el formulario y pinta un `.form-error`
+  junto al botón. ⚠️ El mensaje se **crea desde el JS**, no se deja oculto en la vista, para
+  no depender de que un `[hidden]` le gane al CSS de su contenedor — eso ya falló una vez en
+  este proyecto (ver `docs/modulos/ui.md`). Los botones «Marcar todas» / «Ninguna» cambian
+  las casillas **por código**, que NO dispara `change`: por eso el aviso también escucha el
+  click.
+
+#### Una sola lectura de la currícula y de los bimestres (11/09/2026)
+
+Dos duplicaciones que traía la primera versión del importador, ambas medidas:
+
+- **La currícula se leía DOS VECES por carga**: una para la card y otra dentro de
+  `areasDeLaSeccion()`, que deriva de ella. Es la consulta más cara de la pantalla.
+  `curriculaParaImportar()` ahora **memoriza por matrícula** en la instancia del modelo
+  (no en propiedad estática: dos matrículas del mismo proceso siguen leyendo cada una la
+  suya). Medido con `SHOW SESSION STATUS LIKE 'Questions'`: 1.ª llamada 2 consultas, 2.ª y
+  `areasDeLaSeccion()` **0**, y otra matrícula vuelve a leer sus 2.
+- **Los bimestres del año** salían de **dos consultas SQL idénticas escritas a mano** en el
+  propio controlador. Ahora es **una** llamada a `AnioAcademicoModel::getPeriodos()`, que ya
+  existía y los devuelve ordenados por número. ⚠️ Quedan **otras dos** consultas de periodos
+  inline en `MatriculaController` (las de notas autorizadas SIAGIE), anteriores a este
+  trabajo y no tocadas: si alguien las unifica, este es el método al que deben ir.
+
+### Dos botones en la ficha y orden de la currícula (18/09/2026)
+
+- **Ficha `/matriculas/{id}`: card «Registrar notas fuera del registro del docente»** con
+  `<details>` nativos (sin JS) cuyo `summary` es el botón:
+  «Registrar notas de I bimestre (solo informativo)» despliega la card de notas de origen
+  (movida adentro sin cambios), y «Registrar notas de bimestres cerrados (Boleta
+  SIAGIE-SIGACOCIAP)» despliega los bimestres con competencias sin nota, cada uno con su
+  enlace a la grilla en lote. Este segundo solo lo ve admin/RA.
+  **Tercer panel (18/09/2026):** «Registrar nota autorizada solo para SIAGIE (no va a la
+  boleta)». Es la antigua card suelta de notas autorizadas por dirección (migración 040),
+  movida adentro **sin cambiar datos ni enlaces**. Solo admin/RA. Como antes, sale también
+  para un trasladado: en ese caso la card muestra **solo** este panel.
+  - **Sin filtro por tipo ni estado** (decisión del usuario; ningún flag detecta el caso),
+    **salvo el trasladado de SALIDA** (`tipo='trasladado'`): ahí la card no sale.
+  - Los totales salen de `RectificacionModel::insertablesPorPeriodo`, que es el **mismo
+    universo que la grilla** (ordinarias + transversales). ⚠️ El «Calificar todo el
+    bimestre (N)» de `/rectificaciones/matricula/{id}` cuenta solo las ordinarias
+    (preexistente): los dos números pueden diferir en las transversales.
+- **`/docente/notas-origen/{id}` ordena según la currícula** de la sección
+  (`NotaExternaModel::ordenarSegunCurricula`, sobre `curriculaParaImportar()`): área por
+  `area_id` o, si falta, por el nombre del importador; competencia por su posición en el
+  área. Lo que no calza con el plan va **al final**. No filtra nada, y «Tu área» sigue.
+  Medido con la 693: 23 filas en orden del plan, y EPT y Religión (del otro colegio) al final.
+
+### La competencia se recortaba a 120 caracteres (21/09/2026, migración 061)
+
+🔴 **`competencia_nombre` era `VARCHAR(120)` y el `sql_mode` del servidor NO es estricto**:
+MariaDB **recortaba el exceso en silencio**, sin error. El importador llena la competencia con
+`competencias.nombre_completo` (TEXT), y **7 competencias del plan pasan de 120** (la más larga,
+185). El docente veía la competencia cortada en `/docente/notas-origen/{id}` (fila 152 de la
+693: «…biodiversidad, Tierra y Uni»).
+
+- **Migración `061`**: la columna pasa a `VARCHAR(255)`. Sigue en la UNIQUE `uq_nota_externa`
+  (~1630 bytes de 3072).
+- **Reparación:** `database/reparar_notas_externas_truncadas.php` (simula por defecto,
+  `--confirmar` aplica; aborta si la 061 no está). Completa el nombre solo si **una única**
+  competencia del plan empieza por el texto recortado; lo ambiguo lo lista y no lo toca.
+- **Rechazar, no recortar:** `NotaExternaModel::MAX_PERIODO/AREA/COMPETENCIA/COLEGIO` son
+  **exactamente** el ancho de cada columna. `storeNotasExternas` rechaza lo que no cabe y el
+  formulario usa las mismas constantes en su `maxlength`. `verif_notas_origen.php` §7f compara
+  constantes con `information_schema` e ida y vuelta con la competencia más larga.
+- ⚠️ **Cualquier otra columna de texto del repo tiene el mismo riesgo**: sin modo estricto, un
+  texto largo se guarda cortado y nadie se entera. No se auditó el resto de tablas.
+
+### La ficha sin `<details>`: datos a la vista, acción aparte (21/09/2026)
+
+Deroga la presentación de «Dos botones en la ficha» (18/09): los tres paneles plegables de
+«Registrar notas fuera del registro del docente» se deshicieron según la regla nueva de
+`docs/modulos/ui.md` («Secciones de CONTENIDO VARIABLE»). **No cambia ningún dato ni guarda de
+rol**, solo dónde y cuándo se pinta cada cosa:
+
+- **Notas del colegio de origen**: card propia a todo el ancho, **solo si hay notas** (y no es
+  un trasladado de salida). Acción en la cabecera: «Agregar o corregir notas» (quien matricula).
+  Muestra además «Procede de …» si se anotó el colegio.
+- **Notas autorizadas para SIAGIE**: card propia, **solo si hay notas** y admin/RA. Acciones:
+  «Gestionar» e «Informe imprimible». Sigue saliendo para un trasladado.
+- **Registrar notas fuera del registro del docente**: solo acciones, una fila por sección que
+  aún no tiene datos, y los bimestres con competencias sin nota («Calificar todo el bimestre
+  (N)» + «Ver detalle por competencia»). Si no queda ninguna acción, la card no sale.
+- **Exoneraciones**: solo si hay alguna (su registro sigue en «Gestión de la matrícula»).
+- SASS: `.mat-seccion-ancha` sustituye al `grid-column` de `.mat-llegada`; los estilos
+  `__panel/__boton/__contenido` del `<details>` se retiraron.
+

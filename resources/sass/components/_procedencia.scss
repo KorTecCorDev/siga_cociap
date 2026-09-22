@@ -1,0 +1,81 @@
+// _procedencia.scss — Chip de PROCEDENCIA de una nota
+//
+// Marca las tres vías por las que puede aparecer una nota que NO salió del
+// registro ordinario del docente: calificación extraordinaria, notas del
+// colegio de origen y notas autorizadas para el SIAGIE.
+//
+// ⚠️ EL COLOR NO DISTINGUE ENTRE ELLAS. Los tres comparten forma —el borde
+// PUNTEADO, que ya significa "esto no salió de tu registro"— y se distinguen
+// por NOMBRE e ICONO. Solo la extraordinaria conserva el ámbar, porque es la
+// única que llega a la boleta y por tanto pide atención.
+//
+// Es lo que exige el sistema de color (ver docs/modulos/ui.md): rojo y ámbar
+// quedan para los badges de ESTADO, y los cuatro colores de concepto
+// (azul cargas, teal tutoría, púrpura conducta, naranja nómina) ya tienen
+// dueño. Inventar dos tintes más aquí habría chocado con ese sistema.
+//
+// `.extra-badge` se conserva como ALIAS: es el nombre que usaban ya tres
+// vistas y su aspecto no cambia ni un pixel.
+
+.proc-chip,
+.extra-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: $border-radius-sm;
+    border: 1px dashed $border-color;
+    background: $bg-secondary;
+    color: $text-secondary;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+// La única de las tres que afecta a la boleta: mantiene el ámbar de estado.
+.proc-chip--ambar,
+.extra-badge {
+    border-color: $color-warning;
+    background: $color-warning-bg;
+    color: #92400e;
+}
+
+// Icono opcional: solo donde hay sitio (cards y cabeceras), nunca en las
+// grillas densas, donde a 10px no se leería.
+.proc-chip__ico {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    margin-right: 4px;
+    background-color: currentColor;
+    vertical-align: -1px;
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+            mask-position: center;
+    -webkit-mask-size: contain;
+            mask-size: contain;
+
+    &--edit-pen {
+        -webkit-mask-image: url('../assets/icons/edit-pen.svg');
+                mask-image: url('../assets/icons/edit-pen.svg');
+    }
+    &--social-city {
+        -webkit-mask-image: url('../assets/icons/social-city.svg');
+                mask-image: url('../assets/icons/social-city.svg');
+    }
+    &--doc-add {
+        -webkit-mask-image: url('../assets/icons/doc-add.svg');
+                mask-image: url('../assets/icons/doc-add.svg');
+    }
+}
+
+// Línea que dice A DÓNDE VA la nota. Es la diferencia real entre las tres y
+// por eso acompaña al chip en la ficha de matrícula, donde son vecinas.
+.proc-destino {
+    margin: $spacing-xs 0 0;
+    font-size: $font-size-sm;
+    color: $text-muted;
+    line-height: 1.45;
+}

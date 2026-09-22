@@ -559,6 +559,10 @@ class TransversalModel extends BaseModel
             INNER JOIN cargas_academicas ca ON ca.id = bc.carga_id
             WHERE bc.periodo_id = ?
               AND bc.origen     = 'cierre'
+              -- Mismo universo que eliminarBloqueosDeCierre, que conserva los
+              -- de competencias con extraordinarias: sin esto se anularía el
+              -- cierre de una sección a la que no se le liberó nada.
+              AND " . CalificacionModel::SIN_EXTRAORDINARIAS_BC . "
         ", [$periodoId]);
 
         return array_map(static fn($f) => (int) $f['seccion_id'], $filas);

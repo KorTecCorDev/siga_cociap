@@ -244,5 +244,38 @@ foreach (['padre/alertas.php' => 'alerta-item',
         str_contains($src, $clase) && $bannersDe($src) === []);
 }
 
+// ── QUE DICE UN AVISO (22/09/2026) ──────────────────────────────────────
+// Un aviso dice QUE PASO y QUE HACER; no la MECANICA interna del sistema ni
+// POLITICA que su lector no puede accionar. Estos asertos anclan los recortes
+// del barrido completo: son textos, asi que se comprueba que la frase retirada
+// NO ha vuelto, no que exista una redaccion concreta.
+$ctrlMat = file_get_contents(ROOT_PATH . '/app/Controllers/Matricula/MatriculaController.php');
+$chk('el aviso de notas de origen no explica la politica de la boleta',
+    !str_contains($ctrlMat, 'Son informativas: no aparecen en la boleta'));
+$chk('el flash de notas de origen no cuenta a cuantos docentes se aviso',
+    !str_contains($ctrlMat, 'Se avisó a '));
+$chk('el flash SI sigue diciendo las filas sin nota que se omitieron',
+    str_contains($ctrlMat, 'Se omitieron '));
+
+$docOrigen = file_get_contents(VIEW_PATH . '/docente/notas-origen.php');
+$chk('el banner del docente no le explica boleta ni orden de merito',
+    !str_contains($docOrigen, 'no aparecen en su boleta')
+    && !str_contains($docOrigen, 'no cuentan para el orden de mérito'));
+$chk('pero si le dice que no tiene que hacer nada con ellas',
+    str_contains($docOrigen, 'no tienes que hacer nada con ellas'));
+
+$lote = file_get_contents(VIEW_PATH . '/rectificaciones/extraordinaria-lote.php');
+$chk('el motivo del lote no promete que el docente lo vera (ya no es cierto)',
+    !str_contains($lote, 'el\n                docente lo verá')
+    && !str_contains($lote, 'docente lo verá junto a la calificación'));
+
+$ranking = file_get_contents(VIEW_PATH . '/docente/ranking-seccion-periodo.php');
+$chk('el aviso de empates no le nombra al docente el algoritmo interno',
+    !str_contains($ranking, 'cascada de desempate'));
+
+$resumen = file_get_contents(VIEW_PATH . '/docente/resumen-competencia.php');
+$chk('la conclusion transversal se explica UNA vez en el resumen, no dos',
+    substr_count($resumen, 'la registra el tutor') + substr_count($resumen, 'las registra el tutor') === 1);
+
 echo "\nRESULTADO: " . ($ok ? 'OK - el banner es punto unico y deja fluir la frase.' : 'HAY FALLOS') . "\n";
 exit($ok ? 0 : 1);

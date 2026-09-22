@@ -67,6 +67,16 @@ retorno de grado).
 Las vistas se pintan sin controles vía `$puedeEscribir`, pero **eso es UX, no
 control de acceso**: la guarda real está en el método.
 
+### Excepción acotada: marcar leídas SUS notificaciones (16/09/2026)
+
+Desde el cierre del módulo de notificaciones, los tres directores **reciben
+comunicados y tienen campana** (`NotificacionModel::ROLES_RECEPTORES` incluye
+`...ROLES_DIRECCION`). `POST /notificaciones/leer` y `/leer-todas` **no llevan gate
+de rol a propósito**: solo cambian el estado personal de **su propia bandeja** (el
+modelo filtra por `usuario_id`), no un dato académico, y sin ellos su campana nunca
+bajaría a cero. **Redactar sigue vedado** (`ROLES_EMISORES` no incluye dirección).
+Lo comprueba `verif_notificaciones.php` §6 y §9. Ver `docs/modulos/notificaciones.md`.
+
 ### 🔴 La UX iba nueve botones por detrás (02/09/2026)
 
 El servidor estaba **completo y correcto** —los 30 métodos guardados, verificador
@@ -891,3 +901,148 @@ y JS), así que el único sitio donde se puede arreglar es la propia vista.
 `avoid` se midió cuando un grado eran ~28 filas (~400 px de 1047); con el desglose un
 grado se pasa de hoja y el `avoid` lo empujaría entero, dejando media página en blanco.
 Las FILAS conservan su `avoid`.
+
+---
+
+## Dirección solo ve bimestres CERRADOS (08/09/2026)
+
+Aprobado y **construido el mismo día**. En `dev`, **sin desplegar**. Sin migración.
+Extiende la «regla del dato oficial» de arriba al **bimestre entero**.
+
+### Por qué
+
+Un director podía abrir `/admin/cuadros` sobre el bimestre **activo**, que está a medio
+llenar, y ver porcentajes, rankings y una línea de tendencia presentados igual que los del
+bimestre cerrado.
+
+🔴 **Y la serie de evolución lo incluía.** `$bimestresComparables` (`_chart-data.php`) solo
+descarta un bimestre si **algún nivel tiene CERO**; en cuanto los dos tienen algo, el
+último punto cae en picado — no porque baje el rendimiento, sino porque hay 22 notas de
+11 081. Es el «desplome falso» que este tablero ya sufrió una vez.
+
+### Decisiones (cerradas antes de escribir código)
+
+1. **Exclusivo para `ROLES_DIRECCION`.** `admin` y `registro_academico` conservan intacto
+   el comportamiento actual, **incluido ver el bimestre activo EN VIVO**: son quienes
+   tienen que vigilar el avance.
+2. Las **series anuales se cortan** en el último cerrado para el director.
+3. El **imprimible A4 lleva la misma restricción**, y ahí **se niega con 404** en vez de
+   caer al último cerrado: el A4 va firmado con el sello del Director EBR. Antes
+   `?periodo_id=3` funcionaba sin validar nada.
+4. **Sin excepciones dentro de la pantalla**: se ve hasta donde el selector deja.
+   ⚠️ Esto **DEROGA para el director, EN ESTA SUPERFICIE**, la excepción de la asistencia
+   en vivo documentada más arriba. La excepción sigue viva en
+   `/consulta-notas/{p}/seccion/{s}/asistencia`, que el director conserva.
+5. Sin ningún bimestre cerrado → **estado vacío explicativo** («todavía no hay ningún
+   bimestre cerrado»), no el «No hay bimestres disponibles» genérico, que para Dirección
+   sería falso: haberlos los hay.
+
+### Qué se construyó
+
+**1. `app/Helpers/helpers.php`, junto a `ROLES_DIRECCION`** — punto único:
+`solo_bimestres_cerrados()`, `periodos_cerrados()`, `ultimo_periodo_cerrado()`.
+
+🔴 **Es el primer helper de punto único del archivo que lee la SESIÓN**: los seis
+anteriores (`orden_alfabetico`, `matriculas_vigentes`, `matricula_documento`,
+`roster_evaluacion`…) emiten fragmentos SQL. Se aceptó a propósito, porque la pregunta que
+resuelve es de **audiencia**, no de datos: no dice qué es un bimestre cerrado —eso lo dice
+`periodos.estado`—, sino a quién se le puede enseñar uno que aún no lo está. El patrón es
+`Padre\PanelController::getPeriodoVigentePadre()`, que ya resuelve «esta audiencia solo ve
+cerrados» con un resolutor propio.
+
+⚠️ **No viene a unificar las 16 comparaciones con `'cerrado'`** repartidas por `app/` y
+`resources/views/` en 7 redacciones distintas. Viene a que la pregunta por la AUDIENCIA
+tenga un solo dueño y no nazca la 17.ª copia inline.
+
+**2. `Admin\CuadrosEstadisticosController`** — tres métodos privados nuevos:
+`periodosVisibles()`, `elegirPeriodo()` y `serieIds()`. `index()` e `imprimir()` los usan.
+
+- 🔴 **El controlador no puede contener la palabra `SELECT`** fuera de comentarios
+  (`verif_direccion_superficies.php` lo mide sobre los *tokens* de PHP, **cadenas
+  incluidas**): todo el corte es PHP sobre lo que ya devuelve el modelo.
+- 🔴 **`ControlOperativoModel::getPeriodos()` NO se toca**: lo comparte `/admin/control`.
+  *(El plan original decía que también `/consulta-notas`; es falso — esa pantalla tiene su
+  propio SQL inline y su propio `getPeriodo()` privado. Lo que comparte con ella es
+  `getPeriodoPorDefecto()`.)*
+- ⚠️ **`getPeriodoPorDefecto()` no servía**: devuelve el activo y, sin él, `getPeriodos()[0]`,
+  que con `ORDER BY anio DESC, numero ASC` es el **bimestre 1** — el más viejo del año, no
+  el último cerrado.
+- Con la restricción activa el `?periodo_id` **se valida contra la lista** y la fila se
+  toma de ahí; sin ella, el camino es literalmente el de siempre (`getPeriodo()` resuelve
+  cualquier id, esté o no en el selector).
+
+**3. `resources/views/admin/cuadros/_chart-data.php`** — recibe `$serieIds` y corta
+**tres gráficos y solo tres**: G2 `evolucion`, G7 `conductaEvolucion`, G11 `asisEvolucion`.
+
+- ⚠️ **El corte viaja por IDS, no por `estado`**: solo G2 expone `estado` en su salida.
+  Preguntar por el estado aquí funcionaría en uno de los tres y en los otros dos pasaría de
+  largo **sin fallar**.
+- ⚠️ **Va al EJE de las series, jamás a `$condLit`**: G6 comparte esa fuente con G7 y se
+  recorta al bimestre a la vista, así que filtrar la fuente lo haría **desaparecer**.
+- **`null` = sin filtro**, y es lo que reciben admin, RA y el verificador (que arma su
+  propio `$bloques` y renderiza la vista de verdad). Un default restrictivo habría puesto
+  en rojo sus asertos de series y habría cambiado el tablero de quien no debía cambiar.
+- Las **tres notas de lectura** llevan coletilla condicional (`$notaSoloCerrados`): sin
+  ella, un director lee «faltan bimestres» como un fallo del tablero.
+
+**4. `resources/views/admin/cuadros/index.php`** — el `<select>` se restringe solo (se
+alimenta de `$periodos`), más el banner `.alert alert--info` cuando se pidió un bimestre
+abierto y el estado vacío explicativo.
+
+### Verificación
+
+`verif_direccion_superficies.php`, bloque «DIRECCION — solo bimestres cerrados». Los
+métodos privados del controlador se ejercen por **reflexión** (`newInstanceWithoutConstructor`
++ inyección de `controlModel`), y el rol se simula poniendo `$_SESSION['auth_user']`, que
+es lo único que mira `Session::hasRole()`.
+
+**Las dos ramas de cada guarda**: por cada rol de `ROLES_DIRECCION` la lista trae solo
+cerrados, el defecto es el **último** y un `?periodo_id` abierto no se resuelve; y para
+`admin` y `registro_academico` la lista **sigue trayendo el activo**, el id abierto **sí**
+se resuelve y `serieIds()` es `null`. Esa segunda mitad es la que se rompe en silencio.
+
+🔴 **El corte de las series se mide con fuente SINTÉTICA a propósito.** Contra la base solo
+prueba algo si el bimestre abierto tiene notas en los **dos** niveles; donde tenga 0,
+`$bimestresComparables` ya lo descarta por su cuenta y el aserto pasaría sin ejercer nada.
+
+### Medido
+
+**Batería del repo: 35 de 36 verificadores en verde**, y los 30 asertos del bloque nuevo
+también. El único rojo es `verif_direccion_superficies.php`, con 5 fallos **preexistentes**
+—ver abajo—, reproducidos uno a uno en una copia limpia de `HEAD` contra la misma base.
+
+### 🔴 Lo que este trabajo DESTAPÓ (preexistente, NO implementado)
+
+**Con el bimestre a la vista sin calificaciones, G2 se calcula pero no tiene dónde
+dibujarse.** `admin/cuadros/index.php:146` sustituye la sección entera de calificaciones
+por un estado vacío cuando `$bloques['calificaciones']['niveles']` viene vacío — y ahí
+dentro está el `<div id="chart-evolucion">`. Pero `$chartData['evolucion']` **sí existe**:
+sale de los bimestres anteriores, que sí tienen datos. El JS busca un contenedor que la
+vista no emitió. Lo mismo arrastra a su tabla de valores y a su nota de lectura, en
+pantalla y en papel: **5 asertos en rojo**.
+
+Estaba desde antes y no se veía porque el verificador abortaba antes de llegar (ver la
+nota de la 056, abajo). **Para Dirección este cambio lo hace desaparecer** —ya no ve un
+bimestre a medio llenar—, pero para `admin` y `registro_academico` sigue vivo y ahí se
+queda: arreglarlo es decidir si la evolución ANUAL debe vivir dentro de la sección del
+bimestre, que es otra pregunta.
+
+⚠️ **La 056 destapó estos 5 fallos, no los causó.** A la BD del equipo de escritorio le
+faltaba la migración `056_codigo_criterios_conducta.sql` y
+`verif_direccion_superficies.php` moría en `getIncumplimientoCriterios()` **antes** del
+render. Aplicada en local el 08/09/2026 (idempotente: 10 criterios, 10 con código).
+
+### Pendiente
+
+- 🔴 **Sin probar en navegador.** Sería la primera vez que una superficie de Dirección se
+  abre **con sesión de director**: todas las pruebas del módulo se han hecho como
+  administrador, y ese pendiente lleva tres deploys abierto.
+- ⚠️ **La BD de este equipo no es la de la laptop**: allí el III Bimestre tenía 222
+  calificaciones y aquí **0**, así que el antes/después del gráfico —el síntoma que motivó
+  todo— no es observable aquí. Por eso el corte de las series se mide con fuente
+  sintética.
+
+### Fuera de alcance (decidido)
+
+- `/consulta-notas/{p}/seccion/{s}/asistencia` sigue mostrando el bimestre activo.
+- `/admin/control` admite directores y usa el mismo `getPeriodos()` sin restricción.

@@ -99,6 +99,61 @@
         }
     }
 
+    // Campana de notificaciones (migración 058). Misma técnica de máscara que
+    // __user-icon: SVG monocromo pintado con el color del texto.
+    &__notif {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        color: rgba(255,255,255,.85);
+        text-decoration: none;
+        transition: $transition;
+
+        &:hover {
+            background: rgba(255,255,255,.1);
+            color: $text-white;
+            text-decoration: none;
+        }
+
+        &--pendientes { color: $text-white; }
+    }
+
+    &__notif-ico {
+        display: block;
+        width: 18px;
+        height: 18px;
+        background-color: currentColor;
+        -webkit-mask-repeat: no-repeat;
+                mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+                mask-position: center;
+        -webkit-mask-size: contain;
+                mask-size: contain;
+        -webkit-mask-image: url('../assets/icons/dialog-2.svg');
+                mask-image: url('../assets/icons/dialog-2.svg');
+    }
+
+    // Contador de no leídas. Rojo = estado que pide atención (regla de
+    // wayfinding del proyecto: rojo/ámbar solo para estados).
+    &__notif-badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        min-width: 17px;
+        padding: 0 4px;
+        border-radius: 9px;
+        background: $color-error;
+        color: $text-white;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 17px;
+        text-align: center;
+    }
+
     // ── Móvil: reduce padding y oculta el badge de rol. El nombre corto
     // (primer nombre + primer apellido) se conserva ──────────────────
     @media (max-width: 640px) {

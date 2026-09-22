@@ -516,6 +516,7 @@ class CalificacionModel extends BaseModel
                     cr.nombre      AS criterio_nombre,
                     cr.descripcion AS criterio_descripcion,
                     cr.orden,
+                    cr.extraordinario,
                     cc.nota
                 FROM criterios cr
                 LEFT JOIN calificaciones_criterio cc
@@ -663,6 +664,32 @@ class CalificacionModel extends BaseModel
     }
 
     /**
+     * Asegura el bloqueo de una competencia que recibe una calificación
+     * EXTRAORDINARIA (21/09/2026). Sin él la nota quedaba registrada e
+     * INVISIBLE: la boleta solo muestra competencias bloqueadas, y una que
+     * nadie de la sección evaluó pierde su bloqueo del cierre al limpiar los
+     * fantasmas. Es justo el caso del alumno que trae del colegio de origen
+     * competencias que aquí no se trabajaron.
+     *
+     * `origen = 'cierre'`: la extraordinaria solo nace en bimestres CERRADOS,
+     * así que el bloqueo es el que el cierre habría dejado. `INSERT IGNORE`:
+     * si ya estaba bloqueada (el caso normal), no toca nada. La limpieza de
+     * fantasmas NO lo borra (`SIN_EXTRAORDINARIAS_BC`).
+     */
+    public function asegurarBloqueoExtraordinaria(
+        int $cargaId,
+        int $competenciaId,
+        int $periodoId,
+        int $usuarioId
+    ): bool {
+        return $this->execute("
+            INSERT IGNORE INTO bloqueos_competencia
+                (carga_id, competencia_id, periodo_id, bloqueado_por, origen)
+            VALUES (?, ?, ?, ?, 'cierre')
+        ", [$cargaId, $competenciaId, $periodoId, $usuarioId]);
+    }
+
+    /**
      * ¿Se puede marcar una competencia académica de esta carga como
      * "no se evaluó" sin dejar la carga totalmente sin calificaciones?
      *
@@ -803,6 +830,49 @@ class CalificacionModel extends BaseModel
         return $this->execute("
             DELETE FROM bloqueos_competencia WHERE id = ?
         ", [$bloqueoId]);
+    }
+
+    /**
+     * Condición SQL para un bloqueo con alias `bc`: su competencia NO tiene
+     * calificaciones EXTRAORDINARIAS de RA. PUNTO ÚNICO de la guarda de
+     * desbloqueo (18/09/2026): la usan `eliminarBloqueosDeCierre` y
+     * `seccionesConBloqueosDeCierre`, y `alumnosConExtraordinaria` responde
+     * lo mismo para un solo bloqueo.
+     *
+     * POR QUÉ: desbloquear devuelve al alumno a la grilla del docente, y
+     * `calcularPromedio` promedia TODOS los criterios confirmados, el
+     * extraordinario incluido: la nota de RA se mezclaría en silencio con las
+     * ordinarias, y la marca `extraordinaria` la seguiría sacando del mérito.
+     */
+    public const SIN_EXTRAORDINARIAS_BC = "NOT EXISTS (
+                SELECT 1 FROM calificaciones cx
+                WHERE cx.carga_id       = bc.carga_id
+                  AND cx.competencia_id = bc.competencia_id
+                  AND cx.periodo_id     = bc.periodo_id
+                  AND cx.extraordinaria = 1
+            )";
+
+    /**
+     * Estudiantes con calificación EXTRAORDINARIA en una carga+competencia+
+     * periodo (nombres en orden alfabético). Vacío ⇒ se puede desbloquear.
+     * Misma regla que SIN_EXTRAORDINARIAS_BC.
+     */
+    public function alumnosConExtraordinaria(int $cargaId, int $competenciaId, int $periodoId): array
+    {
+        $filas = $this->query("
+            SELECT CONCAT(p.apellido_paterno, ' ', p.apellido_materno, ', ', p.nombres) AS estudiante
+            FROM calificaciones cx
+            INNER JOIN matriculas m  ON m.id = cx.matricula_id
+            INNER JOIN estudiantes e ON e.id = m.estudiante_id
+            INNER JOIN personas p    ON p.id = e.persona_id
+            WHERE cx.carga_id       = ?
+              AND cx.competencia_id = ?
+              AND cx.periodo_id     = ?
+              AND cx.extraordinaria = 1
+            ORDER BY " . orden_alfabetico('p') . "
+        ", [$cargaId, $competenciaId, $periodoId]);
+
+        return array_column($filas, 'estudiante');
     }
 
     /**

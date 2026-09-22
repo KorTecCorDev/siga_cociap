@@ -24,6 +24,24 @@
     line-height: 1.4;
 }
 
+// Filtros del listado de estudiantes sin notas (21/09/2026): cada etiqueta
+// sobre su select, en una grilla que baja de columnas sola. En línea
+// (.form-inline) la etiqueta quedaba huérfana al final de una fila.
+.rect-filtros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: $spacing-sm $spacing-md;
+    align-items: end;
+
+    .form-group { margin-bottom: 0; }
+
+    &__acciones {
+        display: flex;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+    }
+}
+
 // Motivo en tablas de historial: no estira la fila, recorta con elipsis.
 .rect-motivo {
     max-width: 280px;
@@ -108,33 +126,29 @@
         color: #92400e;
         border: 1px dashed $color-warning;
     }
+
+    // Marca de competencia TRANSVERSAL en el lote: viene del flujo del tutor
+    // (carga dueña + conclusión en su propia tabla), no del registro ordinario.
+    &--transversal {
+        background: #eef2ff;
+        color: #3730a3;
+        border: 1px dashed #6366f1;
+    }
 }
 
 // ── Calificación extraordinaria (migración 042) ─────────────────────────
-// Marca visual compartida por el panel del docente, el resumen, el historial
-// y la consulta de notas: la nota NO salió del registro ordinario del docente,
-// la ingresó RA con autorización. Ámbar = estado que pide atención (regla de
-// wayfinding: rojo/ámbar solo para estados).
-
-.extra-badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: $border-radius-sm;
-    border: 1px dashed $color-warning;
-    background: $color-warning-bg;
-    color: #92400e;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    vertical-align: middle;
-}
+// ⚠️ EL CHIP YA NO SE DEFINE AQUÍ. Vive en `components/_procedencia.scss`
+// (`.proc-chip`, con `.extra-badge` como alias), porque la extraordinaria es
+// UNA de las TRES procedencias posibles de una nota —junto al colegio de
+// origen y a las autorizadas para SIAGIE— y las tres tienen que verse como
+// una familia. Tenerlo definido en dos sitios era pedir que divergieran.
+// Aquí queda solo lo propio de las grillas de rectificación.
 
 // Cabecera de columna del criterio extraordinario en las grillas read-only.
 .col-criterio--extraordinario {
     background: $color-warning-bg;
 
+    .proc-chip,
     .extra-badge {
         display: block;
         margin: 0 auto 2px;
@@ -187,26 +201,141 @@
         line-height: 1.5;
     }
 
-    &__lista {
-        margin: 0;
-        padding-left: 18px;
+    // Tabla compacta (22/09/2026, `shared/_extraordinarias-tabla.php`): quién,
+    // cuándo y por qué van UNA vez por grupo en `__comun`, no en cada alumno.
+    &__comun {
+        margin: $spacing-sm 0 4px;
+        font-size: $font-size-sm;
+        color: $text-primary;
+        line-height: 1.5;
     }
 
-    &__item {
+    &__motivo {
+        display: block;
+        color: #92400e;
+    }
+
+    // Fondo blanco: la tabla se lee sobre el ámbar del aviso.
+    &__tabla {
         margin-bottom: $spacing-sm;
-        line-height: 1.5;
+        background: $bg-white;
+        border-radius: $border-radius-sm;
 
         &:last-child { margin-bottom: 0; }
     }
 
-    &__meta,
-    &__motivo {
-        display: block;
-        font-size: $font-size-sm;
-        color: $text-muted;
+    // Sección ÚNICA al final de la carga (consulta de notas e historial del
+    // docente, 21/09/2026): va suelta tras las cards, no dentro de una.
+    &--carga {
+        margin: 0 0 $spacing-lg;
     }
 
-    &__motivo {
-        color: #92400e;
+    // Subtítulo por competencia dentro de la sección única.
+    &__competencia {
+        margin: $spacing-md 0 4px;
+        font-weight: 600;
+        color: $text-primary;
     }
+}
+
+
+// ── Calificación extraordinaria EN LOTE ─────────────────────────────────
+// Grilla de /rectificaciones/extraordinaria/lote: una fila por competencia
+// del bimestre, con el literal en vivo y la conclusión que se revela sola.
+// Reutiliza .tabla-notas, .card, .rect-nota-input y .rect-chip; aquí solo lo
+// propio del lote.
+
+.rect-lote {
+
+    &__tabla {
+        th:first-child,
+        td:first-child { width: 42%; }
+    }
+
+    // Aviso por fila: la competencia no está bloqueada, así que la nota se
+    // guarda pero todavía no aparece en la boleta (la boleta solo muestra
+    // competencias bloqueadas).
+    &__aviso {
+        margin-top: $spacing-xs;
+        padding: $spacing-xs $spacing-sm;
+        border-left: 3px solid $color-warning;
+        border-radius: $border-radius-sm;
+        background: $color-warning-bg;
+        color: #92400e;
+        font-size: $font-size-sm;
+        line-height: 1.45;
+    }
+
+    // Pie de fila: explica de dónde sale una transversal sin gritar.
+    &__fila-pie {
+        margin-top: 2px;
+        font-size: $font-size-sm;
+        color: $text-muted;
+        line-height: 1.4;
+    }
+
+    // Literal en vivo. Mismo criterio de color que .rect-preview: la escala de
+    // logro NO usa la paleta de estados, para no competir con los badges.
+    &__literal {
+        display: inline-block;
+        min-width: 34px;
+        font-weight: 800;
+        font-size: $font-size-lg;
+        color: $text-muted;
+
+        &[data-literal="AD"] { color: #16a34a; }
+        &[data-literal="A"]  { color: #1e6fa8; }
+        &[data-literal="B"]  { color: #b45309; }
+        &[data-literal="C"]  { color: #dc2626; }
+    }
+
+    // Fila de conclusión descriptiva: oculta hasta que el literal la exige.
+    &__conclusion {
+        &[hidden] { display: none; }
+
+        td {
+            background: $bg-secondary;
+            padding-top: $spacing-sm;
+            padding-bottom: $spacing-md;
+        }
+    }
+
+    // Barra de acciones fija al pie: el contador y el envío siguen a la vista
+    // aunque la grilla tenga 27 filas.
+    &__barra {
+        position: sticky;
+        bottom: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: $spacing-md;
+        padding: $spacing-md;
+        border: 1px solid $border-color;
+        border-radius: $border-radius;
+        background: $bg-white;
+        box-shadow: $shadow-md;
+    }
+
+    &__contador {
+        font-size: $font-size-sm;
+        color: $text-secondary;
+
+        strong {
+            font-size: $font-size-xl;
+            color: $text-primary;
+        }
+    }
+}
+
+// Llamada al lote desde la lista de competencias insertables.
+.rect-lote-cta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $spacing-sm $spacing-md;
+    margin-bottom: $spacing-md;
+
+    .rect-aviso { flex: 1 1 260px; }
 }

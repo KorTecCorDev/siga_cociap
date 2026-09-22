@@ -922,44 +922,26 @@ class MatriculaModel extends BaseModel
         ", [$matriculaId, $tipo, $entregado ? 1 : 0, $observacion, $usuarioId]);
     }
 
-    // ── Notas externas (traslado de entrada) ─────────────────────
+    // ── Notas del colegio de origen ──────────────────────────────
+    //
+    // ⚠️ EL PUNTO ÚNICO ES `NotaExternaModel` (10/09/2026). Estos dos métodos
+    // se conservan como DELEGADORES para no romper su interfaz pública, pero la
+    // consulta y la escritura viven en un solo sitio: la tabla ganó `area_id`
+    // (migración 057) y tener dos INSERT distintos era garantía de que uno se
+    // quedara atrás. Ver docs/modulos/matriculas.md.
 
     public function getNotasExternas(int $matriculaId): array
     {
-        return $this->query("
-            SELECT *
-            FROM notas_externas
-            WHERE matricula_id = ?
-            ORDER BY area_nombre, competencia_nombre
-        ", [$matriculaId]);
+        return (new NotaExternaModel())->getDeMatricula($matriculaId);
     }
 
     /**
-     * Registra una nota externa. Idempotente por el UNIQUE
+     * Registra una nota del colegio de origen. Idempotente por el UNIQUE
      * (matricula_id, periodo_nombre, competencia_nombre).
      */
     public function registrarNotaExterna(array $datos): bool
     {
-        return $this->execute("
-            INSERT INTO notas_externas
-                (matricula_id, periodo_nombre, competencia_nombre,
-                 area_nombre, nota_literal, colegio_origen, registrado_por)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                area_nombre    = VALUES(area_nombre),
-                nota_literal   = VALUES(nota_literal),
-                colegio_origen = VALUES(colegio_origen),
-                registrado_por = VALUES(registrado_por),
-                registrado_en  = CURRENT_TIMESTAMP
-        ", [
-            (int) $datos['matricula_id'],
-            $datos['periodo_nombre'],
-            $datos['competencia_nombre'],
-            $datos['area_nombre'],
-            $datos['nota_literal'],
-            $datos['colegio_origen'] ?? null,
-            (int) $datos['registrado_por'],
-        ]);
+        return (new NotaExternaModel())->registrar($datos);
     }
 
     // ── Datos auxiliares para filtros y selects ──────────────────

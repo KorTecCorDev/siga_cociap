@@ -200,6 +200,8 @@ class ControlOperativoController extends BaseController
             'periodo' => $periodo,
             'info'    => $ordenModel->infoRectificado($periodoId),
             'ranking' => $ranking,
+            // Para mostrar qué cambió frente al oficial (publicado e intocable).
+            'oficial' => $ordenModel->puestosOficiales($periodoId),
         ]);
     }
 

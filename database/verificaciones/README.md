@@ -67,7 +67,9 @@ grado concretos del I Bimestre (541 retirado, 220/666 pendientes, 692/190 retorn
   - Existe porque la asistencia era el único de los tres bloques por periodo (notas,
     conducta, asistencia) que no honraba la excepción de la vista previa de RA.
 
-- **`verif_estructura_boleta.php`** — **SOLO LECTURA**, apto para producción. Comprueba que
+- **`verif_estructura_boleta.php`** — secciones 1-3 **SOLO LECTURA**; la **sección 4 escribe
+  en transacción + ROLLBACK** y se **omite en producción** (guarda del archivo de secretos),
+  así que sigue siendo apto para producción. Comprueba que
   las boletas se arman con la **estructura anual completa** (las 4 columnas de bimestre) en
   los cuatro umbrales, y —lo importante— que abrir esas columnas **NO relaja el guard de
   datos**: con `'oficial'` se ven 4 columnas pero solo aportan notas los bimestres cerrados
@@ -78,6 +80,25 @@ grado concretos del I Bimestre (541 retirado, 220/666 pendientes, 692/190 retorn
   - Existe porque la regla de formato del 09/07/2026 se había aplicado solo al token y al
     trasladado: la impresión masiva y el ZIP de archivo colapsaban columnas, y el papel que
     se firma salía con otro formato que el que la familia abre por QR.
+  - 🔴 **17/09/2026 — estuvo en ROJO por su aserto, y CIEGO en sus verdes.** El esperado de
+    la sección 2 contaba `calificaciones` en crudo, sin el invariante de competencias
+    BLOQUEADAS ni el criterio confirmado: se puso rojo cuando la matrícula de prueba recibió
+    una nota de B3 sin bloquear (el veredicto dependía del equipo, no del código). Ahora el
+    esperado sale de `getBoletaAlumno` por cada fuente de `boletaContexto`, y el sujeto de
+    prueba excluye exonerados (el `EXO` se inyecta en los 4 periodos).
+  - Y con los datos reales los cuatro umbrales **coincidían**: la sección 2 no podía ver una
+    fuga. Por eso nace la **sección 4**: sobre el último bimestre cerrado, publicado y con
+    notas, fuerza *cerrado sin publicar*, *activo con Hito A* y *activo en registro*, y exige
+    qué umbral muestra y cuál oculta ese bimestre. **Probado con 4 mutantes** de
+    `periodoAportaNotas` (uno por umbral): la versión nueva los detecta todos; la anterior,
+    **ninguno**.
+  - Su **bloque 4b** cubre el invariante mayor de la boleta —«solo competencias
+    BLOQUEADAS»—, que **ningún verificador del repo vigilaba**: retira un bloqueo en
+    transacción y exige que esa celda desaparezca de los cuatro umbrales. La sección 2 no
+    puede hacerlo, porque su esperado sale de la misma consulta que podría perder el JOIN.
+    Medido con el mutante (`INNER JOIN` → `LEFT JOIN` en `getBoletaAlumno`): el bloque nuevo
+    falla en los 4 umbrales y **la versión anterior del verificador se ponía VERDE** — el
+    fallo le quitaba además su propio rojo.
 
 - **`verif_universo_merito.php`** — **SOLO LECTURA**, apto para producción. Lista, grado por
   grado y periodo por periodo, **qué áreas aportan al promedio del orden de mérito** y

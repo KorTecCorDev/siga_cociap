@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use Core\View;
 use Core\Session;
+use App\Models\NotificacionModel;
 
 /**
  * BaseController
@@ -18,16 +19,32 @@ abstract class BaseController
      */
     protected function view(string $view, array $data = []): void
     {
+        $usuario = Session::user();
+
         // Datos globales disponibles en todas las vistas
         $globals = [
-            'auth_user'     => Session::user(),
+            'auth_user'     => $usuario,
             'flash_success' => Session::getFlash('success'),
             'flash_error'   => Session::getFlash('error'),
             'flash_info'    => Session::getFlash('info'),
             'flash_warning' => Session::getFlash('warning'),
             'app_name'      => config('app.name'),
             'institucion'   => config('app.institucion'),
+
+            // Campana de notificaciones (migración 058). Vive aquí, y no en un
+            // middleware —que este proyecto NO tiene, por decisión—, por el
+            // mismo motivo que `auth_user` y los flashes: lo necesita el LAYOUT
+            // en todas las páginas. Es un COUNT servido por `idx_bandeja`, y
+            // solo se ejecuta si hay sesión y el rol puede recibir avisos.
+            // NULL = este rol no recibe notificaciones y el layout no pinta la
+            // campana; un entero (0 incluido) = sí las recibe.
+            'notificaciones_no_leidas' => null,
         ];
+
+        if ($usuario !== null && has_role(NotificacionModel::ROLES_RECEPTORES)) {
+            $globals['notificaciones_no_leidas'] =
+                (new NotificacionModel())->contarNoLeidas((int) $usuario['id']);
+        }
 
         View::render($view, array_merge($globals, $data));
     }
@@ -61,6 +78,21 @@ abstract class BaseController
     {
         http_response_code(404);
         require VIEW_PATH . '/shared/404.php';
+        exit;
+    }
+
+    /**
+     * Corta la petición con un 403 real: código HTTP + página "Acceso
+     * denegado" + exit. Gemelo de `notFound()`, por la MISMA razón:
+     * `shared/403.php` es una página HTML completa, y pasarla por
+     * `$this->view()` la anidaba dentro de `layouts/app.php` — un documento
+     * dentro de otro, con el menú lateral alrededor y sin estilo responsive
+     * (21/09/2026).
+     */
+    protected function forbidden(): never
+    {
+        http_response_code(403);
+        require VIEW_PATH . '/shared/403.php';
         exit;
     }
 
@@ -102,9 +134,7 @@ abstract class BaseController
     {
         $this->requireAuth();
         if (!Session::hasRole($roles)) {
-            http_response_code(403);
-            $this->view('shared/403');
-            exit;
+            $this->forbidden();
         }
     }
 

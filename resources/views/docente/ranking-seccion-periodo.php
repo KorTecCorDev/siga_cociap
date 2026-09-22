@@ -52,9 +52,8 @@ $hayPendientes = $hayPendientes ?? false;
 
 <?php if ($hayPendientes): ?>
     <div class="merito-aviso">
-        <strong>Hay empates sin resolver.</strong> Las filas resaltadas comparten puesto
-        porque la cascada de desempate no llegó a separarlas: el orden entre ellas
-        <strong>aún no es oficializable</strong> y se resuelve a mano desde el
+        <strong>Hay empates sin resolver.</strong> Las filas resaltadas comparten puesto:
+        el orden entre ellas <strong>aún no es oficializable</strong> y se define desde el
         <a href="<?= url($rutaMerito . '/' . $periodo['id']) ?>">orden de mérito del grado</a>.
     </div>
 <?php endif; ?>

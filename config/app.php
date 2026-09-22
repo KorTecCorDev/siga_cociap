@@ -30,7 +30,7 @@ return [
         'sufijo_constancia'         => 'CAVVG-DA',
         'lugar'                     => 'Huaraz',
     ],
-    'version'         => '1.0.1',
+    'version'         => '1.0.2',
     // debug activo SOLO en entornos locales/privados (XAMPP, LAN). En cualquier
     // host publico (produccion o Host inyectado) queda en false → nunca expone
     // errores. El default seguro es OFF: si el host no es local, no hay debug.

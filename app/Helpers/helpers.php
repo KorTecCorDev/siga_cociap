@@ -216,6 +216,171 @@ const NOTA_MIN_B  = 11;
 const ROLES_DIRECCION = ['director_general', 'director_ebr', 'director_academico'];
 
 /**
+ * PROCEDENCIA de una nota que NO salió del registro ordinario del docente.
+ *
+ * Conviven TRES mecanismos y hasta el 10/09/2026 solo uno llevaba marca, así
+ * que se confundían entre sí — sobre todo en la ficha de matrícula, donde sus
+ * cards son vecinas. Lo que de verdad los separa no es cómo se registran, sino
+ * **A DÓNDE VA LA NOTA**, y eso es lo que dice cada `destino`.
+ *
+ * ⚠️ LA CATEGORÍA ES DERIVABLE, NO SE GUARDA. Cada mecanismo vive en su propia
+ * tabla (`calificaciones.extraordinaria=1`, `notas_externas`,
+ * `notas_autorizadas_siagie`), así que saber de cuál viene una nota no necesita
+ * ninguna columna. Si algún día alguien propone una columna `categoria`,
+ * es señal de que dos mecanismos se están mezclando en una misma tabla.
+ *
+ * ⚠️ EL COLOR NO DISTINGUE: distinguen el NOMBRE y el ICONO. Los tres chips
+ * comparten forma (el borde punteado, que ya significa "esto no salió de tu
+ * registro") y solo la extraordinaria conserva el ámbar, porque es la única que
+ * llega a la boleta y por tanto pide atención. Es lo que exige la regla de
+ * wayfinding (`docs/modulos/ui.md`): rojo y ámbar son de ESTADO, y los cuatro
+ * colores de concepto (azul, teal, púrpura, naranja) ya tienen dueño.
+ *
+ * ⚠️ Los tres ICONOS deben ser distintos entre sí y no coincidir con los de las
+ * cards del dashboard — misma regla del glifo fijo por concepto. Lo comprueba
+ * `verif_notas_origen.php`.
+ */
+const PROCEDENCIA_EXTRAORDINARIA = 'extraordinaria';
+const PROCEDENCIA_ORIGEN         = 'origen';
+const PROCEDENCIA_SIAGIE         = 'siagie';
+
+const PROCEDENCIAS_NOTA = [
+    PROCEDENCIA_EXTRAORDINARIA => [
+        'corto'   => 'EXTRAORDINARIA · RA',
+        'nombre'  => 'Calificación extraordinaria',
+        'icono'   => 'edit-pen',
+        'destino' => 'Va a la boleta y al SIAGIE. No cuenta para el orden de mérito.',
+        'ambar'   => true,
+    ],
+    PROCEDENCIA_ORIGEN => [
+        'corto'   => 'COLEGIO DE ORIGEN',
+        'nombre'  => 'Notas del colegio de origen',
+        'icono'   => 'social-city',
+        'destino' => 'Informativa: solo la ve el docente. NO aparece en la boleta.',
+        'ambar'   => false,
+    ],
+    PROCEDENCIA_SIAGIE => [
+        'corto'   => 'SIAGIE · DIRECCIÓN',
+        'nombre'  => 'Autorizada para SIAGIE',
+        'icono'   => 'doc-add',
+        'destino' => 'Solo para el acta SIAGIE. No toca la boleta ni el orden de mérito.',
+        'ambar'   => false,
+    ],
+];
+
+/**
+ * Datos de una procedencia. Devuelve null si la clave no existe, para que una
+ * vista pueda decidir no pintar nada en vez de reventar.
+ */
+function procedencia_nota(string $clave): ?array
+{
+    return PROCEDENCIAS_NOTA[$clave] ?? null;
+}
+
+/**
+ * Criterios que se PINTAN como criterio (columna, casilla o fila de la lista):
+ * todos menos el `extraordinario` de RA. PUNTO ÚNICO de esa regla de
+ * presentación (18/09/2026, decisión del usuario): la extraordinaria no forma
+ * parte del registro del docente, así que en las grillas solo se explica con
+ * la tarjeta `.extraordinaria-info`.
+ *
+ * ⚠️ SOLO PRESENTACIÓN. El criterio sigue en los datos: el promedio, la boleta,
+ * SIAGIE y la puerta de aprobación lo leen. Nunca usar esto para calcular.
+ * La rectificación no lo usa: allí el criterio sí se muestra, pero solo al
+ * alumno que lo tiene (`RectificacionModel::getDetalleCompetencia`).
+ */
+function criterios_ordinarios(array $criterios): array
+{
+    return array_values(array_filter(
+        $criterios,
+        static fn(array $c): bool => empty($c['extraordinario'])
+    ));
+}
+
+/**
+ * ¿La audiencia que mira ahora mismo solo puede ver bimestres CERRADOS?
+ * PUNTO ÚNICO DE VERDAD de esa pregunta.
+ *
+ * Es una regla de AUDIENCIA, no de datos: no dice qué es un bimestre cerrado
+ * —eso lo dice `periodos.estado`—, sino a quién se le puede enseñar uno que aún
+ * no lo está. Por eso vive aquí y no en un modelo, y por eso es el único helper
+ * de punto único del archivo que lee la SESIÓN en vez de emitir SQL.
+ *
+ * Extiende al bimestre entero la "regla del dato oficial" de los usuarios de
+ * Dirección (`docs/modulos/usuarios-direccion.md`): el director ve el AVANCE en
+ * vivo, pero todo DATO que se le muestre debe estar aprobado y bloqueado. Un
+ * bimestre a medio llenar da porcentajes, rankings y una línea de tendencia con
+ * la misma pinta que los del bimestre cerrado, y la serie histórica lo dibuja
+ * como un desplome que no ocurrió.
+ *
+ * 🔴 `admin` y `registro_academico` NO entran: son quienes tienen que vigilar el
+ * avance del bimestre en curso, y para ellos no cambia nada.
+ *
+ * ⚠️ La comprobación de "cerrado" está copiada a mano en 16 sitios de `app/` y
+ * `resources/views/` con 7 redacciones distintas. Esta función NO viene a
+ * unificarlas: viene a que la pregunta por la AUDIENCIA tenga un solo dueño y no
+ * nazca la 17.ª copia inline.
+ */
+function solo_bimestres_cerrados(): bool
+{
+    return has_role(ROLES_DIRECCION);
+}
+
+/**
+ * Filtra una lista de periodos dejando solo los CERRADOS.
+ *
+ * Reindexa con `array_values()`: quien la consume la recorre en un `<select>` y
+ * toma `[0]` como primer elemento, y `array_filter` conserva las claves
+ * originales (un hueco en el índice 0 haría que `[0]` no exista).
+ *
+ * @param  array $periodos filas tal como las devuelve `ControlOperativoModel::getPeriodos()`
+ * @return array las mismas filas, solo las de `estado === 'cerrado'`
+ */
+function periodos_cerrados(array $periodos): array
+{
+    return array_values(array_filter(
+        $periodos,
+        static fn(array $p): bool => ($p['estado'] ?? '') === 'cerrado'
+    ));
+}
+
+/**
+ * El ÚLTIMO bimestre cerrado: el de mayor `numero` dentro del año más reciente.
+ *
+ * ⚠️ NO vale `periodos_cerrados($periodos)[0]`. `getPeriodos()` ordena
+ * `a.anio DESC, p.numero ASC`, así que el primer elemento es el bimestre **1**
+ * del año más reciente — el más VIEJO del año, justo lo contrario. Tampoco vale
+ * `getPeriodoPorDefecto()`, que devuelve el activo y cae en ese mismo `[0]`.
+ *
+ * El año se calcula aquí (máximo de los cerrados) en vez de confiar en el orden
+ * de llegada: la función admite cualquier lista, no solo la de ese método.
+ *
+ * @param  array      $periodos filas con `anio`, `numero` y `estado`
+ * @return array|null la fila, o `null` si no hay ningún bimestre cerrado
+ */
+function ultimo_periodo_cerrado(array $periodos): ?array
+{
+    $cerrados = periodos_cerrados($periodos);
+    if (!$cerrados) {
+        return null;
+    }
+
+    $anio = max(array_map(static fn(array $p): int => (int) ($p['anio'] ?? 0), $cerrados));
+
+    $ultimo = null;
+    foreach ($cerrados as $p) {
+        if ((int) ($p['anio'] ?? 0) !== $anio) {
+            continue;
+        }
+        if ($ultimo === null || (int) $p['numero'] > (int) $ultimo['numero']) {
+            $ultimo = $p;
+        }
+    }
+
+    return $ultimo;
+}
+
+/**
  * Colación de ordenamiento alfabético en ESPAÑOL — PUNTO ÚNICO DE VERDAD.
  *
  * Las columnas de `personas` son `utf8mb4_unicode_ci`, que equipara Ñ ≡ N: al

@@ -61,12 +61,12 @@ class CuadrosEstadisticosController extends BaseController
         // resuelve (lista + "por defecto"). Escribir aqui el SELECT habria sido
         // la QUINTA copia de esa misma consulta en el repositorio: ya vive en
         // ese modelo y, copiada a mano, en tres controladores mas.
-        $periodos  = $this->controlModel->getPeriodos();
-        $periodoId = (int) ($this->query('periodo_id') ?? 0);
+        $periodos = $this->periodosVisibles();
 
-        $periodo = $periodoId > 0
-            ? $this->controlModel->getPeriodo($periodoId)
-            : $this->controlModel->getPeriodoPorDefecto();
+        [$periodo, $fueraDeAlcance] = $this->elegirPeriodo(
+            $periodos,
+            (int) ($this->query('periodo_id') ?? 0)
+        );
 
         if (!$periodo) {
             $this->view('admin/cuadros/index', [
@@ -74,6 +74,8 @@ class CuadrosEstadisticosController extends BaseController
                 'periodos' => $periodos,
                 'periodo'  => null,
                 'bloques'  => null,
+                'serieIds' => $this->serieIds($periodos),
+                'avisoNoCerrado' => false,
             ]);
             return;
         }
@@ -83,6 +85,10 @@ class CuadrosEstadisticosController extends BaseController
             'periodos' => $periodos,
             'periodo'  => $periodo,
             'bloques'  => $this->componerBloques($periodo),
+            'serieIds' => $this->serieIds($periodos),
+            // La pantalla no niega el documento: cae al ultimo cerrado y lo
+            // dice. Negarlo dejaria al director ante un 404 sin saber por que.
+            'avisoNoCerrado' => $fueraDeAlcance,
         ]);
     }
 
@@ -96,15 +102,18 @@ class CuadrosEstadisticosController extends BaseController
      */
     public function imprimir(): void
     {
-        $periodoId = (int) ($this->query('periodo_id') ?? 0);
+        $periodos = $this->periodosVisibles();
 
-        $periodo = $periodoId > 0
-            ? $this->controlModel->getPeriodo($periodoId)
-            : $this->controlModel->getPeriodoPorDefecto();
+        [$periodo, $fueraDeAlcance] = $this->elegirPeriodo(
+            $periodos,
+            (int) ($this->query('periodo_id') ?? 0)
+        );
 
         // Un documento sin bimestre no existe: aqui no hay estado vacio que
-        // mostrar, a diferencia de la pantalla.
-        if (!$periodo) {
+        // mostrar, a diferencia de la pantalla. Y uno del bimestre equivocado
+        // tampoco: el A4 va firmado con el sello del Director EBR, asi que
+        // aqui NO se cae al ultimo cerrado, se niega.
+        if (!$periodo || $fueraDeAlcance) {
             $this->notFound();
         }
 
@@ -113,8 +122,79 @@ class CuadrosEstadisticosController extends BaseController
             'titulo'      => 'Cuadros estadísticos',
             'periodo'     => $periodo,
             'bloques'     => $this->componerBloques($periodo),
+            'serieIds'    => $this->serieIds($periodos),
             'directorEbr' => (new DirectorEbrModel())->getVigenteEnFecha((int) $periodo['anio_id']),
         ]);
+    }
+
+    /**
+     * Los bimestres que esta audiencia puede ver en este tablero.
+     *
+     * 🔴 DIRECCIÓN SOLO VE BIMESTRES CERRADOS (08/09/2026). Un bimestre a medio
+     * llenar da porcentajes, rankings y una linea de tendencia con la misma
+     * pinta que los del bimestre cerrado. `admin` y `registro_academico`
+     * conservan el activo a proposito: son quienes vigilan el avance.
+     *
+     * El corte va en PHP sobre lo que YA devuelve el modelo. `getPeriodos()` es
+     * compartido con `/admin/control` y no se toca, y esta clase no escribe
+     * consultas (regla de oro del docblock, con verificador que la vigila).
+     */
+    private function periodosVisibles(): array
+    {
+        $periodos = $this->controlModel->getPeriodos();
+
+        return solo_bimestres_cerrados() ? periodos_cerrados($periodos) : $periodos;
+    }
+
+    /**
+     * Resuelve el bimestre a mostrar dentro de los visibles.
+     *
+     * @return array{0: array|null, 1: bool} el periodo, y si se pidio uno que
+     *         esta FUERA de los visibles (la pantalla lo avisa, el papel lo niega).
+     */
+    private function elegirPeriodo(array $periodos, int $periodoId): array
+    {
+        // Sin restriccion, exactamente el camino de siempre: el `?periodo_id`
+        // se resuelve contra la tabla aunque no este en la lista del selector.
+        if (!solo_bimestres_cerrados()) {
+            return [
+                $periodoId > 0
+                    ? $this->controlModel->getPeriodo($periodoId)
+                    : $this->controlModel->getPeriodoPorDefecto(),
+                false,
+            ];
+        }
+
+        // Con restriccion, el `?periodo_id` tiene que estar en la lista: la
+        // fila ya viene ahi con los mismos campos, asi que no hace falta
+        // volver a pedirla —y de paso queda VALIDADA, que es lo que faltaba—.
+        foreach ($periodos as $p) {
+            if ((int) $p['id'] === $periodoId) {
+                return [$p, false];
+            }
+        }
+
+        // ⚠️ NO vale `getPeriodoPorDefecto()`: devuelve el activo y, sin el, el
+        // PRIMERO de la lista, que con `anio DESC, numero ASC` es el bimestre 1.
+        return [ultimo_periodo_cerrado($periodos), $periodoId > 0];
+    }
+
+    /**
+     * Ids admitidos en las tres series ANUALES del tablero (G2, G7 y G11).
+     *
+     * `null` = sin filtro, y es lo que reciben `admin` y `registro_academico`:
+     * su tablero queda byte a byte como estaba. Las series las arman los
+     * modelos del año entero —que no se tocan, porque `verif_direccion_superficies`
+     * exige que traigan la celda del bimestre ACTIVO—, asi que el recorte vive
+     * en la vista y necesita saber por que ids cortar.
+     */
+    private function serieIds(array $periodos): ?array
+    {
+        if (!solo_bimestres_cerrados()) {
+            return null;
+        }
+
+        return array_map(static fn(array $p): int => (int) $p['id'], $periodos);
     }
 
     /**

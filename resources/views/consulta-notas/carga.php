@@ -7,6 +7,7 @@
  * @var array $carga         [id, grado_nombre, seccion_nombre, nivel_nombre, nivel_codigo, area_nombre, subarea_nombre, docente]
  * @var array $competencias  [{competencia, criterios, alumnos, bloqueado_en}]
  * @var array $exonerados    matricula_ids exonerados de la carga
+ * @var array $extraordinariasCarga  extraordinarias de RA de la carga (sección final)
  */
 $area = $carga['subarea_nombre']
     ? $carga['area_nombre'] . ' — ' . $carga['subarea_nombre']
@@ -35,7 +36,6 @@ $nivelCodigo = $carga['nivel_codigo'];
     $competencia     = $bloque['competencia'];
     $criterios       = $bloque['criterios'];
     $alumnos         = $bloque['alumnos'];
-    $extraordinarias = $bloque['extraordinarias'] ?? [];
     $esTransversal   = !empty($bloque['es_transversal']);
     ?>
 
@@ -63,3 +63,5 @@ $nivelCodigo = $carga['nivel_codigo'];
         <?php require VIEW_PATH . '/consulta-notas/_tabla.php'; ?>
     </div>
 <?php endforeach; ?>
+
+<?php require VIEW_PATH . '/consulta-notas/_extraordinarias-carga.php'; ?>

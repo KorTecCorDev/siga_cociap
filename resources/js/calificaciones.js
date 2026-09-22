@@ -771,7 +771,18 @@ document.querySelectorAll('.btn-eliminar-criterio').forEach(btn => {
                     // Recargar para reflejar el promedio recalculado
                     window.location.reload();
                 } else {
-                    document.getElementById(`criterio-${criterioId}`)?.remove();
+                    // Sin recarga: sincronizar lo que dependía del criterio
+                    // borrado. Si era el único pendiente, "Ver resumen" pasa a
+                    // accesible (el servidor lo decide, como en el autosave).
+                    const bloque = document.getElementById(`criterio-${criterioId}`);
+                    const card   = bloque ? bloque.closest('.competencia-card') : null;
+                    bloque?.remove();
+                    if (card && typeof data.resumenAccesible === 'boolean') {
+                        sincronizarBotonResumen(card.id.replace('comp-', ''), data.resumenAccesible);
+                    }
+                    // El banner "Próximo pendiente" ya no puede apuntar a él.
+                    const irA = document.querySelector(`[data-criterio-target="${criterioId}"]`);
+                    irA?.closest('.calificaciones-pendiente')?.remove();
                 }
             } else {
                 alert(data.mensaje);

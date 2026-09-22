@@ -384,9 +384,9 @@ class RetornoGradoController extends BaseController
     {
         $matricula = $this->model->findById($id);
         if (!$matricula) {
-            http_response_code(404);
-            $this->view('shared/404');
-            exit;
+            // Punto único del 404 (BaseController): sin layout, porque
+            // `shared/404.php` es una página HTML completa.
+            $this->notFound();
         }
         return $matricula;
     }

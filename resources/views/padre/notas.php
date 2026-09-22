@@ -22,6 +22,7 @@
         </p>
     </div>
     <div class="btn-group">
+        <?php if (!empty($areas)): ?>
         <a href="<?= url('boleta/digital/' . $tokenBoleta) ?>"
            class="btn btn--primary btn--sm"
            target="_blank">
@@ -32,6 +33,13 @@
            target="_blank">
             🖨 Imprimir
         </a>
+        <?php else: ?>
+        <?php // Sin calificaciones oficiales: la boleta saldría vacía. Botones
+              // visibles pero inertes; el motivo lo dice el empty-state de abajo
+              // (21/09/2026). ?>
+        <span class="btn btn--primary btn--sm is-disabled" aria-disabled="true">Ver boleta digital</span>
+        <span class="btn btn--secondary btn--sm is-disabled" aria-disabled="true">🖨 Imprimir</span>
+        <?php endif; ?>
         <a href="<?= url('padre/orden-merito') ?>" class="btn btn--secondary btn--sm">
             Orden de mérito
         </a>

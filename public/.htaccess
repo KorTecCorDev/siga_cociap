@@ -2,6 +2,11 @@ Options -Indexes
 
 RewriteEngine On
 
+# Defensa en profundidad (17/09/2026): el .htaccess raiz ya niega estas rutas,
+# pero public/ se sirve directo si el docroot apuntara aqui. La app no usa .csv.
+RewriteRule \.(sql|md|log|lock|sh|ya?ml|dist|csv)$ - [F,L]
+RewriteRule (^|/)(hash|import_matriculas)\.php$ - [F,L]
+
 # Si el archivo o directorio existe, sírvelo directamente (css, js, imágenes)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

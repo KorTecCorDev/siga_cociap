@@ -3,14 +3,31 @@
  * Vista /rectificaciones/editar: muestra en vivo la evolución del promedio
  * de la competencia (numeral + literal) a medida que se editan las notas por
  * criterio. El cálculo replica al backend: promedio = ROUND(AVG(notas)) sobre
- * los criterios CON nota (vacío = NULL, no cuenta), y el literal sale de los
- * mismos umbrales que app/Helpers/helpers.php (AD: 18-20 · A: 14-17 ·
- * B: 11-13 · C: 00-10). PUNTO ÚNICO DE VERDAD en PHP: si cambian allí, aquí.
+ * los criterios CON nota (vacío = NULL, no cuenta).
+ *
+ * Además vuelve OBLIGATORIA la conclusión en vivo cuando el literal del
+ * promedio la exige, para que el navegador frene el envío antes de que lo
+ * rechace el servidor (18/09/2026).
+ *
+ * ⚠️ Los umbrales y los literales que exigen conclusión NO se escriben aquí:
+ * llegan en data-* desde PHP (constantes de app/Helpers/helpers.php y
+ * CalificacionModel::conclusionObligatoria), igual que en rectificaciones-lote.js.
  */
 (function () {
-    var NOTA_MIN_AD = 18;
-    var NOTA_MIN_A  = 14;
-    var NOTA_MIN_B  = 11;
+    var form = document.getElementById('rectEditarForm');
+    if (!form) return;
+
+    var NOTA_MIN_AD = parseInt(form.dataset.notaMinAd, 10);
+    var NOTA_MIN_A  = parseInt(form.dataset.notaMinA, 10);
+    var NOTA_MIN_B  = parseInt(form.dataset.notaMinB, 10);
+    if (isNaN(NOTA_MIN_AD) || isNaN(NOTA_MIN_A) || isNaN(NOTA_MIN_B)) return;
+
+    var exigenConclusion = (form.dataset.literalesConclusion || '')
+        .split(',')
+        .filter(function (l) { return l !== ''; });
+
+    var conclusion  = form.querySelector('#conclusion');
+    var marcaObliga = form.querySelector('[data-rect-concl-obligatoria]');
 
     var preview = document.getElementById('rectPreview');
     if (!preview) return;
@@ -30,6 +47,13 @@
 
     function dosDigitos(n) {
         return (n < 10 ? '0' : '') + n;
+    }
+
+    /** La conclusión es obligatoria solo si el literal resultante la exige. */
+    function sincronizarConclusion(lit) {
+        var exige = lit !== '' && exigenConclusion.indexOf(lit) !== -1;
+        if (conclusion)  conclusion.required = exige;
+        if (marcaObliga) marcaObliga.hidden  = !exige;
     }
 
     function recalcular() {
@@ -52,6 +76,7 @@
             elNum.textContent = '—';
             elLit.textContent = '—';
             preview.dataset.rectLiteral = '';
+            sincronizarConclusion('');
             return;
         }
 
@@ -61,6 +86,7 @@
         elNum.textContent = dosDigitos(prom);
         elLit.textContent = lit;
         preview.dataset.rectLiteral = lit;         // permite colorear por literal
+        sincronizarConclusion(lit);
     }
 
     inputs.forEach(function (input) {

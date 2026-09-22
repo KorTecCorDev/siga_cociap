@@ -378,16 +378,38 @@ class AnioAcademicoModel extends BaseModel
      * bloqueos (NO al reabrir). Los bloqueos del docente (origen='docente'),
      * incluidas las competencias finalizadas-vacías, se conservan siempre.
      * Retorna cuántos se eliminaron.
+     *
+     * Se CONSERVAN los de competencias con calificaciones extraordinarias
+     * (18/09/2026, `CalificacionModel::SIN_EXTRAORDINARIAS_BC`): son justo las
+     * «No se evaluó» que RA completa, y liberarlas mezclaría su nota con las
+     * del docente. `bloqueosDeCierreConExtraordinarias` dice cuántas quedaron.
      */
     public function eliminarBloqueosDeCierre(int $periodoId): int
     {
         $stmt = $this->db->prepare("
-            DELETE FROM bloqueos_competencia
-            WHERE periodo_id = ?
-              AND origen     = 'cierre'
+            DELETE bc FROM bloqueos_competencia bc
+            WHERE bc.periodo_id = ?
+              AND bc.origen     = 'cierre'
+              AND " . CalificacionModel::SIN_EXTRAORDINARIAS_BC . "
         ");
         $stmt->execute([$periodoId]);
         return $stmt->rowCount();
+    }
+
+    /**
+     * Bloqueos del cierre forzado que `eliminarBloqueosDeCierre` NO libera
+     * porque su competencia tiene calificaciones extraordinarias.
+     */
+    public function bloqueosDeCierreConExtraordinarias(int $periodoId): int
+    {
+        $r = $this->queryOne("
+            SELECT COUNT(*) AS n
+            FROM bloqueos_competencia bc
+            WHERE bc.periodo_id = ?
+              AND bc.origen     = 'cierre'
+              AND NOT " . CalificacionModel::SIN_EXTRAORDINARIAS_BC . "
+        ", [$periodoId]);
+        return (int) ($r['n'] ?? 0);
     }
 
     /**

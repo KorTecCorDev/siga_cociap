@@ -15,8 +15,23 @@
  *
  * @var array|null $bloques
  * @var array|null $periodo
+ * @var array|null $serieIds   ids admitidos en las series ANUALES; null = sin filtro
  * @var array      $chartData  (salida)
  */
+
+// 🔴 DIRECCIÓN SOLO VE BIMESTRES CERRADOS (08/09/2026). El corte de las tres
+// series anuales (G2, G7 y G11) llega desde el controlador como una lista de
+// ids, NUNCA como un estado: solo G2 expone `estado` en su salida —G7 y G11 no—,
+// asi que preguntar por el estado aqui funcionaria en uno de los tres.
+//
+// `null` = sin filtro, y es lo que reciben `admin`, `registro_academico` y el
+// verificador, que arma su propio `$bloques` y renderiza esta vista de verdad:
+// para ellos el tablero queda exactamente como estaba.
+//
+// ⚠️ El corte va al EJE de las series, jamas a `$condLit`: G6 comparte esa
+// fuente con G7 y se recorta al bimestre a la vista, asi que filtrar la fuente
+// lo haria desaparecer.
+$serieIds = $serieIds ?? null;
 
 $evo      = $bloques['evolucion'] ?? null;
 $condSecc = $bloques['conducta_secciones'] ?? [];
@@ -52,13 +67,17 @@ $chartData = [];
 // forma de dato. Copiarlo habría sido otra regla duplicada de las que este
 // repositorio ya ha visto divergir cuatro veces.
 // ─────────────────────────────────────────────────────────────────────
-$bimestresComparables = static function (?array $fuente, string $campoTotal): array {
+$bimestresComparables = static function (?array $fuente, string $campoTotal) use ($serieIds): array {
     if (!$fuente || empty($fuente['niveles'])) {
         return [];
     }
 
     $comparables = [];
     foreach ($fuente['periodos'] ?? [] as $per) {
+        if ($serieIds !== null && !in_array((int) $per['id'], $serieIds, true)) {
+            continue;
+        }
+
         $todosConDatos = true;
         foreach ($fuente['niveles'] as $n) {
             foreach ($n['serie'] as $celda) {
@@ -251,6 +270,9 @@ foreach ([['asisFaltas', 'faltas'], ['asisTardanzas', 'tardanzas']] as [$clave, 
 // los bimestres comparables, aplicado a una serie institucional).
 $lblAsis = $vFaltas = $vTardanzas = [];
 foreach ($asisEvo as $perAsis) {
+    if ($serieIds !== null && !in_array((int) ($perAsis['periodo_id'] ?? 0), $serieIds, true)) {
+        continue;
+    }
     if ((int) ($perAsis['registrados'] ?? 0) === 0) {
         continue;
     }
@@ -335,6 +357,14 @@ if ($lblJust && (array_sum($vSin) > 0 || array_sum($vJust) > 0)) {
 // La normalización vive solo en `$chartTablas`, que es una estructura aparte.
 // ─────────────────────────────────────────────────────────────────────
 
+// Coletilla de las tres series ANUALES cuando el corte por audiencia esta
+// activo. La nota tiene que decir el criterio REAL de lo que se ve: sin ella,
+// un director lee "faltan bimestres" como un fallo del tablero y no como la
+// regla que se le esta aplicando.
+$notaSoloCerrados = $serieIds !== null
+    ? ' Para Dirección solo entran, además, los bimestres <strong>cerrados</strong>.'
+    : '';
+
 // Metadatos por gráfico. El orden de las claves no importa: cada vista pide
 // la suya por nombre. `serie` solo hace falta cuando el dato es un `values`
 // suelto, que no trae nombre de serie consigo.
@@ -345,7 +375,8 @@ $metaGraficos = [
         'nota'   => 'Porcentaje de calificaciones en AD o A sobre el total del nivel. '
                   . 'Solo aparecen los bimestres en los que <strong>todos</strong> los niveles '
                   . 'ya tienen notas: incluir uno que recién arranca mostraría un salto que no '
-                  . 'es una mejora, sino una muestra todavía sin representatividad.',
+                  . 'es una mejora, sino una muestra todavía sin representatividad.'
+                  . $notaSoloCerrados,
     ],
     'brecha' => [
         'col'    => 'Grado',
@@ -379,7 +410,8 @@ $metaGraficos = [
         'col'    => 'Bimestre',
         'unidad' => '% en logro',
         'nota'   => 'Porcentaje en AD o A por bimestre. Solo aparecen los bimestres en que '
-                  . 'ambos niveles tienen conducta registrada.',
+                  . 'ambos niveles tienen conducta registrada.'
+                  . $notaSoloCerrados,
     ],
     'conductaCriterios' => [
         'col'       => 'Código',
@@ -409,7 +441,8 @@ $metaGraficos = [
         'col'    => 'Bimestre',
         'unidad' => '',
         'nota'   => 'Total de faltas y tardanzas sin justificar por bimestre. Solo aparecen '
-                  . 'los bimestres con asistencia registrada.',
+                  . 'los bimestres con asistencia registrada.'
+                  . $notaSoloCerrados,
     ],
     'asisJustificacion' => [
         'col'    => 'Nivel',

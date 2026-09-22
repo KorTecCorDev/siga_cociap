@@ -66,6 +66,8 @@
         foreach ($competencias as $_c) {
             if (in_array($_c['id'], $bloqueos ?? [])) continue;
             foreach ($_c['criterios'] ?? [] as $_cri) {
+                // La extraordinaria de RA no es un pendiente del docente.
+                if (!empty($_cri['extraordinario'])) continue;
                 $calificados = count($notasExistentes[$_cri['id']] ?? []);
                 if ($calificados < $totalAlumnos) {
                     $siguientePendiente = [
@@ -220,6 +222,16 @@
             <!-- Cuerpo -->
             <div class="competencia-card__body">
 
+                <?php
+                // Calificación extraordinaria de RA (18/09/2026): NO se pinta
+                // como un criterio más, solo esta card informativa. El criterio
+                // `extraordinario` sigue existiendo en los datos (boleta, SIAGIE
+                // y promedio lo leen), pero no es parte del registro del docente.
+                $extraordinarias = $extraordinariasPorComp[$compCargaId . '-' . (int) $competencia['id']] ?? [];
+                require VIEW_PATH . '/docente/_extraordinaria-info.php';
+                $criteriosOrdinarios = criterios_ordinarios($competencia['criterios'] ?? []);
+                ?>
+
                 <?php if ($compBloqueada): ?>
                     <!-- Mensaje de bloqueada — sin botón extra -->
                     <div class="flash flash--warning">
@@ -234,13 +246,13 @@
 
                 <?php else: ?>
                     <!-- Criterios disponibles -->
-                    <?php if (empty($competencia['criterios'])): ?>
+                    <?php if (empty($criteriosOrdinarios)): ?>
                         <p class="text-muted mb-md">
                             Sin criterios aún. Agrega uno para comenzar.
                         </p>
                     <?php else: ?>
 
-                        <?php foreach ($competencia['criterios'] as $ci => $criterio): ?>
+                        <?php foreach ($criteriosOrdinarios as $ci => $criterio): ?>
                             <?php
                             $tieneCals       = !empty($notasExistentes[$criterio['id']]);
                             $calificadosCrit = count($notasExistentes[$criterio['id']] ?? []);
@@ -265,7 +277,7 @@
                                             <h4 class="criterio-bloque__nombre">
                                                 <?= e($criterio['nombre']) ?>
                                                 <?php if ($esExtraCrit): ?>
-                                                    <span class="extra-badge">EXTRAORDINARIA · RA</span>
+                                                    <?php $proc = PROCEDENCIA_EXTRAORDINARIA; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
                                                 <?php endif; ?>
                                             </h4>
                                             <?php if ($esExtraCrit): ?>

@@ -3,7 +3,7 @@
  * Competencias rectificables de una matrícula, agrupadas por bimestre.
  * @var array $info           datos del estudiante (incl. nivel_codigo)
  * @var array $porPeriodo     [{periodo_id, periodo_nombre, periodo_estado, items[]}]
- * @var array $porPeriodoIns  competencias SIN nota del alumno (cerradas/bloqueadas)
+ * @var array $porPeriodoIns  competencias SIN nota del alumno (solo bimestres cerrados)
  *                            → candidatas a calificación EXTRAORDINARIA
  * @var array $historial      rectificaciones previas de esta matrícula
  */
@@ -31,13 +31,6 @@ $labelComp = static function (array $c): string {
         </p>
     </div>
 </div>
-
-<?php if ($flash_success): ?>
-    <div class="flash flash--success"><?= e($flash_success) ?></div>
-<?php endif; ?>
-<?php if ($flash_error): ?>
-    <div class="flash flash--error"><?= e($flash_error) ?></div>
-<?php endif; ?>
 
 <div class="card mb-md">
     <div class="card__body">
@@ -126,7 +119,7 @@ $labelComp = static function (array $c): string {
             </p>
             <p class="rect-aviso mb-md">
                 Este estudiante <strong>no tiene nota</strong> en estas competencias
-                cerradas o bloqueadas. Puedes registrarle una
+                de bimestres cerrados. Puedes registrarle una
                 <strong>calificación extraordinaria</strong> (con motivo obligatorio):
                 aparece en la boleta y se exporta al SIAGIE, pero
                 <strong>no cuenta para el orden de mérito</strong>.
@@ -138,6 +131,16 @@ $labelComp = static function (array $c): string {
                         <span class="rect-chip rect-chip--cerrado">Cerrado</span>
                     <?php endif; ?>
                 </p>
+                <div class="rect-lote-cta">
+                    <a href="<?= url('rectificaciones/extraordinaria/lote?matricula=' . (int) $info['matricula_id'] . '&periodo=' . (int) $per['periodo_id']) ?>"
+                       class="btn btn--primary btn--sm">
+                        Calificar todo el bimestre (<?= count($per['items']) ?>)
+                    </a>
+                    <span class="rect-aviso">
+                        Una sola pantalla con las <?= count($per['items']) ?> competencias y un
+                        motivo común. Las que dejes vacías no se registran.
+                    </span>
+                </div>
                 <div class="tabla-notas-wrapper">
                     <table class="tabla-notas">
                         <thead>

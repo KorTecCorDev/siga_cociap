@@ -130,6 +130,15 @@ es información pública; corregirlo sin acto formal es una regresión grave.
   el flujo normal del director; la rectificada es "registrada pero no mostrada" ahí.
 - `orden_merito_rectificado` guarda **la última** versión no oficial por periodo (se
   sobrescribe); la traza por criterio vive en `rectificaciones_calificacion`.
+- **Comparación con el oficial (18/09/2026).** La vista suma «Puesto oficial» y «Cambio»
+  (`OrdenMeritoModel::puestosOficiales`). ⚠️ **Se resalta la fila cuyo PROMEDIO cambió, no la
+  que cambió de puesto**: en B1 el oficial reconstruido lleva 13 estudiantes (10 trasladados +
+  3 retirados) que el cálculo de hoy ya no incluye, así que **121 puestos se corren sin que
+  nadie cambie de nota**, frente a **1** promedio rectificado (medido). La vista cuenta y
+  explica a esos estudiantes que faltan, y dice que **las extraordinarias no cuentan**. Ese era
+  el otro «no muestra la rectificación»: la prueba 697 era un alumno con sus 27 notas de B1
+  extraordinarias, que por regla no entra al ranking. **La regla se mantiene** (decisión del
+  18/09). Al rectificar una nota extraordinaria, el flash ahora lo avisa.
 
 ## Rectificación de calificaciones (17/06/2026)
 
@@ -888,3 +897,11 @@ notas B1), conservando el anclaje de retornos. Es un CASO ESPECIAL de reconstruc
 regla general del código sigue filtrando por tipo (Fase A) y produce 519/520, por eso NO se
 debe correr `backfill_orden_merito.php` en prod (sobrescribiría el 528). El candado 046
 mantiene el oficial inmutable (B1 publicado → futuras correcciones van a `orden_merito_rectificado`).
+
+## Otra regla que identifica a Ética por su nombre (21/09/2026)
+
+Además de los 3 sitios del vínculo Ética ↔ Ed. Religiosa, `RectificacionModel::sqlSinReservadasDireccion`
+identifica Ética por `AREA_ETICA_NOMBRE_BOLETA` para no explicarle al docente las extraordinarias
+del I Bimestre 2026 (ver `calificaciones.md`). **No toca el mérito** (las extraordinarias ya están
+fuera de él), pero si cambia el `nombre_boleta` de Ética, esa regla deja de aplicar sin avisar.
+

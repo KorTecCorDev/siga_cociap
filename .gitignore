@@ -49,6 +49,10 @@ nul
 hash.php
 import_matriculas.php
 
+# Padrones y datos personales: NUNCA en el repo (se publica entero en public_html)
+public/matriculados.csv
+*.csv
+
 # Logs de chat / notas (no versionar ni desplegar)
 /CHAT_CLAUDE_CODE_*.txt
 

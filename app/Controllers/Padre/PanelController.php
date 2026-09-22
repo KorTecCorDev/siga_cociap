@@ -123,9 +123,11 @@ class PanelController extends BaseController
             // los vacíos como '—'. En un retorno de grado la matrícula operativa
             // trae los criterios de la carga del grado oficial SIN ninguna nota, así
             // que sin este filtro la familia vería una tabla entera de guiones.
+            // Tampoco el criterio extraordinario de RA (18/09/2026): no es un
+            // criterio del docente; la nota sigue en la competencia.
             if (!empty($nota['criterios'])) {
                 $nota['criterios'] = array_values(array_filter(
-                    $nota['criterios'],
+                    criterios_ordinarios($nota['criterios']),
                     static fn(array $c): bool => ($c['nota'] ?? null) !== null
                 ));
             }

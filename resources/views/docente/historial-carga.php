@@ -6,6 +6,7 @@
  * @var array $periodo
  * @var array $competencias  [{competencia, criterios, alumnos}]
  * @var array $exonerados    matricula_ids exonerados de la carga
+ * @var array $extraordinariasCarga  extraordinarias de RA (sección final)
  */
 $nivelCodigo = $carga['nivel_codigo'];
 ?>
@@ -38,7 +39,6 @@ $nivelCodigo = $carga['nivel_codigo'];
         $competencia     = $bloque['competencia'];
         $criterios       = $bloque['criterios'];
         $alumnos         = $bloque['alumnos'];
-        $extraordinarias = $bloque['extraordinarias'] ?? [];
         ?>
         <div class="card mb-lg">
             <div class="card__header">
@@ -49,3 +49,5 @@ $nivelCodigo = $carga['nivel_codigo'];
         </div>
     <?php endforeach; ?>
 <?php endif; ?>
+
+<?php require VIEW_PATH . '/consulta-notas/_extraordinarias-carga.php'; ?>

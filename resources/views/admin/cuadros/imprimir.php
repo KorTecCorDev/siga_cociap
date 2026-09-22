@@ -9,6 +9,7 @@
  *
  * @var array      $periodo
  * @var array      $bloques
+ * @var array|null $serieIds     ids admitidos en las series anuales; null = sin filtro
  * @var array|null $directorEbr  { sello_path }
  */
 $pct = static fn(int $parte, int $total): int => $total > 0 ? (int) round($parte / $total * 100) : 0;

@@ -9,7 +9,20 @@
  * @var array      $periodo
  * @var array|null $info     [{generado_en, motivo, generado_por_nombre, num_alumnos}]
  * @var array      $ranking  [gradoId => {grado, estudiantes[]}]
+ * @var array      $oficial  matricula_id => {puesto, promedio} del snapshot oficial
  */
+$oficial = $oficial ?? [];
+
+// Estudiantes del oficial que NO están en esta versión (trasladados o
+// retirados después del cierre): corren los puestos de sus compañeros sin
+// que nadie haya cambiado de nota.
+$enRectificado = [];
+foreach ($ranking as $data) {
+    foreach ($data['estudiantes'] as $est) {
+        $enRectificado[(int) $est['matricula_id']] = true;
+    }
+}
+$fueraDelRectificado = count(array_diff_key($oficial, $enRectificado));
 ?>
 
 <div class="page-header">
@@ -32,6 +45,21 @@
             esta versión refleja un recálculo posterior (cierre o rectificación de notas)
             y se conserva solo para consulta interna.
         </p>
+        <p class="text-muted">
+            Las columnas <strong>Puesto oficial</strong> y <strong>Cambio</strong> comparan
+            cada estudiante con el documento publicado. Van <strong>resaltadas</strong> las
+            filas cuyo <strong>promedio cambió</strong> por una rectificación. Las
+            <strong>calificaciones extraordinarias no cuentan</strong> para el orden de
+            mérito: corregir una no mueve el ranking, y un estudiante con todas sus notas
+            extraordinarias no aparece aquí.
+        </p>
+        <?php if ($fueraDelRectificado > 0): ?>
+            <p class="text-muted">
+                <strong><?= $fueraDelRectificado ?> estudiante(s) del documento oficial ya no
+                están en esta versión</strong> (trasladados o retirados después del cierre).
+                Por eso muchos puestos se corren aunque su nota no haya cambiado.
+            </p>
+        <?php endif; ?>
         <?php if (!empty($info)): ?>
             <p>
                 Generado el
@@ -81,6 +109,8 @@
                     <thead>
                         <tr>
                             <th class="col-puesto text-center">Puesto</th>
+                            <th class="text-center">Puesto oficial</th>
+                            <th class="text-center">Cambio</th>
                             <th class="col-nombre">Apellidos y nombres</th>
                             <th class="text-center">Sección</th>
                             <th class="text-center">Comp.</th>
@@ -90,12 +120,40 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($data['estudiantes'] as $est): ?>
-                            <tr class="<?= $est['media_beca'] ? 'fila-media-beca' : '' ?>">
+                        <?php foreach ($data['estudiantes'] as $est):
+                            // Comparación con el OFICIAL: cuántos puestos se movió
+                            // (positivo = subió) o si no estaba en el documento.
+                            $of      = $oficial[(int) $est['matricula_id']] ?? null;
+                            $delta   = $of !== null ? $of['puesto'] - (int) $est['puesto'] : null;
+                            // Se resalta lo que CAMBIÓ DE NOTA, no de puesto: el
+                            // puesto también se mueve si el roster difiere del
+                            // oficial (B1: 13 que salieron), y eso no es una
+                            // rectificación. Medido el 18/09: 121 puestos movidos
+                            // por roster frente a 1 promedio rectificado.
+                            $cambio  = $of === null
+                                || abs($of['promedio'] - (float) $est['promedio_general']) > 0.001;
+                            $clases  = trim(($est['media_beca'] ? 'fila-media-beca ' : '')
+                                . ($cambio ? 'rect-merito__fila--cambio' : ''));
+                        ?>
+                            <tr class="<?= $clases ?>">
                                 <td class="col-puesto text-center">
                                     <span class="puesto puesto--<?= $est['puesto'] <= 3 ? $est['puesto'] : 'normal' ?>">
                                         <?= $est['puesto'] ?>°
                                     </span>
+                                </td>
+                                <td class="text-center">
+                                    <?= $of !== null ? (int) $of['puesto'] . '°' : '—' ?>
+                                </td>
+                                <td class="text-center">
+                                    <?php if ($of === null): ?>
+                                        <span class="rect-merito__delta rect-merito__delta--nuevo">nuevo</span>
+                                    <?php elseif ($delta > 0): ?>
+                                        <span class="rect-merito__delta rect-merito__delta--sube">↑ <?= $delta ?></span>
+                                    <?php elseif ($delta < 0): ?>
+                                        <span class="rect-merito__delta rect-merito__delta--baja">↓ <?= abs($delta) ?></span>
+                                    <?php else: ?>
+                                        <span class="rect-merito__delta">=</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="col-nombre">
                                     <?= e($est['apellido_paterno'] . ' ' .

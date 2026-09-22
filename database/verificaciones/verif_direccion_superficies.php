@@ -12,7 +12,7 @@ define('VIEW_PATH', ROOT_PATH . '/resources/views');
 
 require ROOT_PATH . '/app/Helpers/helpers.php';
 spl_autoload_register(function (string $c): void {
-    foreach (['Core\\' => '/core/', 'App\\Models\\' => '/app/Models/'] as $p => $b) {
+    foreach (['Core\\' => '/core/', 'App\\Models\\' => '/app/Models/', 'App\\Controllers\\' => '/app/Controllers/'] as $p => $b) {
         if (str_starts_with($c, $p)) {
             $f = ROOT_PATH . $b . str_replace('\\', '/', substr($c, strlen($p))) . '.php';
             if (is_file($f)) { require $f; }
@@ -1078,5 +1078,203 @@ foreach ($periodos as $p) {
             : 'tablero ' . $fmt($porTablero) . ' != grilla ' . $fmt($porGrilla));
 }
 
+// ── DIRECCION SOLO VE BIMESTRES CERRADOS (08/09/2026) ─────────────
+//
+// Extiende al bimestre entero la "regla del dato oficial": el director ve el
+// AVANCE en vivo, pero todo DATO que se le muestre debe estar aprobado y
+// bloqueado. Un bimestre a medio llenar da porcentajes, rankings y una linea de
+// tendencia con la misma pinta que los del bimestre cerrado.
+//
+// 🔴 LA MITAD QUE SE ROMPE EN SILENCIO es la otra: `admin` y `registro_academico`
+// tienen que SEGUIR viendo el activo. Por eso cada guarda se prueba en sus DOS
+// ramas, nunca solo en la restringida.
+echo "\nDIRECCION — solo bimestres cerrados\n";
+
+$sesionComo = static function (?string $rol): void {
+    // `Session::hasRole()` lee `$_SESSION['auth_user']['rol_codigo']` y no exige
+    // sesion iniciada: en CLI basta con poner la clave. Sin ella, `has_role()`
+    // devuelve false, que es justo el caso "sin restriccion".
+    if ($rol === null) { unset($_SESSION['auth_user']); return; }
+    $_SESSION['auth_user'] = ['rol_codigo' => $rol];
+};
+
+$ctrlClase = new ReflectionClass(App\Controllers\Admin\CuadrosEstadisticosController::class);
+$ctrl      = $ctrlClase->newInstanceWithoutConstructor();
+$propModel = $ctrlClase->getProperty('controlModel');
+$propModel->setAccessible(true);
+$propModel->setValue($ctrl, new App\Models\ControlOperativoModel());
+
+$privado = static function (string $metodo, array $args) use ($ctrlClase, $ctrl) {
+    $m = $ctrlClase->getMethod($metodo);
+    $m->setAccessible(true);
+    return $m->invokeArgs($ctrl, $args);
+};
+
+$sesionComo(null);
+$todos     = $privado('periodosVisibles', []);
+$noCerrado = null;
+foreach ($todos as $fila) {
+    if (($fila['estado'] ?? '') !== 'cerrado') { $noCerrado = $fila; break; }
+}
+
+// ── Rama restringida: los tres roles de Direccion ────────────────
+foreach (ROLES_DIRECCION as $rol) {
+    $sesionComo($rol);
+
+    $chk("$rol: solo_bimestres_cerrados() lo reconoce", solo_bimestres_cerrados());
+
+    $lista    = $privado('periodosVisibles', []);
+    $abiertos = array_values(array_filter($lista, static fn(array $x): bool => $x['estado'] !== 'cerrado'));
+    $chk("$rol: la lista del selector trae SOLO bimestres cerrados",
+        $lista !== [] && $abiertos === [],
+        count($lista) . ' bimestre(s), ' . count($abiertos) . ' abierto(s)');
+
+    // El defecto es el ULTIMO cerrado. `getPeriodos()` ordena `anio DESC,
+    // numero ASC`, asi que `[0]` es el bimestre 1: el mas VIEJO del anio.
+    [$porDefecto, $fuera] = $privado('elegirPeriodo', [$lista, 0]);
+    $mayor = max(array_map(static fn(array $x): int => (int) $x['numero'], $lista));
+    $chk("$rol: el bimestre por defecto es el ULTIMO cerrado, no el primero",
+        $porDefecto !== null && (int) $porDefecto['numero'] === $mayor && !$fuera,
+        $porDefecto ? $porDefecto['nombre_display'] . ' (numero ' . $porDefecto['numero'] . ')' : 'ninguno');
+
+    if ($noCerrado) {
+        [$pedido, $fueraPedido] = $privado('elegirPeriodo', [$lista, (int) $noCerrado['id']]);
+        $chk("$rol: un ?periodo_id NO cerrado no se resuelve (cae al ultimo cerrado y avisa)",
+            $fueraPedido && $pedido !== null && (int) $pedido['id'] !== (int) $noCerrado['id'],
+            'pidio ' . $noCerrado['nombre_display'] . ' (' . $noCerrado['estado'] . ') y recibio '
+                . ($pedido['nombre_display'] ?? 'nada'));
+    }
+
+    $ids = $privado('serieIds', [$lista]);
+    $chk("$rol: las series anuales se cortan por ids, y ninguno es de un bimestre abierto",
+        is_array($ids) && $ids !== [] && ($noCerrado === null || !in_array((int) $noCerrado['id'], $ids, true)),
+        is_array($ids) ? implode(',', $ids) : 'null');
+}
+
+// ── Rama que se rompe en silencio: admin y registro academico ────
+foreach (['admin', 'registro_academico'] as $rol) {
+    $sesionComo($rol);
+
+    $chk("$rol: solo_bimestres_cerrados() NO lo alcanza", !solo_bimestres_cerrados());
+
+    $lista = $privado('periodosVisibles', []);
+    $chk("$rol: la lista del selector SIGUE trayendo el bimestre abierto",
+        $lista == $todos,
+        count($lista) . ' bimestre(s), identica a la de siempre');
+
+    if ($noCerrado) {
+        [$pedido, $fueraPedido] = $privado('elegirPeriodo', [$lista, (int) $noCerrado['id']]);
+        $chk("$rol: un ?periodo_id NO cerrado SI se resuelve, como hasta hoy",
+            !$fueraPedido && $pedido !== null && (int) $pedido['id'] === (int) $noCerrado['id'],
+            $pedido['nombre_display'] ?? 'nada');
+    }
+
+    $chk("$rol: las series anuales van SIN filtro (null), no con la lista recortada",
+        $privado('serieIds', [$lista]) === null);
+}
+$sesionComo(null);
+
+// ── El corte de las series, en las dos ramas y sin depender de los datos ──
+// 🔴 Con fuente SINTETICA a proposito. Medir esto contra la base solo prueba
+// algo si el bimestre abierto tiene notas en los DOS niveles; en una maquina
+// donde tenga 0, `$bimestresComparables` ya lo descarta por su cuenta y el
+// aserto pasaria sin haber ejercido nada.
+$serieNivel = static fn(string $n, array $vals): array => [
+    'nivel_nombre' => $n,
+    'serie' => array_map(
+        static fn(array $v): array => [
+            'periodo_id' => $v[0], 'total_calif' => 100, 'total' => 100, 'pct_logro' => $v[1],
+            'ad' => 10, 'a' => 10, 'b' => 5, 'c' => 5,
+        ],
+        $vals
+    ),
+];
+$fuenteFalsa = [
+    'periodos' => [
+        ['id' => 901, 'nombre' => 'B-uno'],
+        ['id' => 902, 'nombre' => 'B-dos'],
+        ['id' => 903, 'nombre' => 'B-tres'],
+    ],
+    'niveles' => [
+        $serieNivel('Primaria',   [[901, 50], [902, 60], [903, 70]]),
+        $serieNivel('Secundaria', [[901, 55], [902, 65], [903, 75]]),
+    ],
+];
+$bloquesFalsos = [
+    'evolucion'            => $fuenteFalsa,
+    'conducta_literales'   => $fuenteFalsa,
+    'asistencia_evolucion' => [
+        ['periodo_id' => 901, 'periodo_nombre' => 'B-uno',  'registrados' => 5, 'faltas' => 3, 'tardanzas' => 2],
+        ['periodo_id' => 902, 'periodo_nombre' => 'B-dos',  'registrados' => 5, 'faltas' => 4, 'tardanzas' => 1],
+        ['periodo_id' => 903, 'periodo_nombre' => 'B-tres', 'registrados' => 5, 'faltas' => 9, 'tardanzas' => 9],
+    ],
+];
+
+// En su propio ambito, por lo mismo que el render de arriba.
+$armarGraficos = static function (array $bloques, ?array $serieIds): array {
+    $periodo = ['id' => 902, 'nombre_display' => 'B-dos', 'anio' => 2026, 'anio_id' => 1, 'estado' => 'cerrado'];
+    require ROOT_PATH . '/resources/views/admin/cuadros/_chart-data.php';
+    return ['datos' => $chartData, 'meta' => $metaGraficos];
+};
+
+$sinFiltro = $armarGraficos($bloquesFalsos, null);
+$conFiltro = $armarGraficos($bloquesFalsos, [901, 902]);
+
+foreach (['evolucion' => 'G2 calificaciones', 'conductaEvolucion' => 'G7 conducta', 'asisEvolucion' => 'G11 asistencia'] as $g => $queEs) {
+    $sin = $sinFiltro['datos'][$g]['labels'] ?? [];
+    $con = $conFiltro['datos'][$g]['labels'] ?? [];
+    $chk("$queEs: sin filtro el eje trae los tres bimestres", $sin === ['B-uno', 'B-dos', 'B-tres'], implode(' ', $sin));
+    $chk("$queEs: con filtro el eje suelta el bimestre abierto", $con === ['B-uno', 'B-dos'], implode(' ', $con));
+}
+
+// ⚠️ G6 comparte fuente con G7 pero se recorta al bimestre a la vista: si el
+// corte se aplicara a la FUENTE en vez de al eje de las series, desapareceria.
+foreach (['sin filtro' => $sinFiltro, 'con filtro' => $conFiltro] as $caso => $res) {
+    $chk("G6 (literales de conducta del bimestre) sigue en pie $caso",
+        !empty($res['datos']['conductaLiterales']['labels']));
+}
+
+// La nota de lectura tiene que decir el criterio REAL de lo que se ve.
+foreach (['evolucion', 'conductaEvolucion', 'asisEvolucion'] as $g) {
+    $chk("la nota de `$g` nombra el corte solo cuando esta activo",
+        str_contains($conFiltro['meta'][$g]['nota'], 'cerrados')
+        && !str_contains($sinFiltro['meta'][$g]['nota'], 'cerrados'));
+}
+
+// ── Un solo dueño de la regla ────────────────────────────────────
+// El corte de las series viaja por IDS: solo G2 expone `estado` en su salida
+// —G7 y G11 no—, asi que preguntar por el estado en la vista funcionaria en uno
+// de los tres graficos y en los otros dos pasaria de largo sin fallar.
+$chartSrc = $leer('/resources/views/admin/cuadros/_chart-data.php');
+$chk('_chart-data.php corta por ids, no por estado',
+    !str_contains($chartSrc, "'cerrado'"));
+$chk('el controlador no vuelve a escribir la comparacion con `cerrado`',
+    !str_contains($leer('/app/Controllers/Admin/CuadrosEstadisticosController.php'), "'cerrado'"));
+
+// La UNICA mencion legitima de la constante en el tablero es el `requireRole`
+// del constructor, que decide QUIEN ENTRA. Decidir QUE VE es otra pregunta y la
+// responde `solo_bimestres_cerrados()`: una segunda mencion aqui seria la regla
+// de audiencia escrita a mano por segunda vez.
+$ctrlSrc = $leer('/app/Controllers/Admin/CuadrosEstadisticosController.php');
+$chk('el controlador nombra ROLES_DIRECCION una sola vez, y es el requireRole del constructor',
+    substr_count($ctrlSrc, 'ROLES_DIRECCION') === 1
+    && (bool) preg_match('/requireRole\(\[[^\]]*\.\.\.ROLES_DIRECCION\]\)/', $ctrlSrc),
+    substr_count($ctrlSrc, 'ROLES_DIRECCION') . ' mencion(es)');
+
+$decideRol = [];
+foreach ([
+    '/resources/views/admin/cuadros/index.php',
+    '/resources/views/admin/cuadros/imprimir.php',
+    '/resources/views/admin/cuadros/_chart-data.php',
+] as $f) {
+    if (str_contains($leer($f), 'ROLES_DIRECCION')) { $decideRol[] = $f; }
+}
+$chk('ninguna vista del tablero decide la audiencia a mano: la decide solo_bimestres_cerrados()',
+    $decideRol === [], implode(', ', $decideRol));
+
+$helpersSrc = $leer('/app/Helpers/helpers.php');
+foreach (['solo_bimestres_cerrados', 'periodos_cerrados', 'ultimo_periodo_cerrado'] as $fn) {
+    $chk("`$fn()` vive en helpers.php (punto unico)", str_contains($helpersSrc, "function $fn("));
+}
 echo "\n", $ok ? "== FASES 4-7 EN VERDE ==\n" : "== HAY FALLOS ==\n";
 exit($ok ? 0 : 1);
