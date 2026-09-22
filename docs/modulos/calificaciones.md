@@ -1128,6 +1128,7 @@ siguen viendo, también en `/consulta-notas`.
 
 ### CONDUCTA y ASISTENCIA extraordinarias, en el mismo lote (22/09/2026)
 
+> **Estado: DESPLEGADO en producción con la v1.0.3 (22/09/2026)**; la `063` se aplicó antes.
 > Migración **`063`**: `extraordinaria` + `motivo_extraordinaria` en `inasistencias` y en
 > `calificaciones_conducta`. Verificador: `verif_conducta_asistencia_extraordinaria.php`.
 

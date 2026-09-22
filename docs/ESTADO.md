@@ -2,10 +2,10 @@
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **22/09/2026**.
-> **Versión desplegada: v1.0.2** (`config/app.php` + tag anotado `v1.0.2`, 22/09/2026).
+> **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
 
 
-## 🔄 CONDUCTA Y ASISTENCIA EXTRAORDINARIAS EN EL LOTE (22/09/2026) — en `dev`, sin merge
+## 🟢 CONDUCTA Y ASISTENCIA EXTRAORDINARIAS EN EL LOTE (22/09/2026) — DESPLEGADO en v1.0.3
 
 **Migración `063`** (`extraordinaria` + `motivo_extraordinaria` en `inasistencias` y
 `calificaciones_conducta`): aplicada en LOCAL (dos pasadas, idempotente). El lote de
@@ -4287,6 +4287,9 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **22/09/2026 — DEPLOY v1.0.3.** `main` pasó de `0cf974d` a `2034f4b` (merge `--no-ff` de
+  `dev` en `289e425`, 3 commits), tag anotado `v1.0.3`. Migración `063` aplicada a mano en
+  producción ANTES del push. Producción sirve el JS nuevo del lote (comprobado con curl).
 - 🟢 **22/09/2026 — DEPLOY v1.0.2.** `main` pasó de `e51349d` a `0cf974d` (merge `--no-ff`
   de `dev` en `fd6d287`, 45 commits), tag anotado `v1.0.2`. Migraciones `057`–`062` aplicadas
   a mano en producción ANTES del push. Verificación previa en la sección «RELEASE v1.0.2».
