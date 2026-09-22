@@ -412,10 +412,17 @@ class RectificacionModel extends BaseModel
      * usuario eligió el criterio estricto: cero filas en `calificaciones` para
      * ese bimestre (en ninguna carga, transversales incluidas).
      *
-     * `total` = cuántas competencias se le pueden calificar en ese bimestre,
-     * y sale del MISMO SQL que la ficha y el lote (`sqlInsertables` +
-     * `sqlTransversalesInsertables`): el «Calificar (N)» coincide con las filas
-     * que abre el lote. Lo protege `verif_rectificaciones_pendientes.php`.
+     * 22/09/2026: entra TAMBIÉN quien tiene sus notas pero le falta la
+     * CONDUCTA o la ASISTENCIA del bimestre (vía extraordinaria, migración
+     * 063). `sin_notas`, `falta_conducta` y `falta_asistencia` dicen qué falta.
+     * El nombre del método se conserva por no romper su interfaz.
+     *
+     * `total` = cuántas filas abre el lote: las competencias que se le pueden
+     * calificar (MISMO SQL que la ficha: `sqlInsertables` +
+     * `sqlTransversalesInsertables`) más una por conducta y otra por asistencia
+     * si faltan. La ficha NO cuenta esas dos (decisión del usuario), así que ahí
+     * los números difieren a propósito. Lo protege
+     * `verif_rectificaciones_pendientes.php`.
      *
      * Roster: `roster_evaluacion()` — sin trasladados ni retirados, y en un
      * retorno de grado solo la matrícula que se evalúa. Año académico activo.
@@ -453,7 +460,13 @@ class RectificacionModel extends BaseModel
                    s.nombre            AS seccion,
                    per.id              AS periodo_id,
                    per.numero          AS periodo_numero,
-                   per.nombre_display  AS periodo_nombre
+                   per.nombre_display  AS periodo_nombre,
+                   NOT EXISTS (
+                       SELECT 1 FROM calificaciones cal
+                       WHERE cal.matricula_id = m.id AND cal.periodo_id = per.id
+                   )                   AS sin_notas,
+                   (" . ConductaModel::sqlAdmiteExtraordinaria('m', 'per') . ") AS falta_conducta,
+                   (" . AsistenciaModel::sqlSinRegistro('m', 'per') . ")        AS falta_asistencia
             FROM matriculas m
             INNER JOIN anios_academicos aa ON aa.id = m.anio_id AND aa.estado = 'activo'
             INNER JOIN periodos per ON per.anio_id = m.anio_id AND per.estado = 'cerrado'
@@ -462,10 +475,16 @@ class RectificacionModel extends BaseModel
             INNER JOIN secciones   s ON s.id = m.seccion_id
             INNER JOIN grados      g ON g.id = s.grado_id
             INNER JOIN niveles     n ON n.id = g.nivel_id
-            WHERE NOT EXISTS (
-                      SELECT 1 FROM calificaciones cal
-                      WHERE cal.matricula_id = m.id
-                        AND cal.periodo_id   = per.id
+            WHERE (
+                      NOT EXISTS (
+                          SELECT 1 FROM calificaciones cal
+                          WHERE cal.matricula_id = m.id
+                            AND cal.periodo_id   = per.id
+                      )
+                      -- Conducta y asistencia (22/09/2026): también entra quien
+                      -- tiene sus notas pero no su conducta o su asistencia.
+                      OR " . ConductaModel::sqlAdmiteExtraordinaria('m', 'per') . "
+                      OR " . AsistenciaModel::sqlSinRegistro('m', 'per') . "
                   )
               " . roster_evaluacion('m') . "{$cond}
             ORDER BY n.id, g.numero, s.nombre, " . orden_alfabetico('p') . ", per.numero
@@ -488,10 +507,64 @@ class RectificacionModel extends BaseModel
         }
         foreach ($filas as &$f) {
             $f['total'] = $total[(int) $f['matricula_id'] . '-' . (int) $f['periodo_id']] ?? 0;
+            // Competencias pendientes, aparte: «Falta: Notas» se decide con esto y
+            // no con `sin_notas`, o un alumno con ALGUNAS notas y 26 pendientes
+            // saldría como «Falta: Conducta, Asistencia» con «Calificar (28)».
+            $f['competencias'] = $f['total'];
+            // Conducta y asistencia son dos filas más del lote: el «Calificar (N)»
+            // sigue siendo exactamente lo que el lote abre.
+            $f['sin_notas']        = (bool) $f['sin_notas'];
+            $f['falta_conducta']   = (bool) $f['falta_conducta'];
+            $f['falta_asistencia'] = (bool) $f['falta_asistencia'];
+            $f['total'] += (int) $f['falta_conducta'] + (int) $f['falta_asistencia'];
         }
         unset($f);
 
         return $filas;
+    }
+
+    /**
+     * CONDUCTA y ASISTENCIA pendientes de un alumno en UN bimestre cerrado
+     * (vía extraordinaria, migración 063). Son las dos filas «con su propio
+     * comportamiento» que el lote añade a las competencias.
+     *
+     * Las reglas NO se escriben aquí: salen de los dueños de cada tabla
+     * (`ConductaModel::sqlAdmiteExtraordinaria`, `AsistenciaModel::sqlSinRegistro`),
+     * los mismos fragmentos que usa el listado de /rectificaciones.
+     *
+     * Devuelve también los datos del bimestre, porque el lote puede abrir SIN
+     * competencias pendientes (alumno con notas pero sin conducta o sin
+     * asistencia) y entonces no tiene de dónde sacarlos.
+     *
+     * @return array{periodo: ?array, conducta: bool, asistencia: bool}
+     */
+    public function conductaAsistenciaPendientes(int $matriculaId, int $periodoId): array
+    {
+        $fila = $this->queryOne("
+            SELECT per.id             AS periodo_id,
+                   per.nombre_display AS periodo_nombre,
+                   per.estado         AS periodo_estado,
+                   (" . ConductaModel::sqlAdmiteExtraordinaria('m', 'per') . ") AS falta_conducta,
+                   (" . AsistenciaModel::sqlSinRegistro('m', 'per') . ")        AS falta_asistencia
+            FROM matriculas m
+            INNER JOIN periodos per ON per.id = ? AND per.anio_id = m.anio_id
+            WHERE m.id = ?
+              AND per.estado = 'cerrado'
+              " . roster_evaluacion('m') . "
+        ", [$periodoId, $matriculaId]);
+
+        if ($fila === null) {
+            return ['periodo' => null, 'conducta' => false, 'asistencia' => false];
+        }
+        return [
+            'periodo' => [
+                'id'     => (int) $fila['periodo_id'],
+                'nombre' => $fila['periodo_nombre'],
+                'estado' => $fila['periodo_estado'],
+            ],
+            'conducta'   => (bool) $fila['falta_conducta'],
+            'asistencia' => (bool) $fila['falta_asistencia'],
+        ];
     }
 
     /**

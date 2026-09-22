@@ -50,8 +50,9 @@
 
 <?php
 // ── Estudiantes SIN NINGUNA nota en un bimestre cerrado (21/09/2026) ──
-// RectificacionModel::matriculasSinNotasEnCerrados. El «Calificar (N)» cuenta
-// con el mismo SQL que la ficha y el lote. Filtros por GET, sin JS: si se
+// RectificacionModel::matriculasSinNotasEnCerrados. Desde el 22/09/2026 entra
+// también quien tiene sus notas pero le falta la conducta o la asistencia
+// (migración 063). El «Calificar (N)» cuenta exactamente las filas del lote. Filtros por GET, sin JS: si se
 // eligen varios ámbitos, manda el más específico (sección > grado > nivel).
 $f = $filtros ?? ['periodo_id' => 0, 'nivel_id' => 0, 'grado_id' => 0, 'seccion_id' => 0];
 $niveles = [];
@@ -67,8 +68,8 @@ $hayFiltro = array_filter($f) !== [];
         <p class="form-section-title">Estudiantes sin calificación en bimestres cerrados</p>
         <p class="text-sm text-muted">
             Estudiantes que no tienen <strong>ninguna</strong> calificación en un bimestre
-            ya cerrado (por ejemplo, porque llegaron tarde). Se completan con la
-            calificación extraordinaria.
+            ya cerrado (por ejemplo, porque llegaron tarde), o a quienes les falta la
+            conducta o la asistencia. Se completan con la calificación extraordinaria.
         </p>
 
         <form method="GET" action="<?= url('rectificaciones') ?>" class="rect-filtros mb-md">
@@ -136,8 +137,8 @@ $hayFiltro = array_filter($f) !== [];
         <?php if (empty($pendientes)): ?>
             <div class="empty-state">
                 <p><?= $hayFiltro
-                    ? 'Ningún estudiante sin calificaciones para este filtro.'
-                    : 'Todos los estudiantes tienen calificaciones en los bimestres cerrados.' ?></p>
+                    ? 'Ningún estudiante con registros pendientes para este filtro.'
+                    : 'Todos los estudiantes tienen calificaciones, conducta y asistencia en los bimestres cerrados.' ?></p>
             </div>
         <?php else: ?>
             <div class="tabla-notas-wrapper">
@@ -147,6 +148,7 @@ $hayFiltro = array_filter($f) !== [];
                             <th>Estudiante</th>
                             <th>Sección</th>
                             <th>Bimestre</th>
+                            <th>Falta</th>
                             <th class="text-center">Por calificar</th>
                             <th>Acciones</th>
                         </tr>
@@ -157,6 +159,13 @@ $hayFiltro = array_filter($f) !== [];
                             <td class="text-sm"><?= e($pe['nombre']) ?></td>
                             <td class="text-sm"><?= e($pe['nivel'] . ' — ' . $pe['grado'] . ' "' . $pe['seccion'] . '"') ?></td>
                             <td class="text-sm"><?= e($pe['periodo_nombre']) ?></td>
+                            <td class="text-sm">
+                                <?= e(implode(', ', array_filter([
+                                    ((int) ($pe['competencias'] ?? 0) > 0 || !empty($pe['sin_notas'])) ? 'Notas' : '',
+                                    !empty($pe['falta_conducta']) ? 'Conducta' : '',
+                                    !empty($pe['falta_asistencia']) ? 'Asistencia' : '',
+                                ]))) ?>
+                            </td>
                             <td class="text-center"><strong><?= (int) $pe['total'] ?></strong></td>
                             <td>
                                 <div class="btn-group">

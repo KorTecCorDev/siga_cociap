@@ -289,6 +289,35 @@
         &[data-literal="C"]  { color: #dc2626; }
     }
 
+    // Fila de ASISTENCIA (migración 063): los 4 contadores de la boleta con su
+    // etiqueta encima. En cuatro columnas en escritorio; en 2×2 en móvil, que
+    // es donde la grilla ya va justa.
+    &__asistencia {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: $spacing-sm;
+
+        @media (max-width: 600px) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    &__asist-campo {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        text-align: center;
+        line-height: 1.3;
+
+        .form-input {
+            width: 64px;
+            text-align: center;
+        }
+    }
+
     // Fila de conclusión descriptiva: oculta hasta que el literal la exige.
     &__conclusion {
         &[hidden] { display: none; }

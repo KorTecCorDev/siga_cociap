@@ -71,7 +71,13 @@ $abreviaturas = [
                     data-periodo-id="<?= (int) $pidVer ?>"
                     data-csrf="<?= e($csrfToken) ?>"<?php endif; ?>>
                     <td class="col-num"><?= $i + 1 ?></td>
-                    <td class="col-nombre"><?= e($est['nombre_completo']) ?></td>
+                    <td class="col-nombre">
+                        <?= e($est['nombre_completo']) ?>
+                        <?php // Fila de la via extraordinaria de RA (migracion 063). ?>
+                        <?php if (!empty($inc['extraordinaria'])): ?>
+                            <?php $proc = PROCEDENCIA_EXTRAORDINARIA; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                        <?php endif; ?>
+                    </td>
 
                     <?php foreach ($campos as $campo): $val = (int) $inc[$campo]; ?>
                         <?php if ($editable): ?>

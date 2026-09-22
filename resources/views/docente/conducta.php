@@ -137,7 +137,7 @@ $pid       = (int) $periodoSel['id'];
                                         <?= fmt_nota((int) $notaRa) ?>
                                     </span>
                                 <?php else: ?>
-                                    <span class="text-muted" title="I Bimestre: registro por literal directo (legado)">—</span>
+                                    <span class="text-muted" title="Registro por literal directo, sin criterios">—</span>
                                 <?php endif; ?>
                             </td>
 

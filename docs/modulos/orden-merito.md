@@ -886,7 +886,7 @@ Verificación: `verif_cuadros_merito_motor.php` (solo lectura, corre en prod).
 Ver `docs/ESTADO.md`. **Rediseño 1 COMPLETADO (25/07/2026):** A = filtro por tipo (en
 prod); B = inmutabilidad tras publicar + versión rectificada no oficial en Centro de
 control (migración 046 en prod); C = reconstrucción de B1 EN PROD.
-**Rediseño 2 COMPLETADO en `dev` (26/07/2026), pendiente de deploy:** F1-F6 + F5b y
+**Rediseño 2 COMPLETADO (26/07/2026) y DESPLEGADO** (a más tardar en la v1.0.1, 08/09/2026; corregido el 22/09 — la cabecera se quedó en «dev» al desplegar): F1-F6 + F5b y
 fixes, sin migración nueva. Detalle y desviaciones del plan en
 `orden-merito-rediseno.md` §8.
 

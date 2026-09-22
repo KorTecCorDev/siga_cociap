@@ -225,7 +225,7 @@ Script de solo lectura en `database/verificaciones/`, ejecutable en prod:
 
 ## 9. LO QUE SE CONSTRUYÓ (07/08/2026). Manda sobre §5 y §7.
 
-**Estado: en `dev`, sin desplegar. Sin migración.** Las tres fases entraron juntas.
+**Estado: DESPLEGADO** (a más tardar en la v1.0.1, 08/09/2026; corregido el 22/09 — la cabecera se quedó en «dev» al desplegar). Sin migración. Las tres fases entraron juntas.
 
 ### Desviaciones respecto del plan
 

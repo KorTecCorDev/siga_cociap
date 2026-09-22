@@ -453,7 +453,7 @@ silencio) y el cuadro de abajo. Detalle en la sección siguiente.
 
 ## El cuadro de matrícula por grado — que cuadre (02/09/2026)
 
-> **Estado: en `dev`, sin desplegar.** Sin migración.
+> **Estado: DESPLEGADO** (a más tardar en la v1.0.1, 08/09/2026; corregido el 22/09 — la cabecera se quedó en «dev» al desplegar). Sin migración.
 
 La tabla final de `/matriculas/resumen`, que además **se imprime** y va al comité
 directivo. Tenía tres defectos de cuadre; dos de ellos nadie los había visto.
@@ -546,7 +546,7 @@ que es lo que se pone en rojo si alguien quita el helper y vuelve el doble conte
 
 ## Toda `/matriculas/resumen` se ancla en la matrícula OFICIAL (02/09/2026)
 
-> **Estado: en `dev`, sin desplegar.** Sin migración.
+> **Estado: DESPLEGADO** (a más tardar en la v1.0.1, 08/09/2026; corregido el 22/09 — la cabecera se quedó en «dev» al desplegar). Sin migración.
 
 Cierra el tercer y último desajuste de esta pantalla. Lo pidió el usuario mirando la
 vista: *«todas las estadísticas que listan secciones deben mostrar SOLO MATRÍCULAS

@@ -10,10 +10,13 @@
  * QUÉ COMPRUEBA
  *   1. El listado coincide con un CONTROL escrito aquí a mano (no derivado del
  *      modelo): pares (matrícula, bimestre cerrado) sin ninguna fila en
- *      `calificaciones`, del roster de evaluación del año activo.
+ *      `calificaciones` — o, desde el 22/09/2026, sin CONDUCTA (con cierre de
+ *      conducta vigente en su sección) o sin ASISTENCIA —, del roster de
+ *      evaluación del año activo.
  *   2. El «Calificar (N)» de cada fila es EXACTAMENTE el total que da
- *      `insertablesPorPeriodo` a esa matrícula y bimestre: ficha, lote y
- *      listado leen el mismo SQL.
+ *      `insertablesPorPeriodo` a esa matrícula y bimestre, MÁS una fila por
+ *      conducta y otra por asistencia si faltan: las filas que abre el lote.
+ *      La ficha no cuenta esas dos (decisión del usuario).
  *   3. Punto único de "insertable": `esInsertable` ya no lleva su copia a mano
  *      de la consulta; pregunta a `getCompetenciasInsertables`. Y sus DOS ramas
  *      siguen respondiendo: una tupla insertable real → true; la misma con otra
@@ -63,21 +66,47 @@ $control = $pdo->query("
     WHERE m.tipo NOT IN ('trasladado', 'retirado')
       AND m.id NOT IN (SELECT matricula_oficial_id   FROM retornos_grado WHERE estado = 'activo')
       AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'revertido')
-      AND NOT EXISTS (SELECT 1 FROM calificaciones c
+      AND (
+          NOT EXISTS (SELECT 1 FROM calificaciones c
                       WHERE c.matricula_id = m.id AND c.periodo_id = per.id)
+          -- Conducta y asistencia: en la matrícula o en su pareja de retorno de
+          -- grado (la boleta las une al leer).
+          OR NOT EXISTS (SELECT 1 FROM inasistencias i
+                         WHERE i.periodo_id = per.id
+                           AND (i.matricula_id = m.id
+                                OR i.matricula_id IN (SELECT matricula_oficial_id FROM retornos_grado WHERE matricula_operativa_id = m.id)
+                                OR i.matricula_id IN (SELECT matricula_operativa_id FROM retornos_grado WHERE matricula_oficial_id = m.id)))
+          OR (    NOT EXISTS (SELECT 1 FROM calificaciones_conducta cc
+                              WHERE cc.periodo_id = per.id
+                                AND (cc.literal IS NOT NULL OR cc.nota_tutor IS NOT NULL)
+                                AND (cc.matricula_id = m.id
+                                     OR cc.matricula_id IN (SELECT matricula_oficial_id FROM retornos_grado WHERE matricula_operativa_id = m.id)
+                                     OR cc.matricula_id IN (SELECT matricula_operativa_id FROM retornos_grado WHERE matricula_oficial_id = m.id)))
+              AND NOT EXISTS (SELECT 1 FROM conducta_respuestas r
+                              WHERE r.periodo_id = per.id
+                                AND (r.matricula_id = m.id
+                                     OR r.matricula_id IN (SELECT matricula_oficial_id FROM retornos_grado WHERE matricula_operativa_id = m.id)
+                                     OR r.matricula_id IN (SELECT matricula_operativa_id FROM retornos_grado WHERE matricula_oficial_id = m.id)))
+              AND EXISTS (SELECT 1 FROM cierres_conducta z
+                          WHERE z.seccion_id = m.seccion_id AND z.periodo_id = per.id
+                            AND z.anulado_en IS NULL))
+      )
 ")->fetchAll(PDO::FETCH_ASSOC);
 $a = $pares($listado); sort($a);
 $b = $pares($control); sort($b);
 $ok($a === $b, 'mismos pares (matrícula, bimestre) que el control: ' . count($a) . ' / ' . count($b));
 $ok(count($a) === count(array_unique($a)), 'sin filas repetidas');
 
-echo "\n=== 2. «Calificar (N)» = insertablesPorPeriodo ===\n";
+echo "\n=== 2. «Calificar (N)» = insertablesPorPeriodo + conducta + asistencia ===\n";
 $difieren = 0;
 foreach ($listado as $f) {
     $esperado = 0;
     foreach ($rect->insertablesPorPeriodo((int) $f['matricula_id']) as $p) {
         if ((int) $p['periodo_id'] === (int) $f['periodo_id']) { $esperado = (int) $p['total']; }
     }
+    // Las dos filas «con su propio comportamiento» del lote (migración 063).
+    $pend = $rect->conductaAsistenciaPendientes((int) $f['matricula_id'], (int) $f['periodo_id']);
+    $esperado += (int) $pend['conducta'] + (int) $pend['asistencia'];
     if ($esperado !== (int) $f['total']) {
         $difieren++;
         echo "     {$f['matricula_id']} / periodo {$f['periodo_id']}: listado {$f['total']} vs ficha {$esperado}\n";

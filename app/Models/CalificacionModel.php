@@ -352,6 +352,33 @@ class CalificacionModel extends BaseModel
     }
 
     /**
+     * Versión SQL de las `fuentes` de `boletaContexto()`: las matrículas cuyo
+     * registro UNE la boleta de `$m` — ella misma y su pareja de retorno de
+     * grado, en cualquier dirección. Devuelve un subquery para `IN (...)`.
+     *
+     * POR QUÉ EXISTE (22/09/2026): la vía extraordinaria de conducta y
+     * asistencia pregunta «¿le falta este dato a la boleta?», y la boleta lo
+     * lee por UNIÓN. Mirar solo la matrícula del roster daba un falso «falta»
+     * en un retorno (matrícula 692: su I Bimestre vive en la oficial 190), y la
+     * asistencia se SUMA entre fuentes: registrarla ahí duplicaba las faltas.
+     *
+     * Toma cualquier retorno que la vincule, no solo el último como
+     * `boletaContexto`: ante la duda ofrece MENOS, nunca pisa de más.
+     *
+     * @param string $m alias de `matriculas` en la consulta que lo incrusta
+     */
+    public static function sqlFuentesBoleta(string $m = 'm'): string
+    {
+        return "(
+                    SELECT {$m}.id
+                    UNION SELECT rgf.matricula_oficial_id   FROM retornos_grado rgf
+                          WHERE rgf.matricula_operativa_id = {$m}.id
+                    UNION SELECT rgf.matricula_operativa_id FROM retornos_grado rgf
+                          WHERE rgf.matricula_oficial_id   = {$m}.id
+                )";
+    }
+
+    /**
      * ESQUELETO DEL DOCUMENTO: todas las competencias del PLAN DE ESTUDIOS que
      * la sección de la matrícula realmente dicta, tengan o no calificación.
      *
