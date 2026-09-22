@@ -1444,7 +1444,7 @@ class MatriculaController extends BaseController
             // del sistema, no algo que quien registra pueda accionar. Las filas
             // omitidas sí se dicen: hablan de lo que él mismo tecleó.
             . ($sinNota > 0
-                ? ' Se omitieron ' . $sinNota . ($sinNota === 1 ? ' fila sin nota.' : ' filas sin nota.')
+                ? ($sinNota === 1 ? ' Se omitió 1 fila sin nota.' : ' Se omitieron ' . $sinNota . ' filas sin nota.')
                 : ''));
     }
 
