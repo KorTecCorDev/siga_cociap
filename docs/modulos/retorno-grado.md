@@ -137,6 +137,12 @@ la suma no infla"*— **no está garantizada por ningún UNIQUE**. Y donde gana 
 oficial, la precedencia es la **inversa** a la Regla A. Por eso existe la
 verificación de abajo.
 
+🔴 **Todo lo que pregunte «¿a esta boleta le falta el dato?» debe mirar la UNIÓN,
+no una matrícula.** Pasó el 22/09/2026 con la conducta y asistencia extraordinarias
+(`calificaciones.md`): la operativa 692 no tenía filas en el I Bimestre, la oficial
+190 sí, y ofrecer el alta habría inflado la suma. Para eso existe
+`CalificacionModel::sqlFuentesBoleta($m)`, el gemelo SQL de `boletaContexto`.
+
 ## Verificación
 
 `database/verificaciones/verif_retorno_grado.php` — solo lectura, corre en prod.

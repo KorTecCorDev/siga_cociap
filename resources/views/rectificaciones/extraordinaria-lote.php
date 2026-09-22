@@ -11,15 +11,30 @@
  * @var array $info                datos del estudiante (incl. nivel_codigo, matricula_id)
  * @var array $periodo             ['id','nombre','estado']
  * @var array $porArea             [{area_id, area_nombre, items[]}]
- * @var int   $total               competencias insertables del bimestre
+ * @var int   $competencias        competencias insertables del bimestre
+ * @var bool  $pendConducta        falta la conducta del bimestre (migración 063)
+ * @var bool  $pendAsistencia      falta la asistencia del bimestre (migración 063)
+ * @var int   $topeAsistencia      tope por contador (AsistenciaModel::TOPE_MAX)
+ * @var int   $total               filas del lote: competencias + conducta + asistencia
  * @var array $literalesConclusion literales que EXIGEN conclusión en este nivel
  * @var array|null $old            lo escrito antes de un rechazo del servidor
- *                                 (motivo, notas[clave], conclusiones[clave])
+ *                                 (motivo, notas[clave], conclusiones[clave],
+ *                                 conducta, asistencia[campo])
  */
 $volver     = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
 $old        = is_array($old ?? null) ? $old : null;
 $oldNotas   = is_array($old['notas'] ?? null) ? $old['notas'] : [];
 $oldConcl   = is_array($old['conclusiones'] ?? null) ? $old['conclusiones'] : [];
+$oldCond    = (string) ($old['conducta'] ?? '');
+$oldAsist   = is_array($old['asistencia'] ?? null) ? $old['asistencia'] : [];
+
+// Los 4 contadores, en el orden de la boleta (AsistenciaModel::CAMPOS).
+$camposAsistencia = [
+    'faltas'                 => 'Faltas',
+    'faltas_justificadas'    => 'Faltas justificadas',
+    'tardanzas'              => 'Tardanzas',
+    'tardanzas_justificadas' => 'Tardanzas justificadas',
+];
 
 /** Etiqueta de competencia: antepone la subárea en áreas con subáreas. */
 $labelComp = static function (array $c): string {
@@ -72,8 +87,19 @@ $obligatoriaTxt = $literalesConclusion === []
             </div>
             <div class="info-item">
                 <span class="info-item__label">Competencias sin nota</span>
-                <span class="info-item__value"><?= (int) $total ?> en <?= e($periodo['nombre']) ?></span>
+                <span class="info-item__value"><?= (int) $competencias ?> en <?= e($periodo['nombre']) ?></span>
             </div>
+            <?php if ($pendConducta || $pendAsistencia): ?>
+                <div class="info-item">
+                    <span class="info-item__label">También falta</span>
+                    <span class="info-item__value">
+                        <?= e(implode(' y ', array_filter([
+                            $pendConducta ? 'conducta' : '',
+                            $pendAsistencia ? 'asistencia' : '',
+                        ]))) ?>
+                    </span>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -107,7 +133,7 @@ $obligatoriaTxt = $literalesConclusion === []
                 <?php // Recortado el 22/09/2026: decía que el docente lo vería en sus
                       // vistas de solo lectura, y desde el 21/09 eso ya no es cierto para
                       // las extraordinarias reservadas a dirección. ?>
-                Se aplica a <strong>todas</strong> las notas de este lote.
+                Se aplica a <strong>todo</strong> lo que registres en este lote.
             </p>
             <div class="form-group">
                 <textarea id="motivo" name="motivo" class="form-input" rows="3" required
@@ -206,10 +232,87 @@ $obligatoriaTxt = $literalesConclusion === []
     </div>
     <?php endforeach; ?>
 
+    <?php // CONDUCTA y ASISTENCIA (22/09/2026, migración 063): dos filas más de la
+          // grilla, cada una con su propio comportamiento. Solo se pintan si faltan:
+          // la vía extraordinaria nunca pisa un registro existente. ?>
+    <?php if ($pendConducta || $pendAsistencia): ?>
+    <div class="card mb-md">
+        <div class="card__body">
+            <p class="form-section-title">Conducta y asistencia</p>
+            <div class="tabla-notas-wrapper">
+                <table class="tabla-notas rect-lote__tabla">
+                    <thead>
+                        <tr>
+                            <th>Registro</th>
+                            <th class="text-center">Situación</th>
+                            <th class="text-center" colspan="2">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($pendConducta): ?>
+                        <tr class="rect-lote__fila" data-rect-lote-conducta-fila>
+                            <td>
+                                <div class="rect-comp__nombre">Conducta</div>
+                                <div class="rect-lote__fila-pie">
+                                    Literal directo, sin criterios. Sale en la boleta.
+                                </div>
+                            </td>
+                            <td class="text-center text-sm">Sin registro</td>
+                            <td class="text-center">
+                                <select name="conducta_literal" id="conducta_literal"
+                                        class="form-input rect-nota-input rect-lote__conducta"
+                                        aria-label="Conducta del bimestre">
+                                    <option value="">—</option>
+                                    <?php foreach (['AD', 'A', 'B', 'C'] as $lit): ?>
+                                        <option value="<?= $lit ?>"<?= $oldCond === $lit ? ' selected' : '' ?>><?= $lit ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                            <td class="text-center">
+                                <span class="rect-lote__literal" data-literal="">—</span>
+                            </td>
+                        </tr>
+                        <?php endif; ?>
+                        <?php if ($pendAsistencia): ?>
+                        <tr class="rect-lote__fila" data-rect-lote-asistencia-fila>
+                            <td>
+                                <div class="rect-comp__nombre">Inasistencias</div>
+                                <div class="rect-lote__fila-pie">
+                                    Si llenas alguno, los vacíos se registran como 0.
+                                </div>
+                            </td>
+                            <td class="text-center text-sm">Sin registro</td>
+                            <td colspan="2">
+                                <div class="rect-lote__asistencia">
+                                    <?php foreach ($camposAsistencia as $campo => $etiqueta): ?>
+                                        <label class="rect-lote__asist-campo">
+                                            <span><?= e($etiqueta) ?></span>
+                                            <input type="text"
+                                                   name="asistencia[<?= e($campo) ?>]"
+                                                   class="form-input rect-lote__asist"
+                                                   inputmode="numeric" maxlength="2"
+                                                   pattern="[0-9]{1,2}"
+                                                   data-tope="<?= (int) $topeAsistencia ?>"
+                                                   placeholder="—"
+                                                   value="<?= e(trim((string) ($oldAsist[$campo] ?? ''))) ?>"
+                                                   autocomplete="off">
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="rect-lote__barra">
         <div class="rect-lote__contador">
-            <strong data-rect-lote-llenas>0</strong> de <?= (int) $total ?> competencias con nota.
-            <span class="text-muted">Las que dejes vacías no se registran.</span>
+            <strong data-rect-lote-llenas>0</strong> de <?= (int) $total ?> registros llenos.
+            <span class="text-muted">Los que dejes vacíos no se registran.</span>
         </div>
         <div class="btn-group">
             <a href="<?= $volver ?>" class="btn btn--secondary">Cancelar</a>

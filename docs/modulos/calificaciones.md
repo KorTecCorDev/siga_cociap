@@ -1126,6 +1126,54 @@ siguen viendo, también en `/consulta-notas`.
   con ZAMBRANO: la carga 429 del I Bimestre ya no muestra la sección y la tabla conserva sus 15;
   Geometría (carga 352) sigue mostrando su extraordinaria.
 
+### CONDUCTA y ASISTENCIA extraordinarias, en el mismo lote (22/09/2026)
+
+> Migración **`063`**: `extraordinaria` + `motivo_extraordinaria` en `inasistencias` y en
+> `calificaciones_conducta`. Verificador: `verif_conducta_asistencia_extraordinaria.php`.
+
+**El hueco:** la extraordinaria completaba las NOTAS de un bimestre cerrado, pero la boleta
+también lleva conducta e inasistencias, y sus tres pantallas (asistencia de RA, matriz de
+conducta de RA, nota del tutor) exigen **periodo editable y sección sin cierre**. Reabrir el
+bimestre entero no sirve para un alumno. La boleta salía con notas y un guion en conducta y
+asistencia. Medido: 690, 693, 696 y 697 (con extraordinarias) y 691, 694, 695 y 698 (sin notas aún).
+
+**Decisiones del usuario (no re-preguntar):**
+- **Conducta = LITERAL DIRECTO** (AD/A/B/C) en `calificaciones_conducta.literal`. Es la columna
+  que la boleta ya lee cuando no hay matriz (`ConductaModel::componerLiteral`), y como se
+  registró todo el I Bimestre. **La boleta no se tocó.**
+- **Alcance: toda matrícula sin registro** en un bimestre cerrado, tenga o no extraordinarias.
+- **Entrada: el LOTE**, como dos filas más de la grilla («una competencia más, con su propio
+  comportamiento»), al final, con el mismo motivo y en la **misma transacción**. Solo se pinta
+  la fila que falta. El lote abre aunque no queden competencias, si falta alguna de las dos.
+- **`/rectificaciones` (listado) SÍ cambia**: columna «Falta» (Notas / Conducta / Asistencia), y
+  el «Calificar (N)» cuenta las dos filas. **La ficha de matrícula NO se tocó**: sigue contando
+  solo notas, así que ahí los números difieren a propósito.
+
+**Reglas (punto único en el dueño de cada tabla):**
+- `ConductaModel::sqlAdmiteExtraordinaria` y `AsistenciaModel::sqlSinRegistro`: fragmentos SQL
+  que usan el lote (qué filas ofrece), su POST (`admiteExtraordinaria`, re-chequeo) y el listado.
+  Solo periodo `cerrado` y roster de evaluación.
+- 🔴 **NUNCA PISA.** Conducta: sin literal, sin nota del tutor y sin matriz. Asistencia: sin
+  fila (INSERT puro; la UNIQUE lanza si alguien se adelanta). Una fila vacía de conducta (literal
+  y nota en NULL) se completa en vez de duplicarse.
+- **Conducta exige el cierre de conducta vigente de la sección**: sin él, `getParaPeriodo` no la
+  pinta y quedaría registrada e invisible. Mismo candado que las transversales del lote.
+- 🔴 **Retorno de grado: se mira la UNIÓN que lee la boleta** (`CalificacionModel::sqlFuentesBoleta`,
+  gemelo SQL de `boletaContexto`). Hallado al verificar: la operativa **692** no tenía filas en el
+  I Bimestre, pero la oficial **190** sí y la boleta ya las mostraba. Ofrecerla habría **sumado**
+  la asistencia dos veces (`getDelBimestreUnion` suma). Ver `retorno-grado.md`.
+- **Asistencia:** los 4 vacíos = fila omitida. Con alguno lleno, un vacío vale **0**. Un 0 es un
+  DATO: la boleta pasa de guion a «0» (F1). Tope: `AsistenciaModel::TOPE_MAX` (99), que se movió
+  del controlador al modelo para no copiarlo.
+
+**Dónde se ve la marca** (chip «EXTRAORDINARIA · RA» de `PROCEDENCIAS_NOTA`): historial de
+conducta de RA (tabla legado del I Bimestre y matriz del II, donde el alumno sin criterios muestra
+su literal), tabla de asistencia de sección (RA y `/consulta-notas`) y los dos imprimibles, con
+asterisco y nota al pie. **Al tutor no se le explica**: en su panel el literal sale como el de
+cualquier registro directo (el tooltip se volvió neutro: decía «I Bimestre»).
+`ConductaModel::getRegistroLegado` **excluye** las extraordinarias: si no, el banner del tutor del
+I Bimestre diría «registradas por RA, hoy».
+
 ## Fixes importantes aplicados (sesión 2)
 - `periodos.nombre_display` es la columna correcta (no `nombre`). Si ves
   `Unknown column 'p.nombre'` en queries de periodos, verificar esto.

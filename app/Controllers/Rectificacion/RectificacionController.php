@@ -8,6 +8,8 @@ use App\Models\CalificacionModel;
 use App\Models\CriterioModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\TransversalModel;
+use App\Models\AsistenciaModel;
+use App\Models\ConductaModel;
 use Core\Session;
 
 /**
@@ -386,10 +388,14 @@ class RectificacionController extends BaseController
                 $items[] = $c;
             }
         }
-        if ($items === []) {
+        // CONDUCTA y ASISTENCIA (22/09/2026, migración 063): dos filas más de
+        // la grilla, con su propio comportamiento. El lote abre aunque no
+        // quede ninguna competencia, si falta alguna de las dos.
+        $pend = $this->model->conductaAsistenciaPendientes($matriculaId, $periodoId);
+        if ($items === [] && !$pend['conducta'] && !$pend['asistencia']) {
             $this->redirectWithError(
                 url('rectificaciones/matricula/' . $matriculaId),
-                'Ese bimestre no tiene competencias pendientes de calificación extraordinaria.'
+                'Ese bimestre no tiene competencias, conducta ni asistencia pendientes de registro extraordinario.'
             );
         }
 
@@ -416,13 +422,21 @@ class RectificacionController extends BaseController
         $this->view('rectificaciones/extraordinaria-lote', [
             'titulo'       => 'Calificación extraordinaria en lote',
             'info'         => $info,
-            'periodo'      => [
-                'id'     => $periodoId,
-                'nombre' => $items[0]['periodo_nombre'],
-                'estado' => $items[0]['periodo_estado'],
-            ],
+            // Sin competencias pendientes, el bimestre sale de la consulta de
+            // conducta/asistencia (que solo devuelve periodos CERRADOS).
+            'periodo'      => $items !== []
+                ? [
+                    'id'     => $periodoId,
+                    'nombre' => $items[0]['periodo_nombre'],
+                    'estado' => $items[0]['periodo_estado'],
+                ]
+                : $pend['periodo'],
             'porArea'      => array_values($porArea),
-            'total'        => count($items),
+            'competencias' => count($items),
+            'pendConducta'   => $pend['conducta'],
+            'pendAsistencia' => $pend['asistencia'],
+            'topeAsistencia' => AsistenciaModel::TOPE_MAX,
+            'total'        => count($items) + (int) $pend['conducta'] + (int) $pend['asistencia'],
             'literalesConclusion' => $literalesConclusion,
             'old'          => Session::getFlash('lote_old'),
             'page_scripts' => ['rectificaciones-lote'],
@@ -438,6 +452,11 @@ class RectificacionController extends BaseController
      *
      * NO regenera el snapshot del mérito: el flag `extraordinaria` excluye
      * estas notas del ranking, así que el orden vigente no cambia.
+     *
+     * CONDUCTA y ASISTENCIA (22/09/2026, migración 063) viajan en el mismo
+     * POST como dos filas opcionales, con el mismo motivo y en la misma
+     * transacción. Solo donde el alumno no tiene registro (nunca pisan), y el
+     * orden de mérito no las lee.
      */
     public function guardarExtraordinariaLote(): void
     {
@@ -448,12 +467,19 @@ class RectificacionController extends BaseController
         $motivo       = trim((string) $this->input('motivo', ''));
         $notas        = (array) $this->input('nota', []);
         $conclusiones = (array) $this->input('conclusion', []);
+        // Filas de conducta y asistencia (migración 063): opcionales, como una
+        // competencia vacía.
+        $conductaLit  = strtoupper(trim((string) $this->input('conducta_literal', '')));
+        $asistRaw     = (array) $this->input('asistencia', []);
         $usuarioId    = (int) (Session::user()['id'] ?? 0);
 
         $volverForm  = url('rectificaciones/extraordinaria/lote?matricula=' . $matriculaId
             . '&periodo=' . $periodoId);
         $volverLista = url('rectificaciones/matricula/' . $matriculaId);
-        $entrada     = ['motivo' => $motivo, 'notas' => $notas, 'conclusiones' => $conclusiones];
+        $entrada     = [
+            'motivo' => $motivo, 'notas' => $notas, 'conclusiones' => $conclusiones,
+            'conducta' => $conductaLit, 'asistencia' => $asistRaw,
+        ];
 
         $info = $this->model->getMatriculaInfo($matriculaId);
         if (!$info) {
@@ -531,17 +557,77 @@ class RectificacionController extends BaseController
             ];
         }
 
-        if ($filas === []) {
-            $this->volverConEntrada($volverForm, 'No ingresaste ninguna nota.', 'lote_old', $entrada);
+        // ── Conducta: literal directo, solo donde no hay registro ──
+        $conductaModel = new ConductaModel();
+        if ($conductaLit !== '') {
+            if (!in_array($conductaLit, ['AD', 'A', 'B', 'C'], true)) {
+                $this->volverConEntrada($volverForm,
+                    'La conducta debe ser AD, A, B o C.', 'lote_old', $entrada);
+            }
+            // Invariante de seguridad, como las notas: re-chequeo en servidor.
+            if (!$conductaModel->admiteExtraordinaria($matriculaId, $periodoId)) {
+                $this->redirectWithError($volverLista,
+                    'La conducta de este bimestre ya no admite registro extraordinario (el alumno ya tiene conducta, o su sección no tiene la conducta cerrada).');
+            }
+        }
+
+        // ── Asistencia: los 4 contadores, solo donde no hay fila ───
+        // Los 4 vacíos = fila omitida. Con alguno lleno, un vacío vale 0: un 0
+        // es un DATO («sin incidencias»), y sin fila la boleta pinta guion.
+        $asistencia = null;
+        $algunaLlena = false;
+        foreach (AsistenciaModel::CAMPOS as $campo) {
+            if (trim((string) ($asistRaw[$campo] ?? '')) !== '') {
+                $algunaLlena = true;
+            }
+        }
+        $asistenciaModel = new AsistenciaModel();
+        if ($algunaLlena) {
+            $asistencia = [];
+            foreach (AsistenciaModel::CAMPOS as $campo) {
+                $crudo = trim((string) ($asistRaw[$campo] ?? ''));
+                if ($crudo === '') {
+                    $crudo = '0';
+                }
+                if (!ctype_digit($crudo) || (int) $crudo > AsistenciaModel::TOPE_MAX) {
+                    $this->volverConEntrada($volverForm,
+                        'Cada contador de asistencia debe ser un entero entre 0 y '
+                        . AsistenciaModel::TOPE_MAX . '.', 'lote_old', $entrada);
+                }
+                $asistencia[$campo] = (int) $crudo;
+            }
+            if (!$asistenciaModel->admiteExtraordinaria($matriculaId, $periodoId)) {
+                $this->redirectWithError($volverLista,
+                    'La asistencia de este bimestre ya no admite registro extraordinario (el alumno ya tiene su registro).');
+            }
+        }
+
+        if ($filas === [] && $conductaLit === '' && $asistencia === null) {
+            $this->volverConEntrada($volverForm,
+                'No ingresaste ninguna nota, conducta ni asistencia.', 'lote_old', $entrada);
         }
 
         // ── Escritura atómica del lote completo ──────────────────
+        // Notas, conducta y asistencia en UNA transacción: entra todo o nada.
         $this->model->beginTransaction();
         try {
             foreach ($filas as $f) {
                 $this->escribirExtraordinaria(
                     $matriculaId, $f['carga_id'], $f['competencia_id'], $periodoId,
                     $f['nota'], $f['conclusion'], $motivo, $usuarioId, $f['transversal']
+                );
+            }
+            if ($conductaLit !== '') {
+                $conductaModel->registrarLiteralExtraordinario(
+                    $matriculaId, $periodoId, $conductaLit, $motivo, $usuarioId
+                );
+            }
+            if ($asistencia !== null) {
+                $asistenciaModel->registrarExtraordinaria(
+                    $matriculaId, $periodoId,
+                    $asistencia['faltas'], $asistencia['faltas_justificadas'],
+                    $asistencia['tardanzas'], $asistencia['tardanzas_justificadas'],
+                    $motivo, $usuarioId
                 );
             }
             $this->model->commit();
@@ -563,9 +649,18 @@ class RectificacionController extends BaseController
             : '';
 
         $n = count($filas);
-        $this->redirectWithSuccess($volverLista,
-            $n . ($n === 1 ? ' calificación extraordinaria registrada' : ' calificaciones extraordinarias registradas')
-            . '. No cuentan para el orden de mérito.' . $extraAviso);
+        $partes = [];
+        if ($n > 0) {
+            $partes[] = $n . ($n === 1 ? ' calificación extraordinaria registrada' : ' calificaciones extraordinarias registradas')
+                . '. No cuentan para el orden de mérito.';
+        }
+        if ($conductaLit !== '') {
+            $partes[] = 'Conducta ' . $conductaLit . ' registrada.';
+        }
+        if ($asistencia !== null) {
+            $partes[] = 'Asistencia registrada.';
+        }
+        $this->redirectWithSuccess($volverLista, implode(' ', $partes) . $extraAviso);
     }
     /**
      * Literales que EXIGEN conclusión descriptiva en un nivel. Sale del mismo

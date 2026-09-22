@@ -135,6 +135,9 @@ foreach ($estudiantes as $est) {
                                     <span class="nota-literal nota-literal--<?= strtolower($fila['literal']) ?>">
                                         <?= e($fila['literal']) ?>
                                     </span>
+                                    <?php if (!empty($fila['extraordinaria'])): ?>
+                                        <?php $proc = PROCEDENCIA_EXTRAORDINARIA; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span class="text-muted" title="Sin registro en este bimestre">—</span>
                                 <?php endif; ?>
@@ -237,6 +240,15 @@ foreach ($estudiantes as $est) {
                                 <span class="nota-numeral nota-numeral--<?= strtolower($litRa) ?>">
                                     <?= fmt_nota($notaRa) ?>
                                 </span>
+                            <?php elseif (empty($resp) && !empty($est['literal_directo'])): ?>
+                                <?php // Conducta por literal directo, sin matriz: la via
+                                      // extraordinaria de un bimestre cerrado (migracion 063). ?>
+                                <span class="nota-literal nota-literal--<?= strtolower($est['literal_directo']) ?>">
+                                    <?= e($est['literal_directo']) ?>
+                                </span>
+                                <?php if (!empty($est['extraordinaria'])): ?>
+                                    <?php $proc = PROCEDENCIA_EXTRAORDINARIA; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-muted" title="Registro incompleto">—</span>
                             <?php endif; ?>

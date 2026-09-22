@@ -190,10 +190,17 @@ class ConductaModel extends BaseModel
         $alumnos = $this->query("
             SELECT
                 m.id AS matricula_id,
-                CONCAT(p.apellido_paterno,' ',p.apellido_materno,', ',p.nombres) AS nombre_completo
+                CONCAT(p.apellido_paterno,' ',p.apellido_materno,', ',p.nombres) AS nombre_completo,
+                -- Literal directo SIN matriz: el de la via extraordinaria de un
+                -- bimestre cerrado (migracion 063). El historial de RA lo pinta
+                -- en la columna de nota en vez de dejar la fila en blanco.
+                cc.literal                        AS literal_directo,
+                COALESCE(cc.extraordinaria, 0)    AS extraordinaria
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
+            LEFT JOIN calificaciones_conducta cc
+                   ON cc.matricula_id = m.id AND cc.periodo_id = ?
             WHERE m.seccion_id = ?
               -- Mismo roster que el docente al ingresar notas (getAlumnosSeccion):
               -- TODOS los matriculados de la seccion (aprobada, pendiente e incluso
@@ -202,7 +209,7 @@ class ConductaModel extends BaseModel
               " . roster_evaluacion('m') . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$seccionId]);
+        ", [$periodoId, $seccionId]);
 
         if (empty($alumnos)) {
             return [];
@@ -239,7 +246,8 @@ class ConductaModel extends BaseModel
             SELECT
                 m.id AS matricula_id,
                 CONCAT(p.apellido_paterno,' ',p.apellido_materno,', ',p.nombres) AS nombre_completo,
-                cc.literal
+                cc.literal,
+                COALESCE(cc.extraordinaria, 0) AS extraordinaria
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
@@ -281,6 +289,10 @@ class ConductaModel extends BaseModel
             INNER JOIN usuarios   u ON u.id = cc.registrado_por
             INNER JOIN personas   p ON p.id = u.persona_id
             WHERE m.seccion_id = ? AND cc.periodo_id = ? AND cc.literal IS NOT NULL
+              -- La via extraordinaria (migracion 063) NO es el registro de la
+              -- seccion: un literal que RA ingreso hoy para un alumno que llego
+              -- tarde haria decir al banner del tutor «registradas por RA, hoy».
+              AND cc.extraordinaria = 0
             ORDER BY cc.registrado_en DESC
             LIMIT 1
         ", [$seccionId, $periodoId]);
@@ -512,6 +524,126 @@ class ConductaModel extends BaseModel
                 registrado_por = VALUES(registrado_por),
                 modificado_en  = NOW()
         ", [$matriculaId, $periodoId, $nota, $userId]);
+    }
+
+    // ── Via EXTRAORDINARIA (bimestre cerrado, migracion 063) ─────
+
+    /**
+     * Condicion SQL: la matricula `$m` ADMITE conducta extraordinaria en el
+     * periodo `$per`. PUNTO UNICO de la regla: la usan el lote (que filas
+     * ofrece), su POST (re-chequeo) y el listado de /rectificaciones.
+     *
+     *   1. SIN REGISTRO: ni literal, ni nota del tutor, ni matriz de criterios.
+     *      La via extraordinaria nunca pisa un dato existente.
+     *   2. CIERRE DE CONDUCTA VIGENTE en su seccion. Sin el, la boleta no
+     *      pinta la conducta (`getParaPeriodo`, campo `visible`): el literal
+     *      quedaria registrado e INVISIBLE. Mismo candado que las
+     *      transversales del lote.
+     *
+     * 🔴 El «sin registro» mira TODAS las fuentes que une la boleta (retorno de
+     * grado), no solo `$m`: en la matricula 692 el I Bimestre vive en la
+     * oficial 190, y la boleta ya lo muestra.
+     *
+     * @param string $m   alias de `matriculas` en la consulta que la incrusta
+     * @param string $per alias de `periodos`
+     */
+    public static function sqlAdmiteExtraordinaria(string $m = 'm', string $per = 'per'): string
+    {
+        $fuentes = CalificacionModel::sqlFuentesBoleta($m);
+        return "NOT EXISTS (
+                    SELECT 1 FROM calificaciones_conducta ccx
+                    WHERE ccx.periodo_id = {$per}.id
+                      AND ccx.matricula_id IN {$fuentes}
+                      AND (ccx.literal IS NOT NULL OR ccx.nota_tutor IS NOT NULL)
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM conducta_respuestas rx
+                    WHERE rx.periodo_id = {$per}.id
+                      AND rx.matricula_id IN {$fuentes}
+                )
+                AND EXISTS (
+                    SELECT 1 FROM cierres_conducta zx
+                    WHERE zx.seccion_id = {$m}.seccion_id AND zx.periodo_id = {$per}.id
+                      AND zx.anulado_en IS NULL
+                )";
+    }
+
+    /**
+     * ¿Admite conducta EXTRAORDINARIA? Periodo CERRADO, roster de evaluacion
+     * y la regla de `sqlAdmiteExtraordinaria`. Re-chequeo del POST del lote.
+     */
+    public function admiteExtraordinaria(int $matriculaId, int $periodoId): bool
+    {
+        $fila = $this->queryOne("
+            SELECT 1 AS ok
+            FROM matriculas m
+            INNER JOIN periodos per ON per.id = ? AND per.anio_id = m.anio_id
+            WHERE m.id = ?
+              AND per.estado = 'cerrado'
+              " . roster_evaluacion('m') . "
+              AND " . self::sqlAdmiteExtraordinaria('m', 'per') . "
+        ", [$periodoId, $matriculaId]);
+
+        return $fila !== null;
+    }
+
+    /**
+     * Alta EXTRAORDINARIA de la conducta de un bimestre cerrado, como LITERAL
+     * DIRECTO (decision del usuario, 22/09/2026). La boleta lo lee sin cambios:
+     * sin matriz de criterios, `componerLiteral` devuelve el literal.
+     *
+     * 🔴 NUNCA PISA. Puede existir una fila vacia (literal y nota del tutor en
+     * NULL, p. ej. una nota del tutor que se borro): esa se completa. Si trae
+     * cualquier dato, o si hay matriz de criterios, lanza y la transaccion del
+     * llamante hace rollback.
+     *
+     * ⚠️ No abre transaccion: la owna quien llama (el lote).
+     */
+    public function registrarLiteralExtraordinario(
+        int $matriculaId,
+        int $periodoId,
+        string $literal,
+        string $motivo,
+        int $userId
+    ): void {
+        if (!in_array($literal, ['AD', 'A', 'B', 'C'], true)) {
+            throw new \InvalidArgumentException('Literal de conducta no valido: ' . $literal);
+        }
+
+        $matriz = $this->queryOne("
+            SELECT 1 AS x FROM conducta_respuestas
+            WHERE matricula_id = ? AND periodo_id = ? LIMIT 1
+        ", [$matriculaId, $periodoId]);
+        if ($matriz !== null) {
+            throw new \RuntimeException('El alumno ya tiene conducta registrada por criterios.');
+        }
+
+        $fila = $this->queryOne("
+            SELECT id, literal, nota_tutor
+            FROM calificaciones_conducta
+            WHERE matricula_id = ? AND periodo_id = ?
+            FOR UPDATE
+        ", [$matriculaId, $periodoId]);
+
+        if ($fila === null) {
+            $this->execute("
+                INSERT INTO calificaciones_conducta
+                    (matricula_id, periodo_id, literal, nota_tutor,
+                     extraordinaria, motivo_extraordinaria, registrado_por)
+                VALUES (?, ?, ?, NULL, 1, ?, ?)
+            ", [$matriculaId, $periodoId, $literal, $motivo, $userId]);
+            return;
+        }
+
+        if ($fila['literal'] !== null || $fila['nota_tutor'] !== null) {
+            throw new \RuntimeException('El alumno ya tiene conducta registrada.');
+        }
+        $this->execute("
+            UPDATE calificaciones_conducta
+            SET literal = ?, extraordinaria = 1, motivo_extraordinaria = ?,
+                registrado_por = ?, modificado_en = NOW()
+            WHERE id = ? AND literal IS NULL AND nota_tutor IS NULL
+        ", [$literal, $motivo, $userId, (int) $fila['id']]);
     }
 
     /**

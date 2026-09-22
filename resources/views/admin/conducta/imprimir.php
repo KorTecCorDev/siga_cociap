@@ -15,6 +15,9 @@
 
 $hoy   = (new DateTime())->format('d/m/Y');
 $total = count($criterios);
+// Filas por la via EXTRAORDINARIA (migracion 063): literal directo que RA
+// ingreso despues del cierre. Se imprimen marcadas y con su nota al pie.
+$hayExtraordinaria = false;
 ?>
 
 <div class="reporte-pagina registro-doc">
@@ -83,7 +86,15 @@ $total = count($criterios);
                         </td>
                     <?php endforeach; ?>
                     <td class="tr-nota">
-                        <?= $notaRa !== null ? fmt_nota($notaRa) . ' (' . $litRa . ')' : '&mdash;' ?>
+                        <?php if ($notaRa !== null): ?>
+                            <?= fmt_nota($notaRa) . ' (' . $litRa . ')' ?>
+                        <?php elseif (empty($resp) && !empty($est['literal_directo'])):
+                            $marca = !empty($est['extraordinaria']) ? '*' : '';
+                            if ($marca !== '') { $hayExtraordinaria = true; } ?>
+                            <?= e($est['literal_directo']) . $marca ?>
+                        <?php else: ?>
+                            &mdash;
+                        <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -118,6 +129,13 @@ $total = count($criterios);
             el <?= e(fechaLima($cierre['tutor_cerrado_en'])) ?>.
         <?php endif; ?>
     </p>
+
+    <?php if ($hayExtraordinaria): ?>
+        <p class="registro-doc__traza">
+            * Conducta registrada por Registro Académico con el bimestre cerrado
+            (calificación extraordinaria), como literal directo y sin criterios.
+        </p>
+    <?php endif; ?>
 
     <footer class="reporte-footer">
         <div class="reporte-footer__bloque">

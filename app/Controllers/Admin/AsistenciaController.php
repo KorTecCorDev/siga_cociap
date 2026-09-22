@@ -9,8 +9,8 @@ use Core\View;
 
 class AsistenciaController extends BaseController
 {
-    /** Tope duro por contador (HTML5 max + validación server). */
-    private const TOPE_MAX = 99;
+    /** Tope duro por contador (HTML5 max + validación server). Punto único en el modelo. */
+    private const TOPE_MAX = AsistenciaModel::TOPE_MAX;
 
     /**
      * Quien OPERA el registro de asistencia: ve el índice, la grilla editable,

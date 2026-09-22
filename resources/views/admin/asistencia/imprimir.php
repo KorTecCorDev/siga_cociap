@@ -62,12 +62,17 @@ $campos = ['faltas', 'faltas_justificadas', 'tardanzas', 'tardanzas_justificadas
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($estudiantes as $idx => $est):
+            <?php $hayExtraordinaria = false;
+            foreach ($estudiantes as $idx => $est):
                 $inc = $est['incidencias'];
+                // Fila de la via EXTRAORDINARIA (migracion 063): se imprime
+                // marcada y con su nota al pie.
+                $marca = !empty($inc['extraordinaria']) ? '*' : '';
+                if ($marca !== '') { $hayExtraordinaria = true; }
             ?>
                 <tr>
                     <td class="tr-num"><?= $idx + 1 ?></td>
-                    <td class="tr-nombre"><?= e($est['nombre_completo']) ?></td>
+                    <td class="tr-nombre"><?= e($est['nombre_completo']) . $marca ?></td>
                     <?php foreach ($campos as $campo): ?>
                         <td class="tr-contador"><?= (int) $inc[$campo] ?></td>
                     <?php endforeach; ?>
@@ -85,6 +90,13 @@ $campos = ['faltas', 'faltas_justificadas', 'tardanzas', 'tardanzas_justificadas
         Registro bloqueado y aprobado por <strong><?= e($cierre['ra_nombre']) ?></strong>
         (Registro Académico) el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>.
     </p>
+
+    <?php if ($hayExtraordinaria): ?>
+        <p class="registro-doc__traza">
+            * Inasistencias registradas por Registro Académico con el bimestre cerrado
+            (calificación extraordinaria).
+        </p>
+    <?php endif; ?>
 
     <footer class="reporte-footer">
         <div class="reporte-footer__bloque">

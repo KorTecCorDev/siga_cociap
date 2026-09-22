@@ -5,6 +5,27 @@
 > **Versión desplegada: v1.0.2** (`config/app.php` + tag anotado `v1.0.2`, 22/09/2026).
 
 
+## 🔄 CONDUCTA Y ASISTENCIA EXTRAORDINARIAS EN EL LOTE (22/09/2026) — en `dev`, sin merge
+
+**Migración `063`** (`extraordinaria` + `motivo_extraordinaria` en `inasistencias` y
+`calificaciones_conducta`): aplicada en LOCAL (dos pasadas, idempotente). El lote de
+extraordinarias registra la conducta (literal directo) y la asistencia de un bimestre CERRADO
+donde el alumno no las tiene, y el listado de `/rectificaciones` los muestra. Detalle y
+decisiones en `docs/modulos/calificaciones.md`.
+
+Hallazgo durante la verificación, ya resuelto: en un **retorno de grado** la regla tiene que
+mirar las dos matrículas que une la boleta (692 operativa / 190 oficial). Si no, se ofrecía un
+alta que habría duplicado las faltas (`retorno-grado.md`).
+
+- [x] `verif_conducta_asistencia_extraordinaria.php` (nuevo, 27 asertos con rollback, las dos
+      ramas) y `verif_rectificaciones_pendientes.php` (control a mano ampliado) en verde. Batería
+      completa: 44/44.
+- [ ] **Prueba en navegador con sesión de RA o admin:** lote de 690 B1 (solo las dos filas),
+      697 B1 (notas + las dos filas), listado con la columna «Falta», boleta antes y después,
+      historial de conducta y asistencia con el chip, imprimibles con asterisco, 375 px.
+- [ ] **Antes del merge:** `063` en PRODUCCIÓN, a mano.
+
+
 ## 🟢 RELEASE v1.0.2 — DESPLEGADA EN PRODUCCIÓN (22/09/2026)
 
 Merge `--no-ff` `0cf974d` en `main`, tag anotado `v1.0.2`, push el 22/09. **45 commits**

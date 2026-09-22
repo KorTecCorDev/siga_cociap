@@ -110,6 +110,14 @@ class AsistenciaModel extends BaseModel
     public const CAMPOS = ['faltas', 'faltas_justificadas', 'tardanzas', 'tardanzas_justificadas'];
 
     /**
+     * Tope duro por contador. PUNTO ÚNICO: lo usan la grilla de RA
+     * (`Admin\AsistenciaController`) y la vía extraordinaria del lote. Vivía
+     * como constante privada del controlador; se movió aquí el 22/09/2026 para
+     * que la segunda vía no lo copiara.
+     */
+    public const TOPE_MAX = 99;
+
+    /**
      * Suma los 4 contadores de un roster ya cargado, más cuántos tienen registro.
      *
      * Recibe la salida de `getEstudiantesConIncidencias` en vez de consultar otra
@@ -176,7 +184,8 @@ class AsistenciaModel extends BaseModel
                 faltas,
                 faltas_justificadas,
                 tardanzas,
-                tardanzas_justificadas
+                tardanzas_justificadas,
+                extraordinaria
             FROM inasistencias
             WHERE matricula_id IN ($placeholders)
               AND periodo_id = ?
@@ -190,6 +199,8 @@ class AsistenciaModel extends BaseModel
                 'tardanzas'              => (int) $r['tardanzas'],
                 'tardanzas_justificadas' => (int) $r['tardanzas_justificadas'],
                 'registrado'             => true,
+                // Fila creada por la vía extraordinaria de RA (migración 063).
+                'extraordinaria'         => (int) $r['extraordinaria'] === 1,
             ];
         }
 
@@ -201,6 +212,7 @@ class AsistenciaModel extends BaseModel
                 'tardanzas'              => 0,
                 'tardanzas_justificadas' => 0,
                 'registrado'             => false,
+                'extraordinaria'         => false,
             ];
         }
 
@@ -241,6 +253,89 @@ class AsistenciaModel extends BaseModel
             $faltas, $faltasJustificadas,
             $tardanzas, $tardanzasJustificadas,
             $userId,
+        ]);
+    }
+
+    // ── Vía EXTRAORDINARIA (bimestre cerrado, migración 063) ─────
+
+    /**
+     * Condición SQL: la matrícula `$m` NO tiene fila de asistencia en el
+     * periodo `$per`. PUNTO ÚNICO de «le falta asistencia» para la vía
+     * extraordinaria: la usan el lote (qué filas ofrece), su POST (re-chequeo)
+     * y el listado de /rectificaciones (quién aparece).
+     *
+     * Sin fila ⟺ la boleta pinta GUION (F1, `tieneRegistroUnion`). Una fila
+     * con los 4 contadores en 0 es un DATO («sin incidencias») y no se toca.
+     *
+     * 🔴 Mira TODAS las fuentes que une la boleta (retorno de grado), no solo
+     * `$m`: la boleta SUMA la asistencia entre fuentes, así que una fila nueva
+     * donde la oficial ya tiene la suya duplicaría las faltas.
+     *
+     * @param string $m   alias de `matriculas` en la consulta que la incrusta
+     * @param string $per alias de `periodos`
+     */
+    public static function sqlSinRegistro(string $m = 'm', string $per = 'per'): string
+    {
+        return "NOT EXISTS (
+                    SELECT 1 FROM inasistencias ix
+                    WHERE ix.periodo_id = {$per}.id
+                      AND ix.matricula_id IN " . CalificacionModel::sqlFuentesBoleta($m) . "
+                )";
+    }
+
+    /**
+     * ¿Admite asistencia EXTRAORDINARIA? Periodo CERRADO, matrícula del
+     * roster de evaluación y sin fila previa. Es el re-chequeo del POST: el
+     * lote no escribe sin esto.
+     */
+    public function admiteExtraordinaria(int $matriculaId, int $periodoId): bool
+    {
+        $fila = $this->queryOne("
+            SELECT 1 AS ok
+            FROM matriculas m
+            INNER JOIN periodos per ON per.id = ? AND per.anio_id = m.anio_id
+            WHERE m.id = ?
+              AND per.estado = 'cerrado'
+              " . roster_evaluacion('m') . "
+              AND " . self::sqlSinRegistro('m', 'per') . "
+        ", [$periodoId, $matriculaId]);
+
+        return $fila !== null;
+    }
+
+    /**
+     * Alta EXTRAORDINARIA de los 4 contadores de un bimestre cerrado.
+     *
+     * 🔴 NUNCA PISA: es un INSERT puro, sin ON DUPLICATE KEY. Si la fila ya
+     * existiera, la UNIQUE (matricula_id, periodo_id) lanza y la transacción
+     * del llamante hace rollback. Los 4 contadores son INDEPENDIENTES (ver
+     * admin.md): no se restan ni se derivan entre sí.
+     *
+     * ⚠️ No abre transacción: la owna quien llama (el lote escribe notas,
+     * conducta y asistencia juntas). Mismo criterio que
+     * NotaExternaModel::registrarLote.
+     */
+    public function registrarExtraordinaria(
+        int $matriculaId,
+        int $periodoId,
+        int $faltas,
+        int $faltasJustificadas,
+        int $tardanzas,
+        int $tardanzasJustificadas,
+        string $motivo,
+        int $userId
+    ): void {
+        $this->execute("
+            INSERT INTO inasistencias
+                (matricula_id, periodo_id, faltas, faltas_justificadas,
+                 tardanzas, tardanzas_justificadas,
+                 extraordinaria, motivo_extraordinaria, registrado_por)
+            VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+        ", [
+            $matriculaId, $periodoId,
+            $faltas, $faltasJustificadas,
+            $tardanzas, $tardanzasJustificadas,
+            $motivo, $userId,
         ]);
     }
 

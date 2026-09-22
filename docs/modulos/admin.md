@@ -432,6 +432,10 @@ y `/admin/asistencia`, con copia imprimible firmable. Migracion `043_cierres_asi
   de insertar). `guardar()` rechaza edicion con cierre vigente (403), ademas del
   gate de `periodoEditable`.
 - Desbloqueo SOLO desde el panel del director (con traza `anulado_por/motivo`).
+- **Bimestre CERRADO (22/09/2026, migración 063):** estas pantallas siguen sin poder
+  escribir en él. La conducta (literal directo) y la asistencia de un alumno que no las
+  tiene se registran por la **vía extraordinaria del lote** (`calificaciones.md`), marcadas
+  con `extraordinaria = 1` y motivo, y se ven aquí con el chip «EXTRAORDINARIA · RA».
 
 ### Imprimible oficial (layout print, A4 portrait)
 - `GET /admin/{conducta|asistencia}/{id}/imprimir/{periodo_id}` — **gate: cierre
