@@ -711,12 +711,36 @@ entero— y las filas en blanco se descartan sin error.
 el modelo impedía envolver el lote desde fuera —empezando por el verificador, que escribe y
 hace rollback—. Mismo criterio que `escribirExtraordinaria`.
 
+### Conclusión descriptiva del informe de origen (22/09/2026)
+
+> Migración **`062`**: `notas_externas.conclusion_descriptiva TEXT NULL`.
+
+El informe del otro colegio trae, junto al literal, la conclusión del docente de allá; hasta
+hoy se transcribía la nota y esa frase se perdía.
+
+- **Opcional para los CUATRO literales y nunca bloquea el guardado.** Aquí **NO rige la
+  obligatoriedad por nivel del COCIAP** (primaria en B y C, secundaria en C) porque **no es
+  una evaluación nuestra**: se transcribe lo que el otro colegio emitió, y si su informe no
+  la trae no se puede inventar. Es la diferencia con `/rectificaciones`, donde la nota sí es
+  del COCIAP y la conclusión sí se exige.
+- Largo máximo en `NotaExternaModel::MAX_CONCLUSION` (1000). El servidor **rechaza, no
+  recorta**, igual que las otras `MAX_*` (el `sql_mode` no es estricto; ver migración `061`).
+- **Volver a guardar la misma competencia PISA la conclusión**, como el resto de la fila: es
+  la regla de reemplazo que la pantalla ya promete.
+- En la captura va en una **fila de continuación** (`notas-origen__fila-conclusion`,
+  `colspan=5`), no como sexta columna: es texto largo y la tabla ya iba justa a 375 px. El
+  «+ Añadir fila» de `notas-externas.js` clona la **pareja** de filas — si alguien vuelve a
+  clonar solo el `<tr>`, los arrays del POST se desalinean.
+- Se muestra en «Ya registradas» y en `/docente/notas-origen/{id}`, bajo la competencia, con
+  `.conclusion-texto`. Las 53 filas anteriores a la migración quedan en NULL a propósito.
+
 ### Verificación
 
 `database/verificaciones/verif_notas_origen.php`. La comprobación central es **negativa**:
 registrar notas de origen **no altera ni una celda de la boleta** (29 comparadas) ni el
 orden de mérito (47 filas). **Si algún día una de estas notas aparece en una boleta, ese
-script tiene que ponerse rojo.**
+script tiene que ponerse rojo.** El bloque 7g cubre la conclusión descriptiva: con AD (el
+literal que el filtro de desaprobados dejaba fuera), sin ella, y el reemplazo.
 
 ### Importar la currícula del COCIAP (10/09/2026)
 

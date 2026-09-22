@@ -104,8 +104,10 @@ $obligatoriaTxt = $literalesConclusion === []
         <div class="card__body">
             <p class="form-section-title">Motivo del lote <span class="text-danger">*</span></p>
             <p class="rect-aviso mb-md">
-                Se guarda en la auditoría de <strong>cada</strong> nota de este lote, y el
-                docente lo verá junto a la calificación en sus vistas de solo lectura.
+                <?php // Recortado el 22/09/2026: decía que el docente lo vería en sus
+                      // vistas de solo lectura, y desde el 21/09 eso ya no es cierto para
+                      // las extraordinarias reservadas a dirección. ?>
+                Se aplica a <strong>todas</strong> las notas de este lote.
             </p>
             <div class="form-group">
                 <textarea id="motivo" name="motivo" class="form-input" rows="3" required

@@ -879,6 +879,25 @@ button.orden-chip {
         th { white-space: nowrap; }
     }
 
+    // Fila de continuación con la conclusión descriptiva (22/09/2026): va
+    // pegada a su fila, sin borde arriba, para que se lean como una sola.
+    &__fila-conclusion {
+
+        > td {
+            border-top: 0;
+            padding-top: 0;
+        }
+
+        textarea.form-input { resize: vertical; }
+    }
+
+    &__conclusion-label {
+        display: block;
+        margin-bottom: 2px;
+        font-size: $font-size-sm;
+        color: $text-muted;
+    }
+
     // Fila del área que ESE docente dicta.
     &__fila--mia {
         background: rgba(30, 111, 168, .06);

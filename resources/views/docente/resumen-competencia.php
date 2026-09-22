@@ -243,13 +243,10 @@ $esTransversal = !empty($competencia['es_transversal']);
         <?php require VIEW_PATH . '/docente/_extraordinaria-info.php'; ?>
 
         <!-- Botones de acción -->
+        <?php // El aviso de que la conclusión transversal la registra el tutor se
+              // quitó de aquí el 22/09/2026: cada fila de la tabla ya lo dice en su
+              // celda de conclusión, así que en el pie era la segunda copia. ?>
         <?php if (!$bloqueada): ?>
-            <?php if ($esTransversal): ?>
-                <p class="text-muted text-sm mb-sm">
-                    Las conclusiones descriptivas de las competencias transversales
-                    las registra el tutor de la sección al cierre del bimestre.
-                </p>
-            <?php endif; ?>
             <div class="resumen-footer">
                 <?php if (!$esTransversal): ?>
                     <button class="btn btn--primary" id="btn-guardar-conclusiones">

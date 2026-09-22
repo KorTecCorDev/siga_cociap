@@ -48,9 +48,12 @@
 <?php endif; ?>
 
 <div class="flash flash--warning">
+    <?php // Recortado el 22/09/2026: el banner dice qué son y qué hacer. Las
+          // reglas de boleta y de orden de mérito son política de Registro
+          // Académico y el docente no puede accionarlas. ?>
     Estas <?= (int) $total ?> calificaciones vienen del <strong>colegio anterior</strong> del
-    estudiante y son <strong>solo informativas</strong>: no aparecen en su boleta del COCIAP,
-    no cuentan para el orden de mérito y <strong>no tienes que hacer nada con ellas</strong>.
+    estudiante y son <strong>solo informativas</strong>:
+    <strong>no tienes que hacer nada con ellas</strong>.
     Sirven para que sepas con qué nivel llega.
     <?php if (!empty($misAreas)): ?>
         Las filas <strong>resaltadas</strong> corresponden al área que tú le dictas.
@@ -82,7 +85,14 @@
                                 <span class="notas-origen__marca">Tu área</span>
                             <?php endif; ?>
                         </td>
-                        <td class="text-sm"><?= e($n['competencia_nombre']) ?></td>
+                        <td class="text-sm">
+                            <?= e($n['competencia_nombre']) ?>
+                            <?php // La conclusión del informe de origen (migración 062), si
+                                  // el otro colegio la emitió. ?>
+                            <?php if (!empty($n['conclusion_descriptiva'])): ?>
+                                <p class="conclusion-texto"><?= e($n['conclusion_descriptiva']) ?></p>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-center">
                             <span class="notas-origen__literal" data-literal="<?= e($n['nota_literal']) ?>">
                                 <?= e($n['nota_literal']) ?>

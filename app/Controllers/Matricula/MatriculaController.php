@@ -1318,6 +1318,9 @@ class MatriculaController extends BaseController
         $periodos = (array) $this->input('periodo_nombre', []);
         $literales = (array) $this->input('nota_literal', []);
         $areaIds  = (array) $this->input('area_id', []);
+        // Conclusión descriptiva del informe de origen (migración 062):
+        // OPCIONAL para los cuatro literales, nunca bloquea el guardado.
+        $conclusiones = (array) $this->input('conclusion_descriptiva', []);
 
         if ($colegio !== null && mb_strlen($colegio) > NotaExternaModel::MAX_COLEGIO) {
             $this->redirectWithError($volver,
@@ -1359,6 +1362,13 @@ class MatriculaController extends BaseController
 
             // 🔴 RECHAZAR, NO RECORTAR: sin modo estricto, MariaDB cortaría el
             // exceso en silencio y guardaría otra competencia (migración 061).
+            $conclusion = trim((string) ($conclusiones[$i] ?? ''));
+            if (mb_strlen($conclusion) > NotaExternaModel::MAX_CONCLUSION) {
+                $this->redirectWithError($volver,
+                    'La conclusión de la fila ' . ($i + 1) . ' pasa de '
+                    . NotaExternaModel::MAX_CONCLUSION . ' caracteres.');
+            }
+
             if (mb_strlen($periodo) > NotaExternaModel::MAX_PERIODO
                 || mb_strlen($areaNombre) > NotaExternaModel::MAX_AREA
                 || mb_strlen($comp) > NotaExternaModel::MAX_COMPETENCIA) {
@@ -1374,6 +1384,7 @@ class MatriculaController extends BaseController
                 'area_nombre'        => $areaNombre,
                 'area_id'            => (int) ($areaIds[$i] ?? 0) ?: null,
                 'nota_literal'       => $literal,
+                'conclusion_descriptiva' => $conclusion !== '' ? $conclusion : null,
             ];
         }
 
@@ -1402,9 +1413,8 @@ class MatriculaController extends BaseController
         // la boleta, así que sin la notificación el docente no sabría que
         // existen. Fuera de la transacción del lote a propósito: que falle el
         // aviso no puede tumbar un registro ya válido.
-        $avisados = 0;
         try {
-            $avisados = (new NotificacionModel())->crearParaDocentesDeSeccion(
+            (new NotificacionModel())->crearParaDocentesDeSeccion(
                 (int) $id,
                 NotificacionModel::TIPO_NOTAS_ORIGEN,
                 'Notas del colegio de origen: ' . $matricula['nombre_completo'],
@@ -1413,8 +1423,10 @@ class MatriculaController extends BaseController
                     // El colegio se escribe EN el mensaje (21/09/2026): la bandeja
                     // solo pinta título y mensaje. Queda fijo aunque luego se
                     // corrija en notas_externas; las anteriores no lo llevan.
-                    . ($colegio !== null ? ' Procede de: ' . $colegio . '.' : '')
-                    . ' Son informativas: no aparecen en la boleta del COCIAP.',
+                    . ($colegio !== null ? ' Procede de: ' . $colegio . '.' : ''),
+                    // Ya NO se explica aquí la política («no aparecen en la
+                    // boleta», 22/09/2026): el aviso dice qué pasó, y la
+                    // pantalla del detalle es la que explica qué hacer.
                 'docente/notas-origen/' . (int) $id
             );
         } catch (\Exception $e) {
@@ -1428,11 +1440,11 @@ class MatriculaController extends BaseController
             // Las filas sin calificación se omiten a propósito (el informe de
             // origen no trae todas las competencias del plan), pero se dicen:
             // una omisión silenciosa parecería una pérdida de datos.
+            // El conteo de DOCENTES AVISADOS se quitó el 22/09/2026: es mecánica
+            // del sistema, no algo que quien registra pueda accionar. Las filas
+            // omitidas sí se dicen: hablan de lo que él mismo tecleó.
             . ($sinNota > 0
                 ? ' Se omitieron ' . $sinNota . ($sinNota === 1 ? ' fila sin nota.' : ' filas sin nota.')
-                : '')
-            . ($avisados > 0
-                ? ' Se avisó a ' . $avisados . ($avisados === 1 ? ' docente' : ' docentes') . ' de su sección.'
                 : ''));
     }
 

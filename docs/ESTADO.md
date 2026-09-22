@@ -5,6 +5,24 @@
 > **Versión desplegada: v1.0.1** (`config/app.php` + tag anotado `v1.0.1`).
 
 
+## 🔄 CONCLUSIÓN EN NOTAS DE ORIGEN + BARRIDO DE TEXTOS (22/09/2026) — en `dev`, sin merge
+
+**Migración `062`** (`notas_externas.conclusion_descriptiva`): la conclusión del informe del
+colegio anterior se registra y se muestra. **Opcional para los cuatro literales** — aquí no rige
+la obligatoriedad por nivel del COCIAP, porque no es evaluación nuestra. Detalle en
+`docs/modulos/matriculas.md`.
+
+**Barrido completo de textos** (47 banners + mensajes de acción de 34 controladores). Se
+recortaron 6: el aviso de notas de origen y su flash (sin el conteo de docentes avisados, con el
+de filas omitidas), el banner del docente, el motivo del lote de extraordinarias (prometía algo
+que ya era falso), el aviso de empates del docente y la copia doble del resumen. Regla nueva en
+`docs/modulos/ui.md` («QUÉ DICE UN AVISO») y asertos en `verif_banners_aviso.php`.
+
+- [ ] **Prueba en navegador DEL USUARIO:** `/matriculas/693/notas-externas` (registrar con y sin
+      conclusión, «Ya registradas», «+ Añadir fila», importar, 375 px) · `/docente/notas-origen/693`
+      como docente (conclusión y banner recortado) · el flash al guardar · la notificación que
+      recibe el docente · `/rectificaciones/extraordinaria/lote` y el resumen de una transversal.
+
 ## ✅ NOTIFICACIONES — AUDITORÍA DEL MÓDULO (22/09/2026) — CERRADO en `dev`, sin merge
 
 Salieron 6 hallazgos contra `docs/modulos/notificaciones.md` y se corrigieron 3: el contador de la

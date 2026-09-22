@@ -195,6 +195,20 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
                                 </select>
                             </td>
                         </tr>
+                        <?php // Fila de continuación (22/09/2026): la conclusión es texto
+                              // largo y no cabe como sexta columna. El JS de «+ Añadir fila»
+                              // clona la PAREJA, así que las dos van siempre juntas. ?>
+                        <tr class="notas-origen__fila-conclusion">
+                            <td colspan="5">
+                                <label class="notas-origen__conclusion-label">
+                                    Conclusión descriptiva (opcional)
+                                </label>
+                                <textarea name="conclusion_descriptiva[]" class="form-input"
+                                          rows="2" maxlength="<?= \App\Models\NotaExternaModel::MAX_CONCLUSION ?>"
+                                          placeholder="Tal como la escribió el colegio de origen"
+                                          aria-label="Conclusión descriptiva"><?= e($f['conclusion_descriptiva'] ?? '') ?></textarea>
+                            </td>
+                        </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -239,7 +253,12 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
                         <tr>
                             <td class="text-sm"><?= e($n['periodo_nombre']) ?></td>
                             <td class="text-sm"><?= e($n['area_nombre']) ?></td>
-                            <td class="text-sm"><?= e($n['competencia_nombre']) ?></td>
+                            <td class="text-sm">
+                                <?= e($n['competencia_nombre']) ?>
+                                <?php if (!empty($n['conclusion_descriptiva'])): ?>
+                                    <p class="conclusion-texto"><?= e($n['conclusion_descriptiva']) ?></p>
+                                <?php endif; ?>
+                            </td>
                             <td class="text-center"><span class="matricula-badge matricula-badge--nuevo"><?= e($n['nota_literal']) ?></span></td>
                             <td class="text-sm text-muted"><?= e($n['area_mapeada_boleta'] ?: $n['area_mapeada'] ?: 'Sin mapear') ?></td>
                             <td class="text-sm text-muted"><?= e($n['colegio_origen'] ?? '—') ?></td>

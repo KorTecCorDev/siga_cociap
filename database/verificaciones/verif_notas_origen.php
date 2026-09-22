@@ -384,6 +384,50 @@ try {
     $ok($contar("SELECT COUNT(*) FROM notas_externas WHERE CHAR_LENGTH(competencia_nombre) = 120") === 0,
         'no queda ninguna competencia recortada a 120 (reparar_notas_externas_truncadas.php)');
 
+    echo "\n=== 7g. CONCLUSIÓN DESCRIPTIVA — opcional para los CUATRO literales (062) ===\n";
+    // Es un dato del informe de ORIGEN: se transcribe si vino, y no rige la
+    // obligatoriedad por nivel del COCIAP. Por eso se prueban las dos ramas
+    // (con conclusión y sin ella) y con un literal APROBATORIO, que es justo el
+    // caso que el filtro de desaprobados dejaba fuera.
+    $conclusion = 'Logra lo esperado con autonomía (verificación).';
+    $externas->registrarLote($mid, [
+        ['periodo_nombre' => 'Verif 7g', 'area_nombre' => 'Área 7g',
+         'competencia_nombre' => 'Con conclusión', 'nota_literal' => 'AD',
+         'conclusion_descriptiva' => $conclusion],
+        ['periodo_nombre' => 'Verif 7g', 'area_nombre' => 'Área 7g',
+         'competencia_nombre' => 'Sin conclusión', 'nota_literal' => 'A'],
+    ], null, 1);
+
+    $leer = fn(string $comp): ?string => $pdo->query("
+        SELECT conclusion_descriptiva FROM notas_externas
+        WHERE matricula_id = {$mid} AND periodo_nombre = 'Verif 7g'
+          AND competencia_nombre = " . $pdo->quote($comp)
+    )->fetchColumn() ?: null;
+
+    $ok($leer('Con conclusión') === $conclusion,
+        'una nota AD guarda su conclusión entera (sin filtro de desaprobados)');
+    $ok($leer('Sin conclusión') === null,
+        'sin conclusión se guarda NULL, y la fila se registra igual');
+
+    // Reemplazo: volver a guardar la misma competencia pisa la conclusión, que
+    // es la regla que la pantalla ya promete para el resto de la fila.
+    $externas->registrarLote($mid, [
+        ['periodo_nombre' => 'Verif 7g', 'area_nombre' => 'Área 7g',
+         'competencia_nombre' => 'Con conclusión', 'nota_literal' => 'AD',
+         'conclusion_descriptiva' => 'Corregida (verificación).'],
+    ], null, 1);
+    $ok($leer('Con conclusión') === 'Corregida (verificación).',
+        'volver a guardar REEMPLAZA la conclusión, no la conserva');
+
+    $ok(str_contains($vistaSrc, 'name="conclusion_descriptiva[]"'),
+        'el formulario de captura tiene el campo');
+    $ok(str_contains($ctrlSrc, "input('conclusion_descriptiva'")
+        && str_contains($ctrlSrc, 'NotaExternaModel::MAX_CONCLUSION'),
+        'el servidor lo lee y valida su largo');
+    $docenteSrc = file_get_contents(ROOT_PATH . '/resources/views/docente/notas-origen.php');
+    $ok(str_contains($docenteSrc, 'conclusion_descriptiva'),
+        'el detalle del docente la muestra');
+
 } catch (Throwable $e) {
     echo "  [ERROR] " . $e->getMessage() . "\n";
     $fallos++;

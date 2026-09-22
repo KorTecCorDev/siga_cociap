@@ -20,14 +20,29 @@
         var filas = cuerpo.querySelectorAll('.notas-origen__fila');
         if (filas.length === 0) return;
 
-        var nueva = filas[filas.length - 1].cloneNode(true);
+        var ultima = filas[filas.length - 1];
+        var nueva  = ultima.cloneNode(true);
+
+        // Cada fila viene con su PAREJA: un <tr> de continuación con la
+        // conclusión descriptiva. Se clonan las dos o la fila nueva nacería sin
+        // conclusión y los arrays del POST se desalinearían.
+        var contigua = ultima.nextElementSibling;
+        var conclusionNueva = contigua && contigua.classList.contains('notas-origen__fila-conclusion')
+            ? contigua.cloneNode(true)
+            : null;
 
         // Un clon arrastra los valores tecleados: se limpian para que la fila
         // nueva nazca vacía (los <select> vuelven a su primera opción).
-        nueva.querySelectorAll('input').forEach(function (i) { i.value = ''; });
-        nueva.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
+        var limpiar = function (tr) {
+            tr.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+            tr.querySelectorAll('textarea').forEach(function (t) { t.value = ''; });
+            tr.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
+        };
+        limpiar(nueva);
+        if (conclusionNueva) limpiar(conclusionNueva);
 
         cuerpo.appendChild(nueva);
+        if (conclusionNueva) cuerpo.appendChild(conclusionNueva);
 
         var primer = nueva.querySelector('input');
         if (primer) primer.focus();

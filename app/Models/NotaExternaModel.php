@@ -38,6 +38,13 @@ class NotaExternaModel extends BaseModel
     public const MAX_AREA        = 120;
     public const MAX_COMPETENCIA = 255;
     public const MAX_COLEGIO     = 200;
+    /**
+     * La conclusión descriptiva del informe de origen (migración 062). Es
+     * OPCIONAL para los cuatro literales: no rige aquí la obligatoriedad por
+     * nivel del COCIAP, porque no es una evaluación nuestra — se transcribe lo
+     * que emitió el otro colegio, y si su informe no la trae no se inventa.
+     */
+    public const MAX_CONCLUSION  = 1000;
 
     /** Currícula ya leída, por matrícula. Ver `curriculaParaImportar()`. */
     private array $curriculaCache = [];
@@ -66,15 +73,19 @@ class NotaExternaModel extends BaseModel
         return $this->execute("
             INSERT INTO notas_externas
                 (matricula_id, periodo_nombre, competencia_nombre, area_id,
-                 area_nombre, nota_literal, colegio_origen, registrado_por)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 area_nombre, nota_literal, conclusion_descriptiva,
+                 colegio_origen, registrado_por)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
-                area_id        = VALUES(area_id),
-                area_nombre    = VALUES(area_nombre),
-                nota_literal   = VALUES(nota_literal),
-                colegio_origen = VALUES(colegio_origen),
-                registrado_por = VALUES(registrado_por),
-                registrado_en  = CURRENT_TIMESTAMP
+                area_id                = VALUES(area_id),
+                area_nombre            = VALUES(area_nombre),
+                nota_literal           = VALUES(nota_literal),
+                -- Se pisa igual que el resto: volver a guardar la misma
+                -- competencia REEMPLAZA la fila, como dice la pantalla.
+                conclusion_descriptiva = VALUES(conclusion_descriptiva),
+                colegio_origen         = VALUES(colegio_origen),
+                registrado_por         = VALUES(registrado_por),
+                registrado_en          = CURRENT_TIMESTAMP
         ", [
             (int) $datos['matricula_id'],
             $datos['periodo_nombre'],
@@ -82,6 +93,7 @@ class NotaExternaModel extends BaseModel
             isset($datos['area_id']) && (int) $datos['area_id'] > 0 ? (int) $datos['area_id'] : null,
             $datos['area_nombre'],
             $datos['nota_literal'],
+            ($datos['conclusion_descriptiva'] ?? '') !== '' ? $datos['conclusion_descriptiva'] : null,
             $datos['colegio_origen'] ?? null,
             (int) $datos['registrado_por'],
         ]);
@@ -116,6 +128,7 @@ class NotaExternaModel extends BaseModel
                 'area_id'            => $f['area_id'] ?? null,
                 'area_nombre'        => $f['area_nombre'],
                 'nota_literal'       => $f['nota_literal'],
+                'conclusion_descriptiva' => $f['conclusion_descriptiva'] ?? null,
                 'colegio_origen'     => $colegioOrigen,
                 'registrado_por'     => $usuarioId,
             ]);

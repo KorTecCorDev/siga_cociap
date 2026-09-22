@@ -1100,6 +1100,35 @@ sale de una **entrada SASS propia**, `resources/sass/errores.scss` (el `gulpfile
 - Medido en Chrome el 21/09: 403 real (sesión de docente en `/rectificaciones`) con un solo
   `<!DOCTYPE>` y sin sidebar; en iframe de 375px, código a 64px y sin scroll horizontal.
 
+## QUÉ DICE UN AVISO — mecánica y política fuera (22/09/2026)
+
+Regla de redacción para **todo banner, flash y toast** del sistema, nacida de un barrido
+completo (47 banners en 29 vistas + los mensajes de acción de 34 controladores).
+
+**Un aviso dice QUÉ PASÓ y QUÉ HACER.** Fuera de él:
+
+1. **Mecánica interna.** Cuántas notificaciones creó el sistema, cuántas filas descartó por su
+   cuenta, nombres de tablas, de columnas o de algoritmos («la cascada de desempate»), o que
+   algo «se guarda en la auditoría». El lector no lo acciona y envejece mal: el aviso del lote
+   de extraordinarias prometía que «el docente lo verá», y desde el 21/09 eso es **falso** para
+   las reservadas a dirección.
+2. **Política interna que su lector no puede accionar.** Al docente no se le explican las
+   reglas de boleta ni de orden de mérito de las notas del colegio de origen: se le dice que
+   son informativas y que no tiene que hacer nada con ellas.
+3. **La segunda copia dentro de la MISMA pantalla.** Entre pantallas distintas sí puede
+   repetirse: cada una se abre suelta.
+
+**Sí se dice**, y no se recortó:
+- El acuse de que la acción funcionó («12 notas registradas.»).
+- Los conteos de **lo que el propio usuario escribió** («Se omitieron 4 filas sin nota»): una
+  omisión silenciosa parece pérdida de datos.
+- La información que esa audiencia necesita aunque sea una regla del colegio (la **media beca**
+  del 1.º del grado, en las vistas de docentes y de familias).
+- Que a un rol de solo lectura se le diga que no puede hacer algo y a quién acudir.
+
+Anclado en `verif_banners_aviso.php`: los asertos comprueban que las frases retiradas **no han
+vuelto**, no una redacción concreta.
+
 ## Secciones de CONTENIDO VARIABLE: «datos a la vista, acción aparte» (21/09/2026)
 
 **Regla de UI/UX para toda sección nueva cuyo contenido depende de si hay datos** (pedida por
