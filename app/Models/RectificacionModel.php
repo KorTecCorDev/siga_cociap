@@ -507,6 +507,10 @@ class RectificacionModel extends BaseModel
         }
         foreach ($filas as &$f) {
             $f['total'] = $total[(int) $f['matricula_id'] . '-' . (int) $f['periodo_id']] ?? 0;
+            // Competencias pendientes, aparte: «Falta: Notas» se decide con esto y
+            // no con `sin_notas`, o un alumno con ALGUNAS notas y 26 pendientes
+            // saldría como «Falta: Conducta, Asistencia» con «Calificar (28)».
+            $f['competencias'] = $f['total'];
             // Conducta y asistencia son dos filas más del lote: el «Calificar (N)»
             // sigue siendo exactamente lo que el lote abre.
             $f['sin_notas']        = (bool) $f['sin_notas'];

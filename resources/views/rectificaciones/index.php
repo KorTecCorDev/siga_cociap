@@ -161,7 +161,7 @@ $hayFiltro = array_filter($f) !== [];
                             <td class="text-sm"><?= e($pe['periodo_nombre']) ?></td>
                             <td class="text-sm">
                                 <?= e(implode(', ', array_filter([
-                                    !empty($pe['sin_notas']) ? 'Notas' : '',
+                                    ((int) ($pe['competencias'] ?? 0) > 0 || !empty($pe['sin_notas'])) ? 'Notas' : '',
                                     !empty($pe['falta_conducta']) ? 'Conducta' : '',
                                     !empty($pe['falta_asistencia']) ? 'Asistencia' : '',
                                 ]))) ?>

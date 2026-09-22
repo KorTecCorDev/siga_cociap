@@ -217,7 +217,14 @@ foreach ($estudiantes as $est) {
                     data-csrf="<?= e($csrfToken) ?>"
                     data-total="<?= $total ?>">
                     <td class="col-num"><?= $idx + 1 ?></td>
-                    <td class="col-nombre"><?= e($est['nombre_completo']) ?></td>
+                    <td class="col-nombre">
+                        <?= e($est['nombre_completo']) ?>
+                        <?php // El chip va junto al NOMBRE, como en la tabla de asistencia: en
+                              // la columna de nota ensanchaba la grilla y forzaba el scroll. ?>
+                        <?php if ($soloLectura && empty($resp) && !empty($est['extraordinaria'])): ?>
+                            <?php $proc = PROCEDENCIA_EXTRAORDINARIA; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                        <?php endif; ?>
+                    </td>
 
                     <?php foreach ($criterios as $c):
                         $val = $resp[(int) $c['id']] ?? null; // null | 0 | 1
@@ -246,9 +253,6 @@ foreach ($estudiantes as $est) {
                                 <span class="nota-literal nota-literal--<?= strtolower($est['literal_directo']) ?>">
                                     <?= e($est['literal_directo']) ?>
                                 </span>
-                                <?php if (!empty($est['extraordinaria'])): ?>
-                                    <?php $proc = PROCEDENCIA_EXTRAORDINARIA; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
-                                <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-muted" title="Registro incompleto">—</span>
                             <?php endif; ?>
