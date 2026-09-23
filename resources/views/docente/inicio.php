@@ -16,6 +16,7 @@
  * @var array $pendientes
  * @var array|null $tutoria
  * @var array|null $conducta
+ * @var array|null $riesgoTutor  {seccion, periodo, resumen} (solo tutores)
  * @var array $niveles
  * @var array $nominaResumen
  * @var int   $totalNomina
@@ -182,6 +183,32 @@ $saludo = match($auth_user['sexo'] ?? null) {
             </div>
             <p class="dpanel-card__sub">Revisa la nota de los auxiliares, agrega tu nota y cierra la conducta del bimestre.</p>
             <span class="badge badge--<?= $cBadge ?>"><?= e($cTexto) ?></span>
+        </a>
+    <?php endif; ?>
+
+    <!-- Card: Estudiantes en riesgo (solo tutores; 23/09/2026). Cifras del
+         ULTIMO bimestre PUBLICADO de su nivel (compuerta 044). El badge es gris
+         a proposito: es informacion, no una accion pendiente del tutor, asi
+         que no entra en el semaforo ambar/verde de las demas cards. -->
+    <?php if (!empty($riesgoTutor)):
+        $rs = $riesgoTutor['resumen']; ?>
+        <a href="<?= url('docente/tutoria/riesgo') ?>" class="card dpanel-card dpanel-card--riesgo">
+            <div class="dpanel-card__head">
+                <h2 class="card__title">Estudiantes en riesgo — <?= e($riesgoTutor['seccion']['grado_nombre']) ?> <?= e($riesgoTutor['seccion']['nombre']) ?></h2>
+            </div>
+            <?php if ($riesgoTutor['periodo'] === null): ?>
+                <p class="dpanel-card__sub">Estudiantes de tu sección con competencias no aprobadas, con su desglose por área y docente.</p>
+                <span class="badge badge--espera">Aún no hay bimestre publicado</span>
+            <?php else: ?>
+                <p class="dpanel-card__sub">
+                    <?= e($riesgoTutor['periodo']['nombre_display']) ?> &middot;
+                    <?= (int) $rs['total'] ?> de <?= (int) $rs['evaluados'] ?> en riesgo
+                    &middot; <?= (int) $rs['criticos'] ?> de mayor atención
+                </p>
+                <span class="badge badge--espera">
+                    <?= (int) $rs['total'] === 0 ? 'Nadie llega al umbral' : 'Ver informe de tu sección' ?>
+                </span>
+            <?php endif; ?>
         </a>
     <?php endif; ?>
 

@@ -1116,6 +1116,56 @@ sintéticos** ejerce el guard del descuadre y la rama de secundaria, que con los
 de hoy no se ejercen: sin él, dos de los cinco mutantes (`riesgo_sin_b` sin el guard / que
 toca secundaria) sobrevivían. Los cinco caen.
 
+#### Riesgo por sección y panel del tutor (23/09/2026)
+
+El informe se lleva **a los tutores de cada sección**. No hay rol «tutor»: es un `docente`
+en `secciones.tutor_id` (23 secciones, 23 tutores, **solo el tutor ACTUAL**, sin historial).
+Decisiones del usuario:
+
+- **Dos canales.** (1) Dirección filtra por **sección** e imprime un **lote** (una sección por
+  hoja nueva, con cabecera y tutor). (2) El tutor ve **solo su sección** en su panel.
+- **La unidad de selección es la sección** (`secciones[]`, validadas contra
+  `SeccionModel::seccionesDelAnio()` del año del bimestre); el grado es la suma de sus
+  secciones (su rótulo es un enlace que las marca todas). Sustituye a `grados[]`, que solo
+  existió en `dev`. Alcance del A4: «Primaria: 5°, 6° A · Secundaria: 1° B»
+  (`riesgo_alcance()`).
+- **Contenido enfocado al tutor** (`_seccion.php`): resumen corto, mayor atención,
+  concentración por área y docente (extraída a `_concentracion.php`), «Cómo leer» y listado.
+  Sin casos → mensaje de buena noticia en su hoja (el lote la entrega igual).
+- **Retorno de grado → tutor de la sección OFICIAL** (190/692 va a 2.° B).
+- **El tutor solo ve bimestres PUBLICADOS de su nivel** (compuerta 044: el informe lleva
+  puestos del mérito). Ve todos los publicados de su sección aunque sea tutor desde hace poco.
+  **Sin la lente «solo C»**: siempre la regla oficial.
+- **Card propia en `/docente/inicio`** para tutores, con las cifras del último bimestre
+  publicado. Wayfinding: rosa oscuro `#be185d` + `warning.svg` (ver `docs/modulos/ui.md`).
+
+Implementación (puntos únicos):
+- `riesgo_filtrar_secciones()` — recorta filas, `por_seccion` y **`evaluados`** (= suma de
+  las secciones elegidas); `total` (competidores del mérito, el «de N» del puesto) no se toca.
+- `riesgo_por_seccion()` — un bloque `{seccion, filtrado, stats}` por sección; lo usan el lote
+  y el tutor. `OrdenMeritoModel::riesgoDeSeccion()` lo envuelve para una sección: lo usan el
+  panel del tutor y su card, así que **la card no puede decir otra cifra que el informe**.
+- `Docente\RiesgoTutorController` (`/docente/tutoria/riesgo` y `/imprimir`, rutas literales
+  antes de `/docente/tutoria/{periodo_id}`). 🔴 **La sección NUNCA sale de la URL**
+  (`getSeccionDelTutor` del usuario en sesión) y la lista de bimestres sale de
+  `periodosPublicados()`; un bimestre sin publicar pedido por URL se rechaza (pantalla avisa,
+  papel 404).
+- Card: `PanelController` usa `ultimoPeriodoPublicadoPorNivel()` (el que ya usa el mérito del
+  panel). Cuesta ~65 ms al panel del tutor (medido), solo a tutores.
+
+**Verificación.** `verif_riesgo_tutor.php` (nuevo): sección desde `tutor_id` (un parámetro de
+URL no la cambia; docente sin tutoría sin sección), compuerta en sus dos ramas (publicado se
+acepta; sin publicar y **suspendido en transacción + rollback** se rechazan), informe = filas
+de su sección contadas a mano (retorno incluido), `?primaria=c` sin efecto, **card renderizada
+con el `index()` real** (cifras = informe; ausente para un docente sin tutoría), orden de rutas
+y CSS servido. `verif_direccion_superficies.php`: selección de secciones de dos niveles
+(evaluados y alcance a mano), URLs de Imprimir y del lote, basura descartada, lote con una hoja
+por sección, tutor y 0 filas ajenas; lote completo = 23 secciones y suma el total. Mutantes
+(6): filtro que ignora la selección, `evaluados` sin recortar, sección leída de la URL, sin
+compuerta, lote sin salto de hoja, card con otro bimestre — todos caen. PDF: lote B1 de 70
+hojas, las 23 secciones cada una en hoja nueva y ninguna hoja con dos; A4 del tutor de 2.° B
+en 3 hojas.
+
 ---
 
 ## Dirección solo ve bimestres CERRADOS (08/09/2026)

@@ -6,28 +6,29 @@
  * enlace aquí. Roles: admin, registro académico y los tres directores
  * (Dirección solo ve bimestres cerrados).
  *
- * Filtros: varios grados de cualquier nivel (`grados[]`) y la lente «primaria
- * solo C» (`primaria=c`) van por URL, en un formulario con «Aplicar»: recargan y
- * recalculan el resumen, y el botón Imprimir los lleva al A4 (se imprime lo
- * filtrado). Los atajos por nivel son ENLACES, para que funcionen sin JS. El
- * buscador es solo de pantalla, para ubicar a una persona, y no toca las cifras.
+ * Filtros: varias SECCIONES de cualquier grado y nivel (`secciones[]`) y la
+ * lente «primaria solo C» (`primaria=c`) van por URL, en un formulario con
+ * «Aplicar»: recargan y recalculan el resumen, y los botones Imprimir los llevan
+ * al A4 (se imprime lo filtrado) y al LOTE por tutor (una sección por hoja). El
+ * rótulo de cada grado y los atajos por nivel son ENLACES que marcan todas sus
+ * secciones, para que funcionen sin JS. El buscador es solo de pantalla.
  *
  * @var array      $periodos
  * @var array|null $periodo
  * @var array|null $riesgo   salida de componerRiesgo()
  * @var bool       $avisoNoCerrado
  */
-// Enlace a esta vista (o a su A4) conservando el bimestre y el modo pedido.
-// «Todos los grados» es la ausencia de `grados`; «B y C», la de `primaria`.
-// `http_build_query` emite `grados[0]=…`, que PHP lee igual que `grados[]=`.
+// Enlace a esta vista (o a sus A4) conservando el bimestre y el modo pedido.
+// «Todas las secciones» es la ausencia de `secciones`; «B y C», la de
+// `primaria`. `http_build_query` emite `secciones[0]=…`, que PHP lee igual.
 $pideC = $riesgo && $riesgo['pide_solo_c'];
-$base  = static function (array $grados, string $ruta = 'admin/cuadros/riesgo') use ($periodo, $pideC): string {
+$base  = static function (array $secciones, string $ruta = 'admin/cuadros/riesgo') use ($periodo, $pideC): string {
     $q = ['periodo_id' => (int) $periodo['id']];
-    if ($grados) { $q['grados'] = array_values($grados); }
-    if ($pideC)  { $q['primaria'] = 'c'; }
+    if ($secciones) { $q['secciones'] = array_values($secciones); }
+    if ($pideC)     { $q['primaria'] = 'c'; }
     return $ruta . '?' . http_build_query($q);
 };
-$sel = $riesgo ? $riesgo['grados_ids'] : [];
+$sel = $riesgo ? $riesgo['secciones_ids'] : [];
 ?>
 
 <div class="page-header">
@@ -54,10 +55,10 @@ $sel = $riesgo ? $riesgo['grados_ids'] : [];
                     </option>
                 <?php endforeach; ?>
             </select>
-            <?php // Cambiar de bimestre CONSERVA los filtros; un grado que no
-                  // exista en el otro bimestre lo descarta el controlador. ?>
-            <?php foreach ($sel as $gid): ?>
-                <input type="hidden" name="grados[]" value="<?= (int) $gid ?>">
+            <?php // Cambiar de bimestre CONSERVA los filtros; una sección que
+                  // no sea del año de ese bimestre la descarta el controlador. ?>
+            <?php foreach ($sel as $sid): ?>
+                <input type="hidden" name="secciones[]" value="<?= (int) $sid ?>">
             <?php endforeach; ?>
             <?php if ($pideC): ?>
                 <input type="hidden" name="primaria" value="c">
@@ -68,6 +69,16 @@ $sel = $riesgo ? $riesgo['grados_ids'] : [];
             <a href="<?= url($base($sel, 'admin/cuadros/riesgo/imprimir')) ?>"
                class="btn btn--secondary btn--sm" target="_blank" rel="noopener">
                 &#128424; Imprimir<?= $sel || !$riesgo['contar_b'] ? ' lo filtrado' : ' informe' ?>
+            </a>
+        <?php endif; ?>
+        <?php // El lote va aunque la selección no tenga casos: cada tutor recibe
+              // su hoja, y «nadie llega al umbral» también se entrega. ?>
+        <?php if ($periodo && $riesgo && !empty($riesgo['por_grado'])): ?>
+            <a href="<?= url($base($sel, 'admin/cuadros/riesgo/tutores')) ?>"
+               class="btn btn--secondary btn--sm" target="_blank" rel="noopener">
+                &#128424; Imprimir por tutor
+                (<?= $sel ? count($sel) : count($riesgo['secciones']) ?> secci<?= ($sel ? count($sel) : count($riesgo['secciones'])) !== 1 ? 'ones' : 'ón' ?>,
+                una por hoja)
             </a>
         <?php endif; ?>
 
@@ -94,38 +105,43 @@ $sel = $riesgo ? $riesgo['grados_ids'] : [];
         <p>Este bimestre todavía no tiene competencias bloqueadas: hasta que los docentes aprueben
            y bloqueen sus notas no se puede saber quién está en riesgo.</p>
     </div>
-<?php else:
-    // Casos por grado en el modo actual, para el contador de cada casilla.
-    $casos = [];
-    foreach ($riesgo['por_grado'] as $g) {
-        $casos[(int) $g['grado']['id']] = count($g['en_riesgo']);
-    } ?>
+<?php else: ?>
 
     <?php // ── Filtros ─────────────────────────────────────────────────────
           // Formulario GET con «Aplicar»: las casillas no recargan solas, para
-          // poder marcar varios grados de una vez. Sin marcar = todos. Los
-          // atajos son enlaces (funcionan sin JS). El contador de cada grado
-          // sale del modo actual (con o sin B). ?>
+          // poder marcar varias secciones de una vez. Sin marcar = todas. El
+          // rótulo del grado y los atajos son enlaces (funcionan sin JS). El
+          // contador de cada sección sale del modo actual (con o sin B), y el
+          // `title` nombra a su tutor actual. ?>
     <form method="GET" action="<?= url('admin/cuadros/riesgo') ?>" class="cuadros-riesgo__filtros cuadros-riesgo__form">
         <input type="hidden" name="periodo_id" value="<?= (int) $periodo['id'] ?>">
 
         <div class="cuadros-riesgo__niveles">
             <?php foreach ($riesgo['niveles'] as $niv):
-                $ids = array_map(static fn(array $gr): int => (int) $gr['id'], $niv['grados']); ?>
+                $idsNivel = []; ?>
                 <fieldset class="cuadros-riesgo__nivel">
                     <legend class="cuadros-riesgo__rotulo"><?= e($niv['nombre']) ?></legend>
-                    <div class="cuadros-riesgo__chips">
-                        <?php foreach ($niv['grados'] as $gr):
-                            $gid = (int) $gr['id']; ?>
-                            <label class="orden-chip cuadros-riesgo__casilla">
-                                <input type="checkbox" name="grados[]" value="<?= $gid ?>"
-                                       <?= in_array($gid, $sel, true) ? 'checked' : '' ?>>
-                                <?= e($gr['nombre_display']) ?>
-                                <span class="cuadros-riesgo__cont"><?= (int) ($casos[$gid] ?? 0) ?></span>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
-                    <a class="cuadros-riesgo__atajo" href="<?= url($base($ids)) ?>">Solo <?= e(mb_strtolower($niv['nombre'])) ?></a>
+                    <?php foreach ($niv['grados'] as $gr):
+                        $idsGrado = array_map(static fn(array $s): int => (int) $s['id'], $gr['secciones']);
+                        $idsNivel = array_merge($idsNivel, $idsGrado); ?>
+                        <div class="cuadros-riesgo__grado">
+                            <a class="cuadros-riesgo__grado-rot" href="<?= url($base($idsGrado)) ?>"
+                               title="Ver todas las secciones de <?= e($gr['nombre'] . ' de ' . $niv['nombre']) ?>"><?= e($gr['nombre']) ?></a>
+                            <div class="cuadros-riesgo__chips">
+                                <?php foreach ($gr['secciones'] as $s):
+                                    $sid = (int) $s['id']; ?>
+                                    <label class="orden-chip cuadros-riesgo__casilla"
+                                           title="Tutor(a): <?= e($s['tutor_nombre'] ?? 'sin tutor asignado') ?>">
+                                        <input type="checkbox" name="secciones[]" value="<?= $sid ?>"
+                                               <?= in_array($sid, $sel, true) ? 'checked' : '' ?>>
+                                        <?= e($s['nombre']) ?>
+                                        <span class="cuadros-riesgo__cont"><?= (int) $s['casos'] ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    <a class="cuadros-riesgo__atajo" href="<?= url($base($idsNivel)) ?>">Solo <?= e(mb_strtolower($niv['nombre'])) ?></a>
                 </fieldset>
             <?php endforeach; ?>
         </div>
@@ -140,7 +156,7 @@ $sel = $riesgo ? $riesgo['grados_ids'] : [];
         <div class="cuadros-riesgo__acciones">
             <button type="submit" class="btn btn--primary btn--sm">Aplicar</button>
             <?php if ($sel): ?>
-                <a class="cuadros-riesgo__atajo" href="<?= url($base([])) ?>">Todos los grados</a>
+                <a class="cuadros-riesgo__atajo" href="<?= url($base([])) ?>">Todas las secciones</a>
             <?php endif; ?>
         </div>
     </form>

@@ -236,9 +236,56 @@
     .cuadros-riesgo__atajo { margin-top: 0; }
 }
 
+// Una fila por grado: el rótulo (enlace que marca todas sus secciones) y sus
+// secciones como chips (23/09/2026).
+.cuadros-riesgo__grado {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    min-width: 0;
+    margin-bottom: $spacing-xs;
+}
+
+.cuadros-riesgo__grado-rot {
+    flex: 0 0 2.4em;
+    font-size: $font-size-sm;
+    font-weight: 600;
+}
+
 @media (max-width: 640px) {
     .cuadros-riesgo__niveles { grid-template-columns: 1fr; }
     .cuadros-riesgo__acciones .btn { flex: 1 1 100%; }
+}
+
+// ── Bloque por sección, pensado para su tutor (23/09/2026) ───────────
+// Lo pintan el lote de Dirección y el panel del tutor (`_seccion.php`).
+.riesgo-seccion {
+    &__cab {
+        margin-bottom: $spacing-sm;
+        padding-bottom: $spacing-xs;
+        border-bottom: 2px solid $text-primary;
+    }
+
+    &__titulo { margin: 0; font-size: 1.15rem; }
+
+    &__tutor {
+        margin: 2px 0 0;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+
+        strong { color: $text-primary; }
+    }
+
+    // Sin casos o sin evaluados: se dice con palabras, en su propia caja.
+    &__vacio {
+        margin: $spacing-sm 0;
+        padding: $spacing-md;
+        border: 1px dashed $border-color;
+        border-radius: $border-radius-sm;
+        color: $text-secondary;
+
+        &--bien { border-style: solid; }
+    }
 }
 
 // ── Listado por grado ────────────────────────────────────────────────
@@ -448,4 +495,20 @@
     .riesgo-alumno__dato   { color: #333; }
     .riesgo-alumno__marca  { font-size: 6.5pt; border-color: #000; }
     .riesgo-cur            { color: #555; }
+}
+
+// ── Lote por tutor (A4) ──────────────────────────────────────────────
+// Cada sección empieza en hoja nueva: Dirección imprime una vez y cada tutor se
+// lleva solo sus hojas. Dentro del bloque de una sección el listado NO fuerza
+// hoja propia (sí en el informe general): el resumen de una sección es corto y
+// separarlo dejaba media hoja en blanco por tutor.
+.riesgo-print {
+    .riesgo-lote__hoja + .riesgo-lote__hoja { break-before: page; page-break-before: always; }
+
+    .riesgo-seccion .riesgo-listado { break-before: auto; page-break-before: auto; }
+
+    .riesgo-seccion__cab    { margin: 6px 0 8px; border-bottom-width: 1.2pt; border-color: #000; }
+    .riesgo-seccion__titulo { font-size: 13pt; color: #000; }
+    .riesgo-seccion__tutor  { font-size: 9pt; color: #333; }
+    .riesgo-seccion__vacio  { font-size: 9pt; color: #222; border-color: #999; }
 }

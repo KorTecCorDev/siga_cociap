@@ -349,7 +349,10 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   (`$contarB = false`) es una lente de lectura: la regla oficial sigue siendo B+C y la
   banda del tablero no se filtra. **El riesgo cuenta al retorno de grado en su
   matrícula OFICIAL** (el mérito, en la operativa): `statsPorGrado` reubica la fila y
-  `evaluados` ≠ `total` en esos grados. Ver `docs/modulos/usuarios-direccion.md`.
+  `evaluados` ≠ `total` en esos grados. **El tutor ve SU sección** (`/docente/tutoria/riesgo`
+  y su card): la sección sale de `tutor_id` en servidor, nunca de la URL, y solo en bimestres
+  PUBLICADOS de su nivel (compuerta 044, el informe lleva puestos). Ver
+  `docs/modulos/usuarios-direccion.md`.
 - **Los TRES directores son SOLO LECTURA y salen de `ROLES_DIRECCION`**
   (`helpers.php`; 24/08/2026). Nunca listar sus códigos a mano — eran 44 literales
   en 16 archivos. **DOS excepciones deliberadas, que NO se deben "arreglar":**

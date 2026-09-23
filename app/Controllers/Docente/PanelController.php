@@ -10,6 +10,7 @@ use App\Models\EstudianteModel;
 use App\Models\HorarioModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\PublicacionBoletaModel;
+use App\Models\SeccionModel;
 use App\Models\TransversalModel;
 use App\Models\NotaExternaModel;
 use Core\Session;
@@ -157,6 +158,24 @@ class PanelController extends BaseController
             ];
         }
 
+        // Card de Estudiantes en riesgo (solo tutores; 23/09/2026): cifras de SU
+        // sección en el ÚLTIMO bimestre PUBLICADO de su nivel —compuerta 044,
+        // como el mérito del claustro: el informe lleva puestos—. Sale del mismo
+        // punto único que el informe al que lleva (`riesgoDeSeccion`), así que
+        // la card no puede decir otra cifra. Solo el tutor paga el cálculo.
+        $riesgoTutor = null;
+        if ($seccionTutor) {
+            $anioT  = (int) $seccionTutor['anio_id'];
+            $ultimo = (new PublicacionBoletaModel())
+                ->ultimoPeriodoPublicadoPorNivel($anioT)[(int) $seccionTutor['nivel_id']] ?? null;
+            $riesgoTutor = ['seccion' => $seccionTutor, 'periodo' => $ultimo, 'resumen' => null];
+            if ($ultimo) {
+                $fila = array_column((new SeccionModel())->seccionesDelAnio($anioT), null, 'id')[(int) $seccionTutor['id']];
+                $riesgoTutor['resumen'] = (new OrdenMeritoModel())
+                    ->riesgoDeSeccion((int) $ultimo['id'], $fila)['stats']['resumen'];
+            }
+        }
+
         // Chips de identidad del encabezado: un chip por cada ROL que cumple el
         // docente, combinables. Unidocente (dicta todas las areas de un aula) y
         // tutor (responsable de una seccion) son atributos INDEPENDIENTES, con
@@ -229,6 +248,7 @@ class PanelController extends BaseController
             'pendientes'    => $pendientes,
             'tutoria'       => $tutoria,
             'conducta'      => $conducta,
+            'riesgoTutor'   => $riesgoTutor,
             'niveles'       => $niveles,
             'nominaResumen' => $nominaResumen,
             'totalNomina'   => $totalNomina,

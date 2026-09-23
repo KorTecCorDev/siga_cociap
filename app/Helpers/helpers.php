@@ -924,26 +924,120 @@ function riesgo_resumen(array $porGrado, bool $contarB = true): array
 }
 
 /**
- * Recorta la lista de `statsPorGrado` a una selección de grados, de cualquier
- * nivel (23/09/2026).
+ * Recorta la lista de `statsPorGrado` a una selección de SECCIONES, de
+ * cualquier grado y nivel (23/09/2026; sustituye al filtro por grados: un grado
+ * es la suma de sus secciones).
  *
- * Lo usan la vista de riesgo y su A4, para que el papel imprima LO FILTRADO y
- * el resumen describa exactamente eso. Los ids llegan de la URL ya validados
- * como enteros y solo se COMPARAN con los de la lista: nunca se interpolan en
- * ningún sitio. Lista vacía = todos los grados.
+ * Lo usan la vista de riesgo, su A4, el lote por tutor y el panel del tutor,
+ * para que cada superficie describa EXACTAMENTE lo elegido. `$secciones` son
+ * filas de `SeccionModel::seccionesDelAnio()` ya validadas: aquí solo se
+ * comparan, nunca se interpolan. Lista vacía = todo.
  *
- * @param int[] $gradoIds
+ * Por grado con alguna sección elegida se quedan solo las filas de riesgo y los
+ * evaluados de esas secciones, y `evaluados` (denominador del riesgo) pasa a ser
+ * su suma. `total` —competidores del MÉRITO, el «de N» del puesto— NO se toca:
+ * el puesto sigue siendo del grado entero.
+ *
+ * Se cruza por (grado, NOMBRE de sección): el ranking en vivo no trae
+ * `seccion_id`. La fila de un retorno de grado ya viene reubicada en su sección
+ * OFICIAL (`statsPorGrado`), así que cae sola en la sección que le corresponde.
  */
-function riesgo_filtrar(array $porGrado, array $gradoIds): array
+function riesgo_filtrar_secciones(array $porGrado, array $secciones): array
 {
-    if ($gradoIds === []) {
+    if ($secciones === []) {
         return array_values($porGrado);
     }
 
-    return array_values(array_filter(
-        $porGrado,
-        static fn(array $g): bool => in_array((int) $g['grado']['id'], $gradoIds, true)
-    ));
+    $elegidas = [];
+    foreach ($secciones as $s) {
+        $elegidas[(int) $s['grado_id']][(string) $s['nombre']] = true;
+    }
+
+    $out = [];
+    foreach ($porGrado as $g) {
+        $suyas = $elegidas[(int) $g['grado']['id']] ?? null;
+        if ($suyas === null) {
+            continue;
+        }
+
+        $g['en_riesgo'] = array_values(array_filter(
+            $g['en_riesgo'],
+            static fn(array $al): bool => isset($suyas[(string) $al['seccion_nombre']])
+        ));
+        $g['por_seccion'] = array_values(array_filter(
+            $g['por_seccion'] ?? [],
+            static fn(array $s): bool => isset($suyas[(string) $s['seccion_nombre']])
+        ));
+        $g['evaluados'] = array_sum(array_map(
+            static fn(array $s): int => (int) $s['total'],
+            $g['por_seccion']
+        ));
+
+        $out[] = $g;
+    }
+
+    return $out;
+}
+
+/**
+ * Un bloque de riesgo POR SECCIÓN (23/09/2026): PUNTO ÚNICO del informe que va
+ * a cada tutor. Lo usan el lote de Dirección (`/admin/cuadros/riesgo/tutores`,
+ * una sección por hoja) y el panel del tutor (una sola sección).
+ *
+ * Función PURA: recorta con `riesgo_filtrar_secciones()` y calcula con
+ * `riesgo_estadisticas()`, así que cada bloque dice exactamente lo de su
+ * sección. Una sección sin ranking en el bimestre sale con `evaluados = 0`, y
+ * la vista lo distingue de «nadie llega al umbral».
+ *
+ * @param  array $secciones  filas de `SeccionModel::seccionesDelAnio()`
+ * @return array<int, array{seccion:array, filtrado:array, stats:array}>
+ */
+function riesgo_por_seccion(array $porGrado, array $secciones, bool $contarB = true): array
+{
+    $bloques = [];
+    foreach ($secciones as $s) {
+        $filtrado  = riesgo_filtrar_secciones($porGrado, [$s]);
+        $bloques[] = [
+            'seccion'  => $s,
+            'filtrado' => $filtrado,
+            'stats'    => riesgo_estadisticas($filtrado, $contarB),
+        ];
+    }
+    return $bloques;
+}
+
+/**
+ * Texto del ALCANCE de un informe de riesgo (23/09/2026): «Primaria: 5°, 6° A ·
+ * Secundaria: 1° B». Un grado con todas sus secciones elegidas se nombra entero;
+ * si no, sección por sección. Sin selección: «Todos los niveles y grados».
+ *
+ * @param array $niveles  nivel → {nombre, grados: grado → {nombre, secciones[]}}
+ * @param int[] $ids      secciones elegidas (ya validadas)
+ */
+function riesgo_alcance(array $niveles, array $ids): string
+{
+    if ($ids === []) {
+        return 'Todos los niveles y grados';
+    }
+
+    $partes = [];
+    foreach ($niveles as $niv) {
+        $trozos = [];
+        foreach ($niv['grados'] as $gr) {
+            $todas = array_column($gr['secciones'], 'nombre', 'id');
+            $sel   = array_intersect_key($todas, array_flip($ids));
+            if ($sel === []) {
+                continue;
+            }
+            $trozos[] = count($sel) === count($todas)
+                ? $gr['nombre']
+                : $gr['nombre'] . ' ' . implode(', ', $sel);
+        }
+        if ($trozos) {
+            $partes[] = $niv['nombre'] . ': ' . implode(', ', $trozos);
+        }
+    }
+    return implode(' · ', $partes);
 }
 
 /**

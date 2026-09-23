@@ -1207,6 +1207,9 @@ $sesionComo('admin');
 $propMerito = $ctrlClase->getProperty('meritoModel');
 $propMerito->setAccessible(true);
 $propMerito->setValue($ctrl, new App\Models\OrdenMeritoModel());
+$propSeccion = $ctrlClase->getProperty('seccionModel');
+$propSeccion->setAccessible(true);
+$propSeccion->setValue($ctrl, new App\Models\SeccionModel());
 
 $renderRiesgo = static function (array $vars, string $vista): array {
     $errores = [];
@@ -1313,7 +1316,7 @@ foreach ($todos as $pr) {
     $chk("el A4 de $etqR separa el listado en hoja propia",
         str_contains($hPrn, '<section class="riesgo-listado">'));
 
-    // ── Filtros (23/09/2026): varios grados + lente «primaria solo C» ──
+    // ── Filtros (23/09/2026): varias secciones + lente «primaria solo C» ──
     // Todo se arma con el MISMO `componerRiesgo()` y se renderiza de verdad.
     $componer = static function (array $get) use ($privado, $pr): array {
         $_GET = $get;
@@ -1335,7 +1338,7 @@ foreach ($todos as $pr) {
     // Por defecto: regla oficial, todos los grados, idéntico a la banda del tablero.
     $oficial = riesgo_resumen((new App\Models\OrdenMeritoModel())->statsPorGrado($pidR));
     $chk("por defecto el informe de $etqR es la regla oficial (B+C) sobre todos los grados",
-        $riesgo['contar_b'] === true && $riesgo['pide_solo_c'] === false && $riesgo['grados_ids'] === []
+        $riesgo['contar_b'] === true && $riesgo['pide_solo_c'] === false && $riesgo['secciones_ids'] === []
             && $idsDe($riesgo['filtrado']) === array_keys($porId)
             && (int) $riesgo['stats']['resumen']['total'] === (int) $oficial['total']
             && (int) $riesgo['stats']['resumen']['criticos'] === (int) $oficial['criticos']
@@ -1354,44 +1357,106 @@ foreach ($todos as $pr) {
             && substr_count($hPrn, 'Retorno de grado: se evalúa en') === $nRet,
         "$nRet retorno(s) en la lista");
 
-    // Varios grados de DOS niveles, con repetidos, inexistentes y basura.
-    $selIds = array_merge(array_slice($idsPrim, -2), array_slice($idsSec, 0, 1));
-    $rg = $componer(['periodo_id' => (string) $pidR, 'grados' => array_merge(
+    // Secciones del año del bimestre, leídas aquí A MANO (no con el modelo).
+    $secsAnio = [];
+    foreach (Core\Database::connect()->query('SELECT s.id, s.grado_id, s.nombre FROM secciones s WHERE s.anio_id = ' . (int) $pr['anio_id'] . ' ORDER BY s.id')->fetchAll(PDO::FETCH_ASSOC) as $f) {
+        $secsAnio[(int) $f['id']] = ['grado_id' => (int) $f['grado_id'], 'nombre' => (string) $f['nombre']];
+    }
+    // Lo esperado de una selección, contado a mano sobre la lista OFICIAL.
+    $esperaSel = static function (array $ids) use ($secsAnio, $riesgo): array {
+        $casos = $evaluados = 0;
+        foreach ($riesgo['por_grado'] as $g) {
+            foreach ($ids as $id) {
+                if ($secsAnio[$id]['grado_id'] !== (int) $g['grado']['id']) { continue; }
+                foreach ($g['en_riesgo'] as $al) { $casos += $al['seccion_nombre'] === $secsAnio[$id]['nombre'] ? 1 : 0; }
+                foreach ($g['por_seccion'] as $ps) { $evaluados += $ps['seccion_nombre'] === $secsAnio[$id]['nombre'] ? (int) $ps['total'] : 0; }
+            }
+        }
+        return [$casos, $evaluados];
+    };
+
+    // Varias secciones de DOS niveles —dos grados de primaria ENTEROS y una
+    // sección suelta de secundaria—, con repetidos, inexistentes y basura.
+    $secDe   = static fn(int $gid): array => array_keys(array_filter($secsAnio, fn($x) => $x['grado_id'] === $gid));
+    $gPrim   = array_slice($idsPrim, -2);
+    $unaSec  = $secDe($idsSec[0])[0];
+    $selIds  = array_merge($secDe($gPrim[0]), $secDe($gPrim[1]), [$unaSec]);
+    $rg = $componer(['periodo_id' => (string) $pidR, 'secciones' => array_merge(
         array_map('strval', $selIds), [(string) $selIds[0], '999999', 'abc', '-1', '1.5', ''])]);
-    $esperado = $filasDe(array_map(fn($id) => $porId[$id], $selIds));
+    [$esperado, $evalEsp] = $esperaSel($selIds);
     [$hG, $eG]   = $renderRiesgo(['periodo' => $pr, 'riesgo' => $rg], 'imprimir');
     [$hGi, $eGi] = $renderRiesgo(['periodos' => $todos, 'periodo' => $pr, 'riesgo' => $rg, 'avisoNoCerrado' => false], 'index');
-    $alc = $alcance($hG);
-    $nombresOk = true;
-    foreach ($selIds as $id) {
-        $nombresOk = $nombresOk && str_contains($alc, e($porId[$id]['grado']['nombre_display']))
-            && str_contains($alc, e($porId[$id]['grado']['nivel_nombre']) . ':');
-    }
-    $chk("varios grados de dos niveles en $etqR: lista, resumen y A4 describen exactamente esa selección",
-        $rg['grados_ids'] === $selIds
-            && array_values(array_intersect(array_keys($porId), $selIds)) === $idsDe($rg['filtrado'])
+    // Alcance escrito A MANO: los grados enteros por su nombre, la suelta con su letra.
+    $alcEsp = e($porId[$gPrim[0]]['grado']['nivel_nombre'] . ': ' . $porId[$gPrim[0]]['grado']['nombre_display'] . ', '
+        . $porId[$gPrim[1]]['grado']['nombre_display'] . ' · ' . $porId[$idsSec[0]]['grado']['nivel_nombre'] . ': '
+        . $porId[$idsSec[0]]['grado']['nombre_display'] . ' ' . $secsAnio[$unaSec]['nombre']);
+    $evalObt = array_sum(array_map(fn($g) => (int) $g['evaluados'], $rg['filtrado']));
+    $chk("varias secciones de dos niveles en $etqR: lista, evaluados, resumen y A4 describen exactamente esa selección",
+        $rg['secciones_ids'] === $selIds
             && (int) $rg['stats']['resumen']['total'] === $esperado
+            && $evalObt === $evalEsp && (int) $rg['stats']['resumen']['evaluados'] === $evalEsp
             && substr_count($hG, 'data-riesgo-fila') === $esperado
-            && $nombresOk && $eG === [] && $eGi === [],
-        count($selIds) . " grado(s) · $esperado estudiante(s) · alcance «" . html_entity_decode($alc) . '»');
+            && $alcance($hG) === $alcEsp && $eG === [] && $eGi === [],
+        count($selIds) . " sección(es) · $esperado estudiante(s) de $evalEsp evaluados · alcance «" . html_entity_decode($alcance($hG)) . '»');
 
-    // Las casillas marcadas son la selección, y el Imprimir lleva la MISMA consulta.
-    preg_match('~href="([^"]*admin/cuadros/riesgo/imprimir\?[^"]*)"~', $hGi, $mU);
-    parse_str((string) parse_url(html_entity_decode($mU[1] ?? ''), PHP_URL_QUERY), $qU);
+    // Las casillas marcadas son la selección, y los dos Imprimir llevan la MISMA consulta.
+    $urlDe = static function (string $html, string $ruta): array {
+        preg_match('~href="([^"]*admin/cuadros/riesgo/' . $ruta . '\?[^"]*)"~', $html, $mU);
+        parse_str((string) parse_url(html_entity_decode($mU[1] ?? ''), PHP_URL_QUERY), $qU);
+        return $qU;
+    };
+    $qU = $urlDe($hGi, 'imprimir');
+    $qT = $urlDe($hGi, 'tutores');
     $rU = $componer($qU);
-    $chk("en $etqR las casillas marcadas son la selección y el enlace Imprimir la reproduce",
-        preg_match_all('~name="grados\[\]" value="\d+"\s*checked~', $hGi) === count($selIds)
-            && $rU['grados_ids'] === $rg['grados_ids'] && $rU['contar_b'] === $rg['contar_b']
-            && (int) ($qU['periodo_id'] ?? 0) === $pidR,
-        html_entity_decode($mU[1] ?? '(sin enlace)'));
+    $rT = $componer($qT);
+    $chk("en $etqR las casillas marcadas son la selección y los enlaces Imprimir e Imprimir por tutor la reproducen",
+        preg_match_all('~name="secciones\[\]" value="\d+"\s*checked~', $hGi) === count($selIds)
+            && $rU['secciones_ids'] === $rg['secciones_ids'] && $rU['contar_b'] === $rg['contar_b']
+            && $rT['secciones_ids'] === $rg['secciones_ids']
+            && (int) ($qU['periodo_id'] ?? 0) === $pidR && (int) ($qT['periodo_id'] ?? 0) === $pidR);
 
     // `query()` entrega $_GET en crudo: un escalar o un arreglo anidado se
-    // descartan (`(int)` de un arreglo vale 1 y elegiría el grado id 1).
-    $rEsc = $componer(['grados' => (string) $selIds[0]]);
-    $rAni = $componer(['grados' => [[(string) $selIds[0]], ['1']]]);
-    $chk("en $etqR un `grados` escalar o anidado se descarta (todos los grados)",
-        $rEsc['grados_ids'] === [] && $rAni['grados_ids'] === []
+    // descartan (`(int)` de un arreglo vale 1 y elegiría la sección id 1).
+    $rEsc = $componer(['secciones' => (string) $selIds[0]]);
+    $rAni = $componer(['secciones' => [[(string) $selIds[0]], ['1']]]);
+    $chk("en $etqR un `secciones` escalar o anidado se descarta (todas las secciones)",
+        $rEsc['secciones_ids'] === [] && $rAni['secciones_ids'] === []
             && count($rAni['filtrado']) === count($riesgo['por_grado']));
+
+    // ── Lote por tutor: una sección por hoja, cada una con lo SUYO ──
+    $renderLote = static function (array $r) use ($renderRiesgo, $pr): array {
+        $bloques = riesgo_por_seccion($r['por_grado'], $r['elegidas'] ?: $r['secciones'], $r['contar_b']);
+        [$h, $e] = $renderRiesgo(['periodo' => $pr, 'riesgo' => $r, 'bloques' => $bloques], 'tutores');
+        return [$h, $e, $bloques];
+    };
+    [$hL, $eL, $bL] = $renderLote($rg);
+    preg_match_all('~data-riesgo-seccion="(\d+)"~', $hL, $mS);
+    $ajenas = 0;
+    foreach ($bL as $b) {
+        foreach ($b['filtrado'] as $g) {
+            foreach ($g['en_riesgo'] as $al) { $ajenas += $al['seccion_nombre'] === $b['seccion']['nombre'] ? 0 : 1; }
+            $ajenas += (int) $g['grado']['id'] === $b['seccion']['grado_id'] ? 0 : 1;
+        }
+    }
+    $sumaL = array_sum(array_map(fn($b) => (int) $b['stats']['resumen']['total'], $bL));
+    $tutOk = true;
+    foreach ($bL as $b) {
+        $tutOk = $tutOk && ($b['seccion']['tutor_nombre'] === null || str_contains($hL, e($b['seccion']['tutor_nombre'])));
+    }
+    $chk("el lote por tutor de $etqR: una hoja por sección elegida, con su tutor y SOLO sus estudiantes",
+        array_map('intval', $mS[1]) === $selIds
+            && substr_count($hL, 'class="riesgo-lote__hoja"') === count($selIds)
+            && substr_count($hL, 'Tutor(a) actual:') === count($selIds)
+            && $ajenas === 0 && $sumaL === $esperado && $tutOk && $eL === [],
+        count($bL) . " hoja(s) · $sumaL estudiante(s) · $ajenas fila(s) ajena(s)");
+
+    // Sin selección, el lote lleva TODAS las secciones del año y cuadra con el total.
+    [$hL0, $eL0, $bL0] = $renderLote($riesgo);
+    $chk("el lote completo de $etqR lleva las " . count($secsAnio) . " secciones y suma el total del informe",
+        count($bL0) === count($secsAnio)
+            && array_sum(array_map(fn($b) => (int) $b['stats']['resumen']['total'], $bL0)) === (int) $riesgo['stats']['resumen']['total']
+            && $eL0 === [],
+        count($bL0) . ' hoja(s)');
 
     // Lente «primaria solo C».
     $rc = $componer(['primaria' => 'c']);
@@ -1455,7 +1520,8 @@ foreach ($todos as $pr) {
         $rc['stats']['resumen']['total'] . ' estudiante(s) · ' . $rc['stats']['resumen']['criticos'] . ' de mayor atención');
 
     // «Solo C» pedido con solo secundaria: no se aplica ni se declara, pero se conserva.
-    $rs = $componer(['primaria' => 'c', 'grados' => array_map('strval', $idsSec)]);
+    $idsSecciones2 = array_merge(...array_map($secDe, $idsSec));
+    $rs = $componer(['primaria' => 'c', 'secciones' => array_map('strval', $idsSecciones2)]);
     [$hS] = $renderRiesgo(['periodo' => $pr, 'riesgo' => $rs], 'imprimir');
     $chk("en $etqR «solo C» con solo secundaria no cambia nada ni se declara en el A4",
         $rs['contar_b'] === true && $rs['hay_primaria'] === false && $rs['pide_solo_c'] === true
@@ -1498,13 +1564,13 @@ $chk('riesgo_sin_b() (sintetico): recorta a C >= 3, quita las B, anula el desglo
         && $outS[1] === $sint[1],
     'quedan ' . implode(', ', array_keys($porMid)));
 
-// La banda del tablero NO se filtra (23/09/2026): ni `grados[]` ni la lente
+// La banda del tablero NO se filtra (23/09/2026): ni `secciones[]` ni la lente
 // «solo C» llegan a ella. Se mira el CODIGO: `componerBloques()` no lee esos
 // parametros y la banda no llama a la lente ni pasa `$contarB = false`.
 preg_match('~private function componerBloques\(.*?\n    \}~s', $ctrlSrcR, $mBq);
 $bandaSrc = $leer('/resources/views/admin/cuadros/_banda-riesgo.php');
-$chk('la banda de /admin/cuadros no se filtra: ni grados ni lente «solo C»',
-    isset($mBq[0]) && !preg_match("~query\('(grados|primaria)'\)~", $mBq[0])
+$chk('la banda de /admin/cuadros no se filtra: ni secciones ni lente «solo C»',
+    isset($mBq[0]) && !preg_match("~query\('(grados|secciones|primaria)'\)~", $mBq[0])
         && !preg_match('~riesgo_(sin_b|filtrar)\(|riesgo_\w+\([^)]*false~', $bandaSrc));
 
 $sesionComo(null);

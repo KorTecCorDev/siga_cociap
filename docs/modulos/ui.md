@@ -53,6 +53,7 @@
   | **Transversales / Tutoría** (`$card-tutoria-*`) | `#0d9488` teal | `#ecfbf8` | `#0f766e` |
   | **Conducta** (`$card-conducta-*`) | `#7c3aed` púrpura | `#f5f0fe` | `#6d28d9` |
   | **Nómina** (`$card-nomina-*`) | `#e07b1a` naranja | `#fef3e2` | `#b45309` |
+  | **Estudiantes en riesgo** (`$card-riesgo-*`, solo tutores; 23/09/2026) | `#be185d` rosa oscuro | `#fdf2f8` | `#9d174d` |
 - **REGLA:** rojo (`$color-error`) y ámbar (`$color-warning`) quedan RESERVADOS para los
   badges de estado (error/advertencia); NUNCA se usan como identidad de un acceso.
 - Combinación azul↔naranja + teal/púrpura: bien diferenciable con daltonismo.
@@ -175,6 +176,7 @@ los `trasladado` ya estaban fuera).
   | Tutoría | `page-title--tutoria` | `users-group-rounded` | teal |
   | Conducta | `page-title--conducta` | `smile` | púrpura |
   | Nómina | `page-title--nomina` | `childs-students` | naranja |
+  | Estudiantes en riesgo | `page-title--riesgo` | `warning` (el mismo que en el panel de Dirección) | rosa oscuro |
   | Orden de mérito | `page-title--merito` | `medal-ribbon-star` | naranja (familia Nómina) |
   | Ranking por sección | `page-title--ranking` | `ver-resumen` | naranja (familia Nómina) |
 - Aplicado en `mis-cargas`, `tutoria`, `conducta`, `nomina`, `orden-merito`

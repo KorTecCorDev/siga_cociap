@@ -22,7 +22,7 @@
  *
  * `data-riesgo-fila` va en el `<tbody>` de cada estudiante: es lo que cuenta y
  * oculta el buscador (`cuadros-riesgo.js`). El buscador NO recalcula el
- * resumen; los filtros de grados y de B en primaria sí, porque van por URL.
+ * resumen; los filtros de secciones y de B en primaria sí, porque van por URL.
  *
  * En la lente «primaria solo C» la franja conserva la distribución completa
  * (AD · A · B · C): es la del estudiante, no la cifra de riesgo, y sin la B no

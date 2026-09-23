@@ -10,6 +10,7 @@ use App\Models\ControlOperativoModel;
 use App\Models\DirectorEbrModel;
 use App\Models\MatriculaModel;
 use App\Models\OrdenMeritoModel;
+use App\Models\SeccionModel;
 use Core\View;
 
 /**
@@ -39,6 +40,7 @@ class CuadrosEstadisticosController extends BaseController
     private AsistenciaModel    $asistenciaModel;
     private OrdenMeritoModel   $meritoModel;
     private ControlOperativoModel $controlModel;
+    private SeccionModel       $seccionModel;
 
     public function __construct()
     {
@@ -50,6 +52,7 @@ class CuadrosEstadisticosController extends BaseController
         $this->asistenciaModel = new AsistenciaModel();
         $this->meritoModel     = new OrdenMeritoModel();
         $this->controlModel    = new ControlOperativoModel();
+        $this->seccionModel    = new SeccionModel();
     }
 
     /**
@@ -128,7 +131,7 @@ class CuadrosEstadisticosController extends BaseController
     }
 
     /**
-     * GET /admin/cuadros/riesgo  (acepta ?periodo_id, ?grados[], ?primaria=c)
+     * GET /admin/cuadros/riesgo  (acepta ?periodo_id, ?secciones[], ?primaria=c)
      *
      * Informe de estudiantes en riesgo académico (23/09/2026). Nació como el
      * bloque 3b del tablero y se sacó a su propia vista: con la regla de
@@ -158,7 +161,7 @@ class CuadrosEstadisticosController extends BaseController
     }
 
     /**
-     * GET /admin/cuadros/riesgo/imprimir  (acepta ?periodo_id, ?grados[], ?primaria=c)
+     * GET /admin/cuadros/riesgo/imprimir  (acepta ?periodo_id, ?secciones[], ?primaria=c)
      *
      * A4 vertical del informe. Imprime LO FILTRADO (decisión del usuario,
      * 23/09/2026): sin filtro son ~40 hojas en B1, y el que prepara una reunión
@@ -190,6 +193,46 @@ class CuadrosEstadisticosController extends BaseController
     }
 
     /**
+     * GET /admin/cuadros/riesgo/tutores  (acepta ?periodo_id, ?secciones[], ?primaria=c)
+     *
+     * LOTE para repartir a los tutores (23/09/2026): un bloque por sección,
+     * cada uno en hoja nueva y con su tutor ACTUAL en el encabezado, para que
+     * cada tutor se lleve solo sus hojas. Sin selección van las 23 secciones.
+     * Mismo recorte y misma lente que la pantalla (`componerRiesgo()`), y el
+     * bloque es el mismo que ve el tutor en su panel (`riesgo_por_seccion()`).
+     *
+     * Documento de TRABAJO, sin sello; niega el bimestre fuera de alcance como
+     * `riesgoImprimir()`.
+     */
+    public function riesgoTutores(): void
+    {
+        $periodos = $this->periodosVisibles();
+
+        [$periodo, $fueraDeAlcance] = $this->elegirPeriodo(
+            $periodos,
+            (int) ($this->query('periodo_id') ?? 0)
+        );
+
+        if (!$periodo || $fueraDeAlcance) {
+            $this->notFound();
+        }
+
+        $riesgo = $this->componerRiesgo($periodo);
+
+        View::setLayout('print');
+        $this->view('admin/cuadros/riesgo/tutores', [
+            'titulo'  => 'Estudiantes en riesgo por tutor',
+            'periodo' => $periodo,
+            'riesgo'  => $riesgo,
+            'bloques' => riesgo_por_seccion(
+                $riesgo['por_grado'],
+                $riesgo['elegidas'] ?: $riesgo['secciones'],
+                $riesgo['contar_b']
+            ),
+        ]);
+    }
+
+    /**
      * Datos del informe de riesgo. PUNTO ÚNICO de la pantalla y su A4, por el
      * mismo motivo que `componerBloques()`: si cada uno armara los suyos, el
      * papel podría decir otra cifra que la pantalla.
@@ -200,43 +243,31 @@ class CuadrosEstadisticosController extends BaseController
      */
     private function componerRiesgo(array $periodo): array
     {
-        $porGrado = $this->meritoModel->statsPorGrado((int) $periodo['id']);
+        $porGrado  = $this->meritoModel->statsPorGrado((int) $periodo['id']);
+        $secciones = $this->seccionModel->seccionesDelAnio((int) $periodo['anio_id']);
 
-        // Grados del ranking, agrupados por nivel (para el formulario) y con
-        // su código (para saber si la selección toca primaria).
-        $niveles = $codigo = [];
-        foreach ($porGrado as $g) {
-            $gr  = $g['grado'];
-            $nid = (int) $gr['nivel_id'];
-            $niveles[$nid] ??= [
-                'nombre' => (string) $gr['nivel_nombre'],
-                'codigo' => (string) $gr['nivel_codigo'],
-                'grados' => [],
-            ];
-            $niveles[$nid]['grados'][] = $gr;
-            $codigo[(int) $gr['id']]   = (string) $gr['nivel_codigo'];
-        }
-
-        // ?grados[] llega de la URL y se VALIDA contra los grados que el ranking
-        // devolvió. `query()` entrega `$_GET` en crudo: un escalar o un arreglo
-        // anidado se descartan (ojo: `(int)` de un arreglo vale 1, y
-        // seleccionaría en silencio el grado id 1). Un id que no existe se
+        // ?secciones[] llega de la URL y se VALIDA contra las secciones del año
+        // del bimestre. `query()` entrega `$_GET` en crudo: un escalar o un
+        // arreglo anidado se descartan (ojo: `(int)` de un arreglo vale 1, y
+        // seleccionaría en silencio la sección id 1). Un id que no existe se
         // descarta en vez de dejar la pantalla vacía sin explicación.
-        $crudo  = $this->query('grados');
-        $grados = [];
+        $porId = array_column($secciones, null, 'id');
+        $crudo = $this->query('secciones');
+        $ids   = [];
         foreach (is_array($crudo) ? $crudo : [] as $v) {
-            if (is_string($v) && ctype_digit($v) && isset($codigo[(int) $v])) {
-                $grados[(int) $v] = (int) $v;
+            if (is_string($v) && ctype_digit($v) && isset($porId[(int) $v])) {
+                $ids[(int) $v] = (int) $v;
             }
         }
-        $grados = array_values($grados);
+        $ids     = array_values($ids);
+        $elegida = array_map(static fn(int $id): array => $porId[$id], $ids);
 
         // Lente «primaria solo C»: solo aplica si la selección toca primaria
-        // (o es vacía = todos). Con solo secundaria no hay nada que cambiar, y
+        // (o es vacía = todas). Con solo secundaria no hay nada que cambiar, y
         // el A4 no debe declarar un modo que no se aplicó.
         $hayPrimaria = (bool) array_filter(
-            $grados === [] ? $codigo : array_intersect_key($codigo, array_flip($grados)),
-            static fn(string $c): bool => str_starts_with($c, 'prim')
+            $elegida === [] ? $secciones : $elegida,
+            static fn(array $s): bool => str_starts_with($s['nivel_codigo'], 'prim')
         );
         $pideSoloC = $this->query('primaria') === 'c';
         $soloC     = $pideSoloC && $hayPrimaria;
@@ -244,21 +275,43 @@ class CuadrosEstadisticosController extends BaseController
         $base = $soloC
             ? riesgo_sin_b($porGrado, OrdenMeritoModel::RIESGO_MIN_C, OrdenMeritoModel::RIESGO_CRITICO)
             : $porGrado;
-        $filtrado = riesgo_filtrar($base, $grados);
+        $filtrado = riesgo_filtrar_secciones($base, $elegida);
+
+        // Secciones agrupadas nivel → grado para el formulario, con los casos
+        // de cada una en el modo actual (el contador de su casilla).
+        $casos = [];
+        foreach ($base as $g) {
+            foreach ($g['en_riesgo'] as $al) {
+                $k = (int) $g['grado']['id'] . '|' . $al['seccion_nombre'];
+                $casos[$k] = ($casos[$k] ?? 0) + 1;
+            }
+        }
+        $niveles = [];
+        foreach ($secciones as $s) {
+            $nid = $s['nivel_id'];
+            $gid = $s['grado_id'];
+            $niveles[$nid] ??= ['nombre' => $s['nivel_nombre'], 'codigo' => $s['nivel_codigo'], 'grados' => []];
+            $niveles[$nid]['grados'][$gid] ??= ['nombre' => $s['grado_nombre'], 'secciones' => []];
+            $niveles[$nid]['grados'][$gid]['secciones'][] = $s + [
+                'casos' => $casos[$gid . '|' . $s['nombre']] ?? 0,
+            ];
+        }
 
         return [
-            'por_grado'    => $base,
-            'filtrado'     => $filtrado,
-            'stats'        => riesgo_estadisticas($filtrado, !$soloC),
-            'niveles'      => $niveles,
-            'grados_ids'   => $grados,
-            'contar_b'     => !$soloC,
+            'por_grado'     => $base,
+            'filtrado'      => $filtrado,
+            'stats'         => riesgo_estadisticas($filtrado, !$soloC),
+            'niveles'       => $niveles,
+            'secciones'     => $secciones,
+            'secciones_ids' => $ids,
+            'elegidas'      => $elegida,
+            'contar_b'      => !$soloC,
             // Lo PEDIDO, aunque no se aplique: el formulario y los enlaces lo
             // conservan al pasar a una selección que sí toca primaria.
-            'pide_solo_c'  => $pideSoloC,
-            'hay_primaria' => $hayPrimaria,
-            'min'          => OrdenMeritoModel::RIESGO_MIN_C,
-            'critico_min'  => OrdenMeritoModel::RIESGO_CRITICO,
+            'pide_solo_c'   => $pideSoloC,
+            'hay_primaria'  => $hayPrimaria,
+            'min'           => OrdenMeritoModel::RIESGO_MIN_C,
+            'critico_min'   => OrdenMeritoModel::RIESGO_CRITICO,
         ];
     }
 

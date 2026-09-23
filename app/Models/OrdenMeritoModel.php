@@ -737,6 +737,25 @@ class OrdenMeritoModel extends BaseModel
     }
 
     /**
+     * Riesgo académico de UNA sección, para su tutor (23/09/2026). PUNTO ÚNICO
+     * del panel del tutor (`/docente/tutoria/riesgo`) y de su card en
+     * `/docente/inicio`: si cada uno recortara por su cuenta, la card podría
+     * decir otra cifra que el informe al que lleva.
+     *
+     * Recorre el ranking de TODOS los grados (no solo el de la sección) a
+     * propósito: un retorno de grado cuya matrícula oficial está en esta sección
+     * se evalúa en otro grado, y `statsPorGrado` es quien lo reubica aquí.
+     * Siempre con la regla oficial (el tutor no tiene la lente «solo C»).
+     *
+     * @param  array $seccion  fila de `SeccionModel::seccionesDelAnio()`
+     * @return array{seccion:array, filtrado:array, stats:array}
+     */
+    public function riesgoDeSeccion(int $periodoId, array $seccion): array
+    {
+        return riesgo_por_seccion($this->statsPorGrado($periodoId), [$seccion])[0];
+    }
+
+    /**
      * Grado y sección OFICIALES de cada matrícula operativa de un retorno de
      * grado (23/09/2026), para que `statsPorGrado` cuente el riesgo por la
      * matrícula oficial. UNA consulta, sin filtrar `estado`: activo o revertido,

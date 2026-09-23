@@ -47,6 +47,7 @@ $router->post('/admin/curriculum/competencias/{id}/editar',        'Admin\Curric
 // tiene consultas propias ni reimplementa ninguna regla de negocio.
 // El imprimible va ANTES: el router ancla por orden de registro.
 $router->get( '/admin/cuadros/riesgo/imprimir', 'Admin\CuadrosEstadisticosController@riesgoImprimir');
+$router->get( '/admin/cuadros/riesgo/tutores',  'Admin\CuadrosEstadisticosController@riesgoTutores');
 $router->get( '/admin/cuadros/riesgo',        'Admin\CuadrosEstadisticosController@riesgo');
 $router->get( '/admin/cuadros/imprimir',      'Admin\CuadrosEstadisticosController@imprimir');
 $router->get( '/admin/cuadros',               'Admin\CuadrosEstadisticosController@index');
@@ -393,6 +394,10 @@ $router->post(
 
 // ─── Tutoría — transversales y cierre del tutor ──────────────
 $router->get( '/docente/tutoria',                          'Docente\TutoriaController@index');
+// Estudiantes en riesgo de SU sección (23/09/2026). Literales ANTES del patrón
+// `/docente/tutoria/{periodo_id}`, que si no las capturaría como un id.
+$router->get( '/docente/tutoria/riesgo/imprimir',         'Docente\RiesgoTutorController@imprimir');
+$router->get( '/docente/tutoria/riesgo',                  'Docente\RiesgoTutorController@index');
 $router->post('/docente/tutoria/{periodo_id}/conclusion',  'Docente\TutoriaController@guardarConclusion');
 $router->post('/docente/tutoria/{periodo_id}/cerrar',      'Docente\TutoriaController@cerrar');
 $router->get( '/docente/tutoria/{periodo_id}',             'Docente\TutoriaController@index');

@@ -28,6 +28,13 @@ Sustituye a la entrada del 22/09 (abajo), que nunca se desplegó.
       retorno en su grado y sección oficiales (el mérito no cambia); el caso 190/692 pasa de
       1.° B a 2.° B en B1 y B2, con su puesto de 1.° B en la franja. Verificadores en verde
       (simulación con rollback de 3 ramas; 5 mutantes caen), batería 44/44.
+- [x] **Riesgo por sección y panel del tutor** (23/09): filtro por secciones y **lote por
+      tutor** (una sección por hoja) para Dirección; `/docente/tutoria/riesgo` + card en
+      `/docente/inicio` para el tutor (su sección por `tutor_id`, solo bimestres publicados).
+      `verif_riesgo_tutor.php` nuevo; 6 mutantes caen; batería 45/45; PDF del lote (70 hojas,
+      23 secciones separadas) y del tutor revisados. Detalle en `usuarios-direccion.md`.
+- [x] **Probado con sesión por el usuario** (23/09): lote (admin) y panel + card con un
+      docente tutor, todo correcto.
 - [x] **Prueba con sesión de admin** (23/09): formulario, Aplicar, Imprimir, URL compartida,
       cambio de bimestre, atajos, buscador, retorno 190/692 en 2.° B y ancho de celular.
       Corregidos el hueco bajo los grados (`flex-wrap: nowrap`) y el desborde lateral en
