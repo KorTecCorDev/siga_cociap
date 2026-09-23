@@ -1,0 +1,451 @@
+// ============================================================
+// _cuadros-riesgo.scss — Estudiantes en riesgo académico (23/09/2026)
+// /admin/cuadros/riesgo (pantalla) y /admin/cuadros/riesgo/imprimir (A4).
+//
+// Reutiliza de _cuadros.scss la banda (`.cuadros-banda--riesgo`), la barra de
+// filtros (`.cuadros-riesgo__*`) y el encabezado del A4 (`.cuadros-print__head`).
+//
+// 🔴 El listado (`.riesgo-tabla`) lleva el título del grado DENTRO del
+// `<thead>`: es lo que impide que Chrome deje el título y las columnas solos al
+// pie de una hoja. Ver `_listado.php` antes de mover nada de aquí.
+// ============================================================
+
+// ── Barra de proporción (sin `style` inline) ─────────────────────────
+// El ancho es una clase por entero 0-100: la vista redondea y elige la clase.
+.riesgo-barra {
+    display: inline-block;
+    width: 64px;
+    height: 7px;
+    margin-right: 4px;
+    vertical-align: middle;
+    background: $border-color;
+    border-radius: 2px;
+    overflow: hidden;
+
+    &__v {
+        display: block;
+        height: 100%;
+        background: $text-secondary;
+    }
+}
+
+@for $i from 0 through 100 {
+    .riesgo-barra__v--#{$i} { width: $i * 1%; }
+}
+
+// ── Banda: una línea por nivel ───────────────────────────────────────
+.riesgo-banda__niveles {
+    flex: 1 1 100%;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+
+    strong { color: $text-primary; }
+}
+
+.riesgo-banda__enlace { flex: 1 1 100%; margin: 0; }
+
+// ── Tablas de estadística ────────────────────────────────────────────
+.riesgo-resumen__par {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $spacing-md;
+    align-items: start;
+    margin-bottom: $spacing-md;
+
+    @media (min-width: 900px) { grid-template-columns: 1fr 1fr; }
+}
+
+.riesgo-stat {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-size-sm;
+    background: $bg-white;
+
+    caption {
+        caption-side: top;
+        text-align: left;
+        font-weight: 700;
+        padding: 0 0 $spacing-xs;
+        color: $text-primary;
+    }
+
+    th, td {
+        padding: 4px 6px;
+        border-bottom: 1px solid $border-color;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    thead th {
+        font-size: 11px;
+        font-weight: 600;
+        color: $text-secondary;
+        background: $bg-secondary;
+        border-bottom: 1px solid $text-muted;
+    }
+
+    tbody th { font-weight: 400; }
+
+    &__n { text-align: center !important; white-space: nowrap; }
+    &__barra { white-space: nowrap; }
+
+    &--ancha { margin-bottom: $spacing-md; }
+}
+
+// Rótulo del nivel en la tabla de críticos: hace de título, no de columna.
+// Selector (0,2,2) para ganarle a `.riesgo-stat thead th` sin `!important`.
+.riesgo-stat thead .riesgo-criticos__nivel th {
+    font-size: $font-size-sm;
+    font-weight: 700;
+    color: $text-primary;
+    background: transparent;
+    border-bottom: 2px solid $text-primary;
+}
+
+.riesgo-conc {
+    margin-bottom: $spacing-lg;
+
+    &__titulo {
+        font-size: $font-size-base;
+        margin: $spacing-md 0 $spacing-sm;
+
+        span { font-weight: 400; color: $text-secondary; font-size: $font-size-sm; }
+    }
+}
+
+.riesgo-cod {
+    font-size: 0.85em;
+    font-weight: 700;
+    color: $text-secondary;
+}
+
+.riesgo-cur { color: $text-secondary; }
+
+.riesgo-nota {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    font-style: italic;
+}
+
+.riesgo-h2 {
+    font-size: $font-size-lg;
+    margin: $spacing-lg 0 $spacing-sm;
+}
+
+// ── Cómo leer ────────────────────────────────────────────────────────
+.riesgo-leer {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    background: $bg-secondary;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    padding: $spacing-sm $spacing-md;
+    margin-bottom: $spacing-md;
+
+    &__titulo { margin: 0 0 $spacing-xs; color: $text-primary; }
+
+    ul { margin: 0; padding-left: 18px; list-style: disc; }
+    li { margin-bottom: 2px; }
+}
+
+// ── Formulario de filtros (grados + lente «primaria solo C») ─────────
+// Hereda la caja de `.cuadros-riesgo__filtros` (_cuadros.scss). Las casillas
+// usan el chip `.orden-chip` sobre un <label>: el checkbox se queda VISIBLE (es
+// lo que dice que se puede marcar más de uno), y el chip se marca activo con
+// `:has()` para que el estado se vea antes de pulsar «Aplicar».
+.cuadros-riesgo__form {
+    flex-direction: column;
+    align-items: stretch;
+    // 🔴 `nowrap` es obligatorio: `.cuadros-riesgo__filtros` trae `wrap`, y en un
+    // flex en COLUMNA con varias líneas Chrome mide la altura de cada hijo a un
+    // ancho provisional más angosto —los chips se envolvían en 3 filas— y dejaba
+    // un hueco de ~80 px bajo los grados (medido en pantalla el 23/09/2026).
+    flex-wrap: nowrap;
+}
+
+.cuadros-riesgo__niveles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: $spacing-sm $spacing-lg;
+}
+
+.cuadros-riesgo__nivel,
+.cuadros-riesgo__modo {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    legend { padding: 0; }
+}
+
+.cuadros-riesgo__casilla {
+    cursor: pointer;
+
+    input { margin: 0; accent-color: $brand-mid; }
+
+    &:has(input:checked) {
+        border-color: $brand-mid;
+        color: $brand-mid;
+        font-weight: 600;
+    }
+
+    &:has(input:focus-visible) {
+        outline: 2px solid $brand-accent;
+        outline-offset: 2px;
+    }
+}
+
+.cuadros-riesgo__atajo {
+    display: inline-block;
+    margin-top: $spacing-xs;
+    font-size: $font-size-sm;
+}
+
+.cuadros-riesgo__modo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs $spacing-md;
+    font-size: $font-size-sm;
+
+    legend { float: left; margin: 0 $spacing-xs 0 0; }
+
+    label {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+        cursor: pointer;
+    }
+}
+
+.cuadros-riesgo__nota {
+    flex: 1 1 100%;
+    color: $text-muted;
+}
+
+.cuadros-riesgo__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: $spacing-md;
+
+    .cuadros-riesgo__atajo { margin-top: 0; }
+}
+
+@media (max-width: 640px) {
+    .cuadros-riesgo__niveles { grid-template-columns: 1fr; }
+    .cuadros-riesgo__acciones .btn { flex: 1 1 100%; }
+}
+
+// ── Listado por grado ────────────────────────────────────────────────
+.riesgo-buscador {
+    align-items: center;
+
+    .cuadros-riesgo__contador { margin: 0; }
+}
+
+.riesgo-grado { margin-bottom: $spacing-lg; }
+
+.riesgo-tabla {
+    width: 100%;
+    min-width: 760px;           // en móvil desplaza dentro de su wrapper
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: $font-size-sm;
+    background: $bg-white;
+
+    // Área y curso comparten columna: separadas, el docente se partía en dos
+    // líneas en casi cada fila (39 → 58 hojas en B1).
+    &__c-area { width: 21%; }
+    &__c-comp { width: 41%; }
+    &__c-lit  { width: 4.5%; }
+    &__c-nota { width: 5%; }
+    &__c-doc  { width: 28.5%; }
+
+    th, td {
+        padding: 3px 6px;
+        border-bottom: 1px solid $border-color;
+        text-align: left;
+        vertical-align: top;
+        line-height: 1.3;
+    }
+
+    &__grado th {
+        font-size: $font-size-lg;
+        font-weight: 700;
+        color: $text-primary;
+        padding: $spacing-sm 6px $spacing-xs;
+        border-bottom: 2px solid $text-primary;
+
+        span { font-size: $font-size-sm; font-weight: 400; color: $text-secondary; }
+    }
+
+    &__cols th {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        color: $text-secondary;
+        background: $bg-secondary;
+        border-bottom: 1px solid $text-primary;
+    }
+
+    &__num { text-align: center !important; }
+    &__lit { font-weight: 700; }
+}
+
+// Un estudiante = un <tbody>. Nunca se parte entre hojas.
+.riesgo-alumno {
+    break-inside: avoid;
+    page-break-inside: avoid;
+
+    &__franja th {
+        font-weight: 400;
+        background: $bg-secondary;
+        border-top: 1px solid $text-muted;
+        border-bottom: 1px solid $text-muted;
+    }
+
+    &__nombre { font-weight: 700; color: $text-primary; margin-right: $spacing-sm; }
+
+    // Marca discreta: el peso visual es de la SECCIÓN, no de la persona (misma
+    // regla que el listado anterior). Contorno, sin relleno de color.
+    &__marca {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        padding: 0 4px;
+        margin-right: $spacing-sm;
+        border: 1px solid $text-primary;
+        border-radius: 2px;
+    }
+
+    &__dato { color: $text-secondary; strong { color: $text-primary; } }
+
+    &__aviso { font-style: italic; color: $text-secondary; }
+}
+
+// ── A4 (layout print) ────────────────────────────────────────────────
+// Solo se ve dentro del layout print: como `.cuadros-print`, los estilos
+// aplican siempre. 718px = 190mm, dentro de los 194mm útiles de `@page boleta`.
+.riesgo-print {
+    max-width: 718px;
+    min-width: 718px;
+    margin: 0 auto;
+    padding: $spacing-sm 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: #111;
+
+    .cuadros-banda {
+        padding: 6px 10px;
+        margin-bottom: 8px;
+        background: #fff;
+        border-color: #999;
+        border-left-color: #000;
+        border-radius: 0;
+    }
+    .cuadros-banda__n { font-size: 22px; color: #000; }
+    .cuadros-banda__q, .cuadros-banda__datos, .riesgo-banda__niveles { font-size: 9px; }
+
+    .riesgo-resumen__par {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .riesgo-stat {
+        font-size: 7.5pt;
+        break-inside: avoid;
+        page-break-inside: avoid;
+
+        caption { font-size: 8.5pt; padding-bottom: 2px; }
+        th, td  { padding: 1px 4px; border-bottom-color: #ccc; }
+        thead th { font-size: 7pt; background: #f2f2f2; border-bottom-color: #000; color: #333; }
+    }
+
+    .riesgo-barra { width: 40px; height: 5px; background: #ddd; }
+    .riesgo-barra__v { background: #444; }
+
+    .riesgo-conc { margin-bottom: 8px; break-inside: avoid; page-break-inside: avoid; }
+    .riesgo-conc__titulo { font-size: 10pt; margin: 8px 0 4px; break-after: avoid; page-break-after: avoid; }
+    .riesgo-conc__titulo span { font-size: 8pt; }
+
+    .riesgo-h2 { font-size: 11pt; margin: 8px 0 4px; break-after: avoid; page-break-after: avoid; }
+    .riesgo-nota { font-size: 7.5pt; }
+
+    .riesgo-leer {
+        font-size: 7.5pt;
+        padding: 4px 8px;
+        margin-bottom: 8px;
+        background: #fff;
+        border-color: #999;
+        color: #222;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    // La de críticos SÍ puede seguir en la hoja siguiente (60 filas en B1): si
+    // saltara entera dejaría media hoja en blanco. Se parte entre filas.
+    .riesgo-criticos__tabla {
+        margin-bottom: 8px;
+        break-inside: auto;
+        page-break-inside: auto;
+
+        tr { break-inside: avoid; page-break-inside: avoid; }
+    }
+    .riesgo-stat thead .riesgo-criticos__nivel th {
+        font-size: 8.5pt;
+        background: #fff;
+        border-bottom: 1pt solid #000;
+    }
+
+    // El listado arranca en hoja propia: resumen y críticos se leen juntos, y
+    // las hojas del desglose se pueden separar y entregar por grado.
+    .riesgo-listado { break-before: page; page-break-before: always; }
+    .riesgo-listado > .riesgo-h2 { margin-top: 0; }
+
+    .tabla-notas-wrapper { overflow: visible; border: 0; border-radius: 0; }
+    .riesgo-grado { margin-bottom: 14px; }
+
+    .riesgo-tabla {
+        min-width: 0;
+        font-size: 7pt;
+        background: #fff;
+
+        th, td { padding: 0.7mm 1.2mm; line-height: 1.25; border-bottom-color: #ccc; }
+    }
+
+    .riesgo-tabla__grado th {
+        font-size: 10.5pt;
+        padding: 2mm 1.2mm 1.5mm;
+        border-bottom: 1.2pt solid #000;
+
+        span { font-size: 8pt; color: #444; }
+    }
+
+    .riesgo-tabla__cols th {
+        font-size: 6.5pt;
+        background: #f2f2f2;
+        color: #444;
+        border-bottom: 0.8pt solid #000;
+    }
+
+    .riesgo-alumno__franja th {
+        font-size: 7.5pt;
+        background: #f7f7f7;
+        border-top: 0.8pt solid #888;
+        border-bottom: 0.3pt solid #888;
+    }
+
+    .riesgo-alumno__nombre { font-size: 8.5pt; color: #000; }
+    .riesgo-alumno__dato   { color: #333; }
+    .riesgo-alumno__marca  { font-size: 6.5pt; border-color: #000; }
+    .riesgo-cur            { color: #555; }
+}

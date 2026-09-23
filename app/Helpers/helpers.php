@@ -627,6 +627,129 @@ function nota_es_aprobatoria(?string $literal, string $nivelCodigo): bool
 }
 
 /**
+ * Literales que cuentan para «estudiante en riesgo» en ese nivel (23/09/2026):
+ * los que NO aprueban. Primaria → B y C; secundaria → solo C.
+ *
+ * 🔴 SALE DE `LITERALES_APROBATORIOS`, no de una lista escrita a mano: la regla
+ * del riesgo que decidió el colegio (primaria cuenta B+C, secundaria solo C) es
+ * exactamente «competencias desaprobadas» con la línea de aprobado de cada
+ * nivel. Si esa línea se mueve, el riesgo la sigue sin tocar nada más.
+ *
+ * Solo recorre B y C: AD y A aprueban en los dos niveles.
+ *
+ * `$contarB = false` es la LENTE «solo C» del informe de riesgo (23/09/2026):
+ * quita la B, así que primaria queda en ['C'] y secundaria no cambia. Es una
+ * forma de LEER la lista, no la regla: la oficial sigue siendo el valor por
+ * defecto, y la banda de `/admin/cuadros` nunca pasa `false`.
+ *
+ * @return string[] p. ej. ['B', 'C'] o ['C']
+ */
+function riesgo_literales(string $nivelCodigo, bool $contarB = true): array
+{
+    return array_values(array_filter(
+        $contarB ? ['B', 'C'] : ['C'],
+        static fn(string $lit): bool => !nota_es_aprobatoria($lit, $nivelCodigo)
+    ));
+}
+
+/**
+ * Cuántas competencias «de riesgo» tiene una fila del ranking del mérito
+ * (`num_b`, `num_c`) según su nivel. PUNTO ÚNICO de la regla por nivel: lo usan
+ * `OrdenMeritoModel::statsPorGrado` (quién entra, quién es crítico, el orden) y
+ * el verificador. Nunca sumar `num_b + num_c` a mano en otro sitio.
+ */
+function riesgo_conteo(array $fila, string $nivelCodigo, bool $contarB = true): int
+{
+    $col = ['B' => 'num_b', 'C' => 'num_c'];
+    $n   = 0;
+
+    foreach (riesgo_literales($nivelCodigo, $contarB) as $lit) {
+        $n += (int) ($fila[$col[$lit]] ?? 0);
+    }
+
+    return $n;
+}
+
+/**
+ * Rótulo de lo que cuenta el riesgo en ese nivel: «en B o C» / «en C».
+ * Sale de `riesgo_literales()` para que el texto no pueda contradecir la regla.
+ */
+function riesgo_rotulo(string $nivelCodigo, bool $contarB = true): string
+{
+    return 'en ' . implode(' o ', riesgo_literales($nivelCodigo, $contarB));
+}
+
+/**
+ * Orden de la lista de riesgo de un grado (23/09/2026; antes escrito dentro de
+ * `OrdenMeritoModel::statsPorGrado`). PUNTO ÚNICO: lo usan el modelo y
+ * `riesgo_sin_b()`, que reordena tras recortar.
+ *
+ * Manda el conteo; a igual conteo, más C primero (en primaria una C pesa más
+ * que una B; en secundaria conteo = C y no cambia nada); luego el peor
+ * promedio; y el puesto, para que el orden sea total.
+ */
+function riesgo_ordenar(array &$lista): void
+{
+    usort($lista, static function ($a, $b) {
+        return [$b['conteo'], (int) $b['num_c'], (float) $a['promedio_exacto'], (int) $a['puesto']]
+           <=> [$a['conteo'], (int) $a['num_c'], (float) $b['promedio_exacto'], (int) $b['puesto']];
+    });
+}
+
+/**
+ * Lente «primaria solo C» del informe de riesgo (23/09/2026). Función PURA
+ * sobre la salida de `OrdenMeritoModel::statsPorGrado` (regla oficial).
+ *
+ * Solo toca los grados de PRIMARIA: se queda con quien tiene `num_c >= $min`,
+ * recalcula `conteo` (= C) y `critico` (C >= `$critico`), deja en el desglose
+ * solo las filas C y reordena. Secundaria ya cuenta solo C: pasa intacta.
+ *
+ * No hace falta ninguna consulta: quien tiene C >= 3 ya tiene B+C >= 3, así que
+ * la lista sin B es un SUBCONJUNTO de la oficial.
+ *
+ * 🔴 EL GUARD DEL DESCUADRE SE VUELVE A APLICAR. El desglose cuadraba con B+C;
+ * que siga cuadrando con C no está garantizado (un desbloqueo posterior al
+ * cierre puede cambiar una B por una C y dejar igual la suma). Así que: un
+ * `null` sigue `null` (no hay filas en crudo para recomponerlo), y si no, las
+ * filas C tienen que ser exactamente `num_c` o el desglose pasa a `null`.
+ */
+function riesgo_sin_b(array $porGrado, int $min, int $critico): array
+{
+    foreach ($porGrado as &$g) {
+        if (!str_starts_with((string) $g['grado']['nivel_codigo'], 'prim')) {
+            continue;
+        }
+
+        $lista = [];
+        foreach ($g['en_riesgo'] as $al) {
+            $c = (int) $al['num_c'];
+            if ($c < $min) {
+                continue;
+            }
+
+            $al['conteo']  = $c;
+            $al['critico'] = $c >= $critico;
+
+            if ($al['detalle'] !== null) {
+                $soloC = array_values(array_filter(
+                    $al['detalle'],
+                    static fn(array $d): bool => $d['literal'] === 'C'
+                ));
+                $al['detalle'] = count($soloC) === $c ? $soloC : null;
+            }
+
+            $lista[] = $al;
+        }
+
+        riesgo_ordenar($lista);
+        $g['en_riesgo'] = $lista;
+    }
+    unset($g);
+
+    return $porGrado;
+}
+
+/**
  * Contadores de una competencia a partir del resumen que YA está en memoria.
  *
  * No consulta la base de datos: recibe el `$alumnos` que devuelve
@@ -717,29 +840,51 @@ function stats_competencia(array $alumnos, array $exonerados, string $nivelCodig
  *
  * Es una función PURA: no consulta nada, solo recorre en memoria la lista de
  * grados que la vista ya recibió. Vive aquí, junto a `stats_competencia()`, y no
- * en el modelo ni en el controlador, porque la necesitan TRES sitios de
- * `/admin/cuadros` que no pueden llamarse entre sí:
- *   · el índice de anclas de `index.php`, que pinta la cifra ANTES de la sección,
- *   · la banda de `_estudiantes-riesgo.php`, compartida por pantalla y A4,
+ * en el modelo ni en el controlador, porque la necesitan varios sitios que no
+ * pueden llamarse entre sí:
+ *   · la banda de `/admin/cuadros` (`_banda-riesgo.php`) y su índice de anclas,
+ *   · la vista `/admin/cuadros/riesgo` y su A4 (vía `riesgo_estadisticas()`),
  *   · `verif_direccion_superficies.php`, que asevera contra la misma cuenta.
  * Sumarlo a mano en cada uno es exactamente la copia latente con la que ya
  * divergieron cuatro reglas en este repositorio.
  *
  * 🔴 EL DENOMINADOR SON TODOS LOS GRADOS CON RANKING, no solo los que tienen
  * casos: la pregunta es qué parte del alumnado EVALUADO está en riesgo, y
- * limitarla a los grados afectados infla el porcentaje sin avisar (en B1, 20 %
- * contra 20 %; en un bimestre con dos grados afectados de once, la diferencia
- * es de cinco veces).
+ * limitarla a los grados afectados infla el porcentaje sin avisar.
  *
- * @param  array $porGrado  `$bloques['merito']['por_grado']` tal cual
- * @return array{total:int, evaluados:int, pct:int, grados:int, grados_total:int, max_c:int}
+ * Desde el 23/09/2026 la regla depende del nivel (primaria B+C, secundaria C;
+ * ver `riesgo_conteo()`), así que el resumen se da también POR NIVEL, con el
+ * rótulo de lo que cuenta cada uno: una cifra global sola no dice qué se sumó.
+ *
+ * `$contarB` solo cambia el RÓTULO por nivel (lente «solo C»): las cifras
+ * salen de la lista recibida, que ya viene recortada por `riesgo_sin_b()`.
+ *
+ * @param  array $porGrado  `$bloques['merito']['por_grado']` tal cual (o filtrado)
+ * @return array{total:int, evaluados:int, pct:int, grados:int, grados_total:int,
+ *               criticos:int, max:int, por_nivel:array}
  */
-function riesgo_resumen(array $porGrado): array
+function riesgo_resumen(array $porGrado, bool $contarB = true): array
 {
-    $total = $evaluados = $grados = $maxC = 0;
+    $total = $evaluados = $grados = $criticos = $max = 0;
+    $porNivel = [];
 
     foreach ($porGrado as $g) {
-        $evaluados += (int) ($g['total'] ?? 0);
+        // `evaluados` (por matrícula oficial), no `total` (competidores del
+        // mérito): difieren en los grados con un retorno de grado.
+        $n   = (int) ($g['evaluados'] ?? $g['total'] ?? 0);
+        $nid = (int) $g['grado']['nivel_id'];
+        $porNivel[$nid] ??= [
+            'nivel_id'  => $nid,
+            'nombre'    => (string) $g['grado']['nivel_nombre'],
+            'codigo'    => (string) $g['grado']['nivel_codigo'],
+            'rotulo'    => riesgo_rotulo((string) $g['grado']['nivel_codigo'], $contarB),
+            'total'     => 0,
+            'evaluados' => 0,
+            'criticos'  => 0,
+        ];
+
+        $evaluados += $n;
+        $porNivel[$nid]['evaluados'] += $n;
 
         if (empty($g['en_riesgo'])) {
             continue;
@@ -747,20 +892,194 @@ function riesgo_resumen(array $porGrado): array
 
         $grados++;
         $total += count($g['en_riesgo']);
+        $porNivel[$nid]['total'] += count($g['en_riesgo']);
 
         foreach ($g['en_riesgo'] as $al) {
-            $maxC = max($maxC, (int) $al['num_c']);
+            $max = max($max, (int) $al['conteo']);
+            if (!empty($al['critico'])) {
+                $criticos++;
+                $porNivel[$nid]['criticos']++;
+            }
         }
     }
+
+    // Sin evaluados no hay porcentaje: 0 % seria un dato FALSO, no ausente.
+    $pct = static fn(int $parte, int $de): int => $de > 0 ? (int) round($parte / $de * 100) : 0;
+
+    foreach ($porNivel as &$niv) {
+        $niv['pct'] = $pct($niv['total'], $niv['evaluados']);
+    }
+    unset($niv);
 
     return [
         'total'        => $total,
         'evaluados'    => $evaluados,
-        // Sin evaluados no hay porcentaje: 0 % seria un dato FALSO, no ausente.
-        'pct'          => $evaluados > 0 ? (int) round($total / $evaluados * 100) : 0,
+        'pct'          => $pct($total, $evaluados),
         'grados'       => $grados,
         'grados_total' => count($porGrado),
-        'max_c'        => $maxC,
+        'criticos'     => $criticos,
+        'max'          => $max,
+        'por_nivel'    => array_values($porNivel),
+    ];
+}
+
+/**
+ * Recorta la lista de `statsPorGrado` a una selección de grados, de cualquier
+ * nivel (23/09/2026).
+ *
+ * Lo usan la vista de riesgo y su A4, para que el papel imprima LO FILTRADO y
+ * el resumen describa exactamente eso. Los ids llegan de la URL ya validados
+ * como enteros y solo se COMPARAN con los de la lista: nunca se interpolan en
+ * ningún sitio. Lista vacía = todos los grados.
+ *
+ * @param int[] $gradoIds
+ */
+function riesgo_filtrar(array $porGrado, array $gradoIds): array
+{
+    if ($gradoIds === []) {
+        return array_values($porGrado);
+    }
+
+    return array_values(array_filter(
+        $porGrado,
+        static fn(array $g): bool => in_array((int) $g['grado']['id'], $gradoIds, true)
+    ));
+}
+
+/**
+ * Estadísticas del informe de riesgo (23/09/2026). Función PURA sobre la salida
+ * de `statsPorGrado` (ya filtrada si corresponde): cero consultas.
+ *
+ * Devuelve, además del `resumen` de `riesgo_resumen()`:
+ *   · `grados`       casos, % y críticos por grado;
+ *   · `secciones`    casos y % sobre los EVALUADOS de cada sección (`por_seccion`
+ *                    del modelo, que sale del mismo ranking);
+ *   · `areas`        por nivel: estudiantes distintos y notas B/C por área;
+ *   · `competencias` por nivel: las 10 con más estudiantes;
+ *   · `docentes`     por nivel: estudiantes distintos y notas B/C registradas;
+ *   · `criticos`     las filas de mayor atención, con su grado;
+ *   · `sin_desglose` estudiantes cuyo desglose no cuadra con el oficial
+ *                    (`detalle === null`): NO entran a áreas, competencias ni
+ *                    docentes, y la vista lo dice.
+ *
+ * ⚠️ Área, competencia y docente cuentan SOLO a los estudiantes de la lista:
+ * es «dónde se concentran los casos», no la distribución de notas del colegio.
+ *
+ * `$contarB = false` (lente «solo C») solo cambia los rótulos del resumen: la
+ * lista ya llega recortada por `riesgo_sin_b()`, sin filas B en el desglose,
+ * así que las columnas B de área, competencia y docente quedan en 0 solas.
+ */
+function riesgo_estadisticas(array $porGrado, bool $contarB = true): array
+{
+    $pct = static fn(int $parte, int $de): int => $de > 0 ? (int) round($parte / $de * 100) : 0;
+
+    $grados = $secciones = $criticos = [];
+    $areas = $comps = $docentes = [];
+    $sinDesglose = 0;
+
+    // Acumula una nota B/C en su fila de concentración (área, competencia o
+    // docente). `est` es un conjunto: un estudiante cuenta una vez por fila.
+    $sumar = static function (array &$mapa, string $clave, array $base, int $mid, string $lit): void {
+        $mapa[$clave] ??= $base + ['est' => [], 'notas' => 0, 'B' => 0, 'C' => 0];
+        $mapa[$clave]['est'][$mid] = true;
+        $mapa[$clave]['notas']++;
+        $mapa[$clave][$lit]++;
+    };
+
+    foreach ($porGrado as $g) {
+        $gr    = $g['grado'];
+        $nid   = (int) $gr['nivel_id'];
+        $casos = count($g['en_riesgo']);
+
+        $casosSec = $critSec = [];
+        $crit = 0;
+        foreach ($g['en_riesgo'] as $al) {
+            $s = (string) $al['seccion_nombre'];
+            $casosSec[$s] = ($casosSec[$s] ?? 0) + 1;
+            if (!empty($al['critico'])) {
+                $crit++;
+                $critSec[$s] = ($critSec[$s] ?? 0) + 1;
+                $criticos[]  = $al + ['grado' => $gr];
+            }
+        }
+
+        $grados[] = [
+            'grado'    => $gr,
+            'total'    => (int) ($g['evaluados'] ?? $g['total']),
+            'casos'    => $casos,
+            'criticos' => $crit,
+            'pct'      => $pct($casos, (int) ($g['evaluados'] ?? $g['total'])),
+        ];
+
+        // Todas las secciones del ranking, tengan casos o no: una sección en
+        // 0 también es un dato.
+        foreach ($g['por_seccion'] ?? [] as $sec) {
+            $s = (string) $sec['seccion_nombre'];
+            $secciones[] = [
+                'grado'          => $gr,
+                'seccion_nombre' => $s,
+                'total'          => (int) $sec['total'],
+                'casos'          => $casosSec[$s] ?? 0,
+                'criticos'       => $critSec[$s] ?? 0,
+                'pct'            => $pct($casosSec[$s] ?? 0, (int) $sec['total']),
+            ];
+        }
+
+        foreach ($g['en_riesgo'] as $al) {
+            if ($al['detalle'] === null) {
+                $sinDesglose++;
+                continue;
+            }
+
+            $mid = (int) $al['matricula_id'];
+            foreach ($al['detalle'] as $d) {
+                $areas[$nid]    ??= [];
+                $comps[$nid]    ??= [];
+                $docentes[$nid] ??= [];
+
+                $sumar($areas[$nid], $d['area'], ['nombre' => $d['area']], $mid, $d['literal']);
+                $sumar($comps[$nid], $d['area'] . '|' . $d['competencia'], [
+                    'nombre' => $d['competencia'], 'area' => $d['area'],
+                    'curso'  => $d['curso'],       'codigo' => $d['codigo'],
+                ], $mid, $d['literal']);
+                $sumar($docentes[$nid], $d['docente'], ['nombre' => $d['docente']], $mid, $d['literal']);
+            }
+        }
+    }
+
+    // `est` pasa de conjunto a conteo, y se ordena: más estudiantes primero; a
+    // igual, más notas; a igual, por nombre (orden estable y legible).
+    $cerrar = static function (array $porNivel, int $tope = 0): array {
+        $out = [];
+        foreach ($porNivel as $nid => $filas) {
+            $filas = array_map(static function (array $f): array {
+                $f['estudiantes'] = count($f['est']);
+                unset($f['est']);
+                return $f;
+            }, array_values($filas));
+
+            usort($filas, static fn($a, $b) =>
+                [$b['estudiantes'], $b['notas'], $a['nombre']] <=> [$a['estudiantes'], $a['notas'], $b['nombre']]);
+
+            $out[$nid] = $tope > 0 ? array_slice($filas, 0, $tope) : $filas;
+        }
+        return $out;
+    };
+
+    // Críticos: por nivel y grado; dentro, el mismo orden que la lista.
+    usort($criticos, static fn($a, $b) =>
+        [(int) $a['grado']['nivel_id'], (int) $a['grado']['numero'], $b['conteo'], (int) $b['num_c'], (float) $a['promedio_exacto']]
+        <=> [(int) $b['grado']['nivel_id'], (int) $b['grado']['numero'], $a['conteo'], (int) $a['num_c'], (float) $b['promedio_exacto']]);
+
+    return [
+        'resumen'      => riesgo_resumen($porGrado, $contarB),
+        'grados'       => $grados,
+        'secciones'    => $secciones,
+        'areas'        => $cerrar($areas),
+        'competencias' => $cerrar($comps, 10),
+        'docentes'     => $cerrar($docentes),
+        'criticos'     => $criticos,
+        'sin_desglose' => $sinDesglose,
     ];
 }
 

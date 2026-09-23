@@ -248,9 +248,10 @@
 }
 
 // ── Listado por bloques: una tabla rotulada por unidad ───────────────
-// ⚠️ DOS CONSUMIDORES desde el 04/09/2026 — al tocarlo, probar los dos:
-//   · `_top-incidencias.php`  → estudiantes con mas faltas, POR SECCION
-//   · `_estudiantes-riesgo.php` → estudiantes en riesgo, POR GRADO
+// ⚠️ UN CONSUMIDOR desde el 23/09/2026: `_top-incidencias.php` (estudiantes con
+// mas faltas, POR SECCION). El listado de «Estudiantes en riesgo» lo uso hasta
+// entonces y se fue a `/admin/cuadros/riesgo`, con clases propias en
+// `_cuadros-riesgo.scss` (misma regla de filas neutras).
 // Nacio para el primero (de ahi el nombre `top`), pero lo que resuelve es
 // generico: muchas tablas pequenas, cada una con su rotulo en <caption>, la
 // columna de nombre fija al hacer scroll y un valor destacado por fila.
@@ -310,69 +311,8 @@
         color: $text-primary;
     }
 
-    // ── Variante "estudiantes en riesgo" (por grado) ─────────────────
-    // Los modificadores existen por DOS motivos, y ninguno es decorativo:
-    //   1. Esta tabla lleva SEIS columnas y DOS de texto (estudiante y seccion),
-    //      contra las cinco con una sola del listado de inasistencias. Sin
-    //      soltar el ancho de la columna de nombre, "Competencias" se parte en
-    //      dos lineas en pantallas medianas.
-    //   2. Hacen a las dos tablas DISTINGUIBLES en el HTML. El verificador de
-    //      superficies cuenta "una tabla por unidad, cada una con su caption":
-    //      con las mismas clases, sus conteos mezclaban las tablas de faltas con
-    //      las de riesgo y el aserto medía algo que no era.
-    &--riesgo {
-        // 🔴 `table-layout: fixed` + anchos en PORCENTAJE, y ninguna de las dos
-        // cosas es cosmetica. Con el reparto automatico cada tabla mide SUS
-        // propias columnas segun el largo de los nombres que le tocaron: medido
-        // el 07/09/2026 en B1, la columna "Seccion" caia en x=529 en la tabla de
-        // 1.o de primaria y en x=624 en la de 2.o. Son diez tablas apiladas que
-        // se leen como una sola, y con las columnas bailando entre ellas la
-        // comparacion de un grado con otro deja de ser posible de un vistazo.
-        //
-        // En PORCENTAJE y no en px porque la misma tabla se pinta en un
-        // contenedor de ~1150px en pantalla y de 718px en el A4: unos anchos
-        // fijos que cuadran en uno desbordan el otro.
-        table-layout: fixed;
-
-        // Suelo para que las nueve columnas no se aplasten en pantallas
-        // estrechas. Por debajo manda el scroll horizontal del wrapper, con la
-        // columna de nombre pegada. El A4 lo anula (ver `.cuadros-print`).
-        min-width: 950px;
-
-        .col-nombre       { width: 31%; min-width: 0; }
-        .cuadros-top__sec { width: 9%; }
-
-        // Puesto ("12 de 47") y Promedio necesitan mas aire que un contador de
-        // faltas de dos digitos.
-        .cuadros-top__n { width: 11%; min-width: 0; }
-
-        // Las cuatro columnas del perfil de literales son de una o dos cifras.
-        .cuadros-top__lit { width: 6%; min-width: 0; }
-
-        // "Competencias" es el rotulo mas largo de la fila de encabezados.
-        th:last-child, td:last-child { width: 14%; }
-
-        // La celda del nombre es un `th scope="row"` (nueve columnas: un lector
-        // de pantalla necesita saber de quien es cada celda). Aqui se le quita
-        // todo lo que `.tabla-notas th` le pone de encabezado para que se lea
-        // como el `td` que era. Acotado a `tbody`: el `thead` sigue intacto.
-        tbody th.col-nombre {
-            font-weight: 400;
-            font-size: $font-size-base;
-            color: $text-primary;
-            padding: 7px $spacing-md;
-            border-bottom: 0.5px solid $border-color;
-        }
-    }
-
     // Bloque contenedor de CADA seccion. Va fuera de `.cuadros-top` porque
     // envuelve a la tabla, no vive dentro de ella.
-    // ⚠️ `.cuadros-top__bloque--riesgo` existe en el HTML y NO tiene reglas
-    // aqui: es un MARCADOR, no un estilo. Los dos listados comparten aspecto a
-    // proposito, y sin el marcador serian indistinguibles en el documento
-    // renderizado, que es lo que el verificador de superficies cuenta para
-    // afirmar "una tabla por unidad". No borrarlo por parecer inerte, y no
-    // inventarle propiedades para justificarlo.
     @at-root .cuadros-top__bloque {
         border: 1px solid $border-color;
         border-radius: $border-radius-sm;
@@ -432,83 +372,6 @@
 // banda comunica es la MAGNITUD del bloque, que hasta hoy no estaba escrita en
 // ninguna parte (habia que sumar once <caption> a mano).
 //
-// ── Desglose: que competencias estan en C (07/09/2026) ───────────────
-// Fila hermana con `colspan` dentro de la tabla de riesgo. Modelado sobre
-// `.bloqueos-transversales` (pages/_admin.scss), que es el unico precedente del
-// repo de un detalle DENTRO de una tabla: `<details>` nativo, cero JS.
-//
-// Nace cerrado porque en B1 son 778 filas de C repartidas en 118 estudiantes:
-// abiertas de golpe convierten la seccion en un muro.
-tr.fila-riesgo-detalle > td {
-    padding: 0;
-    background: $bg-secondary;
-}
-
-.riesgo-detalle {
-    &__summary {
-        cursor: pointer;
-        list-style: none;
-        user-select: none;
-        padding: $spacing-xs $spacing-md;
-        font-size: $font-size-sm;
-        font-weight: 600;
-        color: $text-secondary;
-
-        &::-webkit-details-marker { display: none; }
-        &::marker                 { display: none; }
-
-        // El triangulo lo dibuja el summary: el marcador nativo no se puede
-        // colorear y no es fiable entre navegadores. Mismo criterio que
-        // `.cuadros-valores__summary`.
-        &::before {
-            content: '▸ ';
-            display: inline-block;
-        }
-
-        &:hover { color: $brand-mid; }
-
-        &:focus-visible {
-            outline: 2px solid $brand-accent;
-            outline-offset: -2px;
-        }
-    }
-
-    &[open] > &__summary {
-        border-bottom: 1px solid $border-color;
-        &::before { content: '▾ '; }
-    }
-
-    // La sub-tabla vive dentro de otra: se distingue por FONDO, no por borde,
-    // para no duplicar lineas con la tabla que la contiene.
-    &__tabla {
-        margin: 0;
-        font-size: $font-size-sm;
-
-        th, td { background: $bg-white; }
-
-        // La tabla madre es `table-layout: fixed` con 9 anchos en porcentaje;
-        // esta es independiente y se reparte sola.
-        table-layout: auto;
-    }
-
-    &__caption {
-        text-align: left;
-        padding: $spacing-xs $spacing-md;
-        font-size: $font-size-sm;
-        font-weight: 700;
-        color: $text-primary;
-    }
-
-    // Cuando el desglose en vivo no cuadra con el `num_c` congelado del
-    // snapshot. Es informativo, no una alerta: no se pinta en rojo.
-    &__aviso {
-        margin: 0;
-        padding: $spacing-sm $spacing-md;
-        font-size: $font-size-sm;
-        color: $text-muted;
-    }
-}
-
 // ── Banda de magnitud: el PAR merito <-> riesgo ──────────────────────
 // Un solo bloque para las dos secciones, porque son la misma pieza: la cifra
 // que hasta ahora no estaba escrita en ninguna parte. Lo que cambia es el
@@ -712,35 +575,6 @@ tr.fila-riesgo-detalle > td {
 //   · la barra de filtros de riesgo ocupaba 333px de alto (44% de pantalla)
 //   · la pagina media 26 000px de alto contra 20 000 en escritorio
 @media (max-width: 640px) {
-
-    // ── La tabla de riesgo se COMPRIME, no se recorta ─────────────────
-    // Decision del usuario (07/09/2026): ninguna columna se oculta y no hay
-    // layout de tarjeta —ese ya se descarto el 25/08 para la grilla de notas—.
-    // Los datos se ven integros; lo que se reduce es el aire.
-    //
-    // 950 -> 700px baja el scroll de 2,8x a ~1,9x. El suelo sigue existiendo:
-    // por debajo de el, nueve columnas se aplastan hasta ser ilegibles y es
-    // preferible desplazar. La columna de nombre sigue `sticky`, asi que al
-    // desplazar nunca se pierde de quien es la fila.
-    .cuadros-top--riesgo {
-        min-width: 700px;
-        font-size: $font-size-sm;
-
-        th, td { padding-left: $spacing-sm; padding-right: $spacing-sm; }
-
-        // La celda de nombre repite el padding porque su regla de escritorio
-        // lo fija en $spacing-md y gana por especificidad (0,3,2).
-        tbody th.col-nombre {
-            padding-left: $spacing-sm;
-            padding-right: $spacing-sm;
-            font-size: $font-size-sm;
-        }
-
-        .col-nombre { min-width: 0; }
-    }
-
-    // El desglose de C hereda el ancho de su tabla madre; solo baja la fuente.
-    .riesgo-detalle__tabla { font-size: 11px; }
 
     // ── Los chips se desplazan, no se apilan ──────────────────────────
     // Con 3 chips de nivel + 11 de grado envolviendo, la barra de filtros se
@@ -1056,8 +890,7 @@ tr.fila-riesgo-detalle > td {
     // legibilidad. Es el valor que ya usan `__nota` (#444) y la hoja hermana.
     .text-muted,
     .tabla-pie__leyenda,
-    .cuadros-kpi__t,
-    .riesgo-detalle__aviso { color: #333; }
+    .cuadros-kpi__t { color: #333; }
 
     // Cada bloque cabe entero en una hoja, asi que se le prohibe partirse. El
     // contenedor `--tabla` conserva su `page-break-inside: auto` para poder
@@ -1075,129 +908,6 @@ tr.fila-riesgo-detalle > td {
         margin-bottom: $spacing-sm;
         border-color: #000;
     }
-
-    // 🔴 EL BLOQUE DE RIESGO SE PUEDE PARTIR, Y DESDE EL 07/09/2026 TIENE QUE
-    // PODER. El `avoid` de arriba se midio cuando un grado eran ~28 filas (~400px
-    // de los 1047 utiles de la hoja). Con el desglose de las C debajo de cada
-    // estudiante, un grado de 28 alumnos pasa holgadamente de una hoja: el
-    // `avoid` lo empujaria ENTERO a la siguiente y dejaria media pagina en
-    // blanco, hoja tras hoja. Las FILAS conservan su `avoid` (viene de
-    // `__bloque--tabla`), que es lo que impide partir a un estudiante por la
-    // mitad. Coste medido: 778 filas de C en B1, 429 en B2.
-    .cuadros-top__bloque--riesgo { page-break-inside: auto; }
-
-    // El desglose en papel: sin `<details>` (lo emite suelto el partial) y con
-    // los mismos bordes negros que el resto del A4.
-    .riesgo-detalle__tabla {
-        width: 100%;
-        font-size: 8px;
-        page-break-inside: auto;
-
-        th, td   { border: 1px solid #000; padding: 2px 3px; }
-        thead th { background: #eee; }
-        thead    { display: table-header-group; }
-        tr       { page-break-inside: avoid; }
-    }
-
-    .riesgo-detalle__aviso   { font-size: 8px; padding: 2px 3px; }
-
-    // ── Estudiantes en riesgo: INFORME AGRUPADO (22/09/2026) ─────────
-    // Marcado propio del papel (`_estudiantes-riesgo-print.php`): una tabla por
-    // grado, UN encabezado —el del desglose— y cada estudiante una franja de
-    // grupo en su propio <tbody>. Sustituye a la rejilla de nueve columnas con
-    // una sub-tabla por estudiante, que imprimia el nombre dos veces y 118
-    // encabezados al mismo nivel que el de la tabla.
-    //
-    // La jerarquia va por PESO y BORDE, nunca por color: encabezado gris y en
-    // negrita; franja sin relleno, con borde superior grueso y el nombre en
-    // negrita. Sobrevive a la fotocopia en blanco y negro.
-    .riesgo-informe__grado { page-break-inside: auto; border: 0; overflow: visible; }
-
-    .riesgo-informe {
-        table-layout: fixed;
-        font-size: 9px;   // un punto sobre el resto del A4: es el listado que mas se lee
-        page-break-inside: auto;
-
-        thead { display: table-header-group; }   // el encabezado vuelve en cada hoja
-        tr    { page-break-inside: avoid; }
-
-        td { vertical-align: top; }
-
-        // `.tabla-notas tr:last-child td` (0,2,2) quita el borde inferior de la
-        // ultima fila, y aqui cada estudiante es un <tbody>: sin esto, la
-        // ultima competencia de cada uno quedaba abierta por abajo.
-        tr:last-child td { border-bottom: 1px solid #000; }
-    }
-
-    .riesgo-informe__area    { width: 20%; }
-    .riesgo-informe__curso   { width: 15%; }
-    .riesgo-informe__comp    { width: 41%; }
-    .riesgo-informe__nota    { width: 7%; }
-    .riesgo-informe__docente { width: 17%; }
-
-    .riesgo-informe__caption {
-        caption-side: top;
-        text-align: left;
-        font-size: 10px;
-        font-weight: 700;
-        padding: $spacing-sm 0 3px;
-    }
-
-    .riesgo-informe__caption-n { font-weight: 400; }
-
-    // Un estudiante nunca se parte entre hojas: su bloque son 4-15 filas.
-    .riesgo-informe__alumno {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    // (0,3,2): le gana a `.cuadros-print thead th` y al `th` de `.cuadros-top`,
-    // que pondrian el gris del encabezado a la franja.
-    .riesgo-informe .riesgo-informe__grupo th {
-        text-align: left;
-        font-weight: 400;
-        font-size: inherit;
-        color: #000;
-        white-space: normal;
-        background: transparent;
-        border-top: 1.5px solid #000;
-        padding: 3px 4px;
-        break-after: avoid;
-        page-break-after: avoid;
-    }
-
-    .riesgo-informe__nombre {
-        display: block;
-        font-weight: 700;
-        font-size: 9.5px;
-    }
-
-    .riesgo-informe__dato {
-        display: block;
-        font-size: 8px;
-        color: #333;
-    }
-
-    // Doble clase: tiene que ganarle a `.tabla-pie`, que va mas abajo con la
-    // misma especificidad.
-    .tabla-pie.riesgo-informe__leer {
-        border: 1px solid #000;
-        padding: $spacing-xs $spacing-sm;
-        margin-bottom: $spacing-sm;
-        page-break-inside: avoid;
-    }
-
-    .riesgo-informe__leer-titulo { font-size: 9px; margin: 0 0 2px; }
-
-    // Arranca en hoja nueva. Lo llevan «Estudiantes en riesgo» y la seccion que
-    // la sigue (Conducta), asi el listado ocupa hojas propias y se puede
-    // entregar suelto.
-    &__bloque--hoja-nueva {
-        break-before: page;
-        page-break-before: always;
-    }
-
-    tr.fila-riesgo-detalle > td { padding: 0; background: transparent; }
 
     .cuadros-top__caption {
         padding: 2px 3px;
@@ -1240,28 +950,6 @@ tr.fila-riesgo-detalle > td {
         page-break-inside: avoid;
     }
 
-    // El suelo de 950px es de PANTALLA (evita que nueve columnas se aplasten
-    // antes de que aparezca el scroll del wrapper). En papel no hay scroll y la
-    // hoja mide 718px: dejarlo desbordaria la tabla por el margen derecho. Los
-    // porcentajes se reparten igual sobre el ancho que haya.
-    .cuadros-top--riesgo { min-width: 0; }
-
-    // 🔴 LA CELDA DEL NOMBRE ES UN `th`, Y ESO SE COLABA EN EL PAPEL. La regla
-    // de pantalla que la disfraza de `td` —`.cuadros-top--riesgo tbody
-    // th.col-nombre`, especificidad (0,3,2)— le gana a `.cuadros-print
-    // .cuadros-top` (0,2,0), asi que el A4 imprimia el nombre a 14px con el
-    // resto de la fila a 8px: cada nombre largo partia su fila en dos y el
-    // bloque ocupaba casi el doble de alto. Medido el 07/09/2026.
-    //
-    // Se reescriben las tres propiedades que vienen de aquella regla, no un
-    // `all: unset` ni una clase nueva: el `font-weight: 400` y el color SI se
-    // quieren tambien en papel (es una celda de datos, no un encabezado).
-    .cuadros-top--riesgo tbody th.col-nombre {
-        font-size: inherit;
-        padding: 2px 3px;
-        border: 1px solid #000;
-    }
-
     // 🔴 Y LA CIFRA SALIA ROJA. El bloque de arriba ya habia neutralizado el
     // fondo, el borde y el color de `__datos` de la banda de riesgo, pero se
     // dejo `.cuadros-banda--riesgo .cuadros-banda__n{color:#b91c1c}` (0,2,0),
@@ -1272,14 +960,9 @@ tr.fila-riesgo-detalle > td {
     .cuadros-banda__q     { font-size: 10px; }
     .cuadros-banda__datos { font-size: 8px; color: #000; }
     .cuadros-banda__datos strong { color: #000; }
+    .riesgo-banda__niveles { font-size: 8px; color: #000; }
 
-    // Red de seguridad, no la defensa principal: el A4 no define
-    // `$riesgoInteractivo`, asi que este marcado NO se emite. Si alguien
-    // "arregla" esa variable que falta, esto evita que el informe salga con un
-    // buscador impreso; el aserto del verificador es lo que lo delata.
-    .cuadros-riesgo__filtros,
-    .cuadros-riesgo__contador,
-    .cuadros-riesgo__sin-resultados,
+    // El indice de anclas es de pantalla: en papel serian enlaces muertos.
     .cuadros-indice { display: none; }
 
     &__footer {

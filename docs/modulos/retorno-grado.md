@@ -14,6 +14,15 @@
 | Asistencia | matrícula oficial | matrícula **operativa** |
 | Orden de mérito | grado **oficial** | grado **operativo** |
 | **Boleta y token público** | **SIEMPRE matrícula oficial** | **SIEMPRE matrícula oficial** |
+| **Estudiantes en riesgo** (informe, banda del tablero) | **SIEMPRE matrícula oficial** | **SIEMPRE matrícula oficial** |
+
+**Estudiantes en riesgo cuenta por la matrícula OFICIAL (23/09/2026, decisión del usuario:
+«el retorno es un proceso interno del colegio»).** No se recalcula nada: las cifras son las
+de la fila del mérito, que `statsPorGrado` **reubica** en el grado y la sección oficiales,
+con la regla por nivel del nivel **oficial** y para todo retorno, activo o revertido. El
+mérito (`mejor`, `peores`, `total`) sigue en el grado operativo, y la franja lo dice:
+«Retorno de grado: se evalúa en 1.° B, puesto 42 de 42». Detalle en
+`docs/modulos/usuarios-direccion.md` § «Retorno de grado en el informe».
 
 **Principio rector: el vínculo `retornos_grado` es el puntero; los datos NO se
 copian ni se mueven entre matrículas.** Cada bimestre queda donde se cursó, y la

@@ -128,6 +128,141 @@ class CuadrosEstadisticosController extends BaseController
     }
 
     /**
+     * GET /admin/cuadros/riesgo  (acepta ?periodo_id, ?grados[], ?primaria=c)
+     *
+     * Informe de estudiantes en riesgo académico (23/09/2026). Nació como el
+     * bloque 3b del tablero y se sacó a su propia vista: con la regla de
+     * primaria (B+C) el listado pasa de ~120 a ~200 estudiantes y ~1 400 filas
+     * de desglose, que no caben en un tablero. En `/admin/cuadros` queda la
+     * banda con un enlace aquí.
+     *
+     * Mismos roles y misma regla de bimestres que el tablero (Dirección solo
+     * cerrados): los hereda del constructor y de `elegirPeriodo()`.
+     */
+    public function riesgo(): void
+    {
+        $periodos = $this->periodosVisibles();
+
+        [$periodo, $fueraDeAlcance] = $this->elegirPeriodo(
+            $periodos,
+            (int) ($this->query('periodo_id') ?? 0)
+        );
+
+        $this->view('admin/cuadros/riesgo/index', [
+            'titulo'         => 'Estudiantes en riesgo académico',
+            'periodos'       => $periodos,
+            'periodo'        => $periodo,
+            'riesgo'         => $periodo ? $this->componerRiesgo($periodo) : null,
+            'avisoNoCerrado' => $fueraDeAlcance,
+        ]);
+    }
+
+    /**
+     * GET /admin/cuadros/riesgo/imprimir  (acepta ?periodo_id, ?grados[], ?primaria=c)
+     *
+     * A4 vertical del informe. Imprime LO FILTRADO (decisión del usuario,
+     * 23/09/2026): sin filtro son ~40 hojas en B1, y el que prepara una reunión
+     * de un nivel o un tutor de un grado no necesita las demás.
+     *
+     * Documento de TRABAJO: sin sello del Director EBR (a diferencia del A4 del
+     * tablero). Como el tablero, niega el bimestre fuera de alcance en vez de
+     * caer a otro: un papel no puede decir un bimestre y mostrar otro.
+     */
+    public function riesgoImprimir(): void
+    {
+        $periodos = $this->periodosVisibles();
+
+        [$periodo, $fueraDeAlcance] = $this->elegirPeriodo(
+            $periodos,
+            (int) ($this->query('periodo_id') ?? 0)
+        );
+
+        if (!$periodo || $fueraDeAlcance) {
+            $this->notFound();
+        }
+
+        View::setLayout('print');
+        $this->view('admin/cuadros/riesgo/imprimir', [
+            'titulo'  => 'Estudiantes en riesgo académico',
+            'periodo' => $periodo,
+            'riesgo'  => $this->componerRiesgo($periodo),
+        ]);
+    }
+
+    /**
+     * Datos del informe de riesgo. PUNTO ÚNICO de la pantalla y su A4, por el
+     * mismo motivo que `componerBloques()`: si cada uno armara los suyos, el
+     * papel podría decir otra cifra que la pantalla.
+     *
+     * Compone, no calcula: la lista sale de `OrdenMeritoModel::statsPorGrado`
+     * (regla por nivel incluida) y el filtro y las estadísticas de funciones
+     * puras de `helpers.php`. Aquí no hay ni un SELECT.
+     */
+    private function componerRiesgo(array $periodo): array
+    {
+        $porGrado = $this->meritoModel->statsPorGrado((int) $periodo['id']);
+
+        // Grados del ranking, agrupados por nivel (para el formulario) y con
+        // su código (para saber si la selección toca primaria).
+        $niveles = $codigo = [];
+        foreach ($porGrado as $g) {
+            $gr  = $g['grado'];
+            $nid = (int) $gr['nivel_id'];
+            $niveles[$nid] ??= [
+                'nombre' => (string) $gr['nivel_nombre'],
+                'codigo' => (string) $gr['nivel_codigo'],
+                'grados' => [],
+            ];
+            $niveles[$nid]['grados'][] = $gr;
+            $codigo[(int) $gr['id']]   = (string) $gr['nivel_codigo'];
+        }
+
+        // ?grados[] llega de la URL y se VALIDA contra los grados que el ranking
+        // devolvió. `query()` entrega `$_GET` en crudo: un escalar o un arreglo
+        // anidado se descartan (ojo: `(int)` de un arreglo vale 1, y
+        // seleccionaría en silencio el grado id 1). Un id que no existe se
+        // descarta en vez de dejar la pantalla vacía sin explicación.
+        $crudo  = $this->query('grados');
+        $grados = [];
+        foreach (is_array($crudo) ? $crudo : [] as $v) {
+            if (is_string($v) && ctype_digit($v) && isset($codigo[(int) $v])) {
+                $grados[(int) $v] = (int) $v;
+            }
+        }
+        $grados = array_values($grados);
+
+        // Lente «primaria solo C»: solo aplica si la selección toca primaria
+        // (o es vacía = todos). Con solo secundaria no hay nada que cambiar, y
+        // el A4 no debe declarar un modo que no se aplicó.
+        $hayPrimaria = (bool) array_filter(
+            $grados === [] ? $codigo : array_intersect_key($codigo, array_flip($grados)),
+            static fn(string $c): bool => str_starts_with($c, 'prim')
+        );
+        $pideSoloC = $this->query('primaria') === 'c';
+        $soloC     = $pideSoloC && $hayPrimaria;
+
+        $base = $soloC
+            ? riesgo_sin_b($porGrado, OrdenMeritoModel::RIESGO_MIN_C, OrdenMeritoModel::RIESGO_CRITICO)
+            : $porGrado;
+        $filtrado = riesgo_filtrar($base, $grados);
+
+        return [
+            'por_grado'    => $base,
+            'filtrado'     => $filtrado,
+            'stats'        => riesgo_estadisticas($filtrado, !$soloC),
+            'niveles'      => $niveles,
+            'grados_ids'   => $grados,
+            'contar_b'     => !$soloC,
+            // Lo PEDIDO, aunque no se aplique: el formulario y los enlaces lo
+            // conservan al pasar a una selección que sí toca primaria.
+            'pide_solo_c'  => $pideSoloC,
+            'hay_primaria' => $hayPrimaria,
+            'min'          => OrdenMeritoModel::RIESGO_MIN_C,
+            'critico_min'  => OrdenMeritoModel::RIESGO_CRITICO,
+        ];
+    }
+
+    /**
      * Los bimestres que esta audiencia puede ver en este tablero.
      *
      * 🔴 DIRECCIÓN SOLO VE BIMESTRES CERRADOS (08/09/2026). Un bimestre a medio

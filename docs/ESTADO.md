@@ -5,7 +5,39 @@
 > **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
 
 
-## 🆕 CUADROS A4 — «Estudiantes en riesgo» como informe agrupado — EN `dev` (22/09/2026)
+## 🆕 ESTUDIANTES EN RIESGO ACADÉMICO — vista propia + A4 + regla por nivel — EN `dev` (23/09/2026)
+
+Sin migración. Nueva vista `/admin/cuadros/riesgo` (+ `/imprimir`, A4 vertical que imprime lo
+filtrado por nivel/grado), tarjeta en el dashboard y, en `/admin/cuadros`, solo la banda con
+enlace. **Cambia la regla**: primaria cuenta **B+C ≥ 3** (mayor atención ≥ 6), secundaria
+**C ≥ 3** (≥ 6); punto único `riesgo_literales()`/`riesgo_conteo()` sobre
+`LITERALES_APROBATORIOS`. B1 pasa de 118 a 199 estudiantes, B2 de 77 a 157. Estadísticas por
+grado, sección, área, top 10 competencias y docente. Maquetación A4 elegida imprimiendo 3
+candidatas a PDF (título del grado dentro del `<thead>`: 0 encabezados huérfanos). Detalle en
+`docs/modulos/usuarios-direccion.md` § «Informe propio de estudiantes en riesgo académico».
+Sustituye a la entrada del 22/09 (abajo), que nunca se desplegó.
+
+- [x] `verif_cuadros_merito_motor.php` y `verif_direccion_superficies.php` actualizados y en
+      verde; mutantes de las dos ramas (primaria sin B / secundaria con B) caen.
+- [x] PDF de Chrome sin interfaz revisado hoja por hoja: B1 42 hojas, B2 34, B1 primaria 23.
+- [x] **Filtros** (23/09, mismo día): varios grados de cualquier nivel + lente «primaria solo
+      C» (C ≥ 3 / C ≥ 6), por URL, con Aplicar; por defecto la regla oficial. Lente de
+      lectura: la banda del tablero no se filtra. Verificadores en verde (5 mutantes caen),
+      batería 44/44, PDF de 3 variantes revisado. Detalle en § «Filtros del informe».
+- [x] **Retorno de grado por matrícula OFICIAL** (23/09): el riesgo reubica la fila del
+      retorno en su grado y sección oficiales (el mérito no cambia); el caso 190/692 pasa de
+      1.° B a 2.° B en B1 y B2, con su puesto de 1.° B en la franja. Verificadores en verde
+      (simulación con rollback de 3 ramas; 5 mutantes caen), batería 44/44.
+- [x] **Prueba con sesión de admin** (23/09): formulario, Aplicar, Imprimir, URL compartida,
+      cambio de bimestre, atajos, buscador, retorno 190/692 en 2.° B y ancho de celular.
+      Corregidos el hueco bajo los grados (`flex-wrap: nowrap`) y el desborde lateral en
+      celular (3 tablas del resumen dentro de `.tabla-notas-wrapper`). Batería 44/44.
+- [ ] Vista previa del diálogo de impresión del navegador (no se puede abrir desde la
+      extensión; la maquetación está validada con PDF hoja por hoja) y visto bueno del usuario.
+- [ ] Al desplegar: avisar a Dirección de que la cifra de riesgo del tablero **sube** (regla
+      nueva de primaria), no es un error.
+
+## (SUSTITUIDO el 23/09) CUADROS A4 — «Estudiantes en riesgo» como informe agrupado (22/09/2026)
 
 Solo papel (`/admin/cuadros/imprimir`); la pantalla no cambia. La sección empieza **en hoja
 nueva** y Conducta también. Cada grado es **una tabla con un solo encabezado** (Área · Curso ·
@@ -18,8 +50,8 @@ encabezados. El pie «Cómo leer este listado» pasa **antes** de las tablas y s
 
 - [x] `verif_direccion_superficies.php` en verde, con 2 asertos nuevos (agrupado sin anidadas
       ni nombre repetido: 118 franjas en B1 y 77 en B2; saltos de hoja en riesgo y conducta).
-- [ ] **Vista previa de impresión en Chrome** (B1 y B2): los saltos de hoja, el encabezado
-      repetido en cada hoja y que ningún estudiante quede partido. No se puede probar sin sesión.
+- [x] ~~Vista previa de impresión en Chrome~~ — hecha el 23/09: **falló** (encabezado del grado
+      en una hoja y sus estudiantes en la siguiente). Sustituido por la entrada de arriba.
 
 
 ## 🟢 CONDUCTA Y ASISTENCIA EXTRAORDINARIAS EN EL LOTE (22/09/2026) — DESPLEGADO en v1.0.3

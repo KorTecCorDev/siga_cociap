@@ -74,8 +74,20 @@ class OrdenMeritoModel extends BaseModel
      * que es otra pregunta: allí es el PROMEDIO GENERAL por debajo de NOTA_MIN_B,
      * contado por nivel. Las dos cifras conviven en `/admin/cuadros` y son
      * legítimamente distintas; el pie de cada bloque lo explica.
+     *
+     * 🔴 DESDE EL 23/09/2026 LA REGLA DEPENDE DEL NIVEL (decisión del colegio):
+     * primaria cuenta B+C, secundaria solo C — es decir, las competencias NO
+     * aprobatorias de cada nivel. El nombre `_C` se conserva por compatibilidad;
+     * lo que se cuenta lo decide `riesgo_conteo()` en `helpers.php`.
      */
     public const RIESGO_MIN_C = 3;
+
+    /**
+     * Umbral de los casos «de mayor atención» dentro de la lista de riesgo
+     * (23/09/2026): 6 o más competencias no aprobatorias, contadas con la misma
+     * regla por nivel que `RIESGO_MIN_C` (`riesgo_conteo()`).
+     */
+    public const RIESGO_CRITICO = 6;
 
     private DesempateMeritoModel $desempateModel;
     private PublicacionBoletaModel $publicacionModel;
@@ -547,11 +559,25 @@ class OrdenMeritoModel extends BaseModel
      * está memoizado, y llamarlo dos veces por grado (una para el mérito, otra
      * para el riesgo) duplicaría 11 consultas pesadas por render.
      *
-     * @return array<int, array{grado:array, mejor:array, peores:array, total:int, en_riesgo:array}>
+     * 🔴 MÉRITO Y RIESGO UBICAN DISTINTO A UN RETORNO DE GRADO (23/09/2026).
+     * `mejor`, `peores` y `total` son del MÉRITO: el estudiante compite en el
+     * grado donde se evalúa (la operativa). `en_riesgo`, `por_seccion` y
+     * `evaluados` son del RIESGO, y se cuentan por la MATRÍCULA OFICIAL
+     * (decisión del usuario: el retorno es un proceso interno del colegio). La
+     * fila se reubica en el grado y la sección oficiales —con las mismas cifras
+     * del mérito, sin recalcular nada— y la regla por nivel es la del nivel
+     * OFICIAL. La fila conserva su puesto real en `retorno` (grado, sección,
+     * puesto y competidores de la operativa). Aplica a TODO retorno, activo o
+     * revertido, igual que `matricula_documento()`: la operativa nunca es la
+     * identidad. Por eso `evaluados` (denominador del riesgo) y `total`
+     * (competidores del mérito) pueden diferir en los grados afectados.
+     *
+     * @return array<int, array{grado:array, mejor:array, peores:array, total:int, evaluados:int, en_riesgo:array, por_seccion:array}>
      */
     public function statsPorGrado(int $periodoId, int $minC = self::RIESGO_MIN_C): array
     {
         $porGrado = [];
+        $filas    = [];   // [fila, grado operativo, competidores] de todos los grados
 
         foreach ($this->gradosConRanking($periodoId) as $grado) {
             $ranking = $this->rankingGrado((int) $grado['id'], $periodoId);
@@ -595,41 +621,92 @@ class OrdenMeritoModel extends BaseModel
                 static fn($e) => (int) $e['matricula_id'] !== (int) $mejor['matricula_id']
             ));
 
-            // EN RIESGO: todos los que llegan al umbral de C, sin tope por grado
-            // (decisión del usuario, 04/09/2026). `num_c` ya viene calculado por
-            // el ranking sobre el universo del mérito, así que esta lista NO
-            // cuesta ninguna consulta y no puede desincronizarse del promedio y
-            // del puesto que se muestran en su misma fila.
-            $enRiesgo = array_values(array_filter(
-                $ranking,
-                static fn($e) => (int) $e['num_c'] >= $minC
-            ));
-
-            // Manda el número de C; a igual número, primero el peor promedio.
-            usort($enRiesgo, static function ($a, $b) {
-                return [(int) $b['num_c'], (float) $a['promedio_exacto'], (int) $a['puesto']]
-                   <=> [(int) $a['num_c'], (float) $b['promedio_exacto'], (int) $b['puesto']];
-            });
-
-            $porGrado[] = [
-                'grado'     => $grado,
-                'mejor'     => $mejor,
-                'peores'    => $peores,
-                'total'     => count($ranking),
-                'en_riesgo' => $enRiesgo,
+            $porGrado[(int) $grado['id']] = [
+                'grado'       => $grado,
+                'mejor'       => $mejor,
+                'peores'      => $peores,
+                'total'       => count($ranking),
+                'evaluados'   => 0,
+                'en_riesgo'   => [],
+                'por_seccion' => [],
             ];
+            foreach ($ranking as $e) {
+                $filas[] = [$e, $grado, count($ranking)];
+            }
         }
 
-        // ── Desglose de las C, en UNA sola consulta para todos los grados ──
+        // ── EN RIESGO, por MATRÍCULA OFICIAL ──────────────────────────────
+        // Todos los que llegan al umbral, sin tope por grado (decisión del
+        // usuario, 04/09/2026). Lo que se cuenta DEPENDE DEL NIVEL (23/09/2026):
+        // B+C en primaria, solo C en secundaria —las competencias no
+        // aprobatorias—, y lo decide `riesgo_conteo()`. `num_b`/`num_c` ya vienen
+        // del ranking sobre el universo del mérito (también del snapshot), así
+        // que esta lista NO cuesta ninguna consulta y no puede desincronizarse
+        // del promedio y del puesto que se muestran en su misma fila.
+        //
+        // Un retorno de grado se reubica en su grado y sección OFICIALES (ver el
+        // docblock). Si el grado oficial no tuviera ranking en este periodo —no
+        // pasa: el oficial siempre tiene compañeros evaluados— la fila se queda
+        // donde está en vez de perderse.
+        $oficial   = $this->ubicacionOficialRetornos();
+        $porSeccion = [];
+        foreach ($filas as [$e, $grado, $competidores]) {
+            $destino = (int) $grado['id'];
+            $ofi     = $oficial[(int) $e['matricula_id']] ?? null;
+            if ($ofi !== null && isset($porGrado[$ofi['grado_id']])) {
+                $e['retorno'] = [
+                    'grado'          => $grado,
+                    'seccion_nombre' => (string) $e['seccion_nombre'],
+                    'total'          => $competidores,
+                ];
+                $e['seccion_nombre'] = $ofi['seccion_nombre'];
+                $destino = $ofi['grado_id'];
+            }
+
+            // Evaluados por grado y sección: los denominadores del riesgo. Salen
+            // del MISMO ranking que la lista, no de un conteo aparte. Clave =
+            // nombre: dentro de un grado es único, y el ranking EN VIVO no trae
+            // `seccion_id` (solo el del snapshot).
+            $sec = (string) $e['seccion_nombre'];
+            $porGrado[$destino]['evaluados']++;
+            $porSeccion[$destino][$sec] ??= ['seccion_nombre' => $sec, 'total' => 0];
+            $porSeccion[$destino][$sec]['total']++;
+
+            $conteo = riesgo_conteo($e, (string) $porGrado[$destino]['grado']['nivel_codigo']);
+            if ($conteo >= $minC) {
+                $e['conteo']  = $conteo;
+                $e['critico'] = $conteo >= self::RIESGO_CRITICO;
+                $porGrado[$destino]['en_riesgo'][] = $e;
+            }
+        }
+
+        foreach ($porGrado as $gid => &$g) {
+            // Manda el conteo; a igual conteo, más C primero; luego el peor
+            // promedio. PUNTO ÚNICO en `helpers.php`: `riesgo_sin_b()` reordena
+            // con el mismo criterio tras recortar.
+            riesgo_ordenar($g['en_riesgo']);
+
+            $secs = $porSeccion[$gid] ?? [];
+            ksort($secs, SORT_STRING);
+            $g['por_seccion'] = array_values($secs);
+        }
+        unset($g);
+        $porGrado = array_values($porGrado);
+
+        // ── Desglose de las competencias de riesgo, en UNA sola consulta ──
         // Va aquí y no dentro del bucle a propósito: una consulta por grado
         // serían 11 más por render, y este método promete un solo recorrido.
         //
-        // 🔴 EL GUARD DEL DESCUADRE. `detalleCompetenciasC` calcula EN VIVO y la
-        // fila puede venir del SNAPSHOT de un bimestre cerrado, que solo guarda
-        // agregados. Si las dos cifras no coinciden se deja `detalle_c` en NULL
+        // La consulta trae B y C de todos; el corte POR NIVEL (primaria B+C,
+        // secundaria solo C) se aplica aquí con `riesgo_literales()`, el mismo
+        // punto único que decidió quién entra a la lista.
+        //
+        // 🔴 EL GUARD DEL DESCUADRE. `detalleCompetenciasRiesgo` calcula EN VIVO y
+        // la fila puede venir del SNAPSHOT de un bimestre cerrado, que solo guarda
+        // agregados. Si las dos cifras no coinciden se deja `detalle` en NULL
         // —que la vista lee como "no se puede mostrar"— en vez de pintar un
         // desglose que contradice a su propia fila. NULL y [] significan cosas
-        // distintas y la vista las distingue: [] es "no tiene C que mostrar",
+        // distintas y la vista las distingue: [] es "no tiene nada que mostrar",
         // NULL es "no cuadra con el dato oficial".
         //
         // Medido el 07/09/2026: cuadra en 194 de 195 alumnos (falla la matrícula
@@ -641,12 +718,16 @@ class OrdenMeritoModel extends BaseModel
             }
         }
 
-        $detalle = $this->detalleCompetenciasC($ids, $periodoId);
+        $detalle = $this->detalleCompetenciasRiesgo($ids, $periodoId);
 
         foreach ($porGrado as &$g) {
+            $literales = riesgo_literales((string) $g['grado']['nivel_codigo']);
             foreach ($g['en_riesgo'] as &$al) {
-                $suyas = $detalle[(int) $al['matricula_id']] ?? [];
-                $al['detalle_c'] = count($suyas) === (int) $al['num_c'] ? $suyas : null;
+                $suyas = array_values(array_filter(
+                    $detalle[(int) $al['matricula_id']] ?? [],
+                    static fn(array $d): bool => in_array($d['literal'], $literales, true)
+                ));
+                $al['detalle'] = count($suyas) === (int) $al['conteo'] ? $suyas : null;
             }
             unset($al);
         }
@@ -656,11 +737,40 @@ class OrdenMeritoModel extends BaseModel
     }
 
     /**
-     * Detalle de las competencias en C de un conjunto de matrículas (07/09/2026).
+     * Grado y sección OFICIALES de cada matrícula operativa de un retorno de
+     * grado (23/09/2026), para que `statsPorGrado` cuente el riesgo por la
+     * matrícula oficial. UNA consulta, sin filtrar `estado`: activo o revertido,
+     * la operativa nunca es la identidad del estudiante (mismo criterio que
+     * `matricula_documento()`).
      *
-     * Alimenta el desglose plegable de «Estudiantes en riesgo» en `/admin/cuadros`:
-     * la fila dice cuántas C tiene el estudiante, y esto dice CUÁLES y de qué
-     * docente dependen.
+     * @return array<int, array{grado_id:int, seccion_nombre:string}>  clave = matrícula operativa
+     */
+    private function ubicacionOficialRetornos(): array
+    {
+        $out = [];
+        foreach ($this->query("
+            SELECT r.matricula_operativa_id, s.grado_id, s.nombre AS seccion_nombre
+            FROM retornos_grado r
+            INNER JOIN matriculas mo ON mo.id = r.matricula_oficial_id
+            INNER JOIN secciones s   ON s.id  = mo.seccion_id
+        ") as $r) {
+            $out[(int) $r['matricula_operativa_id']] = [
+                'grado_id'       => (int) $r['grado_id'],
+                'seccion_nombre' => (string) $r['seccion_nombre'],
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Detalle de las competencias en B y C de un conjunto de matrículas
+     * (07/09/2026; B desde el 23/09/2026, por la regla de primaria).
+     *
+     * Alimenta el desglose de «Estudiantes en riesgo» (`/admin/cuadros/riesgo`):
+     * la fila dice cuántas competencias de riesgo tiene el estudiante, y esto
+     * dice CUÁLES y de qué docente dependen. Trae B y C de TODOS; el corte por
+     * nivel (secundaria descarta las B) lo hace `statsPorGrado` con
+     * `riesgo_literales()`, para que la regla no se copie en SQL.
      *
      * 🔴 REPLICA EL UNIVERSO DEL MÉRITO, y esa es toda la razón de que viva en
      * este modelo y no en `CalificacionModel`. Si el desglose se sacara de
@@ -683,7 +793,7 @@ class OrdenMeritoModel extends BaseModel
      * agregados, así que en un bimestre cerrado la fila viene del snapshot y
      * esto se calcula EN VIVO. Medido el 07/09/2026: diverge 1 de 195 alumnos
      * (B1, matrícula 530, por un desbloqueo posterior al cierre). Quien pinte
-     * esto DEBE comparar el número de filas con `num_c` y callar el desglose si
+     * esto DEBE comparar el número de filas con `conteo` y callar el desglose si
      * no cuadran, en vez de enseñar dos cifras que se contradicen.
      *
      * UNA SOLA CONSULTA para todas las matrículas, con `IN`: `statsPorGrado`
@@ -697,9 +807,9 @@ class OrdenMeritoModel extends BaseModel
      * dos cargas (fuera de él hay 1 072, y 1 052 notas en cargas inactivas).
      *
      * @param  int[] $matriculaIds
-     * @return array<int, array<int, array{area:string,curso:?string,competencia:string,codigo:?string,nota:int,docente:string}>>
+     * @return array<int, array<int, array{area:string,curso:?string,competencia:string,codigo:?string,nota:int,literal:string,docente:string}>>
      */
-    public function detalleCompetenciasC(array $matriculaIds, int $periodoId): array
+    public function detalleCompetenciasRiesgo(array $matriculaIds, int $periodoId): array
     {
         $ids = array_values(array_unique(array_map('intval', $matriculaIds)));
         if (empty($ids)) {
@@ -739,7 +849,7 @@ class OrdenMeritoModel extends BaseModel
             LEFT  JOIN personas p           ON p.id  = u.persona_id
             WHERE cal.matricula_id IN ($ph)
               AND cal.periodo_id     = ?
-              AND cal.nota_numerica <= " . (NOTA_MIN_B - 1) . "
+              AND cal.nota_numerica < " . (int) NOTA_MIN_A . "
               AND cal.extraordinaria = 0
               AND (a.tipo NOT IN ('transversal', 'tutoria')
                    OR a.nombre_boleta = '" . AREA_ETICA_NOMBRE_BOLETA . "')
@@ -765,6 +875,7 @@ class OrdenMeritoModel extends BaseModel
                 'competencia' => (string) $f['competencia_nombre'],
                 'codigo'      => $f['codigo_minedu'] !== null ? (string) $f['codigo_minedu'] : null,
                 'nota'        => (int) $f['nota_numerica'],
+                'literal'     => nota_a_literal((int) $f['nota_numerica']),
                 'docente'     => $docente !== '' ? $docente : '—',
             ];
         }
