@@ -184,7 +184,7 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | Orden de mérito, snapshot, desempates, rectificaciones | `docs/modulos/orden-merito.md` |
 | Usuarios, secciones/tutores, Director EBR, panel de bloqueos, conducta | `docs/modulos/admin.md` |
 | **Usuarios de Dirección** (los 3 directores, solo lectura, `ROLES_DIRECCION`) | `docs/modulos/usuarios-direccion.md` |
-| **Riesgo académico / situación final MINEDU** (PRO·RR·PER, `/admin/cuadros/riesgo`, A4) | `docs/modulos/usuarios-direccion.md` |
+| **Acompañamiento pedagógico: riesgo académico / situación final MINEDU + seguimiento** (PRO·RR·PER, `/admin/cuadros/acompanamiento`, A4) | `docs/modulos/usuarios-direccion.md` |
 | Exportación de notas al SIAGIE (llenado de Excel oficiales) | `docs/modulos/export-siagie.md` |
 | UI: wayfinding, dashboard docente, botón Cerrar, tablas sticky, **banners de aviso** | `docs/modulos/ui.md` |
 | Producción, seguridad, despliegue, secretos, setup SQL desde cero | `docs/infraestructura.md` |
@@ -366,8 +366,11 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   `estado='aprobada'` y deja fuera a los `pendiente`, que sí se evalúan—. No es el
   «Promedio en C» de `getResumenBimestre`. **El riesgo cuenta al retorno en su matrícula
   OFICIAL**, que además fija el grado y con él la regla. **El tutor ve SU sección**
-  (`/docente/tutoria/riesgo` y su card): sale de `tutor_id` en servidor, nunca de la URL, y
-  solo en bimestres PUBLICADOS de su nivel (compuerta 044). Ver
+  (`/docente/tutoria/acompanamiento` y su card): sale de `tutor_id` en servidor, nunca de la URL, y
+  solo en bimestres PUBLICADOS de su nivel (compuerta 044). El informe se llama
+  **«Acompañamiento pedagógico»** (24/09/2026; las rutas `riesgo` redirigen) y suma un bloque de
+  **SEGUIMIENTO** que NO es riesgo ni entra a sus cifras: PRO y 1.º de primaria con
+  prim ≥ 3 B o ≥ 3 C · sec ≥ 3 C (punto único `seguimiento_pedagogico()`). Ver
   `docs/modulos/usuarios-direccion.md`.
 - **Los TRES directores son SOLO LECTURA y salen de `ROLES_DIRECCION`**
   (`helpers.php`; 24/08/2026). Nunca listar sus códigos a mano — eran 44 literales

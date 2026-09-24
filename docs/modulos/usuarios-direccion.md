@@ -950,8 +950,10 @@ el caption «Competencias en C ·», y los dos saltos de hoja.
 
 Estado: **en `dev`**, sin desplegar. Sin migración.
 
-**Rutas:** `GET /admin/cuadros/riesgo` (pantalla), `GET /admin/cuadros/riesgo/imprimir`
-(A4 vertical) y `GET /admin/cuadros/riesgo/tutores` (lote, una sección por hoja), las tres
+**Rutas** (renombradas el 24/09/2026; las `…/riesgo…` anteriores redirigen con su query
+string vía `BaseController::redirigirRutaRenombrada()`): `GET /admin/cuadros/acompanamiento`
+(pantalla), `GET /admin/cuadros/acompanamiento/imprimir` (A4 vertical) y
+`GET /admin/cuadros/acompanamiento/tutores` (lote, una sección por hoja), las tres
 con `?periodo_id` y `?secciones[]`. Mismos roles que el tablero (admin, RA y los tres
 directores; Dirección solo bimestres cerrados, vía `elegirPeriodo()`). Tarjeta propia en el
 dashboard. En `/admin/cuadros` y en su A4 queda solo la **banda** (`_banda-riesgo.php`), con
@@ -1028,7 +1030,7 @@ según el grado y según en qué áreas caiga.
 | L1 | **«Más de la mitad»** = `n_c > ceil(n/2)`, con la misma convención que la norma fija para «la mitad». |
 | L2 | La condición de **PER de primaria** dice «"C" en más de la mitad … **y "B" en las demás»**. Al pie de la letra, un alumno con «C» de sobra quedaría FUERA de la permanencia —el absurdo contrario—. Es un artefacto de redacción: **se aplica solo la condición de «C»**, como el SIAGIE. |
 | L3 | **Competencias/áreas sin nota**: la SIGLA se calcula solo con lo evaluado (no se cuentan como no logradas: sería inventar un dato en contra). **Desde el 24/09/2026 lo pendiente SÍ se usa para la CERTEZA**: la sigla se prueba contra el plan completo del área (ver «Certeza: seguro o proyectado»). |
-| L4 | **1.º de primaria** no entra al riesgo ni a sus cifras; se lista **aparte** («seguimiento pedagógico») si tiene competencias por debajo de A. |
+| L4 | **1.º de primaria** no entra al riesgo ni a sus cifras. Desde el 24/09/2026 entra al bloque de **seguimiento** con el MISMO umbral que el resto de primaria (antes: cualquier B o C). Ver «Acompañamiento pedagógico». |
 | L5 | **Último nivel registrado, como el SIAGIE** (decisión del usuario, 24/09/2026; deroga «solo los literales del bimestre elegido»). En B1-B3 una competencia no evaluada en el bimestre toma su nivel del último bimestre anterior en que se registró (RVM 094-2020, 5.1.2.2 p. 3; RVM 048-2024, 5.1.1.3 p. 3). **En el periodo final no se arrastra**: manda solo ese bimestre, igual que el logro anual de la boleta. |
 | L6 | Un estudiante **sin ninguna** competencia evaluada es `ND` (no es sigla del SIAGIE, es el hueco de datos): no cuenta como evaluado ni como riesgo. |
 
@@ -1147,6 +1149,87 @@ bloqueadas de B3). Con el arrastre, «pendiente» significa **nunca registrada e
 ⚠️ **«Seguro» no es definitivo.** Significa que lo pendiente ya no lo cambia; pero por la misma
 regla del último nivel registrado, las notas de los bimestres siguientes reemplazan a las de hoy.
 El «Cómo leer» lo dice.
+
+#### Certeza: se marca solo la excepción (24/09/2026, tarde)
+
+Decisión del usuario tras medir: **100/0 seguros/proyectados en B2-B3 y 135/1 en B1**. La marca
+«Seguro» salía en casi cada fila, tapaba el único caso que importa y sonaba a definitiva en un
+informe que es proyección. Ahora:
+
+- **Sin marca** para la certeza segura. Los riesgos proyectados llevan **«Depende de N
+  pendientes»** (`_listado.php`, `_criticos.php`).
+- La banda (`_resumen.php`, `_seccion.php`, `_banda-riesgo.php`) solo dice «M dependen de
+  competencias aún sin calificar» si M > 0.
+- La lógica (`situacion_final_proyectar()`, `CERTEZA_*`, claves `seguros`/`proyectados` del
+  resumen) **no cambió**.
+
+#### Colores de la situación (24/09/2026)
+
+PER rojo (`$color-error`) y RR ámbar (`$color-warning`), **también en el A4** (decisión del
+usuario; antes el A4 los forzaba a negro y solo los distinguía el texto). La marca PRO del
+seguimiento es **neutra** a propósito: un verde diría «todo bien» en una lista que existe porque
+hay algo que atender.
+
+#### Acompañamiento pedagógico: bloque de SEGUIMIENTO (24/09/2026)
+
+El informe se llama **«Acompañamiento pedagógico»** (títulos, cards, A4, lote y panel del tutor;
+rutas `acompanamiento`) y tiene dos bloques que **no se suman**:
+
+1. **Estudiantes en riesgo académico** — RR/PER, sin cambios de regla.
+2. **Estudiantes en seguimiento** — `riesgo/_seguimiento.php` (antes `_automatica.php`, solo 1.º).
+
+**Regla** (decisión del usuario, 24/09/2026; punto único `seguimiento_pedagogico()` y
+`SEGUIMIENTO_MIN_B` / `SEGUIMIENTO_MIN_C` en `helpers.php`): estudiantes **PRO** o con
+**promoción automática** (1.º de primaria) con:
+
+- **primaria:** ≥ 3 B **o** ≥ 3 C, cada literal por separado (2 B + 1 C **no** entra, a propósito);
+- **secundaria:** ≥ 3 C.
+
+Son los umbrales de la primera versión del riesgo (23/09), derogados como regla de PROMOCIÓN y
+reciclados como señal pedagógica. Cuentan las mismas competencias que la situación final (último
+nivel registrado, sin transversales ni talleres no aprobados). Riesgo, `PEND` y sin datos nunca
+entran.
+
+**Datos:** `SituacionFinalModel::porGrado()` deja la lista en `seguimiento` (clave que reemplaza
+a `automatica`); `riesgo_resumen()` da la cifra `seguimiento`, **nunca sumada a `total` ni a
+`pct`**; `riesgo_filtrar_secciones()` la recorta como `en_riesgo`.
+
+| Medido (24/09) | B1 | B2 | B3 |
+|---|---|---|---|
+| En seguimiento | 75 | 75 | 75 |
+| · de ellos 1.º de primaria | 11 | 10 | 10 |
+
+(B1: primaria 68 con 1.º incluido, secundaria 7. B2: 67 y 8. Contados con la reubicación del
+retorno de grado: una medición que la omite da una fila más en 1.º.)
+
+**Guardas:** `verif_situacion_final.php` (bordes de las dos ramas), `verif_riesgo_situacion_bd.php`
+§ 6b (solo PRO/automática sobre el umbral y nunca a la vez en riesgo),
+`verif_riesgo_tutor.php` y `verif_direccion_superficies.php` (filas = riesgo + seguimiento).
+
+#### Fuera del cálculo: tres grupos que no se mezclan (24/09/2026)
+
+Pedido del usuario: «diferenciar en los contadores a los estudiantes que ya no pertenecen al
+colegio». Hasta entonces los trasladados y retirados se excluían del roster
+(`matriculas_vigentes()`) **sin nombrarse**, y quien se matriculó después del bimestre se
+contaba como «sin ninguna competencia evaluada». En 3.° A sec, B1 decía «21 evaluados · 1 sin
+datos» cuando la sección tuvo 24 en ese bimestre (3 se trasladaron después) y el «sin datos»
+era una alumna matriculada el 02/07.
+
+| Grupo | Criterio (se ancla en el DATO, no en fechas: los bimestres se solapan) | ¿Hace parcial la proyección? |
+|---|---|---|
+| **Sin ninguna competencia evaluada** | pertenece y no tiene notas que cuenten | Sí |
+| **Se incorporó después** | sin notas hasta este bimestre y con notas en uno posterior (`incorporadosDespues()`) | No |
+| **Ya no pertenece** | `tipo` trasladado/retirado (negación de `matriculas_vigentes()`) **con notas en este bimestre** (`fueraDelColegio()`, decisión del usuario) | No |
+
+- Ninguno entra al cálculo; los que ya no pertenecen **solo se cuentan**, sin nombre ni
+  situación final (decisión del usuario: la determina la nueva institución).
+- Viven en `cobertura` y `cobertura_seccion` (`incorporados`, `trasladados`, `retirados`), así
+  que el filtro por sección los recorta; `riesgo_resumen()` los suma.
+- **Texto único:** `riesgo_fuera_del_calculo()` en `helpers.php` — banda del informe, banda de
+  `/admin/cuadros`, bloque por sección y `_sin-casos.php`.
+- Medido: B1 10 trasladados · 3 retirados · 4 incorporados después; B2 1 · 2 · 1.
+- Guardas: `verif_riesgo_situacion_bd.php` (roster con incorporados escritos a mano con otra
+  forma —primer bimestre con notas posterior— y conteo manual de trasladados/retirados).
 
 #### Talleres (24/09/2026, migración 064)
 
@@ -1360,7 +1443,7 @@ Implementación (puntos únicos):
 - `riesgo_por_seccion()` — un bloque `{seccion, filtrado, stats}` por sección; lo usan el lote
   y el tutor. `SituacionFinalModel::deSeccion()` lo envuelve para una sección: lo usan el
   panel del tutor y su card, así que **la card no puede decir otra cifra que el informe**.
-- `Docente\RiesgoTutorController` (`/docente/tutoria/riesgo` y `/imprimir`, rutas literales
+- `Docente\RiesgoTutorController` (`/docente/tutoria/acompanamiento` y `/imprimir`, rutas literales
   antes de `/docente/tutoria/{periodo_id}`). 🔴 **La sección NUNCA sale de la URL**
   (`getSeccionDelTutor` del usuario en sesión) y la lista de bimestres sale de
   `periodosPublicados()`; un bimestre sin publicar pedido por URL se rechaza (pantalla avisa,

@@ -66,12 +66,21 @@ commit de docs). **Sin desplegar a `main`** (el usuario lo deja para el final). 
       consultar `talleres_aprobacion`.
 - [ ] Avisar a Dirección al desplegar: la cifra de riesgo de B1 pasa de 199 (regla vieja) a
       **136**, y ahora significa «no sería promovido» (situación final del MINEDU).
-- [ ] Probar con una sesión de **docente tutor** la vista `/docente/tutoria/riesgo` con el
-      arrastre (solo se probó la de admin).
+- [x] Sesión de **docente tutor** (3.° A sec) el 24/09: card, `/docente/tutoria/acompanamiento`
+      B1 y B2, redirección desde `/riesgo`, A4 y bloque de seguimiento (2 en B1), bien.
+- [x] **Fuera del cálculo diferenciado** (24/09, tarde): sin datos · se incorporó después ·
+      ya no pertenece (trasladados/retirados que cursaron el bimestre, solo cifra). Probado
+      con el tutor de 3.° A (B1: 21 + 1 incorporada + 3 trasladados). **Sin commit.**
+- [ ] Queda: ver una fila **arrastrada** en la vista del tutor (su sección no tiene ninguna;
+      en admin sí se ve) y revisar a 375 px.
+- [x] **Acompañamiento pedagógico** (24/09, tarde): certeza solo la excepción, RR/PER con
+      color en el A4, bloque de seguimiento (prim ≥ 3 B o ≥ 3 C · sec ≥ 3 C) y rutas
+      `acompanamiento` (las `riesgo` redirigen). Probado en Chrome con admin (B1, B2, A4,
+      lote, redirección). Detalle en `docs/modulos/usuarios-direccion.md`. **Sin commit.**
 - [ ] Pendientes por decisión del usuario: cuerpo de la **Resolución Directoral** del taller;
       **vínculo de talleres con las actas SIAGIE** (aún sin código de hoja).
 - [ ] Opcional, no pedido: tildes de los mensajes antiguos de Currículo («El nombre del area…»);
-      rótulo «Seguro» (se decidió mantenerlo, con la aclaración en «Cómo leer»).
+      (el rótulo «Seguro» ya se resolvió: se quitó el 24/09 por la tarde).
 
 ### 🆕 COMPETENCIAS PENDIENTES: certeza seguro/proyectado + extraordinarias (24/09/2026)
 
