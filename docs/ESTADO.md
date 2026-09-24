@@ -74,6 +74,9 @@ commit de docs). **Sin desplegar a `main`** (el usuario lo deja para el final). 
 - [x] 375 px confirmado por el usuario (24/09).
 - [ ] Queda: ver una fila **arrastrada** en la vista del tutor (su sección no tiene ninguna;
       en admin sí se ve).
+- [x] **Footer con la versión real** (24/09): leía `v1.0.0` escrito a mano desde su creación;
+      ahora sale de `config('version')` (hoy `1.0.3`). Al hacer un release basta con subir
+      `config/app.php` y crear el tag.
 - [x] **Navbar sin solapes** (24/09): marca y acciones sin encogerse, nombre en una línea con
       «…», oculto por debajo de 500 px. Ver `docs/modulos/ui.md`.
 - [x] **Acompañamiento pedagógico** (24/09, tarde): certeza solo la excepción, RR/PER con
@@ -774,7 +777,8 @@ basta — no hay dato que reparar a mano.
 
 **La versión se marca en DOS sitios**, como en la v1.0.0: `config/app.php` (`'version'`) y
 un **tag anotado** de git sobre el commit de merge en `main`. ⚠️ `config('version')` **no
-lo lee nadie todavía**: hoy es documental.
+lo lee nadie todavía**: hoy es documental. *(Corregido el 24/09/2026: desde entonces lo lee el
+footer del layout `app`, que tenía `v1.0.0` escrito a mano y no cambió en tres releases.)*
 
 ### Qué se desplegó
 
