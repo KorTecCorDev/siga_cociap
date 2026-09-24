@@ -45,10 +45,38 @@ quien tiene una sola «C» en un grado final de ciclo.
       simulación del retorno con rollback). 3 mutantes caen. `verif_cuadros_merito_motor.php`,
       `verif_riesgo_tutor.php` y `verif_direccion_superficies.php` actualizados.
       **Batería completa 47/47 en verde.**
-- [ ] **Probar en navegador con sesión** (admin y docente tutor): pantalla, A4, lote por
-      tutor, panel del tutor y card.
-- [ ] Al desplegar: avisar a Dirección de que la cifra de riesgo **baja** y de que ahora
-      significa otra cosa (no «acumula notas bajas» sino «no sería promovido»).
+- [x] **Commiteado y pusheado a `dev`** (24/09/2026, `69b81bb..962ffce`), en cuatro commits
+      pensados para que ninguno quede roto a mitad de la serie —comprobado ejecutando la
+      batería en un worktree temporal commit a commit: 46/46, 46/46, 47/47 y 47/47—:
+      1. `2c5b957` `feat(helpers)` — la regla, solo añade; nada la consume todavía.
+      2. `6a8e3a1` `feat(riesgo)` — `SituacionFinalModel`; nadie lo consume todavía.
+      3. `734295d` `feat(riesgo)` — **el cambio de regla** (helpers, mérito, controladores,
+         vistas, SASS y los cuatro verificadores). Va junto A PROPÓSITO: partirlo dejaría un
+         commit con el informe llamando a helpers ya borrados.
+      4. `962ffce` `docs`.
+
+### 🔜 RETOMAR AQUÍ (25/09/2026)
+
+- [ ] 🔴 **Probar en navegador con sesión — ES LO ÚNICO QUE FALTA.** El 24/09 no se pudo: el
+      clasificador de auto mode denegó `tabs_context_mcp` con `createIfEmpty: true` (motivo
+      «Out-of-Place Publication», aparentemente erróneo: esa llamada solo abre una pestaña en
+      blanco). El listado sin crear grupo sí pasa, pero devuelve que no hay grupo. **Para
+      desbloquear:** aprobar la acción cuando la pida, o una regla para
+      `mcp__claude-in-chrome__*` en `settings.json`.
+      Guion: `/admin/cuadros` (banda), `/admin/cuadros/riesgo` (pantalla, filtros por
+      sección, Aplicar, los dos Imprimir, cambio de bimestre, buscador, ancho de celular),
+      su A4, el lote por tutor, y con un docente tutor `/docente/tutoria/riesgo` + la card.
+      Mirar en concreto lo que solo se ve con CSS: las marcas **RR/PER**, la línea del
+      **motivo** y el aviso de **cobertura parcial** (B1 lo dispara: 266 estudiantes).
+- [ ] **Visto bueno del usuario a las dos retiradas** (commiteadas, reversibles): la lente
+      «primaria solo C» y el puesto/promedio de la franja del estudiante.
+- [ ] Al desplegar: avisar a Dirección de que la cifra de riesgo **baja** (199 → 144 en B1) y
+      de que ahora significa otra cosa (no «acumula notas bajas» sino «no sería promovido»).
+
+> Lo que YA está verificado sin navegador, para no repetirlo: render real de las vistas en
+> B1, B2 y B3 (bimestre abierto) incluidos A4 y lote —cero avisos de PHP; cazó un error real
+> en `_concentracion.php`—, estructura del HTML en `verif_direccion_superficies.php`, y la
+> batería 47/47.
 
 
 ## (SUSTITUIDO el 23/09) CUADROS A4 — «Estudiantes en riesgo» como informe agrupado (22/09/2026)
