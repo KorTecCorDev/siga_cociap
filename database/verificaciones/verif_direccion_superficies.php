@@ -1262,8 +1262,16 @@ foreach ($todos as $pr) {
     // Con ranking y sin nadie en el umbral (p. ej. un bimestre recien abierto)
     // lo correcto es el estado vacio, en las dos superficies.
     if ((int) $riesgo['stats']['resumen']['total'] === 0) {
-        $chk("sin casos en $etqR: estado vacio en pantalla y en papel, sin listado",
-            str_contains($hIdx, 'alcanzarían la promoción') && str_contains($hPrn, 'cuadros-print__vacio')
+        // Cero casos con la proyeccion PARCIAL no es «todos alcanzarian»: el
+        // vacio tiene que decirlo (24/09/2026, `_sin-casos.php`). Antes este
+        // aserto exigia la frase de la buena noticia en cualquier caso.
+        $resV    = $riesgo['stats']['resumen'];
+        $parcial = !$resV['cobertura']['completa'] || (int) $resV['sin_datos'] > 0;
+        $frase   = $parcial ? 'la proyección es parcial' : 'alcanzarían la promoción';
+        $chk("sin casos en $etqR: estado vacio en pantalla y en papel, sin listado ("
+                . ($parcial ? 'proyeccion parcial' : 'cobertura completa') . ')',
+            str_contains($hIdx, $frase) && str_contains($hPrn, $frase)
+                && str_contains($hPrn, 'cuadros-print__vacio')
                 && !str_contains($hPrn, 'riesgo-listado'));
         continue;
     }

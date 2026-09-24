@@ -17,8 +17,8 @@ $res = $riesgo['stats']['resumen'];
         <li>
             <strong>Qué es estar en riesgo.</strong> Es la <strong>situación final</strong> que
             define el MINEDU: <strong>RR</strong> (requiere recuperación) o <strong>PER</strong>
-            (permanece en el grado). Se listan los estudiantes que, con las notas de este
-            bimestre, <strong>no alcanzarían la promoción</strong> de grado.
+            (permanece en el grado). Se listan los estudiantes que, con el último nivel
+            registrado de cada competencia, <strong>no alcanzarían la promoción</strong> de grado.
         </li>
         <li>
             <strong>Se cuenta por ÁREA, no por competencias sueltas.</strong> La norma pregunta
@@ -37,17 +37,28 @@ $res = $riesgo['stats']['resumen'];
             Si tiene notas por debajo de A se lista aparte, como seguimiento pedagógico.
         </li>
         <li>
-            <strong>Qué notas entran.</strong> Solo las competencias ya <strong>bloqueadas</strong>,
-            sin áreas exoneradas ni notas extraordinarias. Las <strong>competencias
-            transversales no cuentan</strong> para la situación final, por norma.
+            <strong>Qué notas entran.</strong> De cada competencia, su <strong>último nivel de logro
+            registrado</strong> hasta este bimestre, como lo hace el SIAGIE: si no se evaluó en este
+            bimestre, cuenta la del bimestre anterior en que se registró, y el desglose dice de cuál.
+            En el <strong>último bimestre del año</strong> solo cuentan sus propias notas. Entran las
+            competencias <strong>bloqueadas</strong>, incluidas las <strong>notas extraordinarias</strong>,
+            sin áreas exoneradas. <strong>No cuentan</strong> las competencias transversales (por
+            norma) ni los <strong>talleres</strong>, porque la UGEL no los aprobó y no están en el SIAGIE.
+        </li>
+        <li>
+            <strong>Seguro o proyectado.</strong> Quedan <strong>pendientes</strong> las competencias que
+            todavía no se evaluaron en ningún bimestre, y la norma cuenta «la mitad» sobre
+            <em>todas</em> las del área. Por eso la situación se prueba contra lo pendiente:
+            <strong>Seguro</strong> = no alcanzaría la promoción ni con AD en todo lo que falta;
+            <strong>Proyectado</strong> = lo pendiente todavía puede salvarlo. «Seguro» no es
+            definitivo: las notas de los bimestres siguientes reemplazan a las de hoy.
         </li>
         <?php if (!$res['cobertura']['completa']): ?>
             <li>
-                <strong>Proyección parcial.</strong> Las áreas todavía sin calificar no entran al
-                cálculo, así que la proyección es <strong>optimista</strong> y puede empeorar al
-                completarse el bimestre. Hay <?= (int) $res['cobertura']['parciales'] ?>
-                estudiante<?= $res['cobertura']['parciales'] !== 1 ? 's' : '' ?> sin todas las áreas
-                de su plan calificadas. La franja de cada uno dice sobre cuántas se calculó.
+                <strong>Proyección parcial.</strong> Hay <?= (int) $res['cobertura']['parciales'] ?>
+                estudiante<?= $res['cobertura']['parciales'] !== 1 ? 's' : '' ?> con competencias de su
+                plan todavía sin calificar. La franja de cada uno dice cuántas tiene evaluadas y
+                cuántas pendientes.
             </li>
         <?php endif; ?>
         <li>

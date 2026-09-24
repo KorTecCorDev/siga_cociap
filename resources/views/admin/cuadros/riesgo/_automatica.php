@@ -64,8 +64,7 @@ if (empty($lista)) {
                                 <span class="riesgo-alumno__nombre"><?= e($al['nombre_completo']) ?></span>
                                 <span class="riesgo-alumno__dato">
                                     Sección <?= e($al['seccion_nombre']) ?>
-                                    &middot; <?= (int) $al['areas_evaluadas'] ?> de <?= (int) $al['areas_plan'] ?> áreas evaluadas
-                                    &middot; <?= (int) $al['num_competencias'] ?> competencias
+                                    &middot; <?= (int) $al['num_competencias'] ?> de <?= (int) $al['competencias_plan'] ?> competencias evaluadas
                                     (AD <?= (int) $al['num_ad'] ?> &middot; A <?= (int) $al['num_a'] ?>
                                     &middot; B <?= (int) $al['num_b'] ?> &middot; C <?= (int) $al['num_c'] ?>)
                                 </span>
@@ -75,7 +74,7 @@ if (empty($lista)) {
 <?php foreach ($al['detalle'] as $d): ?>
 <tr>
 <td><?= e($d['area']) ?><?php if ($d['curso'] !== null): ?> <span class="riesgo-cur">&middot; <?= e($d['curso']) ?></span><?php endif; ?></td>
-<td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?></td>
+<td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?><?php if (!empty($d['arrastrada'])): ?> <span class="riesgo-cur">&middot; <?= e($d['periodo']) ?></span><?php endif; ?></td>
 <td class="riesgo-tabla__num riesgo-tabla__lit"><?= e($d['literal']) ?></td>
 <td class="riesgo-tabla__num"><?= (int) $d['nota'] ?></td>
 <td><?= e($d['docente']) ?></td>

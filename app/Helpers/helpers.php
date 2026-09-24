@@ -666,6 +666,28 @@ const SITUACION_PER = 'PER';
 const SITUACION_SIN_DATOS = 'ND';
 
 /**
+ * Tampoco es sigla del SIAGIE: en el PERIODO FINAL (último `numero` del año) la
+ * situación ya no es una proyección sino la definitiva, y si al estudiante le
+ * falta alguna competencia de su plan NO se afirma nada hasta completarla. Es
+ * una red de seguridad: la regla del periodo final exige evaluarlas todas.
+ * No cuenta como riesgo.
+ */
+const SITUACION_PENDIENTE = 'PEND';
+
+/**
+ * CERTEZA de la situación proyectada (24/09/2026). En B1-B3 el docente elige qué
+ * competencias evalúa, así que casi todo estudiante tiene competencias
+ * PENDIENTES, y la norma se formula sobre TODAS las del área. La certeza dice si
+ * lo pendiente todavía puede cambiar el resultado:
+ *   · `segura`     — no puede: ni con AD en todo lo pendiente (si está en riesgo)
+ *                    ni con C en todo lo pendiente (si es PRO) cambia de lado;
+ *   · `proyectada` — sí puede: el resultado depende de lo que falta evaluar.
+ * Ver `situacion_final_proyectar()`.
+ */
+const CERTEZA_SEGURA     = 'segura';
+const CERTEZA_PROYECTADA = 'proyectada';
+
+/**
  * Cuántas competencias son «la mitad» de un área — PUNTO ÚNICO del redondeo.
  *
  * La norma fija la convención de forma explícita para los números impares
@@ -803,7 +825,7 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
     }
 
     if ($out['automatica']) {
-        $out['motivo'] = 'Promocion automatica (1.º de primaria).';
+        $out['motivo'] = 'Promoción automática (1.º de primaria).';
         return $out;
     }
 
@@ -830,7 +852,7 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
         : ($out['areas_b']  === $out['areas']);
 
     if ($promovido) {
-        $out['motivo'] = 'Cumple las condiciones de promocion.';
+        $out['motivo'] = 'Cumple las condiciones de promoción.';
         return $out;
     }
 
@@ -840,9 +862,9 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
     if ($areasC >= 4) {
         $out['situacion'] = SITUACION_PER;
         $out['motivo']    = sprintf(
-            'Permanece en el grado: %d areas con %s de sus competencias en C (la norma fija 4).',
+            'Permanece en el grado: %d áreas con %s de sus competencias en C (la norma fija 4).',
             $areasC,
-            (!$prim && $final) ? 'la mitad o mas' : 'mas de la mitad'
+            (!$prim && $final) ? 'la mitad o más' : 'más de la mitad'
         );
         return $out;
     }
@@ -870,10 +892,10 @@ function situacion_final_motivo(array $a, int $minAreasAb): string
         $resto  = count($a['fallan']) - count($faltan);
 
         return sprintf(
-            'Requiere recuperacion: %d area(s) sin la mitad de sus competencias en B o superior (%s%s).',
+            'Requiere recuperación: %d área(s) sin la mitad de sus competencias en B o superior (%s%s).',
             count($a['fallan']),
             implode(', ', $faltan),
-            $resto > 0 ? sprintf(' y %d mas', $resto) : ''
+            $resto > 0 ? sprintf(' y %d más', $resto) : ''
         );
     }
 
@@ -881,19 +903,117 @@ function situacion_final_motivo(array $a, int $minAreasAb): string
     $partes = [];
     if ($a['areas_ab'] < $minAreasAb) {
         $partes[] = sprintf(
-            'solo %d area(s) con la mitad de sus competencias en A o AD (se exigen %d)',
+            'solo %d área(s) con la mitad de sus competencias en A o AD (se exigen %d)',
             $a['areas_ab'],
             $minAreasAb
         );
     }
     if ($a['c_total'] > 0) {
         $partes[] = sprintf(
-            '%d competencia(s) en C, y en un grado final de ciclo la promocion exige B o superior en todas',
+            '%d competencia(s) en C, y en un grado final de ciclo la promoción exige B o superior en todas',
             $a['c_total']
         );
     }
 
-    return 'Requiere recuperacion: ' . implode('; ', $partes) . '.';
+    return 'Requiere recuperación: ' . implode('; ', $partes) . '.';
+}
+
+/**
+ * Situación proyectada de un estudiante CON SUS COMPETENCIAS PENDIENTES
+ * (24/09/2026). Envoltorio PURO de `situacion_final_analisis()`: no cambia la
+ * regla, la aplica tres veces.
+ *
+ *  1. La SIGLA sale, como hasta hoy, de las competencias EVALUADAS del bimestre
+ *     (decisión del usuario: sin arrastrar notas de bimestres anteriores).
+ *  2. Las COTAS se calculan contra el PLAN completo de cada área, que es sobre
+ *     lo que la norma formula «la mitad»: mejor caso (lo pendiente = AD) y peor
+ *     caso (lo pendiente = C).
+ *  3. La CERTEZA compara la sigla con la cota que podría voltearla: un riesgo es
+ *     `segura` si ni el mejor caso llega a PRO; una promoción, si ni el peor caso
+ *     cae en riesgo.
+ *
+ * 🔴 LAS COTAS SON MONÓTONAS, y es lo que hace que la certeza tenga solo dos
+ * valores: si la sigla es PRO, el mejor caso también lo es (rellenar con AD solo
+ * suma competencias en A/AD, y «la mitad» del plan nunca supera a la de lo
+ * evaluado más lo rellenado); si es riesgo, el peor caso también. Por eso no
+ * existe «PRO con mejor caso en riesgo» ni al revés.
+ *
+ * ⚠️ POR QUÉ NO SE USA EL PLAN COMO DENOMINADOR DE LA SIGLA. Contar lo pendiente
+ * como «ni B ni C» castiga la promoción y regala la permanencia a la vez (en B1
+ * pasaba 192 estudiantes de PRO a RR): no es neutral, es otro sesgo.
+ *
+ * En el PERIODO FINAL no se proyecta: con alguna competencia pendiente la
+ * situación es `SITUACION_PENDIENTE` y no se afirma nada.
+ *
+ * @param  array $areas  una entrada por área del PLAN del estudiante (también las
+ *                       que no tienen ninguna evaluada, con `n = 0`):
+ *                       `['nombre', 'n', 'n_ab', 'n_b', 'n_c', 'plan']`, donde
+ *                       `plan` son las competencias que el área le dicta.
+ * @return array  lo de `situacion_final_analisis()` sobre lo evaluado, más
+ *                `certeza`, `mejor`, `peor`, `pendientes` y `areas_pendientes`.
+ */
+function situacion_final_proyectar(array $areas, string $nivelCodigo, int $gradoNumero, bool $periodoFinal = false): array
+{
+    $evaluadas = $mejor = $peor = $areasPend = [];
+    $pendientes = 0;
+
+    foreach ($areas as $a) {
+        $n    = (int) ($a['n'] ?? 0);
+        $plan = max($n, (int) ($a['plan'] ?? $n));
+        $miss = $plan - $n;
+        $base = ['nombre' => $a['nombre'] ?? null, 'n' => $plan,
+                 'n_ab' => (int) ($a['n_ab'] ?? 0), 'n_b' => (int) ($a['n_b'] ?? 0), 'n_c' => (int) ($a['n_c'] ?? 0)];
+
+        if ($n > 0) {
+            $evaluadas[] = ['n' => $n] + $base;
+        }
+        if ($miss > 0) {
+            $pendientes += $miss;
+            $areasPend[] = (string) ($a['nombre'] ?? '—');
+        }
+        $mejor[] = ['n_ab' => $base['n_ab'] + $miss] + $base;
+        $peor[]  = ['n_c'  => $base['n_c']  + $miss] + $base;
+    }
+
+    $out = situacion_final_analisis($evaluadas, $nivelCodigo, $gradoNumero) + [
+        'certeza'          => null,
+        'mejor'            => null,
+        'peor'             => null,
+        'pendientes'       => $pendientes,
+        'areas_pendientes' => $areasPend,
+    ];
+
+    // Sin datos o promoción automática: no hay nada que acotar.
+    if ($out['situacion'] === SITUACION_SIN_DATOS || $out['automatica']) {
+        return $out;
+    }
+
+    if ($periodoFinal && $pendientes > 0) {
+        $out['situacion'] = SITUACION_PENDIENTE;
+        $out['motivo']    = sprintf(
+            'Situación final pendiente: %d competencia(s) sin nivel de logro en el periodo final (%s).',
+            $pendientes,
+            implode(', ', $areasPend)
+        );
+        return $out;
+    }
+
+    $out['mejor'] = situacion_final_analisis($mejor, $nivelCodigo, $gradoNumero)['situacion'];
+    $out['peor']  = situacion_final_analisis($peor,  $nivelCodigo, $gradoNumero)['situacion'];
+
+    $out['certeza'] = situacion_es_riesgo($out['situacion'])
+        ? (situacion_es_riesgo($out['mejor']) ? CERTEZA_SEGURA : CERTEZA_PROYECTADA)
+        : (situacion_es_riesgo($out['peor'])  ? CERTEZA_PROYECTADA : CERTEZA_SEGURA);
+
+    if (situacion_es_riesgo($out['situacion']) && $out['certeza'] === CERTEZA_PROYECTADA) {
+        $out['motivo'] .= sprintf(
+            ' Todavía puede alcanzar la promoción: depende de %d competencia(s) pendiente(s) (%s).',
+            $pendientes,
+            implode(', ', $areasPend)
+        );
+    }
+
+    return $out;
 }
 
 /**
@@ -944,8 +1064,9 @@ function situacion_rotulo(string $situacion): string
 {
     return match ($situacion) {
         SITUACION_PER        => 'Permanece en el grado',
-        SITUACION_RR         => 'Requiere recuperacion',
+        SITUACION_RR         => 'Requiere recuperación',
         SITUACION_SIN_DATOS  => 'Sin datos en el bimestre',
+        SITUACION_PENDIENTE  => 'Situación final pendiente',
         default              => 'Promovido',
     };
 }
@@ -1078,6 +1199,8 @@ function riesgo_resumen(array $porGrado): array
     $cobMin    = null;
     $cobPlan   = 0;
     $parciales = 0;
+    $seguros = $proPro = $pendFinal = 0;
+    $periodoFinal = false;
 
     foreach ($porGrado as $g) {
         $n   = (int) ($g['evaluados'] ?? 0);
@@ -1094,9 +1217,12 @@ function riesgo_resumen(array $porGrado): array
         $evaluados  += $n;
         $sinDatos   += (int) ($g['sin_datos'] ?? 0);
         $automatica += count($g['automatica'] ?? []);
+        $pendFinal  += count($g['pendiente_final'] ?? []);
+        $periodoFinal = $periodoFinal || !empty($g['periodo_final']);
         $porNivel[$nid]['evaluados'] += $n;
 
         $cob = $g['cobertura'] ?? null;
+        $proPro += (int) ($cob['pro_proyectados'] ?? 0);
         if ($cob !== null && $cob['min'] !== null) {
             $cobMin      = $cobMin === null ? (int) $cob['min'] : min($cobMin, (int) $cob['min']);
             $cobPlan     = max($cobPlan, (int) $cob['plan']);
@@ -1113,6 +1239,9 @@ function riesgo_resumen(array $porGrado): array
 
         foreach ($g['en_riesgo'] as $al) {
             $max = max($max, (int) $al['num_c']);
+            if (($al['certeza'] ?? null) === CERTEZA_SEGURA) {
+                $seguros++;
+            }
             if (($al['situacion'] ?? '') === SITUACION_PER) {
                 $permanencia++;
                 $porNivel[$nid]['permanencia']++;
@@ -1139,6 +1268,16 @@ function riesgo_resumen(array $porGrado): array
         'max'          => $max,
         'sin_datos'    => $sinDatos,
         'automatica'   => $automatica,
+        // Certeza (24/09/2026): de los `total` en riesgo, cuántos ya no pueden
+        // salvarse aunque lo pendiente salga bien, y cuántos promovidos
+        // todavía pueden caer. Ver `situacion_final_proyectar()`.
+        'seguros'         => $seguros,
+        'proyectados'     => $total - $seguros,
+        'pro_proyectados' => $proPro,
+        // Periodo final: ahí ya no se proyecta. `definitiva` = sin pendientes.
+        'pendiente_final' => $pendFinal,
+        'periodo_final'   => $periodoFinal,
+        'definitiva'      => $periodoFinal && $parciales === 0 && $pendFinal === 0,
         'cobertura'    => [
             'min'       => $cobMin ?? 0,
             'plan'      => $cobPlan,
@@ -1162,8 +1301,7 @@ function riesgo_resumen(array $porGrado): array
  *
  * Por grado con alguna sección elegida se quedan solo las filas de riesgo y los
  * evaluados de esas secciones, y `evaluados` (denominador del riesgo) pasa a ser
- * su suma. `total` —competidores del MÉRITO, el «de N» del puesto— NO se toca:
- * el puesto sigue siendo del grado entero.
+ * su suma. `cobertura` y `sin_datos` se recomponen desde `cobertura_seccion`.
  *
  * Se cruza por (grado, NOMBRE de sección): el ranking en vivo no trae
  * `seccion_id`. La fila de un retorno de grado ya viene reubicada en su sección
@@ -1187,7 +1325,7 @@ function riesgo_filtrar_secciones(array $porGrado, array $secciones): array
             continue;
         }
 
-        foreach (['en_riesgo', 'automatica'] as $lista) {
+        foreach (['en_riesgo', 'automatica', 'pendiente_final'] as $lista) {
             $g[$lista] = array_values(array_filter(
                 $g[$lista] ?? [],
                 static fn(array $al): bool => isset($suyas[(string) $al['seccion_nombre']])
@@ -1201,6 +1339,27 @@ function riesgo_filtrar_secciones(array $porGrado, array $secciones): array
             static fn(array $s): int => (int) $s['total'],
             $g['por_seccion']
         ));
+
+        // La cobertura y los `sin_datos` se RECOMPONEN con las secciones
+        // elegidas (24/09/2026): antes quedaban los del grado entero y el aviso
+        // de proyección parcial podía contar más estudiantes que evaluados.
+        $cob = ['min' => null, 'max' => 0, 'plan' => 0, 'parciales' => 0, 'pro_proyectados' => 0];
+        $sinDatos = 0;
+        foreach ($g['cobertura_seccion'] ?? [] as $nombre => $c) {
+            if (!isset($suyas[(string) $nombre])) {
+                continue;
+            }
+            $sinDatos         += (int) $c['sin_datos'];
+            $cob['parciales'] += (int) $c['parciales'];
+            $cob['pro_proyectados'] += (int) ($c['pro_proyectados'] ?? 0);
+            $cob['max']        = max($cob['max'],  (int) $c['max']);
+            $cob['plan']       = max($cob['plan'], (int) $c['plan']);
+            if ($c['min'] !== null) {
+                $cob['min'] = $cob['min'] === null ? (int) $c['min'] : min($cob['min'], (int) $c['min']);
+            }
+        }
+        $g['cobertura'] = $cob;
+        $g['sin_datos'] = $sinDatos;
 
         $out[] = $g;
     }

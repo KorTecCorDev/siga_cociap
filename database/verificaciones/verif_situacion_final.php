@@ -203,7 +203,80 @@ $chk('el motivo de un RR nombra el area que falla',
 $pro = situacion_final_analisis($rep($area(0, 2, 1), 8), 'prim', 3);
 $chk('un PRO tambien trae motivo', $pro['motivo'] !== '', $pro['motivo']);
 
-foreach ([SITUACION_PRO, SITUACION_RR, SITUACION_PER, SITUACION_SIN_DATOS] as $sig) {
+// ── Competencias PENDIENTES: acotamiento y certeza (24/09/2026) ──────────────
+// En B1-B3 el docente elige que competencias evalua: casi toda area esta a
+// medias. `situacion_final_proyectar()` calcula la sigla con lo evaluado y la
+// prueba contra el PLAN completo (pendientes = AD / = C).
+echo "\n=== Pendientes: situacion_final_proyectar() ===\n";
+
+/** Un area con su plan: $plan competencias, de las evaluadas $ab/$b/$c. */
+$areaP = static fn(int $ab, int $b, int $c, int $plan, string $nombre = 'Area'): array =>
+    ['plan' => $plan] + $area($ab, $b, $c, $nombre);
+
+// Intermedio (sec 3.o): Matematica de 4 con 1 sola C evaluada -> hoy RR, pero
+// con AD en las 3 pendientes el area llegaria a la mitad -> PROYECTADO.
+$base = $rep($areaP(2, 0, 0, 2), 8);
+$p = situacion_final_proyectar(array_merge($base, [$areaP(0, 0, 1, 4, 'Matematica')]), 'sec', 3);
+$chk('intermedio: area de 4 con 1 C evaluada -> RR proyectado',
+    $p['situacion'] === SITUACION_RR && $p['certeza'] === CERTEZA_PROYECTADA && $p['pendientes'] === 3
+        && str_contains($p['motivo'], 'Matematica'),
+    "{$p['situacion']} {$p['certeza']} pend={$p['pendientes']}");
+
+// La misma C en un area de UNA competencia, sin pendientes -> RR seguro.
+$p = situacion_final_proyectar(array_merge($base, [$areaP(0, 0, 1, 1)]), 'sec', 3);
+$chk('sin pendientes: RR seguro', $p['situacion'] === SITUACION_RR && $p['certeza'] === CERTEZA_SEGURA,
+    "{$p['situacion']} {$p['certeza']}");
+
+// Final de ciclo (sec 5.o): todo AD pero con pendientes -> PRO PROYECTADO: una
+// sola C en lo pendiente impide la promocion.
+$p = situacion_final_proyectar(array_merge($rep($areaP(2, 0, 0, 2), 7), [$areaP(1, 0, 0, 3)]), 'sec', 5);
+$chk('final de ciclo con pendientes: PRO nunca seguro',
+    $p['situacion'] === SITUACION_PRO && $p['certeza'] === CERTEZA_PROYECTADA, "{$p['situacion']} {$p['certeza']}");
+
+// Un area del plan sin NINGUNA evaluada (n = 0) cuenta como pendiente y no
+// entra a la sigla.
+$p = situacion_final_proyectar(array_merge($base, [$areaP(0, 0, 0, 3, 'Ingles')]), 'sec', 3);
+$chk('area del plan sin evaluar: fuera de la sigla, dentro de las pendientes',
+    $p['areas'] === 8 && $p['pendientes'] === 3 && $p['areas_pendientes'] === ['Ingles'],
+    "areas={$p['areas']} pend={$p['pendientes']}");
+
+// Periodo FINAL: con pendientes no se afirma nada; completo, certeza segura.
+$p = situacion_final_proyectar(array_merge($base, [$areaP(0, 0, 1, 4)]), 'sec', 3, true);
+$chk('periodo final con pendientes -> PENDIENTE, que no es riesgo',
+    $p['situacion'] === SITUACION_PENDIENTE && !situacion_es_riesgo($p['situacion']), $p['situacion']);
+$p = situacion_final_proyectar(array_merge($base, [$areaP(0, 0, 1, 1)]), 'sec', 3, true);
+$chk('periodo final completo -> sigla con certeza segura',
+    $p['situacion'] === SITUACION_RR && $p['certeza'] === CERTEZA_SEGURA, "{$p['situacion']} {$p['certeza']}");
+
+// 1.o de primaria y sin datos: no hay nada que acotar.
+$p = situacion_final_proyectar([$areaP(0, 0, 2, 4)], 'prim', 1);
+$chk('1.o de primaria: automatica, sin certeza', $p['automatica'] && $p['certeza'] === null, (string) $p['certeza']);
+$p = situacion_final_proyectar([$areaP(0, 0, 0, 4)], 'sec', 2);
+$chk('solo areas sin evaluar -> ND, sin certeza',
+    $p['situacion'] === SITUACION_SIN_DATOS && $p['certeza'] === null, $p['situacion']);
+
+// MONOTONIA de las cotas, que es lo que permite una certeza de dos valores:
+// si la sigla es PRO el mejor caso es PRO; si es riesgo, el peor caso tambien.
+mt_srand(20260924);
+$rotas = 0;
+for ($i = 0; $i < 3000; $i++) {
+    $areas = [];
+    for ($k = 0, $na = mt_rand(1, 11); $k < $na; $k++) {
+        $plan = mt_rand(1, 5);
+        $n    = mt_rand(0, $plan);
+        $ab   = mt_rand(0, $n); $b = mt_rand(0, $n - $ab);
+        $areas[] = $areaP($ab, $b, $n - $ab - $b, $plan);
+    }
+    $nivel = mt_rand(0, 1) ? 'prim' : 'sec';
+    $grado = mt_rand(2, $nivel === 'prim' ? 6 : 5);
+    $x = situacion_final_proyectar($areas, $nivel, $grado);
+    if ($x['situacion'] === SITUACION_SIN_DATOS) { continue; }
+    if ($x['situacion'] === SITUACION_PRO && $x['mejor'] !== SITUACION_PRO) { $rotas++; }
+    if (situacion_es_riesgo($x['situacion']) && !situacion_es_riesgo($x['peor'])) { $rotas++; }
+}
+$chk('monotonia de las cotas en 3000 casos aleatorios', $rotas === 0, "$rotas rotos");
+
+foreach ([SITUACION_PRO, SITUACION_RR, SITUACION_PER, SITUACION_SIN_DATOS, SITUACION_PENDIENTE] as $sig) {
     $chk("rotulo de $sig no esta vacio", situacion_rotulo($sig) !== '', situacion_rotulo($sig));
 }
 

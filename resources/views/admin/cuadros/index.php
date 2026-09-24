@@ -296,8 +296,8 @@ $hayRiesgo = (bool) array_filter(
                     Este bimestre todavía no tiene competencias bloqueadas: hasta que los
                     docentes aprueben y bloqueen sus notas no se puede saber quién está en riesgo.
                 <?php else: ?>
-                    Con las notas de este bimestre, todos los estudiantes evaluados
-                    alcanzarían la promoción de grado.
+                    <?php $res = riesgo_resumen($bloques['situacion']); $sinCasosAlcance = ''; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_sin-casos.php'; ?>
                 <?php endif; ?>
             </p>
         </div>

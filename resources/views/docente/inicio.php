@@ -202,11 +202,19 @@ $saludo = match($auth_user['sexo'] ?? null) {
             <?php else: ?>
                 <p class="dpanel-card__sub">
                     <?= e($riesgoTutor['periodo']['nombre_display']) ?> &middot;
-                    <?= (int) $rs['total'] ?> de <?= (int) $rs['evaluados'] ?> no alcanzarían la promoción
-                    &middot; <?= (int) $rs['permanencia'] ?> permanecerían en el grado
+                    <?= (int) $rs['total'] ?> de <?= (int) $rs['evaluados'] ?> no alcanzaría<?= (int) $rs['total'] !== 1 ? 'n' : '' ?> la promoción
+                    &middot; <?= (int) $rs['permanencia'] ?> permanecería<?= (int) $rs['permanencia'] !== 1 ? 'n' : '' ?> en el grado
                 </p>
                 <span class="badge badge--espera">
-                    <?= (int) $rs['total'] === 0 ? 'Todos serian promovidos' : 'Ver informe de tu sección' ?>
+                    <?php // Cero casos con la proyección parcial NO es «todos serían
+                          // promovidos»: ver `_sin-casos.php`. ?>
+                    <?php if ((int) $rs['total'] > 0): ?>
+                        Ver informe de tu sección
+                    <?php elseif ($rs['cobertura']['completa'] && (int) $rs['sin_datos'] === 0): ?>
+                        Todos serían promovidos
+                    <?php else: ?>
+                        Proyección parcial
+                    <?php endif; ?>
                 </span>
             <?php endif; ?>
         </a>

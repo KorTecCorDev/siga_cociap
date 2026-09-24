@@ -48,28 +48,31 @@ $riesgo = [
             competencias bloqueadas).
         </p>
     <?php elseif ((int) $res['total'] === 0): ?>
-        <p class="riesgo-seccion__vacio riesgo-seccion__vacio--bien">
-            Con las notas de este bimestre, los <?= (int) $res['evaluados'] ?> estudiantes
-            evaluados de esta sección alcanzarían la promoción de grado.
+        <?php $sinCasosAlcance = 'de esta sección';
+              $completa = $res['cobertura']['completa'] && (int) $res['sin_datos'] === 0; ?>
+        <p class="riesgo-seccion__vacio<?= $completa ? ' riesgo-seccion__vacio--bien' : '' ?>">
+            <?php require VIEW_PATH . '/admin/cuadros/riesgo/_sin-casos.php'; ?>
         </p>
     <?php else: ?>
         <div class="cuadros-banda cuadros-banda--riesgo riesgo-banda">
             <p class="cuadros-banda__cifra">
                 <span class="cuadros-banda__n"><?= (int) $res['total'] ?></span>
                 <span class="cuadros-banda__q">
-                    estudiante<?= $res['total'] !== 1 ? 's' : '' ?> no alcanzarían la promoción,
+                    estudiante<?= $res['total'] !== 1 ? 's' : '' ?> no alcanzaría<?= $res['total'] !== 1 ? 'n' : '' ?> la promoción,
                     de <strong><?= (int) $res['evaluados'] ?></strong> evaluados
                     (<strong><?= (int) $res['pct'] ?>%</strong>)
                 </span>
             </p>
             <ul class="cuadros-banda__datos">
-                <li><strong><?= (int) $res['permanencia'] ?></strong> permanecerían en el grado (PER)</li>
-                <li><strong><?= (int) $res['recuperacion'] ?></strong> requieren recuperación (RR)</li>
+                <li><strong><?= (int) $res['permanencia'] ?></strong> permanecería<?= (int) $res['permanencia'] !== 1 ? 'n' : '' ?> en el grado (PER)</li>
+                <li><strong><?= (int) $res['recuperacion'] ?></strong> requiere<?= (int) $res['recuperacion'] !== 1 ? 'n' : '' ?> recuperación (RR)</li>
+                <li><strong><?= (int) $res['seguros'] ?></strong> seguro<?= (int) $res['seguros'] !== 1 ? 's' : '' ?>
+                    &middot; <strong><?= (int) $res['proyectados'] ?></strong> proyectado<?= (int) $res['proyectados'] !== 1 ? 's' : '' ?></li>
             </ul>
             <?php if (!$res['cobertura']['completa']): ?>
                 <p class="riesgo-banda__cobertura">
-                    <strong>Proyección parcial:</strong> todavía faltan áreas por calificar, así que
-                    la situación final puede empeorar al completarse el bimestre.
+                    <strong>Proyección parcial:</strong> faltan competencias por calificar; la
+                    marca <em>Seguro</em> o <em>Proyectado</em> dice si todavía pueden cambiar el resultado.
                 </p>
             <?php endif; ?>
         </div>
@@ -84,5 +87,6 @@ $riesgo = [
           // y su tutor igual necesita la lista de seguimiento. ?>
     <?php if ((int) $res['evaluados'] > 0): ?>
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_automatica.php'; ?>
+        <?php require VIEW_PATH . '/admin/cuadros/riesgo/_pendiente-final.php'; ?>
     <?php endif; ?>
 </section>

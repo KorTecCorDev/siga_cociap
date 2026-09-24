@@ -380,6 +380,23 @@
     &__marca--per { border-color: $color-error;   color: $color-error; }
     &__marca--rr  { border-color: $color-warning; color: $color-warning; }
 
+    // Certeza (24/09/2026): «Seguro» no depende de lo pendiente; «Proyectado»
+    // si. El proyectado lleva borde discontinuo: es el que todavia puede cambiar.
+    &__certeza {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        padding: 0 4px;
+        margin-right: $spacing-sm;
+        border: 1px solid $border-color;
+        border-radius: 2px;
+        color: $text-secondary;
+
+        &--proyectada { border-style: dashed; font-style: italic; }
+    }
+
     &__dato { color: $text-secondary; strong { color: $text-primary; } }
 
     // El motivo explica POR QUE no alcanza la promocion: va en linea propia
@@ -393,6 +410,22 @@
     }
 
     &__aviso { font-style: italic; color: $text-secondary; }
+}
+
+// Móvil (24/09/2026): la tabla mide 760px y desplaza dentro de su wrapper, y la
+// cabecera del grado y la franja del estudiante (nombre, marca RR/PER, motivo)
+// se iban con ella. Su contenido queda FIJO a la izquierda y con el ancho
+// VISIBLE del wrapper (`cqw`); las filas de competencias siguen desplazando.
+// Solo pantalla: el A4 lo anula en `.riesgo-print`.
+@media screen and (max-width: 640px) {
+    .riesgo-grado .tabla-notas-wrapper { container-type: inline-size; }
+
+    .riesgo-alumno__franja-cont,
+    .riesgo-tabla__grado-cont {
+        position: sticky;
+        left: 6px;
+        max-width: calc(100cqw - 12px);
+    }
 }
 
 // Cobertura de la proyeccion: en un bimestre a medio calificar las areas sin
@@ -494,8 +527,10 @@
     .riesgo-listado { break-before: page; page-break-before: always; }
     .riesgo-listado > .riesgo-h2 { margin-top: 0; }
 
-    .tabla-notas-wrapper { overflow: visible; border: 0; border-radius: 0; }
+    .tabla-notas-wrapper { overflow: visible; border: 0; border-radius: 0; container-type: normal; }
     .riesgo-grado { margin-bottom: 14px; }
+    .riesgo-alumno__franja-cont,
+    .riesgo-tabla__grado-cont { position: static; max-width: none; }
 
     .riesgo-tabla {
         min-width: 0;
@@ -531,6 +566,7 @@
     .riesgo-alumno__dato   { color: #333; }
     .riesgo-alumno__marca  { font-size: 6.5pt; border-color: #000; color: #000; }
     .riesgo-alumno__motivo { font-size: 7pt; color: #333; }
+    .riesgo-alumno__certeza { font-size: 6.5pt; border-color: #000; color: #000; }
     .riesgo-banda__cobertura,
     .cuadros-banda__nota   { font-size: 7.5pt; color: #000; strong { color: #000; } }
     .riesgo-cur            { color: #555; }

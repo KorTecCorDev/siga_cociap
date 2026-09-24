@@ -49,8 +49,8 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
         // finales de ciclo una sola «C» impide la promoción. Decirlo en la
         // cabecera evita que la lista parezca arbitraria.
         $ciclo = grado_final_de_ciclo($gr['nivel_codigo'], (int) $gr['numero'])
-            ? 'grado final de ciclo: la promocion exige B o superior en TODAS las competencias'
-            : 'grado intermedio: la promocion exige la mitad o mas en B o superior en cada area';
+            ? 'grado final de ciclo: la promoción exige B o superior en TODAS las competencias'
+            : 'grado intermedio: la promoción exige la mitad o más en B o superior en cada área';
     ?>
         <div class="riesgo-grado" data-riesgo-bloque>
             <div class="tabla-notas-wrapper">
@@ -64,11 +64,11 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                 </colgroup>
                 <thead>
                     <tr class="riesgo-tabla__grado">
-                        <th scope="colgroup" colspan="5">
+                        <th scope="colgroup" colspan="5"><div class="riesgo-tabla__grado-cont">
                             <?= e($gr['nombre_display'] . ' de ' . $gr['nivel_nombre']) ?>
                             <span>&mdash; <?= count($g['en_riesgo']) ?> de <?= $evaluados ?> estudiantes evaluados
                             &middot; <?= e($ciclo) ?></span>
-                        </th>
+                        </div></th>
                     </tr>
                     <tr class="riesgo-tabla__cols">
                         <th scope="col">Área &middot; curso</th>
@@ -86,11 +86,22 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                     <tbody class="riesgo-alumno<?= $per ? ' riesgo-alumno--critico' : '' ?>"
                            data-riesgo-fila data-buscar="<?= e($buscar) ?>">
                         <tr class="riesgo-alumno__franja">
-                            <th scope="rowgroup" colspan="5">
+                            <?php // El `div` es lo que queda fijo a la izquierda en
+                                  // móvil (SASS): sin él, nombre, marca y motivo se
+                                  // iban con el desplazamiento horizontal de la tabla. ?>
+                            <th scope="rowgroup" colspan="5"><div class="riesgo-alumno__franja-cont">
                                 <span class="riesgo-alumno__nombre"><?= e($al['nombre_completo']) ?></span>
                                 <span class="riesgo-alumno__marca riesgo-alumno__marca--<?= e(strtolower($al['situacion'])) ?>">
                                     <?= e($al['situacion']) ?> &middot; <?= e(situacion_rotulo($al['situacion'])) ?>
                                 </span>
+                                <?php // Certeza (24/09/2026): «seguro» si ni con AD en todo lo
+                                      // pendiente alcanzaría la promoción; «proyectado» si lo
+                                      // pendiente todavía puede salvarlo. ?>
+                                <?php if ($al['certeza'] !== null): ?>
+                                    <span class="riesgo-alumno__certeza riesgo-alumno__certeza--<?= e($al['certeza']) ?>">
+                                        <?= $al['certeza'] === CERTEZA_SEGURA ? 'Seguro' : 'Proyectado' ?>
+                                    </span>
+                                <?php endif; ?>
                                 <span class="riesgo-alumno__dato">
                                     Sección <?= e($al['seccion_nombre']) ?>
                                     <?php if (!empty($al['retorno'])):
@@ -101,13 +112,18 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                                         &middot; <span class="riesgo-cur">Retorno de grado: cursó este bimestre en
                                         <?= e($rt['grado_nombre'] . ' ' . $rt['seccion_nombre'] . ' de ' . $rt['nivel_nombre']) ?></span>
                                     <?php endif; ?>
-                                    &middot; <?= (int) $al['areas_evaluadas'] ?> de <?= (int) $al['areas_plan'] ?> áreas evaluadas
-                                    &middot; <?= (int) $al['num_competencias'] ?> competencias
+                                    &middot; <?= (int) $al['num_competencias'] ?> de <?= (int) $al['competencias_plan'] ?> competencias evaluadas
+                                    <?php if ($al['arrastradas'] > 0): ?>
+                                        (<?= (int) $al['arrastradas'] ?> de bimestres anteriores)
+                                    <?php endif; ?>
                                     (AD <?= (int) $al['num_ad'] ?> &middot; A <?= (int) $al['num_a'] ?>
                                     &middot; B <?= (int) $al['num_b'] ?> &middot; C <?= (int) $al['num_c'] ?>)
+                                    <?php if ($al['pendientes'] > 0): ?>
+                                        &middot; <?= (int) $al['pendientes'] ?> pendiente<?= $al['pendientes'] !== 1 ? 's' : '' ?>
+                                    <?php endif; ?>
                                 </span>
                                 <span class="riesgo-alumno__motivo"><?= e($al['motivo']) ?></span>
-                            </th>
+                            </div></th>
                         </tr>
 <?php // ⚠️ SIN INDENTAR a propósito: se repite ~1 400 veces en B1 y no hay
       // minificador de HTML en el pipeline (ver la nota de peso del 07/09 en
@@ -115,7 +131,7 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
 <?php foreach ($al['detalle'] as $d): ?>
 <tr>
 <td><?= e($d['area']) ?><?php if ($d['curso'] !== null): ?> <span class="riesgo-cur">&middot; <?= e($d['curso']) ?></span><?php endif; ?></td>
-<td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?></td>
+<td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?><?php if (!empty($d['arrastrada'])): ?> <span class="riesgo-cur">&middot; <?= e($d['periodo']) ?></span><?php endif; ?></td>
 <td class="riesgo-tabla__num riesgo-tabla__lit"><?= e($d['literal']) ?></td>
 <td class="riesgo-tabla__num"><?= (int) $d['nota'] ?></td>
 <td><?= e($d['docente']) ?></td>

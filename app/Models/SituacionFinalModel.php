@@ -77,6 +77,53 @@ class SituacionFinalModel extends BaseModel
     ";
 
     /**
+     * PUNTO ÚNICO de QUÉ ÁREAS cuentan para la situación final. Lo usan las
+     * notas (`notasPorMatricula`) y el plan (`planPorMatricula`): si divergieran, la
+     * cobertura contaría como pendiente una competencia que el cálculo ignora.
+     *
+     * 🔴 UN TALLER CUENTA SOLO SI LA UGEL LO APROBÓ PARA ESE AÑO Y GRADO
+     * (decisión del usuario, 24/09/2026; migración 064). La norma cuenta los
+     * talleres (RVM 094-2020, 5.1.3 p. 11) que forman parte del plan de estudios
+     * registrado en el SIAGIE; en 2026 la UGEL no aprobó los del colegio, pero
+     * puede aprobarlos otro año, y solo para algunos grados. La aprobación vive
+     * en `talleres_aprobacion` (se marca en Currículo) y se mira por el año y
+     * el grado OFICIAL de la matrícula de la nota: por eso esto es un método
+     * que recibe la columna de matrícula, y no una constante.
+     *
+     * 🔴 RETORNO DE GRADO: SIEMPRE EL GRADO DE LA MATRÍCULA OFICIAL, jamás el
+     * de la operativa (decisión del usuario, 24/09/2026), igual que el resto de
+     * las reglas (la fila ya se reubica en la oficial). Si la nota está en la
+     * operativa de un retorno —activo o revertido: la operativa nunca es la
+     * identidad del estudiante—, se usa el grado de su oficial. El PLAN de
+     * competencias, en cambio, sale de donde cursa: es un dato, no una regla. Sin fila aprobada, el
+     * taller no cuenta. Siguen en la boleta y en el orden de mérito del colegio
+     * siempre (esos filtros no cambian).
+     *
+     * @param string $colMatricula  columna SQL con el id de la matrícula
+     *                              ('cal.matricula_id', 'm.id'); nunca un dato de usuario
+     */
+    private static function areasQueCuentan(string $colMatricula): string
+    {
+        return "
+            (a.tipo NOT IN ('transversal', 'tutoria', 'taller')
+             OR a.nombre_boleta = '" . AREA_ETICA_NOMBRE_BOLETA . "'
+             OR (a.tipo = 'taller' AND EXISTS (
+                    SELECT 1
+                    FROM matriculas mt
+                    -- Matrícula OFICIAL: la propia, salvo que sea la operativa
+                    -- de un retorno de grado.
+                    LEFT  JOIN retornos_grado rg      ON rg.matricula_operativa_id = mt.id
+                    INNER JOIN matriculas mo          ON mo.id = COALESCE(rg.matricula_oficial_id, mt.id)
+                    INNER JOIN secciones so           ON so.id = mo.seccion_id
+                    INNER JOIN talleres_aprobacion ta ON ta.area_id  = a.id
+                                                     AND ta.anio_id  = mo.anio_id
+                                                     AND ta.grado_id = so.grado_id
+                                                     AND ta.aprobado = 1
+                    WHERE mt.id = $colMatricula)))
+        ";
+    }
+
+    /**
      * Filtro de QUÉ NOTAS entran al cálculo. Es otra pregunta que el roster, y
      * la norma la responde en el numeral 5.1.3 (puntos 9 a 11):
      *
@@ -84,7 +131,9 @@ class SituacionFinalModel extends BaseModel
      *    situación final. (Además están duplicadas por alumno —una fila por cada
      *    carga que las registra—, así que colarlas inflaría los conteos sin que
      *    se note: 28 282 filas contra 13 308 pares en el II Bimestre.)
-     *  · Las competencias organizadas en áreas curriculares **y los talleres SÍ**
+     *  · Los TALLERES cuentan solo si la UGEL los aprobó para ese año y grado:
+     *    ver `areasQueCuentan()`.
+     *  · Las competencias organizadas en áreas curriculares SÍ
      *    cuentan. De ahí la excepción de ÉTICA Y VALORES: su `tipo='tutoria'` es
      *    un artefacto de implementación —es la Educación Religiosa de
      *    secundaria, cuyo área propia es un cascarón sin cargas—, y para la
@@ -95,15 +144,19 @@ class SituacionFinalModel extends BaseModel
      *    este filtro la boleta diría EXO y la situación final seguiría contando
      *    la nota.
      *
-     * Mismo universo que `OrdenMeritoModel::detalleCompetenciasRiesgo()`, del
-     * que se toma tal cual. Lo que cambia es que aquí entran TODOS los
-     * literales, no solo los de debajo de `NOTA_MIN_A`.
+     *  · Las NOTAS EXTRAORDINARIAS **SÍ** cuentan (decisión del usuario,
+     *    24/09/2026). Son notas oficiales —van a la boleta y al SIAGIE, que
+     *    calcula la situación final con ellas—. Hasta ese día este filtro
+     *    llevaba `extraordinaria = 0`, copiado del universo del MÉRITO, donde
+     *    sí es una regla (la extraordinaria no mueve puestos). El precio fue
+     *    real: las 276 notas de Ética de B1 se registraron como extraordinarias
+     *    y la situación final las ignoraba. ⚠️ El mérito CONSERVA su filtro:
+     *    las dos preguntas ya no comparten universo de notas.
+     *
+     * Aquí entran TODOS los literales, no solo los no aprobatorios.
      */
     private const FILTRO_NOTAS = "
-        cal.extraordinaria = 0
-        AND (a.tipo NOT IN ('transversal', 'tutoria')
-             OR a.nombre_boleta = '" . AREA_ETICA_NOMBRE_BOLETA . "')
-        AND NOT EXISTS (
+        NOT EXISTS (
             SELECT 1 FROM exoneraciones ex
             WHERE ex.matricula_id = cal.matricula_id
               AND ex.revocado_en IS NULL
@@ -126,12 +179,14 @@ class SituacionFinalModel extends BaseModel
      * decide si es final de ciclo. La fila conserva su origen en `retorno`.
      *
      * @return array<int, array{grado:array, evaluados:int, sin_datos:int,
-     *                          en_riesgo:array, automatica:array, por_seccion:array}>
+     *                          en_riesgo:array, automatica:array, por_seccion:array,
+     *                          cobertura:array, cobertura_seccion:array}>
      */
     public function porGrado(int $periodoId): array
     {
         $roster   = $this->rosterDelPeriodo($periodoId);
-        $notas    = $this->notasPorMatricula($periodoId);
+        [$numeroActual, $final] = $this->datosPeriodo($periodoId);
+        $notas    = $this->notasPorMatricula($periodoId, $final);
         $plan     = $this->planPorMatricula($periodoId);
         $oficial  = $this->ubicacionOficialRetornos();
 
@@ -176,6 +231,10 @@ class SituacionFinalModel extends BaseModel
                 'sin_datos'   => 0,
                 'en_riesgo'   => [],
                 'automatica'  => [],
+                // Periodo final con competencias sin nota: no es riesgo, se
+                // lista aparte hasta completarse (`SITUACION_PENDIENTE`).
+                'pendiente_final' => [],
+                'periodo_final'   => $final,
                 'por_seccion' => [],
                 // COBERTURA del grado: sobre cuántas áreas se calculó, de las
                 // que su plan dicta. En un bimestre cerrado coinciden; en uno
@@ -187,32 +246,38 @@ class SituacionFinalModel extends BaseModel
                 // propio plan (las exoneraciones se lo recortan), así que
                 // cruzar el mínimo de uno con el plan de otro inventaba huecos
                 // donde solo había un exonerado.
-                'cobertura'   => ['min' => null, 'max' => 0, 'plan' => 0, 'parciales' => 0],
+                //
+                // Desde el 24/09/2026 `parciales` cuenta a quien tiene alguna
+                // COMPETENCIA pendiente (no solo un área entera sin nota), y
+                // `pro_proyectados` a los promovidos cuya promoción todavía
+                // depende de lo pendiente (certeza `proyectada`).
+                'cobertura'   => self::COBERTURA_VACIA,
+                // La misma cobertura y los `sin_datos`, POR SECCIÓN (24/09/2026).
+                // Sin este desglose, `riesgo_filtrar_secciones()` recortaba la
+                // lista pero dejaba la cobertura del GRADO entero: filtrar a una
+                // sección decía «52 sin su plan completo» con 47 evaluados.
+                'cobertura_seccion' => [],
             ];
 
-            $fila = $this->componerFila($m, $notas[$mid] ?? [], $plan, $retorno);
+            $fila = $this->componerFila($m, $notas[$mid] ?? [], $plan, $retorno, $final, $numeroActual);
+            $sec  = (string) $m['seccion_nombre'];
+            $porGrado[$gid]['cobertura_seccion'][$sec] ??= self::COBERTURA_VACIA;
 
             // «Evaluado» = tiene al menos un área con nivel de logro. Quien no
             // tiene ninguno no entra al denominador: decir que un alumno sin
             // notas es el 100 % de algo sería un dato falso, no ausente.
             if ($fila['situacion'] === SITUACION_SIN_DATOS) {
                 $porGrado[$gid]['sin_datos']++;
+                $porGrado[$gid]['cobertura_seccion'][$sec]['sin_datos']++;
                 continue;
             }
 
-            $sec = (string) $m['seccion_nombre'];
             $porGrado[$gid]['evaluados']++;
             $porSeccion[$gid][$sec] ??= ['seccion_nombre' => $sec, 'total' => 0];
             $porSeccion[$gid][$sec]['total']++;
 
-            $cob = &$porGrado[$gid]['cobertura'];
-            $cob['min']  = $cob['min'] === null ? $fila['areas_evaluadas'] : min($cob['min'], $fila['areas_evaluadas']);
-            $cob['max']  = max($cob['max'],  $fila['areas_evaluadas']);
-            $cob['plan'] = max($cob['plan'], $fila['areas_plan']);
-            if ($fila['areas_evaluadas'] < $fila['areas_plan']) {
-                $cob['parciales']++;
-            }
-            unset($cob);
+            self::sumarCobertura($porGrado[$gid]['cobertura'], $fila);
+            self::sumarCobertura($porGrado[$gid]['cobertura_seccion'][$sec], $fila);
 
             if ($fila['automatica']) {
                 // 1.º de primaria: promoción automática. Se lista aparte, como
@@ -221,8 +286,13 @@ class SituacionFinalModel extends BaseModel
                 if ($fila['num_c'] > 0 || $fila['num_b'] > 0) {
                     $porGrado[$gid]['automatica'][] = $fila;
                 }
+            } elseif ($fila['situacion'] === SITUACION_PENDIENTE) {
+                $porGrado[$gid]['pendiente_final'][] = $fila;
             } elseif (situacion_es_riesgo($fila['situacion'])) {
                 $porGrado[$gid]['en_riesgo'][] = $fila;
+            } elseif ($fila['certeza'] === CERTEZA_PROYECTADA) {
+                $porGrado[$gid]['cobertura']['pro_proyectados']++;
+                $porGrado[$gid]['cobertura_seccion'][$sec]['pro_proyectados']++;
             }
         }
 
@@ -243,6 +313,24 @@ class SituacionFinalModel extends BaseModel
             <=> [$b['grado']['nivel_id'], $b['grado']['numero']]);
 
         return array_values($porGrado);
+    }
+
+    /** Cobertura de una sección antes de contar a nadie. */
+    private const COBERTURA_VACIA = ['min' => null, 'max' => 0, 'plan' => 0, 'parciales' => 0,
+                                     'sin_datos' => 0, 'pro_proyectados' => 0];
+
+    /**
+     * Suma un estudiante EVALUADO a una cobertura (la del grado o la de su
+     * sección): mismo cálculo en los dos niveles, para que no puedan divergir.
+     */
+    private static function sumarCobertura(array &$cob, array $fila): void
+    {
+        $cob['min']  = $cob['min'] === null ? $fila['areas_evaluadas'] : min($cob['min'], $fila['areas_evaluadas']);
+        $cob['max']  = max($cob['max'],  $fila['areas_evaluadas']);
+        $cob['plan'] = max($cob['plan'], $fila['areas_plan']);
+        if ($fila['pendientes'] > 0) {
+            $cob['parciales']++;
+        }
     }
 
     /**
@@ -276,10 +364,11 @@ class SituacionFinalModel extends BaseModel
      * aprobatorias del nivel (`nota_es_aprobatoria()`), que son las que el
      * tutor tiene que atender.
      */
-    private function componerFila(array $m, array $notas, array $plan, ?array $retorno): array
+    private function componerFila(array $m, array $notas, array $plan, ?array $retorno, bool $periodoFinal, int $numeroActual): array
     {
         $nivel = (string) $m['nivel_codigo'];
         $grado = (int) $m['grado_numero'];
+        $suPlan = $plan[(int) $m['matricula_id']] ?? [];
 
         $areas    = [];
         $lit      = ['AD' => 0, 'A' => 0, 'B' => 0, 'C' => 0];
@@ -298,11 +387,24 @@ class SituacionFinalModel extends BaseModel
             }
 
             if (!nota_es_aprobatoria($literal, $nivel)) {
-                $desglose[] = $n + ['literal' => $literal];
+                $desglose[] = $n + ['literal' => $literal, 'arrastrada' => $n['periodo_numero'] < $numeroActual];
             }
         }
 
-        $a = situacion_final_analisis(array_values($areas), $nivel, $grado);
+        // Cada área lleva las competencias que su PLAN le dicta; las del plan
+        // sin ninguna evaluada entran con `n = 0`. Un área con notas y sin plan
+        // (no ocurre: medido 0 el 24/09) se toma con plan = lo evaluado.
+        foreach ($suPlan as $aid => $p) {
+            $areas[$aid] ??= ['nombre' => $p['nombre'], 'n' => 0, 'n_ab' => 0, 'n_b' => 0, 'n_c' => 0];
+            $areas[$aid]['plan'] = $p['plan'];
+        }
+
+        $a = situacion_final_proyectar(array_values($areas), $nivel, $grado, $periodoFinal);
+
+        $compPlan = 0;
+        foreach ($areas as $ar) {
+            $compPlan += max((int) $ar['n'], (int) ($ar['plan'] ?? $ar['n']));
+        }
 
         return [
             'matricula_id'    => (int) $m['matricula_id'],
@@ -316,7 +418,16 @@ class SituacionFinalModel extends BaseModel
             // competencia evaluada no entran al cálculo, y el informe lo dice en
             // vez de disimularlo. En un bimestre abierto es lo normal.
             'areas_evaluadas' => $a['areas'],
-            'areas_plan'      => $plan[(int) $m['matricula_id']] ?? $a['areas'],
+            'areas_plan'      => $suPlan !== [] ? count($suPlan) : $a['areas'],
+            // Cobertura en COMPETENCIAS (24/09/2026): un área a medias no está
+            // evaluada. `pendientes` = las del plan sin nivel de logro.
+            'competencias_plan' => $compPlan,
+            // Cuántas de las evaluadas vienen de un bimestre ANTERIOR (último
+            // nivel registrado, como el SIAGIE).
+            'arrastradas'     => count(array_filter($notas, static fn(array $n): bool => $n['periodo_numero'] < $numeroActual)),
+            'pendientes'      => $a['pendientes'],
+            'areas_pendientes' => $a['areas_pendientes'],
+            'certeza'         => $a['certeza'],
             'areas_c'         => $a['areas_c_mas'],
             'num_ad'          => $lit['AD'],
             'num_a'           => $lit['A'],
@@ -368,12 +479,33 @@ class SituacionFinalModel extends BaseModel
      * los A) y el docente de la carga DUEÑA del bloqueo, que es de quien depende
      * cada competencia pendiente.
      *
+     * 🔴 ÚLTIMO NIVEL REGISTRADO, COMO EL SIAGIE (decisión del usuario,
+     * 24/09/2026). La situación final se define con «el último nivel de logro
+     * de cada competencia» (RVM 094-2020, 5.1.2.2 p. 3; RVM 048-2024, 5.1.1.3
+     * p. 3). Por eso, en B1-B3, una competencia no evaluada en el bimestre
+     * elegido toma su nivel del ÚLTIMO bimestre anterior en que se registró,
+     * y la fila dice de cuál (`periodo`). Antes se usaban solo las notas del
+     * bimestre elegido, y la proyección no era la del SIAGIE.
+     *
+     * ⚠️ EN EL PERIODO FINAL NO SE ARRASTRA (decisión del usuario): ahí manda
+     * solo el último bimestre, igual que el logro anual de la boleta, y una
+     * competencia sin nota queda PENDIENTE. La regla del periodo final exige
+     * evaluarlas todas, así que con esa regla cumplida los dos criterios dan
+     * lo mismo.
+     *
+     * El arrastre no cruza matrículas: sale de la misma `matricula_id` (un
+     * cambio de sección la conserva; un retorno de grado se evalúa en la
+     * matrícula anclada del bimestre).
+     *
      * @return array<int, array<int, array>>  clave = matricula_id
      */
-    private function notasPorMatricula(int $periodoId): array
+    private function notasPorMatricula(int $periodoId, bool $periodoFinal): array
     {
         $filas = $this->query("
             SELECT cal.matricula_id,
+                   cal.competencia_id,
+                   per.numero         AS periodo_numero,
+                   per.nombre_display AS periodo,
                    cal.nota_numerica AS nota,
                    a.id      AS area_id,
                    a.nombre  AS area,
@@ -396,17 +528,34 @@ class SituacionFinalModel extends BaseModel
             LEFT  JOIN cargas_academicas ca ON ca.id = cal.carga_id
             LEFT  JOIN usuarios u           ON u.id  = ca.docente_id
             LEFT  JOIN personas p           ON p.id  = u.persona_id
-            WHERE cal.periodo_id = ?
-              AND " . self::FILTRO_NOTAS . "
-            ORDER BY a.orden, comp.orden, comp.id
+            -- Bimestres del MISMO año hasta el elegido (solo el elegido si es el
+            -- periodo final).
+            INNER JOIN periodos per  ON per.id  = cal.periodo_id
+            INNER JOIN periodos pact ON pact.id = ?
+                                    AND per.anio_id = pact.anio_id
+                                    AND per.numero <= pact.numero
+            WHERE " . ($periodoFinal ? 'per.id = pact.id AND ' : '') . self::areasQueCuentan('cal.matricula_id') . ' AND ' . self::FILTRO_NOTAS . "
+            -- Por competencia, primero el bimestre MÁS RECIENTE: el bucle se
+            -- queda con esa fila y descarta las anteriores.
+            ORDER BY a.orden, comp.orden, comp.id, per.numero DESC
         ", [$periodoId]);
 
-        $out = [];
+        $out   = [];
+        $visto = [];
         foreach ($filas as $f) {
+            $mid = (int) $f['matricula_id'];
+            $cid = (int) $f['competencia_id'];
+            if (isset($visto[$mid][$cid])) {
+                continue;
+            }
+            $visto[$mid][$cid] = true;
+
             $docente = trim($f['apellido_paterno'] . ' ' . $f['apellido_materno']
                           . ($f['nombres'] !== null ? ', ' . $f['nombres'] : ''));
 
-            $out[(int) $f['matricula_id']][] = [
+            $out[$mid][] = [
+                'periodo_numero' => (int) $f['periodo_numero'],
+                'periodo'     => (string) $f['periodo'],
                 'area_id'     => (int) $f['area_id'],
                 'area'        => (string) $f['area'],
                 // El "curso" es la subárea cuando existe (Álgebra, Física...);
@@ -439,34 +588,76 @@ class SituacionFinalModel extends BaseModel
      * exoneración. Medido: son los 2 alumnos de primaria exonerados de Educación
      * Religiosa y 1 de secundaria exonerado de Ética.
      *
-     * Solo descuenta la exoneración por ÁREA completa: una de SUBÁREA deja vivas
-     * las demás competencias del área, que sigue contando.
+     * 🔴 SE CUENTA POR COMPETENCIA, NO POR ÁREA (24/09/2026). La norma dice «la
+     * mitad de las competencias DEL ÁREA», y en B1-B3 el docente elige qué
+     * competencias evalúa: un área con 1 de 4 evaluadas no está «evaluada». Este
+     * plan es el que usan las COTAS de `situacion_final_proyectar()` y la
+     * cobertura. Medido en B2: 433 de 480 estudiantes tienen alguna pendiente.
      *
-     * @return array<int, int>  clave = matricula_id
+     * Una carga de ÁREA cubre todas sus competencias, también las de sus
+     * subáreas; una de SUBÁREA, solo las suyas. ⚠️ El área se resuelve SIEMPRE
+     * por `COALESCE(sa.area_id, comp.area_id)`: las competencias de subárea
+     * tienen `area_id` NULL, y contar por esa columna las pierde en silencio.
+     * Se descuentan las exoneraciones de ÁREA y de SUBÁREA —el mismo universo
+     * que `FILTRO_NOTAS`—: una exonerada no es una pendiente.
+     *
+     * @return array<int, array<int, array{nombre:string, plan:int}>>
+     *         clave = matricula_id → area_id
      */
     private function planPorMatricula(int $periodoId): array
     {
         $filas = $this->query("
-            SELECT m.id AS matricula_id, COUNT(DISTINCT a.id) AS areas
+            SELECT m.id AS matricula_id, a.id AS area_id, a.nombre AS area,
+                   COUNT(DISTINCT comp.id) AS plan
             FROM matriculas m
             INNER JOIN periodos per ON per.anio_id = m.anio_id AND per.id = ?
             INNER JOIN cargas_academicas ca
                     ON ca.seccion_id = m.seccion_id
                    AND ca.estado     = 'activa'
-            INNER JOIN areas a
-                    ON a.id = COALESCE(ca.area_id, (SELECT sa.area_id FROM subareas sa WHERE sa.id = ca.subarea_id))
-            WHERE (a.tipo NOT IN ('transversal', 'tutoria')
-                   OR a.nombre_boleta = '" . AREA_ETICA_NOMBRE_BOLETA . "')
+            INNER JOIN competencias comp
+                    ON (ca.subarea_id IS NOT NULL AND comp.subarea_id = ca.subarea_id)
+                    OR (ca.subarea_id IS NULL
+                        AND (comp.area_id = ca.area_id
+                             OR comp.subarea_id IN (SELECT id FROM subareas WHERE area_id = ca.area_id)))
+            LEFT  JOIN subareas sa ON sa.id = comp.subarea_id
+            INNER JOIN areas a     ON a.id  = COALESCE(sa.area_id, comp.area_id)
+            WHERE " . self::areasQueCuentan('m.id') . "
               AND NOT EXISTS (
                   SELECT 1 FROM exoneraciones ex
                   WHERE ex.matricula_id = m.id
                     AND ex.revocado_en IS NULL
-                    AND ex.area_id = a.id
+                    AND (ex.area_id = a.id OR ex.subarea_id = comp.subarea_id)
               )
-            GROUP BY m.id
+            GROUP BY m.id, a.id, a.nombre
         ", [$periodoId]);
 
-        return array_column($filas, 'areas', 'matricula_id');
+        $out = [];
+        foreach ($filas as $f) {
+            $out[(int) $f['matricula_id']][(int) $f['area_id']] = [
+                'nombre' => (string) $f['area'],
+                'plan'   => (int) $f['plan'],
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * El `numero` del periodo y si es el FINAL de su año (mayor `numero`). Mismo
+     * anclaje que el logro anual y la regla del periodo final: nunca el número 4
+     * literal.
+     *
+     * @return array{0:int, 1:bool}
+     */
+    private function datosPeriodo(int $periodoId): array
+    {
+        $f = $this->query("
+            SELECT p.numero,
+                   p.numero = (SELECT MAX(p2.numero) FROM periodos p2 WHERE p2.anio_id = p.anio_id) AS es_final
+            FROM periodos p WHERE p.id = ?
+        ", [$periodoId]);
+
+        return [(int) ($f[0]['numero'] ?? 0), (bool) ($f[0]['es_final'] ?? false)];
     }
 
     /**

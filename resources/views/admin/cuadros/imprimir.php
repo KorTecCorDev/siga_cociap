@@ -186,8 +186,8 @@ $k = $bloques['matricula']['kpis'];
                     Este bimestre todavía no tiene competencias bloqueadas: aún no puede
                     determinarse quién está en riesgo.
                 <?php else: ?>
-                    Con las notas de este bimestre, todos los estudiantes evaluados
-                    alcanzarían la promoción de grado.
+                    <?php $res = riesgo_resumen($bloques['situacion']); $sinCasosAlcance = ''; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_sin-casos.php'; ?>
                 <?php endif; ?>
             </p>
         <?php else: ?>

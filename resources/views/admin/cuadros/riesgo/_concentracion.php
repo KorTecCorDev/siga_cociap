@@ -35,7 +35,7 @@ $barra ??= static function (int $n, int $de): string {
     <section class="riesgo-conc">
         <h3 class="riesgo-conc__titulo">
             Concentración de casos &middot; <?= e($niv['nombre']) ?>
-            <span>(<?= $totNiv ?> estudiantes; se cuentan sus competencias
+            <span>(<?= $totNiv ?> estudiante<?= $totNiv !== 1 ? 's' : '' ?>; se cuentan sus competencias
             <?= $conB ? 'en B o C' : 'en C' ?>)</span>
         </h3>
 

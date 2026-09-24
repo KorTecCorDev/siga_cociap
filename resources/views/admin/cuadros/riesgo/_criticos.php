@@ -54,7 +54,14 @@ foreach ($criticos as $al) {
             <tbody>
                 <?php foreach ($filas as $al): ?>
                     <tr>
-                        <th scope="row"><?= e($al['nombre_completo']) ?></th>
+                        <th scope="row">
+                            <?= e($al['nombre_completo']) ?>
+                            <?php if ($al['certeza'] !== null): ?>
+                                <span class="riesgo-alumno__certeza riesgo-alumno__certeza--<?= e($al['certeza']) ?>">
+                                    <?= $al['certeza'] === CERTEZA_SEGURA ? 'Seguro' : 'Proyectado' ?>
+                                </span>
+                            <?php endif; ?>
+                        </th>
                         <td>
                             <?= e($al['grado']['nombre_display'] . ' ' . $al['seccion_nombre']) ?>
                             <?php // Retorno de grado: se cuenta en su matrícula oficial,
@@ -65,7 +72,7 @@ foreach ($criticos as $al) {
                         </td>
                         <td class="riesgo-stat__n"><?= (int) $al['num_b'] ?></td>
                         <td class="riesgo-stat__n"><strong><?= (int) $al['num_c'] ?></strong></td>
-                        <td class="riesgo-stat__n"><?= (int) $al['num_competencias'] ?></td>
+                        <td class="riesgo-stat__n"><?= (int) $al['num_competencias'] ?> de <?= (int) $al['competencias_plan'] ?></td>
                         <td><?= e($al['motivo']) ?></td>
                     </tr>
                 <?php endforeach; ?>

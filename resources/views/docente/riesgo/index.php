@@ -29,8 +29,8 @@ $pintarSeccion = static function (array $bloque): void {
         <h1 class="page-title page-title--wf page-title--riesgo">Estudiantes en riesgo académico</h1>
         <p class="page-subtitle">
             <?= e($seccion['nivel_nombre']) ?> &mdash; <?= e($seccion['grado_nombre']) ?> &mdash;
-            Sección <?= e($seccion['nombre']) ?>. Estudiantes de tu sección que, con las notas
-            de este bimestre, <strong>no alcanzarían la promoción de grado</strong>, con su
+            Sección <?= e($seccion['nombre']) ?>. Estudiantes de tu sección que, con el último nivel
+            registrado de cada competencia hasta este bimestre, <strong>no alcanzarían la promoción de grado</strong>, con su
             desglose. Solo lectura.
         </p>
     </div>

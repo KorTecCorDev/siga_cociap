@@ -34,15 +34,20 @@ $etqGrado = static fn(array $gr): string => $gr['nombre_display'] . ' ' . $gr['n
         <p class="cuadros-banda__cifra">
             <span class="cuadros-banda__n"><?= (int) $res['total'] ?></span>
             <span class="cuadros-banda__q">
-                estudiante<?= $res['total'] !== 1 ? 's' : '' ?> no alcanzarían la promoción,
+                estudiante<?= $res['total'] !== 1 ? 's' : '' ?> no alcanzaría<?= $res['total'] !== 1 ? 'n' : '' ?> la promoción,
                 de <strong><?= (int) $res['evaluados'] ?></strong> evaluados
                 (<strong><?= (int) $res['pct'] ?>%</strong>)
             </span>
         </p>
         <ul class="cuadros-banda__datos">
-            <li><strong><?= (int) $res['permanencia'] ?></strong> permanecerían en el grado (PER)</li>
-            <li><strong><?= (int) $res['recuperacion'] ?></strong> requieren recuperación (RR)</li>
+            <li><strong><?= (int) $res['permanencia'] ?></strong> permanecería<?= (int) $res['permanencia'] !== 1 ? 'n' : '' ?> en el grado (PER)</li>
+            <li><strong><?= (int) $res['recuperacion'] ?></strong> requiere<?= (int) $res['recuperacion'] !== 1 ? 'n' : '' ?> recuperación (RR)</li>
             <li><strong><?= (int) $res['grados'] ?> de <?= (int) $res['grados_total'] ?></strong> grados con casos</li>
+            <?php // Certeza: cuántos ya no pueden salvarse aunque lo pendiente
+                  // salga bien, y cuántos todavía dependen de ello. ?>
+            <li><strong><?= (int) $res['seguros'] ?></strong> seguro<?= (int) $res['seguros'] !== 1 ? 's' : '' ?>
+                &middot; <strong><?= (int) $res['proyectados'] ?></strong> proyectado<?= (int) $res['proyectados'] !== 1 ? 's' : '' ?>
+                (lo pendiente aún puede salvarlo<?= (int) $res['proyectados'] !== 1 ? 's' : '' ?>)</li>
         </ul>
         <?php // Una línea por nivel: la regla del MINEDU cambia de uno a otro, y
               // una cifra global sola no diría qué se contó. ?>
@@ -51,8 +56,8 @@ $etqGrado = static fn(array $gr): string => $gr['nombre_display'] . ' ' . $gr['n
                 <li>
                     <strong><?= e($niv['nombre']) ?>:</strong>
                     <?= (int) $niv['total'] ?> de <?= (int) $niv['evaluados'] ?>
-                    (<?= (int) $niv['pct'] ?>%) no alcanzarían la promoción
-                    &middot; <?= (int) $niv['permanencia'] ?> permanecerían en el grado
+                    (<?= (int) $niv['pct'] ?>%) no alcanzaría<?= (int) $niv['total'] !== 1 ? 'n' : '' ?> la promoción
+                    &middot; <?= (int) $niv['permanencia'] ?> permanecería<?= (int) $niv['permanencia'] !== 1 ? 'n' : '' ?> en el grado
                 </li>
             <?php endforeach; ?>
         </ul>
@@ -66,12 +71,21 @@ $etqGrado = static fn(array $gr): string => $gr['nombre_display'] . ' ' . $gr['n
                 <?= (int) $res['cobertura']['parciales'] ?>
                 estudiante<?= $res['cobertura']['parciales'] !== 1 ? 's' : '' ?>
                 todavía no tiene<?= $res['cobertura']['parciales'] !== 1 ? 'n' : '' ?> calificadas
-                todas las áreas de su plan: la situación final se calculó solo con las áreas
-                que ya tienen nivel de logro, y puede empeorar al completarse el bimestre.
+                todas las competencias de su plan: la situación se proyectó con las competencias
+                que ya tienen nivel de logro, y la marca <em>Seguro</em> o <em>Proyectado</em> dice
+                si lo pendiente todavía puede cambiarla.
             </p>
         <?php endif; ?>
-        <?php if ($res['sin_datos'] > 0 || $res['automatica'] > 0): ?>
+        <?php if ($res['sin_datos'] > 0 || $res['automatica'] > 0 || $res['pro_proyectados'] > 0 || $res['pendiente_final'] > 0): ?>
             <ul class="cuadros-banda__datos">
+                <?php if ($res['pro_proyectados'] > 0): ?>
+                    <li><strong><?= (int) $res['pro_proyectados'] ?></strong> promovido<?= (int) $res['pro_proyectados'] !== 1 ? 's' : '' ?>
+                        cuya promoción todavía depende de competencias pendientes</li>
+                <?php endif; ?>
+                <?php if ($res['pendiente_final'] > 0): ?>
+                    <li><strong><?= (int) $res['pendiente_final'] ?></strong> con la situación final pendiente
+                        (competencias sin nota en el periodo final)</li>
+                <?php endif; ?>
                 <?php if ($res['sin_datos'] > 0): ?>
                     <li><strong><?= (int) $res['sin_datos'] ?></strong> sin ninguna competencia evaluada (fuera del cálculo)</li>
                 <?php endif; ?>

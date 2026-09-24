@@ -26,9 +26,11 @@ $res = riesgo_resumen($bloques['situacion'] ?? []);
         </span>
     </p>
     <ul class="cuadros-banda__datos">
-        <li><strong><?= (int) $res['permanencia'] ?></strong> permanecerían en el grado</li>
-        <li><strong><?= (int) $res['recuperacion'] ?></strong> requieren recuperación</li>
+        <li><strong><?= (int) $res['permanencia'] ?></strong> permanecería<?= (int) $res['permanencia'] !== 1 ? 'n' : '' ?> en el grado</li>
+        <li><strong><?= (int) $res['recuperacion'] ?></strong> requiere<?= (int) $res['recuperacion'] !== 1 ? 'n' : '' ?> recuperación</li>
         <li><strong><?= (int) $res['grados'] ?> de <?= (int) $res['grados_total'] ?></strong> grados con casos</li>
+        <li><strong><?= (int) $res['seguros'] ?></strong> seguro<?= (int) $res['seguros'] !== 1 ? 's' : '' ?>
+            &middot; <strong><?= (int) $res['proyectados'] ?></strong> proyectado<?= (int) $res['proyectados'] !== 1 ? 's' : '' ?></li>
     </ul>
     <?php // La cobertura NO es decoracion: en un bimestre a medio calificar las
           // areas sin nota no cuentan y la proyeccion sale optimista. Callarlo
@@ -36,8 +38,8 @@ $res = riesgo_resumen($bloques['situacion'] ?? []);
     <?php if (!$res['cobertura']['completa']): ?>
         <p class="cuadros-banda__nota">
             Proyección parcial: <strong><?= (int) $res['cobertura']['parciales'] ?></strong>
-            estudiante<?= $res['cobertura']['parciales'] !== 1 ? 's' : '' ?> todavía sin todas
-            las áreas de su plan calificadas.
+            estudiante<?= $res['cobertura']['parciales'] !== 1 ? 's' : '' ?> todavía con
+            competencias de su plan sin calificar.
         </p>
     <?php endif; ?>
     <ul class="riesgo-banda__niveles">
@@ -45,8 +47,8 @@ $res = riesgo_resumen($bloques['situacion'] ?? []);
             <li>
                 <strong><?= e($niv['nombre']) ?>:</strong>
                 <?= (int) $niv['total'] ?> de <?= (int) $niv['evaluados'] ?> (<?= (int) $niv['pct'] ?>%)
-                no alcanzarían la promoción<?php if ($niv['permanencia'] > 0): ?>,
-                    de los cuales <?= (int) $niv['permanencia'] ?> permanecerían en el grado<?php endif; ?>
+                no alcanzaría<?= (int) $niv['total'] !== 1 ? 'n' : '' ?> la promoción<?php if ($niv['permanencia'] > 0): ?>,
+                    de los cuales <?= (int) $niv['permanencia'] ?> permanecería<?= (int) $niv['permanencia'] !== 1 ? 'n' : '' ?> en el grado<?php endif; ?>
             </li>
         <?php endforeach; ?>
     </ul>

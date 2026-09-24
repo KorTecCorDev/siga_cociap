@@ -38,7 +38,7 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
     <div>
         <h1 class="page-title">Estudiantes en riesgo académico</h1>
         <p class="page-subtitle">
-            Estudiantes que, con las notas de este bimestre, <strong>no alcanzarían la
+            Estudiantes que, con el último nivel registrado de cada competencia hasta este bimestre, <strong>no alcanzarían la
             promoción de grado</strong> según la norma del MINEDU: requieren recuperación
             o permanecerían en el grado. Con su desglose y dónde se concentran los casos.
             Solo lectura.
@@ -155,8 +155,8 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
 
     <?php if ($riesgo['stats']['resumen']['total'] === 0): ?>
         <div class="empty-state">
-            <p>Con las notas de este bimestre, todos los estudiantes evaluados
-               <?= $sel ? 'de esta selección ' : '' ?>alcanzarían la promoción de grado.</p>
+            <p><?php $res = $riesgo['stats']['resumen']; $sinCasosAlcance = $sel ? 'de esta selección' : ''; ?>
+               <?php require VIEW_PATH . '/admin/cuadros/riesgo/_sin-casos.php'; ?></p>
         </div>
     <?php else: ?>
 
@@ -185,6 +185,7 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
           // filtrada justo a ese grado `total` vale 0 y el bloque quedaría
           // oculto dentro del `else`. ?>
     <?php require VIEW_PATH . '/admin/cuadros/riesgo/_automatica.php'; ?>
+    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_pendiente-final.php'; ?>
 
 <?php endif; ?>
 

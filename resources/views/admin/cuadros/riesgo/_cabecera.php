@@ -6,7 +6,13 @@
  *
  * @var array  $periodo
  * @var string $alcance   texto ya armado («Primaria: 5°, 6° A · Secundaria: 1° B»)
+ *
+ * En el PERIODO FINAL sin competencias pendientes deja de ser una proyección
+ * (24/09/2026): el resumen lo marca `definitiva`. Viene de `$riesgo` (informe)
+ * o de `$bloque` (lote por tutor y tutor).
  */
+$resCab     = $riesgo['stats']['resumen'] ?? $bloque['stats']['resumen'] ?? null;
+$definitiva = !empty($resCab['definitiva']);
 ?>
 <header class="cuadros-print__head">
     <img class="cuadros-print__logo" src="<?= url('assets/img/logo_cociap.png') ?>" alt="COCIAP">
@@ -21,7 +27,7 @@
         <?php // Una hoja suelta tiene que decir QUE regla la produjo: sin esto se
               // lee como una lista de castigo y no como la proyeccion normativa. ?>
         <p class="cuadros-print__sub">
-            Situación final proyectada según la RVM 00094-2020-MINEDU (modificada por la
+            Situación final <?= $definitiva ? '' : 'proyectada ' ?>según la RVM 00094-2020-MINEDU (modificada por la
             RVM 048-2024-MINEDU): requiere recuperación (RR) o permanece en el grado (PER).
         </p>
     </div>

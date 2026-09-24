@@ -28,8 +28,8 @@ $alcance = riesgo_alcance($riesgo['niveles'], $riesgo['secciones_ids']);
                 Este bimestre todavía no tiene competencias bloqueadas: aún no puede determinarse
                 la situación final de ningún estudiante.
             <?php else: ?>
-                Con las notas de este bimestre, todos los estudiantes evaluados de este alcance
-                alcanzarían la promoción de grado.
+                <?php $res = $riesgo['stats']['resumen']; $sinCasosAlcance = 'de este alcance'; ?>
+                <?php require VIEW_PATH . '/admin/cuadros/riesgo/_sin-casos.php'; ?>
             <?php endif; ?>
         </p>
     <?php else: ?>
@@ -41,4 +41,5 @@ $alcance = riesgo_alcance($riesgo['niveles'], $riesgo['secciones_ids']);
 
     <?php // Fuera del `if` por el mismo motivo que en la pantalla. ?>
     <?php require VIEW_PATH . '/admin/cuadros/riesgo/_automatica.php'; ?>
+    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_pendiente-final.php'; ?>
 </div>
