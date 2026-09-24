@@ -621,9 +621,333 @@ function nota_es_aprobatoria(?string $literal, string $nivelCodigo): bool
         return false;
     }
 
-    $clave = str_starts_with(strtolower($nivelCodigo), 'prim') ? 'prim' : 'sec';
+    return in_array($literal, LITERALES_APROBATORIOS[nivel_clave($nivelCodigo)], true);
+}
 
-    return in_array($literal, LITERALES_APROBATORIOS[$clave], true);
+/**
+ * Normaliza el código de nivel a la clave corta `'prim'` / `'sec'` — PUNTO ÚNICO.
+ *
+ * Las vistas traen `'prim'`/`'sec'` (`$carga['nivel_codigo']`) y
+ * `conclusion_es_obligatoria()` usa los nombres largos `'primaria'`/`'secundaria'`.
+ * Pasar uno por el otro no debe fallar en silencio hacia el lado permisivo, así
+ * que todo lo que dependa del nivel entra por aquí en vez de repetir el
+ * `str_starts_with`.
+ */
+function nivel_clave(string $nivelCodigo): string
+{
+    return str_starts_with(strtolower($nivelCodigo), 'prim') ? 'prim' : 'sec';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SITUACIÓN FINAL DEL ESTUDIANTE — regla del MINEDU (PUNTO ÚNICO)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Siglas de la situación final que exige el SIAGIE (RVM 00094-2020-MINEDU,
+ * sub numeral 5.1.2.1, punto 5): promovido, requiere recuperación y permanece
+ * en el grado.
+ *
+ * 🔴 «ESTUDIANTE EN RIESGO ACADÉMICO» = `RR` ∪ `PER`, es decir, TODO LO QUE NO
+ * ES `PRO`. Esa es la definición del colegio desde el 23/09/2026 y deroga la
+ * regla anterior por conteo global (primaria B+C ≥ 3 · secundaria C ≥ 3), que
+ * no era normativa y daba otro conjunto: en el II Bimestre marcaba 157
+ * estudiantes donde la norma marca 106, y ninguno de los dos es subconjunto del
+ * otro.
+ */
+const SITUACION_PRO = 'PRO';
+const SITUACION_RR  = 'RR';
+const SITUACION_PER = 'PER';
+
+/**
+ * NO es una sigla del SIAGIE: es el hueco de datos. Un estudiante sin NINGUNA
+ * competencia evaluada en el bimestre no tiene situación que proyectar, y
+ * decir `RR` de él sería inventar un dato en contra. No cuenta como riesgo.
+ */
+const SITUACION_SIN_DATOS = 'ND';
+
+/**
+ * Cuántas competencias son «la mitad» de un área — PUNTO ÚNICO del redondeo.
+ *
+ * La norma fija la convención de forma explícita para los números impares
+ * (numeral 5.1.3): «Cuando un área curricular tiene 5 competencias, se entiende
+ * como "la mitad" a 3 competencias. Si el área tiene 3 competencias, se entiende
+ * como "la mitad" a 2 competencias. En el caso de áreas curriculares con una sola
+ * competencia, se considera esa única competencia del área.»
+ *
+ * Es exactamente `ceil(n / 2)`, y por tanto «más de la mitad» es `> ceil(n / 2)`,
+ * leído con la misma convención. NUNCA usar `n / 2` a secas: en un área de 3
+ * competencias daría 1,5 y «la mitad» pasaría a ser 2 solo por redondeo del
+ * lenguaje, no por la norma.
+ *
+ * ⚠️ En este colegio hay áreas de UNA SOLA competencia (Educación para el
+ * Trabajo, Taller de Pre-Cálculo y Ética y Valores): ahí «la mitad» es esa
+ * única competencia y una «C» reprueba el área entera.
+ */
+function mitad_competencias(int $n): int
+{
+    return (int) ceil($n / 2);
+}
+
+/**
+ * ¿La promoción de este grado es AUTOMÁTICA? Solo 1.º de primaria (cuadro del
+ * literal A del sub numeral 5.1.3). Un estudiante de 1.º NUNCA está en riesgo
+ * académico: no puede quedarse ni requerir recuperación.
+ */
+function grado_promocion_automatica(string $nivelCodigo, int $gradoNumero): bool
+{
+    return nivel_clave($nivelCodigo) === 'prim' && $gradoNumero === 1;
+}
+
+/**
+ * ¿Es el grado FINAL de su ciclo? Primaria 2.º, 4.º y 6.º · Secundaria 2.º y 5.º.
+ *
+ * Es la bisagra de toda la regla: «el sistema educativo peruano está organizado
+ * por ciclos y se espera que un estudiante haya avanzado un nivel en el
+ * desarrollo de la competencia en ese tiempo. Por lo tanto, las condiciones
+ * para la promoción […] tendrán requerimientos diferentes al culminar el grado
+ * dependiendo de si este es el grado final del ciclo o es un grado intermedio»
+ * (numeral 5.1.3, punto 1).
+ *
+ * 🔴 En los grados FINALES de ciclo la promoción exige «"B" en las demás
+ * competencias», así que **una sola competencia en "C" impide la promoción**.
+ * En los intermedios la norma admite «C» de forma explícita. Por eso el mismo
+ * número de «C» significa cosas distintas según el grado.
+ */
+function grado_final_de_ciclo(string $nivelCodigo, int $gradoNumero): bool
+{
+    $finales = nivel_clave($nivelCodigo) === 'prim' ? [2, 4, 6] : [2, 5];
+
+    return in_array($gradoNumero, $finales, true);
+}
+
+/**
+ * SITUACIÓN FINAL de un estudiante — PUNTO ÚNICO de la regla del MINEDU.
+ *
+ * Norma: documento normativo aprobado por **RVM N° 00094-2020-MINEDU**,
+ * **modificado por RVM N° 048-2024-MINEDU** (30/04/2024), que reescribió el
+ * cuadro de Secundaria. El de Primaria sigue siendo el original de 2020. La
+ * RM 474-2022-MINEDU NO la deroga: es la norma técnica del año escolar 2023.
+ *
+ * 🔴 SE CUENTA POR ÁREA, NO POR COMPETENCIAS SUELTAS. La pregunta de la norma
+ * nunca es «cuántas C tiene» sino «cuántas ÁREAS cumplen tal condición». Un
+ * conteo global no puede aproximarla.
+ *
+ * ```
+ *                      PROMOCIÓN (al término del periodo lectivo)   PERMANENCIA
+ *  prim 1.º            automática                                   no aplica
+ *  prim 2.º/4.º/6.º    A o AD en la mitad+ de 4 áreas Y cero C      C en más de la mitad de 4 áreas
+ *  prim 3.º/5.º        B o superior en la mitad+ de TODAS las áreas ídem
+ *  sec  1.º/3.º/4.º    B o superior en la mitad+ de TODAS las áreas C en más de la mitad de 4+ áreas
+ *  sec  2.º/5.º        A o AD en la mitad+ de 3 áreas Y cero C      C en la mitad o más de 4+ áreas
+ * ```
+ *
+ * `RR` es el resto: «si no cumplen las condiciones de promoción o permanencia».
+ * Se evalúa PRO → PER → RR; con estos umbrales las dos primeras son mutuamente
+ * excluyentes, pero el orden se fija igual para que la función sea total.
+ *
+ * QUÉ NO ENTRA EN `$areas` (numeral 5.1.3, puntos 9 a 11), y lo garantiza quien
+ * arma la lista, no esta función: las **competencias transversales** no cuentan
+ * para la situación final; las competencias adicionales sin área curricular
+ * tampoco; las organizadas en áreas y **los talleres SÍ**. Las **exoneradas**
+ * tampoco, ni en el numerador ni en el denominador.
+ *
+ * ⚠️ DECISIÓN DE LECTURA (23/09/2026): la condición de permanencia de primaria
+ * dice «"C" en más de la mitad […] **y "B" en las demás competencias**». Tomada
+ * al pie de la letra, un alumno con «C» de sobra quedaría FUERA de la
+ * permanencia, que es el absurdo contrario al que busca la norma. Es un
+ * artefacto de redacción: se aplica solo la condición de «C», como el SIAGIE.
+ *
+ * ⚠️ UN ÁREA SIN NINGUNA COMPETENCIA EVALUADA NO SE PASA. El denominador son
+ * las competencias con nivel de logro; quien arma `$areas` declara aparte la
+ * cobertura. Ver `SituacionFinalModel`.
+ *
+ * @param  array  $areas  una entrada por área evaluada:
+ *                        `['n' => int, 'n_ab' => int, 'n_b' => int, 'n_c' => int, 'nombre' => ?string]`
+ *                        donde `n_ab` son las competencias en AD o A.
+ * @return array{situacion:string, areas:int, areas_ab:int, areas_b:int,
+ *               areas_c_mas:int, areas_c_mitad:int, c_total:int,
+ *               automatica:bool, final_de_ciclo:bool, fallan:array, motivo:string}
+ */
+function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoNumero): array
+{
+    $prim  = nivel_clave($nivelCodigo) === 'prim';
+    $final = grado_final_de_ciclo($nivelCodigo, $gradoNumero);
+
+    $out = [
+        'situacion'      => SITUACION_PRO,
+        'areas'          => count($areas),
+        'areas_ab'       => 0,
+        'areas_b'        => 0,
+        'areas_c_mas'    => 0,
+        'areas_c_mitad'  => 0,
+        'c_total'        => 0,
+        'automatica'     => grado_promocion_automatica($nivelCodigo, $gradoNumero),
+        'final_de_ciclo' => $final,
+        'fallan'         => [],   // áreas sin la mitad en B o superior (grados intermedios)
+        'motivo'         => '',
+    ];
+
+    // Sin un área evaluada no hay situación que determinar. Ni PRO (inventaría
+    // una promoción con cero datos) ni RR (inventaría un dato EN CONTRA del
+    // estudiante): se dice que no hay dato, y no cuenta como riesgo.
+    //
+    // 🔴 SE COMPRUEBA ANTES QUE LA PROMOCIÓN AUTOMÁTICA. Un
+    // alumno de 1.º sin una sola competencia evaluada sigue sin tener nada que
+    // proyectar: devolver PRO lo contaría como «evaluado» en los denominadores
+    // del informe y un bimestre recién abierto mostraría 1.º al 100 % evaluado
+    // sin una sola nota puesta.
+    if ($areas === []) {
+        $out['situacion'] = SITUACION_SIN_DATOS;
+        $out['motivo']    = 'Sin competencias evaluadas en el bimestre.';
+        return $out;
+    }
+
+    if ($out['automatica']) {
+        $out['motivo'] = 'Promocion automatica (1.º de primaria).';
+        return $out;
+    }
+
+    foreach ($areas as $a) {
+        $n     = (int) ($a['n'] ?? 0);
+        $mitad = mitad_competencias($n);
+        $ab    = (int) ($a['n_ab'] ?? 0);
+        $b     = (int) ($a['n_b'] ?? 0);
+        $c     = (int) ($a['n_c'] ?? 0);
+
+        $out['c_total'] += $c;
+
+        if ($ab >= $mitad)      { $out['areas_ab']++; }
+        if ($ab + $b >= $mitad) { $out['areas_b']++; }
+        else                    { $out['fallan'][] = (string) ($a['nombre'] ?? '—'); }
+        if ($c >  $mitad)       { $out['areas_c_mas']++; }
+        if ($c >= $mitad)       { $out['areas_c_mitad']++; }
+    }
+
+    // ── PROMOCIÓN ────────────────────────────────────────────────────────────
+    $minAreasAb = $prim ? 4 : 3;   // primaria 2/4/6 exige 4 áreas; secundaria 2/5, tres
+    $promovido  = $final
+        ? ($out['areas_ab'] >= $minAreasAb && $out['c_total'] === 0)
+        : ($out['areas_b']  === $out['areas']);
+
+    if ($promovido) {
+        $out['motivo'] = 'Cumple las condiciones de promocion.';
+        return $out;
+    }
+
+    // ── PERMANENCIA ──────────────────────────────────────────────────────────
+    // Secundaria 2.º y 5.º: «la mitad o más». El resto: «más de la mitad».
+    $areasC = (!$prim && $final) ? $out['areas_c_mitad'] : $out['areas_c_mas'];
+    if ($areasC >= 4) {
+        $out['situacion'] = SITUACION_PER;
+        $out['motivo']    = sprintf(
+            'Permanece en el grado: %d areas con %s de sus competencias en C (la norma fija 4).',
+            $areasC,
+            (!$prim && $final) ? 'la mitad o mas' : 'mas de la mitad'
+        );
+        return $out;
+    }
+
+    // ── REQUIERE RECUPERACIÓN ────────────────────────────────────────────────
+    $out['situacion'] = SITUACION_RR;
+    $out['motivo']    = situacion_final_motivo($out, $minAreasAb);
+
+    return $out;
+}
+
+/**
+ * Por qué este estudiante no alcanza la promoción, en una línea legible.
+ * Sale del MISMO análisis que decidió la situación, para que el texto no pueda
+ * contradecir a la cifra de su propia fila.
+ *
+ * @param array $a el arreglo de `situacion_final_analisis()`, ya contado
+ */
+function situacion_final_motivo(array $a, int $minAreasAb): string
+{
+    if (!$a['final_de_ciclo']) {
+        // Grados intermedios: se nombran las áreas que no llegan a la mitad en
+        // B o superior. Son POCAS por definición (si fueran muchas sería PER).
+        $faltan = array_slice($a['fallan'], 0, 4);
+        $resto  = count($a['fallan']) - count($faltan);
+
+        return sprintf(
+            'Requiere recuperacion: %d area(s) sin la mitad de sus competencias en B o superior (%s%s).',
+            count($a['fallan']),
+            implode(', ', $faltan),
+            $resto > 0 ? sprintf(' y %d mas', $resto) : ''
+        );
+    }
+
+    // Grados FINALES de ciclo: la promoción pide dos cosas a la vez.
+    $partes = [];
+    if ($a['areas_ab'] < $minAreasAb) {
+        $partes[] = sprintf(
+            'solo %d area(s) con la mitad de sus competencias en A o AD (se exigen %d)',
+            $a['areas_ab'],
+            $minAreasAb
+        );
+    }
+    if ($a['c_total'] > 0) {
+        $partes[] = sprintf(
+            '%d competencia(s) en C, y en un grado final de ciclo la promocion exige B o superior en todas',
+            $a['c_total']
+        );
+    }
+
+    return 'Requiere recuperacion: ' . implode('; ', $partes) . '.';
+}
+
+/**
+ * La situación final a secas. Azúcar sobre `situacion_final_analisis()` para
+ * quien solo necesita la sigla (verificadores, pruebas).
+ */
+function situacion_final(array $areas, string $nivelCodigo, int $gradoNumero): string
+{
+    return situacion_final_analisis($areas, $nivelCodigo, $gradoNumero)['situacion'];
+}
+
+/**
+ * Orden de una lista de estudiantes en riesgo dentro de su grado — PUNTO ÚNICO.
+ *
+ * Manda la gravedad: primero los que PERMANECEN en el grado, después los que
+ * requieren recuperación; dentro de cada grupo, más competencias en C primero y
+ * luego más en B.
+ *
+ * 🔴 EL DESEMPATE FINAL ES EL ORDEN ALFABÉTICO, y no se escribe aquí: `usort()`
+ * es ESTABLE desde PHP 8.0, así que las filas empatadas conservan el orden en
+ * que llegaron, y llegan ya ordenadas por `orden_alfabetico()` desde la
+ * consulta del roster. Ordenar aquí por el nombre compuesto sería peor: heredaría
+ * la colación de la columna, que equipara Ñ con N (ver `orden_alfabetico()`).
+ */
+function situacion_ordenar(array &$lista): void
+{
+    $peso = static fn(array $x): int => ($x['situacion'] ?? '') === SITUACION_PER ? 1 : 0;
+
+    usort($lista, static fn(array $a, array $b): int =>
+        [$peso($b), (int) $b['num_c'], (int) $b['num_b']]
+        <=> [$peso($a), (int) $a['num_c'], (int) $a['num_b']]);
+}
+
+/**
+ * ¿Esta situación final pone al estudiante en RIESGO ACADÉMICO? Todo lo que no
+ * es promoción. PUNTO ÚNICO de la pregunta: ningún sitio compara con `'RR'` y
+ * `'PER'` a mano.
+ */
+function situacion_es_riesgo(string $situacion): bool
+{
+    return $situacion === SITUACION_RR || $situacion === SITUACION_PER;
+}
+
+/**
+ * Rótulo largo de una sigla, para pantalla y papel.
+ */
+function situacion_rotulo(string $situacion): string
+{
+    return match ($situacion) {
+        SITUACION_PER        => 'Permanece en el grado',
+        SITUACION_RR         => 'Requiere recuperacion',
+        SITUACION_SIN_DATOS  => 'Sin datos en el bimestre',
+        default              => 'Promovido',
+    };
 }
 
 /**
