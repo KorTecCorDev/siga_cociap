@@ -899,6 +899,21 @@ pinta en el wrapper y cualquier fondo de celda lo tapa. Hoy se ve porque solo el
 la columna sticky tienen fondo. Si algún día se le da fondo a las últimas columnas, esta
 señal desaparece **en silencio**.
 
+### Navbar: nada se monta sobre nada (24/09/2026)
+
+Entre 400 y 500 px la marca se comprimía por debajo de su contenido (encogimiento por
+defecto de flex) y «SIGACOCIAP» quedaba **encima** del nombre del usuario, que además se
+partía en dos líneas más altas que la barra. Regla del usuario: **jamás un texto o imagen
+encima de otro**.
+
+- La marca, el rol, la campana y «Cerrar sesión» tienen `flex-shrink: 0`; **lo único flexible
+  es el nombre**, en una línea, que se recorta con «…» si aun así no cabe.
+- El nombre se **oculta por debajo de 500 px** (antes 400; decisión del usuario).
+- `gap` en `.navbar`: `space-between` dejaba en 0 la separación entre la marca y el usuario.
+- Medido con la sesión de admin («ADMINISTRADOR SISTEMA», el nombre corto más largo que hay):
+  cero solapes entre 360 y 800 px. El recorte con «…» aparece en dos franjas: justo por
+  encima de 500 px, y justo por encima de 640 px, donde vuelve a mostrarse el rol.
+
 ### Deuda anotada: los breakpoints no están unificados
 
 **640 px es el breakpoint del sistema** (48 usos; el único presente en navbar, tabs, tables

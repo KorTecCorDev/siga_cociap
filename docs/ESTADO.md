@@ -71,8 +71,11 @@ commit de docs). **Sin desplegar a `main`** (el usuario lo deja para el final). 
 - [x] **Fuera del cálculo diferenciado** (24/09, tarde): sin datos · se incorporó después ·
       ya no pertenece (trasladados/retirados que cursaron el bimestre, solo cifra). Probado
       con el tutor de 3.° A (B1: 21 + 1 incorporada + 3 trasladados). Commit `c7c004e`, pusheado a `dev`.
+- [x] 375 px confirmado por el usuario (24/09).
 - [ ] Queda: ver una fila **arrastrada** en la vista del tutor (su sección no tiene ninguna;
-      en admin sí se ve) y revisar a 375 px.
+      en admin sí se ve).
+- [x] **Navbar sin solapes** (24/09): marca y acciones sin encogerse, nombre en una línea con
+      «…», oculto por debajo de 500 px. Ver `docs/modulos/ui.md`.
 - [x] **Acompañamiento pedagógico** (24/09, tarde): certeza solo la excepción, RR/PER con
       color en el A4, bloque de seguimiento (prim ≥ 3 B o ≥ 3 C · sec ≥ 3 C) y rutas
       `acompanamiento` (las `riesgo` redirigen). Probado en Chrome con admin (B1, B2, A4,
