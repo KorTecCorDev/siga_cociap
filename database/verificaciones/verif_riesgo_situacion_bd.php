@@ -363,6 +363,47 @@ foreach ($periodos as $p) {
                 count($g['seguimiento']) . ' en seguimiento pedagogico');
         }
 
+        // 6c. Chips de EFECTO (24/09/2026): cada fila del desglose contra la
+        // regla escrita AQUI a mano sobre los conteos de control por area.
+        $finalC = in_array($gnum, $nivel === 'prim' ? [2, 4, 6] : [2, 5], true);
+        $efMal = $efFilas = $sinChip = $rrSinRr = 0;
+        foreach (array_merge($g['en_riesgo'], $g['seguimiento']) as $al) {
+            $ctl  = $mios[(int) $al['matricula_id']]['areas'] ?? [];
+            $nAb  = 0;
+            foreach ($ctl as $x) { $nAb += $x['ab'] >= (int) ceil($x['n'] / 2) ? 1 : 0; }
+            $faltanAb = $nAb < ($nivel === 'prim' ? 4 : 3);
+            $chips = 0;
+            foreach ($al['detalle'] as $d) {
+                $x = $ctl[(int) $d['area_id']] ?? null;
+                $esp = null;
+                // El chip depende de la SITUACION del estudiante (24/09/2026).
+                $sit = $al['situacion'];
+                if ($x !== null && !($nivel === 'prim' && $gnum === 1)) {
+                    $m   = (int) ceil($x['n'] / 2);
+                    $per = ($nivel === 'sec' && $finalC) ? $x['c'] >= $m : $x['c'] > $m;
+                    if ($sit === 'PER') {
+                        $esp = ($d['literal'] === 'C' && $per) ? 'per' : null;
+                    } elseif ($sit === 'PRO') {
+                        $esp = (!$finalC && $x['ab'] + $x['b'] === $m) ? 'limite' : null;
+                    } elseif ($finalC) {
+                        if ($d['literal'] === 'C') { $esp = 'rr'; }
+                        elseif ($d['literal'] === 'B' && $faltanAb && $x['ab'] < $m) { $esp = 'rr'; }
+                    } elseif ($d['literal'] === 'C' && $x['ab'] + $x['b'] < $m) { $esp = 'rr'; }
+                    elseif ($x['ab'] + $x['b'] === $m) { $esp = 'limite'; }
+                }
+                $efFilas++;
+                if (($d['efecto'] ?? null) !== $esp) { $efMal++; }
+                if (!empty($d['efecto'])) { $chips++; }
+            }
+            if (situacion_es_riesgo($al['situacion']) && $chips === 0) { $sinChip++; }
+            if ($al['situacion'] === 'RR' && !in_array('rr', array_column($al['detalle'], 'efecto'), true)) { $rrSinRr++; }
+        }
+        $ok($efMal === 0, "  $etq · chips de efecto: cada fila igual a la regla escrita a mano",
+            $efMal > 0 ? "$efMal de $efFilas fila(s) distintas" : "$efFilas fila(s)");
+        // Medida, no guarda: un RR/PER sin ningun chip deja al tutor sin la causa.
+        if ($sinChip > 0) { echo "  (medida) $etq · $sinChip en riesgo sin ningun chip\n"; }
+        $ok($rrSinRr === 0, "  $etq · todo RR lleva al menos un chip Causa RR", "$rrSinRr sin Causa RR");
+
         // 6b. Seguimiento (24/09/2026): nunca a la vez en riesgo; solo PRO o
         // promocion automatica, y cada fila cumple el umbral de su nivel.
         $idsRiesgo = array_column($g['en_riesgo'], 'matricula_id');

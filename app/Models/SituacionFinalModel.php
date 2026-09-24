@@ -413,7 +413,7 @@ class SituacionFinalModel extends BaseModel
             $literal = nota_a_literal((int) $n['nota']);
             $aid     = (int) $n['area_id'];
 
-            $areas[$aid] ??= ['nombre' => (string) $n['area'], 'n' => 0, 'n_ab' => 0, 'n_b' => 0, 'n_c' => 0];
+            $areas[$aid] ??= ['id' => $aid, 'nombre' => (string) $n['area'], 'n' => 0, 'n_ab' => 0, 'n_b' => 0, 'n_c' => 0];
             $areas[$aid]['n']++;
             $areas[$aid][$literal === 'C' ? 'n_c' : ($literal === 'B' ? 'n_b' : 'n_ab')]++;
 
@@ -422,7 +422,7 @@ class SituacionFinalModel extends BaseModel
             }
 
             if (!nota_es_aprobatoria($literal, $nivel)) {
-                $desglose[] = $n + ['literal' => $literal, 'arrastrada' => $n['periodo_numero'] < $numeroActual];
+                $desglose[] = $n + ['literal' => $literal, 'arrastrada' => $n['periodo_numero'] < $numeroActual, 'efecto' => null];
             }
         }
 
@@ -430,11 +430,20 @@ class SituacionFinalModel extends BaseModel
         // sin ninguna evaluada entran con `n = 0`. Un área con notas y sin plan
         // (no ocurre: medido 0 el 24/09) se toma con plan = lo evaluado.
         foreach ($suPlan as $aid => $p) {
-            $areas[$aid] ??= ['nombre' => $p['nombre'], 'n' => 0, 'n_ab' => 0, 'n_b' => 0, 'n_c' => 0];
+            $areas[$aid] ??= ['id' => $aid, 'nombre' => $p['nombre'], 'n' => 0, 'n_ab' => 0, 'n_b' => 0, 'n_c' => 0];
             $areas[$aid]['plan'] = $p['plan'];
         }
 
         $a = situacion_final_proyectar(array_values($areas), $nivel, $grado, $periodoFinal);
+
+        // Chip de EFECTO de cada fila (24/09/2026): del veredicto de su área, que
+        // sale del mismo análisis que la sigla (`situacion_efecto_competencia()`).
+        $veredicto = array_column($a['por_area'] ?? [], null, 'id');
+        foreach ($desglose as &$d) {
+            $ar = $veredicto[(int) $d['area_id']] ?? null;
+            $d['efecto'] = $ar !== null ? situacion_efecto_competencia($ar, $d['literal'], $a) : null;
+        }
+        unset($d);
 
         $compPlan = 0;
         foreach ($areas as $ar) {

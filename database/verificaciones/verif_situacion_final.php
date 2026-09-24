@@ -293,5 +293,63 @@ $chk('sec: 3 C entra',           seguimiento_pedagogico(0, 3, 'sec'));
 $chk('sec: 2 C NO entra',        !seguimiento_pedagogico(9, 2, 'sec'));
 $chk('sec: 3 B NO entra (la B aprueba en secundaria)', !seguimiento_pedagogico(3, 0, 'sec'));
 
+echo "\n=== Efecto de cada competencia: chips (24/09/2026) ===\n";
+// Analiza y devuelve el efecto de una fila del area $i con literal $lit.
+$efecto = function (array $areas, string $niv, int $gr, int $i, string $lit): ?string {
+    $an = situacion_final_analisis($areas, $niv, $gr);
+    // Como el modelo: sin veredicto del area (promocion automatica), sin chip.
+    return isset($an["por_area"][$i]) ? situacion_efecto_competencia($an["por_area"][$i], $lit, $an) : null;
+};
+$ar = fn(int $ab, int $b, int $c, string $nom = "X") => ["id" => crc32($nom), "nombre" => $nom, "n" => $ab + $b + $c, "n_ab" => $ab, "n_b" => $b, "n_c" => $c];
+$bien = array_map(fn($k) => $ar(3, 0, 0, "A$k"), range(1, 5));
+
+// Intermedio (prim 5.o): area de 3 con 2 C -> no llega a la mitad (2) en B o superior.
+$chk("intermedio: C de un area que no llega -> Causa RR",
+    $efecto(array_merge($bien, [$ar(0, 1, 2)]), "prim", 5, 5, "C") === EFECTO_RR);
+$chk("intermedio: B de esa misma area -> sin chip (la B suma)",
+    $efecto(array_merge($bien, [$ar(0, 1, 2)]), "prim", 5, 5, "B") === null);
+// Area de 3 con 1 C: cumple justo (2 de 3) -> en el limite.
+$chk("intermedio: area que cumple justo -> En el limite",
+    $efecto(array_merge($bien, [$ar(0, 2, 1)]), "prim", 5, 5, "C") === EFECTO_LIMITE);
+// Area de 4 con 1 C: cumple con holgura (3 de 4, mitad 2) -> sin chip.
+$chk("intermedio: area con holgura -> sin chip",
+    $efecto(array_merge($bien, [$ar(0, 3, 1)]), "prim", 5, 5, "C") === null);
+// El chip responde a la SITUACION del estudiante (24/09/2026). Un RR con un area
+// de 4 con 3 C (que tambien sumaria a PER) lleva "Causa RR", no "Suma a PER".
+$chk("RR: area con C en mas de la mitad -> Causa RR (no Suma a PER)",
+    $efecto(array_merge($bien, [$ar(0, 1, 3)]), "sec", 3, 5, "C") === EFECTO_RR);
+$an = situacion_final_analisis(array_merge($bien, [$ar(0, 1, 3, "Mat")]), "sec", 3);
+$chk("RR: el motivo dice cuantas de las 4 areas de PER reune",
+    str_contains($an["motivo"], "Reúne 1 de las 4 áreas"), $an["motivo"]);
+// PER: 4 areas con C en mas de la mitad -> sus filas en C llevan "Suma a PER".
+$cuatro = [$ar(0,1,3,"P"), $ar(0,1,3,"Q"), $ar(0,1,3,"R"), $ar(0,1,3,"S"), $ar(3,0,0,"T")];
+$chk("PER: C de un area que forma las 4 -> Suma a PER",
+    $efecto($cuatro, "sec", 3, 0, "C") === EFECTO_PER);
+$chk("PER: fila de un area que no suma -> sin chip",
+    $efecto($cuatro, "sec", 3, 4, "C") === null);
+// Final de ciclo (sec 5.o): areas de 4 con 2 C -> la mitad o mas cuenta para PER.
+$cuatroF = [$ar(2,0,2,"P"), $ar(2,0,2,"Q"), $ar(2,0,2,"R"), $ar(2,0,2,"S"), $ar(3,0,0,"T")];
+$chk("sec final PER: C en la mitad -> Suma a PER (corte >=)",
+    $efecto($cuatroF, "sec", 5, 0, "C") === EFECTO_PER);
+$chk("prim final: esas mismas areas no son PER (corte >) -> Causa RR",
+    $efecto($cuatroF, "prim", 6, 0, "C") === EFECTO_RR);
+// El mismo caso en prim 6.o (final): la mitad NO basta para PER (corte >) -> Causa RR.
+$chk("prim final: C en la mitad -> Causa RR (corte >)",
+    $efecto(array_merge($bien, [$ar(2, 0, 2)]), "prim", 6, 5, "C") === EFECTO_RR);
+// Final de ciclo: una sola C en un area holgada -> Causa RR igual.
+$chk("final de ciclo: toda C -> Causa RR",
+    $efecto(array_merge($bien, [$ar(3, 0, 1)]), "sec", 2, 5, "C") === EFECTO_RR);
+// Prim 4.o (final) sin C y con solo 2 areas en A/AD (se exigen 4): las B de las areas sin la mitad en A/AD causan el RR.
+$sinAb = [$ar(3,0,0,"P"), $ar(3,0,0,"Q"), $ar(0,3,0,"R"), $ar(0,3,0,"S"), $ar(0,3,0,"T")];
+$chk("prim final sin C con falta de A/AD -> sus B causan RR",
+    $efecto($sinAb, "prim", 4, 2, "B") === EFECTO_RR);
+$sinAb2 = [$ar(3,0,0,"P"), $ar(3,0,0,"Q"), $ar(3,0,0,"U"), $ar(3,0,0,"V"), $ar(0,3,0,"R")];
+$chk("prim final con las 4 areas en A/AD -> la B no causa nada",
+    $efecto($sinAb2, "prim", 4, 4, "B") === null);
+$chk("1.o de primaria: nunca chip",
+    $efecto([$ar(0, 0, 3)], "prim", 1, 0, "C") === null);
+$chk("rotulos de los chips", situacion_efecto_rotulo(EFECTO_PER) === "Suma a PER"
+    && situacion_efecto_rotulo(EFECTO_RR) === "Causa RR" && situacion_efecto_rotulo(EFECTO_LIMITE) === "En el límite");
+
 echo "\n", $ok ? "TODO OK\n" : "HAY FALLAS\n";
 exit($ok ? 0 : 1);

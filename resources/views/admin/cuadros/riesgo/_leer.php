@@ -76,6 +76,18 @@ $res = $riesgo['stats']['resumen'];
             registró: es lo que hay que remontar, no la cuenta de la regla.
         </li>
         <li>
+            <strong>Qué competencias deciden la situación.</strong> Cada competencia del desglose
+            lleva un distintivo según su efecto en la situación de <em>ese</em> estudiante:
+            <span class="riesgo-efecto riesgo-efecto--per">Suma a PER</span> (solo en quien
+            permanece en el grado) su área es una de las 4 con la mayoría en C;
+            <span class="riesgo-efecto riesgo-efecto--rr">Causa RR</span> su área no llega a la
+            mitad en B o superior (en los grados finales de ciclo, toda C);
+            <span class="riesgo-efecto riesgo-efecto--limite">En el límite</span> su área cumple
+            justo y una C más la haría fallar. Sin distintivo, la competencia no pone en riesgo la
+            promoción aunque sea no aprobatoria. En quien requiere recuperación, el motivo dice
+            además cuántas de las 4 áreas de la permanencia ya reúne.
+        </li>
+        <li>
             Escala:
             <?php $partes = [];
             foreach (escala_rangos() as $lit => $rango) {

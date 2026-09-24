@@ -837,6 +837,9 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
         'automatica'     => grado_promocion_automatica($nivelCodigo, $gradoNumero),
         'final_de_ciclo' => $final,
         'fallan'         => [],   // áreas sin la mitad en B o superior (grados intermedios)
+        // Veredicto POR ÁREA (24/09/2026), del mismo bucle que decide la sigla:
+        // lo lee `situacion_efecto_competencia()` para el chip de cada fila.
+        'por_area'       => [],
         'motivo'         => '',
     ];
 
@@ -874,10 +877,23 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
         else                    { $out['fallan'][] = (string) ($a['nombre'] ?? '—'); }
         if ($c >  $mitad)       { $out['areas_c_mas']++; }
         if ($c >= $mitad)       { $out['areas_c_mitad']++; }
+
+        $out['por_area'][] = [
+            'id'         => $a['id'] ?? null,
+            'nombre'     => $a['nombre'] ?? null,
+            'n' => $n, 'ab' => $ab, 'b' => $b, 'c' => $c, 'mitad' => $mitad,
+            // Cuenta para las 4 áreas de la permanencia (mismo corte que abajo).
+            'suma_per'   => (!$prim && $final) ? $c >= $mitad : $c > $mitad,
+            'no_llega_b' => $ab + $b < $mitad,
+            // Cumple justo: una competencia más en C la haría fallar.
+            'limite'     => $ab + $b === $mitad,
+            'falta_ab'   => $ab < $mitad,
+        ];
     }
 
     // ── PROMOCIÓN ────────────────────────────────────────────────────────────
     $minAreasAb = $prim ? 4 : 3;   // primaria 2/4/6 exige 4 áreas; secundaria 2/5, tres
+    $out['min_areas_ab'] = $minAreasAb;   // lo lee el chip de las filas (grados finales)
     $promovido  = $final
         ? ($out['areas_ab'] >= $minAreasAb && $out['c_total'] === 0)
         : ($out['areas_b']  === $out['areas']);
@@ -890,6 +906,7 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
     // ── PERMANENCIA ──────────────────────────────────────────────────────────
     // Secundaria 2.º y 5.º: «la mitad o más». El resto: «más de la mitad».
     $areasC = (!$prim && $final) ? $out['areas_c_mitad'] : $out['areas_c_mas'];
+    $out['areas_per'] = $areasC;   // cuántas de las 4 de la permanencia (lo dice el motivo del RR)
     if ($areasC >= 4) {
         $out['situacion'] = SITUACION_PER;
         $out['motivo']    = sprintf(
@@ -903,6 +920,14 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
     // ── REQUIERE RECUPERACIÓN ────────────────────────────────────────────────
     $out['situacion'] = SITUACION_RR;
     $out['motivo']    = situacion_final_motivo($out, $minAreasAb);
+    // Cuánto le falta para la permanencia (24/09/2026): el chip de sus filas
+    // dice «Causa RR», así que la cercanía al PER se dice aquí, en texto.
+    if ($areasC > 0) {
+        $out['motivo'] .= sprintf(
+            ' Reúne %d de las 4 áreas que llevarían a la permanencia (PER).',
+            $areasC
+        );
+    }
 
     return $out;
 }
@@ -993,7 +1018,7 @@ function situacion_final_proyectar(array $areas, string $nivelCodigo, int $grado
         $n    = (int) ($a['n'] ?? 0);
         $plan = max($n, (int) ($a['plan'] ?? $n));
         $miss = $plan - $n;
-        $base = ['nombre' => $a['nombre'] ?? null, 'n' => $plan,
+        $base = ['id' => $a['id'] ?? null, 'nombre' => $a['nombre'] ?? null, 'n' => $plan,
                  'n_ab' => (int) ($a['n_ab'] ?? 0), 'n_b' => (int) ($a['n_b'] ?? 0), 'n_c' => (int) ($a['n_c'] ?? 0)];
 
         if ($n > 0) {
@@ -1077,6 +1102,82 @@ function situacion_ordenar(array &$lista): void
     usort($lista, static fn(array $a, array $b): int =>
         [$peso($b), (int) $b['num_c'], (int) $b['num_b']]
         <=> [$peso($a), (int) $a['num_c'], (int) $a['num_b']]);
+}
+
+/**
+ * EFECTO de una competencia en la situación final (24/09/2026): el chip de su
+ * fila en el desglose. Nació porque el desglose lista TODAS las competencias
+ * no aprobatorias y la norma decide POR ÁREA: en B2, en los grados
+ * intermedios, solo el 54 % de esas filas eran de un área que causa el RR.
+ *
+ * PUNTO ÚNICO y función PURA: lee el veredicto del área que dejó
+ * `situacion_final_analisis()` en `por_area` —el mismo bucle que decidió la
+ * sigla—, así que el chip no puede contradecir a la situación.
+ *
+ * 🔴 EL CHIP RESPONDE A LA SITUACIÓN DEL ESTUDIANTE (decisión del usuario,
+ * 24/09/2026). En los grados intermedios toda área que suma a PER también
+ * causa RR, así que con una precedencia fija «PER > RR» 23 estudiantes RR de
+ * B1 no tenían ni un «Causa RR» y se leían como PER. Ahora:
+ *
+ *  · estudiante PER → `EFECTO_PER` en las filas en C de las áreas que forman
+ *                     sus 4 (prim y sec intermedio `c > mitad`; sec 2.º/5.º
+ *                     `c ≥ mitad`). Nada más: su situación ya la dicen esas.
+ *  · estudiante RR  → `EFECTO_RR`: intermedio, filas en C de un área sin la
+ *                     mitad en B o superior; final de ciclo, toda fila en C, y
+ *                     si faltan áreas con la mitad en A/AD, las B de esas
+ *                     áreas. Cuánto le falta para PER va en el MOTIVO.
+ *  · RR o PRO       → `EFECTO_LIMITE` (intermedio): área que cumple justo, una
+ *                     C más la haría fallar.
+ * Promoción automática, sin datos o situación pendiente: sin chip.
+ *
+ * @param array  $area      entrada de `por_area`
+ * @param string $literal   literal de la fila (ya no aprobatoria)
+ * @param array  $analisis  salida de `situacion_final_analisis()` / `_proyectar()`
+ */
+const EFECTO_PER    = 'per';
+const EFECTO_RR     = 'rr';
+const EFECTO_LIMITE = 'limite';
+
+function situacion_efecto_competencia(array $area, string $literal, array $analisis): ?string
+{
+    $sit = (string) ($analisis['situacion'] ?? '');
+    if (!empty($analisis['automatica'])) {
+        return null;
+    }
+    if ($sit === SITUACION_PER) {
+        return ($literal === 'C' && !empty($area['suma_per'])) ? EFECTO_PER : null;
+    }
+    if ($sit !== SITUACION_RR && $sit !== SITUACION_PRO) {
+        return null;
+    }
+    if ($sit === SITUACION_PRO) {
+        // Un promovido solo puede estar «en el límite» (grado intermedio).
+        return (empty($analisis['final_de_ciclo']) && !empty($area['limite'])) ? EFECTO_LIMITE : null;
+    }
+
+    if (!empty($analisis['final_de_ciclo'])) {
+        if ($literal === 'C') {
+            return EFECTO_RR;
+        }
+        $faltanAb = (int) ($analisis['areas_ab'] ?? 0) < (int) ($analisis['min_areas_ab'] ?? 0);
+        return ($literal === 'B' && $faltanAb && !empty($area['falta_ab'])) ? EFECTO_RR : null;
+    }
+
+    if ($literal === 'C' && !empty($area['no_llega_b'])) {
+        return EFECTO_RR;
+    }
+    return !empty($area['limite']) ? EFECTO_LIMITE : null;
+}
+
+/** Rótulo del chip de efecto. */
+function situacion_efecto_rotulo(string $efecto): string
+{
+    return match ($efecto) {
+        EFECTO_PER    => 'Suma a PER',
+        EFECTO_RR     => 'Causa RR',
+        EFECTO_LIMITE => 'En el límite',
+        default       => '',
+    };
 }
 
 /**

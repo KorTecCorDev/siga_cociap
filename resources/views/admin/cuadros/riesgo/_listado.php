@@ -126,13 +126,22 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                                 <span class="riesgo-alumno__motivo"><?= e($al['motivo']) ?></span>
                             </div></th>
                         </tr>
+                        <?php // Columnas repetidas bajo CADA estudiante (24/09/2026): en
+                              // pantalla el <thead> del grado queda lejos al desplazarse. ?>
+                        <tr class="riesgo-tabla__cols riesgo-alumno__cols">
+                            <th scope="col">Área &middot; curso</th>
+                            <th scope="col">Competencia</th>
+                            <th scope="col" class="riesgo-tabla__num">Lit.</th>
+                            <th scope="col" class="riesgo-tabla__num">Nota</th>
+                            <th scope="col">Docente</th>
+                        </tr>
 <?php // ⚠️ SIN INDENTAR a propósito: se repite ~1 400 veces en B1 y no hay
       // minificador de HTML en el pipeline (ver la nota de peso del 07/09 en
       // docs/modulos/usuarios-direccion.md). ?>
 <?php foreach ($al['detalle'] as $d): ?>
 <tr>
 <td><?= e($d['area']) ?><?php if ($d['curso'] !== null): ?> <span class="riesgo-cur">&middot; <?= e($d['curso']) ?></span><?php endif; ?></td>
-<td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?><?php if (!empty($d['arrastrada'])): ?> <span class="riesgo-cur">&middot; <?= e($d['periodo']) ?></span><?php endif; ?></td>
+<td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?><?php if (!empty($d['arrastrada'])): ?> <span class="riesgo-cur">&middot; <?= e($d['periodo']) ?></span><?php endif; ?><?php if (!empty($d['efecto'])): ?> <span class="riesgo-efecto riesgo-efecto--<?= e($d['efecto']) ?>"><?= e(situacion_efecto_rotulo($d['efecto'])) ?></span><?php endif; ?></td>
 <td class="riesgo-tabla__num riesgo-tabla__lit"><?= e($d['literal']) ?></td>
 <td class="riesgo-tabla__num"><?= (int) $d['nota'] ?></td>
 <td><?= e($d['docente']) ?></td>

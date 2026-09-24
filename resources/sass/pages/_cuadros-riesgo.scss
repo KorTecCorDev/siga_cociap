@@ -407,6 +407,11 @@
 
     &__dato { color: $text-secondary; strong { color: $text-primary; } }
 
+    // Fila de columnas repetida bajo cada estudiante (24/09/2026): reutiliza el
+    // estilo de `.riesgo-tabla__cols`; sin fondo propio para no competir con la
+    // franja del nombre.
+    &__cols th { font-size: 10px; }
+
     // El motivo explica POR QUE no alcanza la promocion: va en linea propia
     // porque la regla se cuenta por area y no cabe en el resumen de la franja.
     &__motivo {
@@ -418,6 +423,29 @@
     }
 
     &__aviso { font-style: italic; color: $text-secondary; }
+}
+
+// Chip de EFECTO de una competencia en la situación final (24/09/2026):
+// `situacion_efecto_competencia()`. Contorno, como la marca RR/PER, y los
+// mismos colores: rojo PER, ámbar RR; el límite, neutro. Conserva el color en
+// el A4 (misma decisión que RR/PER).
+.riesgo-efecto {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    padding: 0 4px;
+    margin-left: 4px;
+    border: 1px solid $border-color;
+    border-radius: 2px;
+    color: $text-secondary;
+    white-space: nowrap;
+    vertical-align: middle;
+
+    &--per    { border-color: $color-error;   color: $color-error; }
+    &--rr     { border-color: $color-warning; color: $color-warning; }
+    &--limite { border-style: dashed; }
 }
 
 // Móvil (24/09/2026): la tabla mide 760px y desplaza dentro de su wrapper, y la
@@ -580,6 +608,9 @@
     .riesgo-alumno__marca--pro { border-color: #888; color: #333; }
     .riesgo-alumno__motivo { font-size: 7pt; color: #333; }
     .riesgo-alumno__certeza { font-size: 6.5pt; border-color: #000; color: #000; }
+    .riesgo-efecto          { font-size: 5.5pt; padding: 0 2px; }
+    .riesgo-efecto--limite  { border-color: #888; color: #333; }
+    .riesgo-alumno__cols th { font-size: 6pt; background: #fff; border-bottom: 0.3pt solid #888; }
     .riesgo-banda__cobertura,
     .cuadros-banda__nota   { font-size: 7.5pt; color: #000; strong { color: #000; } }
     .riesgo-cur            { color: #555; }
