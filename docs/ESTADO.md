@@ -1,48 +1,55 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **22/09/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **24/09/2026**.
 > **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
 
 
-## 🆕 ESTUDIANTES EN RIESGO ACADÉMICO — vista propia + A4 + regla por nivel — EN `dev` (23/09/2026)
+## 🆕 RIESGO ACADÉMICO = SITUACIÓN FINAL DEL MINEDU (PRO/RR/PER) — EN `dev` (24/09/2026)
 
-Sin migración. Nueva vista `/admin/cuadros/riesgo` (+ `/imprimir`, A4 vertical que imprime lo
-filtrado por nivel/grado), tarjeta en el dashboard y, en `/admin/cuadros`, solo la banda con
-enlace. **Cambia la regla**: primaria cuenta **B+C ≥ 3** (mayor atención ≥ 6), secundaria
-**C ≥ 3** (≥ 6); punto único `riesgo_literales()`/`riesgo_conteo()` sobre
-`LITERALES_APROBATORIOS`. B1 pasa de 118 a 199 estudiantes, B2 de 77 a 157. Estadísticas por
-grado, sección, área, top 10 competencias y docente. Maquetación A4 elegida imprimiendo 3
-candidatas a PDF (título del grado dentro del `<thead>`: 0 encabezados huérfanos). Detalle en
-`docs/modulos/usuarios-direccion.md` § «Informe propio de estudiantes en riesgo académico».
-Sustituye a la entrada del 22/09 (abajo), que nunca se desplegó.
+Sin migración. **Deroga la regla del 23/09** (primaria B+C ≥ 3 · secundaria C ≥ 3), que era un
+conteo global inventado por el colegio. «Estudiante en riesgo» pasa a ser lo que define el
+MINEDU: los que **no alcanzarían la promoción de grado** — situación final **RR** (requiere
+recuperación) o **PER** (permanece en el grado).
 
-- [x] `verif_cuadros_merito_motor.php` y `verif_direccion_superficies.php` actualizados y en
-      verde; mutantes de las dos ramas (primaria sin B / secundaria con B) caen.
-- [x] PDF de Chrome sin interfaz revisado hoja por hoja: B1 42 hojas, B2 34, B1 primaria 23.
-- [x] **Filtros** (23/09, mismo día): varios grados de cualquier nivel + lente «primaria solo
-      C» (C ≥ 3 / C ≥ 6), por URL, con Aplicar; por defecto la regla oficial. Lente de
-      lectura: la banda del tablero no se filtra. Verificadores en verde (5 mutantes caen),
-      batería 44/44, PDF de 3 variantes revisado. Detalle en § «Filtros del informe».
-- [x] **Retorno de grado por matrícula OFICIAL** (23/09): el riesgo reubica la fila del
-      retorno en su grado y sección oficiales (el mérito no cambia); el caso 190/692 pasa de
-      1.° B a 2.° B en B1 y B2, con su puesto de 1.° B en la franja. Verificadores en verde
-      (simulación con rollback de 3 ramas; 5 mutantes caen), batería 44/44.
-- [x] **Riesgo por sección y panel del tutor** (23/09): filtro por secciones y **lote por
-      tutor** (una sección por hoja) para Dirección; `/docente/tutoria/riesgo` + card en
-      `/docente/inicio` para el tutor (su sección por `tutor_id`, solo bimestres publicados).
-      `verif_riesgo_tutor.php` nuevo; 6 mutantes caen; batería 45/45; PDF del lote (70 hojas,
-      23 secciones separadas) y del tutor revisados. Detalle en `usuarios-direccion.md`.
-- [x] **Probado con sesión por el usuario** (23/09): lote (admin) y panel + card con un
-      docente tutor, todo correcto.
-- [x] **Prueba con sesión de admin** (23/09): formulario, Aplicar, Imprimir, URL compartida,
-      cambio de bimestre, atajos, buscador, retorno 190/692 en 2.° B y ancho de celular.
-      Corregidos el hueco bajo los grados (`flex-wrap: nowrap`) y el desborde lateral en
-      celular (3 tablas del resumen dentro de `.tabla-notas-wrapper`). Batería 44/44.
-- [ ] Vista previa del diálogo de impresión del navegador (no se puede abrir desde la
-      extensión; la maquetación está validada con PDF hoja por hoja) y visto bueno del usuario.
-- [ ] Al desplegar: avisar a Dirección de que la cifra de riesgo del tablero **sube** (regla
-      nueva de primaria), no es un error.
+**Norma:** documento normativo de la **RVM N° 00094-2020-MINEDU**, **modificado por la RVM N°
+048-2024-MINEDU** (30/04/2024, que reescribió el cuadro de Secundaria). La RM 474-2022-MINEDU
+NO la deroga: es la norma técnica del año escolar 2023. El resumen completo está en
+`docs/modulos/usuarios-direccion.md` § «Riesgo académico = situación final del MINEDU».
+
+**Lo que cambia de raíz:** se cuenta **POR ÁREA**, no por competencias sueltas, y la exigencia
+**depende del grado** (final de ciclo vs intermedio). En los finales de ciclo —primaria 2.º,
+4.º, 6.º y secundaria 2.º, 5.º— una sola «C» impide la promoción. **1.º de primaria** tiene
+promoción automática: sale de la lista y se muestra aparte como seguimiento pedagógico.
+
+**Impacto medido (BD local):** B1 pasa de 199 a **144** estudiantes (15 PER), B2 de 157 a
+**106** (6 PER). No son subconjunto: la norma saca a quien acumula «B» repartidas y mete a
+quien tiene una sola «C» en un grado final de ciclo.
+
+- [x] **Punto único de la regla**: `situacion_final_analisis()` / `situacion_final()` /
+      `mitad_competencias()` / `grado_final_de_ciclo()` en `helpers.php`. Función PURA.
+- [x] **Modelo propio** `SituacionFinalModel`, con **roster propio**: `matriculas_vigentes()`
+      + anclaje por bimestre del retorno. Ya no hereda `ROSTER_MERITO`, que exigía
+      `estado='aprobada'` y dejaba fuera a las matrículas `pendiente` —evaluadas y con
+      boleta—. `OrdenMeritoModel::statsPorGrado` deja de calcular el riesgo.
+- [x] **Cobertura declarada**: las áreas sin nota no entran al cálculo (la proyección sale
+      optimista), y el informe dice cuántos estudiantes no tienen su plan completo. Medido:
+      B1 266 (Ética nunca se bloqueó en secundaria), B2 solo 1.
+- [x] **Se retira la lente «primaria solo C»** (`?primaria=c`): no hay umbral de conteo que
+      recortar. Los filtros por SECCIÓN se conservan.
+- [x] **La franja ya no dice puesto ni promedio**: eran del mérito, y con el roster nuevo la
+      mitad de las filas los tendría vacíos. En su lugar van la situación, el motivo y la
+      cobertura.
+- [x] Verificaciones nuevas: `verif_situacion_final.php` (27 asertos, regla pura sin BD) y
+      `verif_riesgo_situacion_bd.php` (cuadre con la BD con la regla escrita a mano, +
+      simulación del retorno con rollback). 3 mutantes caen. `verif_cuadros_merito_motor.php`,
+      `verif_riesgo_tutor.php` y `verif_direccion_superficies.php` actualizados.
+      **Batería completa 47/47 en verde.**
+- [ ] **Probar en navegador con sesión** (admin y docente tutor): pantalla, A4, lote por
+      tutor, panel del tutor y card.
+- [ ] Al desplegar: avisar a Dirección de que la cifra de riesgo **baja** y de que ahora
+      significa otra cosa (no «acumula notas bajas» sino «no sería promovido»).
+
 
 ## (SUSTITUIDO el 23/09) CUADROS A4 — «Estudiantes en riesgo» como informe agrupado (22/09/2026)
 
@@ -1072,7 +1079,7 @@ debajo un defecto de fondo, y eligió corregirlo entero en vez de rodearlo.
    `getStatsCierre` queda como fachada con la misma firma —sus tres consumidores no se
    tocaron— y se **borran** sus dos privados, para que no quede la copia latente.
 3. **Sección «Estudiantes en riesgo»**: todos los que acumulan **3 C o más**
-   (`RIESGO_MIN_C`), por grado, sin tope, resaltando el número de C. Pantalla + A4, con
+   (`RIESGO_MIN_C`, constante ya eliminada), por grado, sin tope, resaltando el número de C. Pantalla + A4, con
    partial compartido. `num_c` ya venía calculado: **no cuesta ninguna consulta**.
 4. **Cambio visible, y es la corrección:** al principio de un bimestre los grados sin
    nada bloqueado desaparecen del bloque de mérito. El vacío de

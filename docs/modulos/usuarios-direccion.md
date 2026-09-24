@@ -597,9 +597,11 @@ el que estos indicadores sirven para decidir algo.
 
 ### Estudiantes en riesgo (04/09/2026)
 
-> ⚠️ **Desde el 23/09/2026 la regla depende del nivel y el listado tiene vista propia**
-> (`/admin/cuadros/riesgo`): ver «Informe propio de estudiantes en riesgo académico»
-> más abajo. Lo que sigue es la historia de la sección dentro del tablero.
+> ⚠️ **HISTORIA.** Desde el 24/09/2026 «estudiante en riesgo» es la **situación final del
+> MINEDU** (`PRO`/`RR`/`PER`), con vista propia en `/admin/cuadros/riesgo` y modelo propio:
+> ver «Riesgo académico = situación final del MINEDU» más abajo. Los umbrales de conteo que
+> se describen aquí (3 competencias en C, y luego B+C por nivel) **ya no existen**. Lo que
+> sigue es la historia de la sección dentro del tablero.
 
 Sección propia debajo de Orden de mérito, en pantalla y en el A4. Lista **a todos
 los que acumulan 3 competencias en C o más** (`OrdenMeritoModel::RIESGO_MIN_C`),
@@ -944,136 +946,232 @@ cinco columnas) ni `cuadros-top__bloque--riesgo` (el verificador lo cuenta en pa
 sigue impreso. `verif_direccion_superficies.php` vigila además que no haya tablas anidadas ni
 el caption «Competencias en C ·», y los dos saltos de hoja.
 
-### Informe propio de estudiantes en riesgo académico (23/09/2026)
+### Riesgo académico = situación final del MINEDU (24/09/2026)
 
 Estado: **en `dev`**, sin desplegar. Sin migración.
 
-**Rutas:** `GET /admin/cuadros/riesgo` (pantalla) y `GET /admin/cuadros/riesgo/imprimir`
-(A4 vertical), las dos con `?periodo_id`, `?nivel`, `?grado`. Mismos roles que el tablero
-(admin, RA y los tres directores; Dirección solo bimestres cerrados, vía `elegirPeriodo()`).
-Tarjeta propia en el dashboard. En `/admin/cuadros` y en su A4 queda solo la **banda**
-(`_banda-riesgo.php`), con un enlace «Ver el informe completo» solo en pantalla.
+**Rutas:** `GET /admin/cuadros/riesgo` (pantalla), `GET /admin/cuadros/riesgo/imprimir`
+(A4 vertical) y `GET /admin/cuadros/riesgo/tutores` (lote, una sección por hoja), las tres
+con `?periodo_id` y `?secciones[]`. Mismos roles que el tablero (admin, RA y los tres
+directores; Dirección solo bimestres cerrados, vía `elegirPeriodo()`). Tarjeta propia en el
+dashboard. En `/admin/cuadros` y en su A4 queda solo la **banda** (`_banda-riesgo.php`), con
+un enlace «Ver el informe completo» solo en pantalla.
 
-#### Regla por nivel (decisión del colegio, 23/09/2026)
+#### Qué es estar «en riesgo» (24/09/2026) — deroga la regla del 23/09
 
-| Nivel | Se cuenta | Entra a la lista | Mayor atención |
+«Estudiante en riesgo» ya **no** es un conteo de competencias no aprobatorias
+(primaria B+C ≥ 3 · secundaria C ≥ 3). Es la **situación final** que define el MINEDU: los
+estudiantes que, con las notas del bimestre, **no alcanzarían la promoción de grado**.
+
+| Sigla | Significado |
+|---|---|
+| `PRO` | Promovido de grado o edad |
+| `RR`  | Requiere recuperación |
+| `PER` | Permanece en el grado |
+
+**Riesgo = `RR` ∪ `PER`.** `PER` sustituye a «mayor atención»: ya no hay que elegir un
+número, la norma lo eligió.
+
+#### La norma, verificada el 23/09/2026
+
+Documento normativo **«Norma que regula la evaluación de las competencias de los estudiantes
+de la Educación Básica»**, aprobado por **RVM N° 00094-2020-MINEDU** y **modificado por la
+RVM N° 048-2024-MINEDU** (30/04/2024), que reescribió los sub numerales 5.1.1.3, 5.1.2.1,
+5.1.2.2, 5.1.3, 5.2.1, 5.2.2 y 7.1.3 y, en lo que aquí importa, **el cuadro completo de
+promoción, recuperación y permanencia del nivel Secundaria**.
+
+⚠️ **No existe norma posterior que la derogue.** La **RM N° 474-2022-MINEDU**, que se cita a
+veces como su reemplazo, es la *norma técnica del año escolar 2023*, no una norma de
+evaluación. El cuadro de **Primaria sigue siendo el original de 2020**.
+
+**Reglas generales (numeral 5.1.3):**
+
+- **9.** Las **competencias transversales NO se tienen en cuenta** para la situación final.
+- **10.** Las competencias adicionales sin área curricular tampoco.
+- **11.** Las organizadas en áreas curriculares **y los talleres SÍ** cuentan.
+- **«La mitad» con número impar**, literal de la norma: área de 5 competencias → **3**; de
+  3 → **2**; de 1 competencia → **esa única**. Es `ceil(n/2)`.
+- El nivel de logro final de una competencia es **el último registrado** (numeral 5.1.2.2,
+  punto 3), **no el promedio anual**. Por eso proyectar con los literales de un bimestre es
+  normativamente correcto: es «si el año terminara hoy».
+
+**Cuadro de PRIMARIA** (RVM 094-2020, vigente sin modificar):
+
+| Grado | PRO — al término del periodo lectivo | PER — permanece |
+|---|---|---|
+| **1.º** | **Automática** | No aplica |
+| **2.º, 4.º, 6.º** *(final de ciclo)* | «A» o «AD» en la mitad o más de las competencias de **cuatro** áreas o talleres **y «B» en las demás** | «C» en **más de la mitad** de las competencias de **cuatro** áreas o talleres |
+| **3.º, 5.º** *(intermedios)* | «B» en la mitad o más de las competencias de **todas** las áreas, pudiendo alcanzar «AD», «A» **o «C»** en las demás | ídem |
+
+**Cuadro de SECUNDARIA** (texto vigente tras la RVM 048-2024):
+
+| Grado | PRO — al término del periodo lectivo | PER — permanece |
+|---|---|---|
+| **1.º, 3.º, 4.º** *(intermedios)* | **como mínimo «B»** en la mitad o más de las competencias de **cada una** de las áreas, pudiendo «AD», «A» **o «C»** en las demás | «C» en **más de la mitad** de las competencias de **cada una de cuatro o más** áreas |
+| **2.º, 5.º** *(final de ciclo)* | «A» o «AD» en la mitad o más de las competencias de **cada una de tres** áreas **y «B» en las demás** | «C» en **la mitad o más** de las competencias de **cada una de cuatro o más** áreas |
+
+**`RR`** = no cumple las condiciones de promoción **ni** las de permanencia.
+
+🔴 **La consecuencia dura.** En los **grados finales de ciclo** el texto exige «**y "B" en las
+demás competencias**»: leído literalmente, **una sola «C» en cualquier área impide la
+promoción**. En los intermedios sí se admite «C», siempre que cada área conserve la mitad o
+más en «B» o superior. Esa asimetría es la razón de fondo por la que el conteo global
+anterior **no podía** aproximar la norma: el mismo número de «C» significa cosas distintas
+según el grado y según en qué áreas caiga.
+
+#### Decisiones de lectura (no re-preguntar)
+
+| # | Decisión |
+|---|---|
+| L1 | **«Más de la mitad»** = `n_c > ceil(n/2)`, con la misma convención que la norma fija para «la mitad». |
+| L2 | La condición de **PER de primaria** dice «"C" en más de la mitad … **y "B" en las demás»**. Al pie de la letra, un alumno con «C» de sobra quedaría FUERA de la permanencia —el absurdo contrario—. Es un artefacto de redacción: **se aplica solo la condición de «C»**, como el SIAGIE. |
+| L3 | **Competencias/áreas sin nota**: quedan fuera del cálculo (no del numerador ni del denominador) y el informe **declara la cobertura**. No se cuentan como no logradas: sería inventar un dato en contra. |
+| L4 | **1.º de primaria** no entra al riesgo ni a sus cifras; se lista **aparte** («seguimiento pedagógico») si tiene competencias por debajo de A. |
+| L5 | La proyección usa **los literales del bimestre elegido**. |
+| L6 | Un estudiante **sin ninguna** competencia evaluada es `ND` (no es sigla del SIAGIE, es el hueco de datos): no cuenta como evaluado ni como riesgo. |
+
+#### Dónde vive la regla
+
+- **`helpers.php` (función PURA, punto único):** `situacion_final_analisis()` —devuelve
+  sigla, conteos y **motivo**—, y encima `situacion_final()`, `mitad_competencias()`,
+  `grado_final_de_ciclo()`, `grado_promocion_automatica()`, `situacion_es_riesgo()`,
+  `situacion_rotulo()`, `situacion_ordenar()`. Las constantes `SITUACION_PRO/RR/PER` y
+  `SITUACION_SIN_DATOS`. **Ningún umbral está escrito a mano en otro sitio.**
+- **`SituacionFinalModel` (los datos):** `porGrado()` y `deSeccion()`. Cuatro consultas
+  fijas, ninguna por alumno ni por grado.
+- **`helpers.php` (agregados puros):** `riesgo_resumen()`, `riesgo_estadisticas()`,
+  `riesgo_filtrar_secciones()`, `riesgo_por_seccion()`, `riesgo_alcance()`. Cero consultas.
+
+🔴 **`OrdenMeritoModel::statsPorGrado` ya NO calcula el riesgo**, y las constantes
+`RIESGO_MIN_C` / `RIESGO_CRITICO` y los helpers `riesgo_literales/conteo/rotulo/sin_b/ordenar`
+se eliminaron. Competir por el mérito y ser promovido de grado son preguntas distintas.
+
+#### El roster: ni el de evaluación ni el del mérito
+
+`SituacionFinalModel::ROSTER_SITUACION` son **dos** condiciones:
+
+1. `matriculas_vigentes()` — fuera trasladados y retirados. **No filtra por `estado`**:
+   `pendiente` y `desactivado` siguen asistiendo, se califican y serán promovidos o no.
+2. **Anclaje por bimestre del retorno de grado** — se excluye la matrícula OFICIAL en los
+   periodos que cubrió su OPERATIVA (siempre si el retorno está `activo`; solo en los
+   bimestres con notas si está `revertido`). Es el mismo anclaje del ranking en vivo.
+
+| No se usa | Por qué |
+|---|---|
+| `roster_evaluacion()` | Excluye la OPERATIVA de un retorno REVERTIDO **siempre**, porque describe el estado de HOY. Este informe mira un bimestre concreto: la oficial saldría sin una sola competencia y el alumno aparecería «sin datos» en un bimestre que sí cursó. |
+| `ROSTER_MERITO` | Exige `estado='aprobada'` porque el mérito es un documento que se firma. La promoción de grado no lo es. Medido en B2: dejaba fuera a **2 matrículas `pendiente`**. |
+
+Las tres se parecen y responden preguntas distintas; pegarle a una el filtro de otra es el
+«híbrido» que ya costó un defecto en `/matriculas/resumen`.
+
+#### Qué notas entran
+
+Mismo universo de NOTAS que usaba `detalleCompetenciasRiesgo` (`FILTRO_NOTAS`): solo
+competencias **bloqueadas**, `extraordinaria = 0`, sin `tipo IN ('transversal','tutoria')`
+salvo **Ética y Valores** (`AREA_ETICA_NOMBRE_BOLETA`), sin áreas ni subáreas exoneradas.
+Lo que cambia: entran **todos** los literales (los conteos por área necesitan los AD y los A)
+y **todas** las matrículas del roster.
+
+⚠️ **Las transversales están duplicadas por alumno** —una fila por cada una de las 19 cargas
+que las registran (28 282 filas contra 13 308 pares en B2)—. El filtro de áreas ya las
+excluye; si se relaja, los conteos se inflan sin que se note.
+
+#### Cobertura: por qué se declara
+
+Las áreas todavía sin calificar **no entran** al cálculo, así que la proyección sale
+**optimista**. Callarlo convertiría un informe a medio llenar en una buena noticia. El
+modelo lleva `cobertura` por grado (`min`, `max`, `plan`, `parciales`) y el resumen lo
+agrega; la banda, el «Cómo leer» y el A4 lo declaran cuando `completa` es falso, y la franja
+de cada estudiante dice «N de M áreas evaluadas».
+
+🔴 **`parciales` se cuenta POR ESTUDIANTE**, no comparando el mínimo del grado con el plan
+máximo: cada alumno tiene su propio plan porque **las exoneraciones se lo recortan**
+(`planPorMatricula()` descuenta las exoneraciones por área). Cruzar el mínimo de uno con el
+plan de otro inventaba huecos donde solo había un exonerado.
+
+**Medido:** en B1 hay **266** estudiantes con cobertura parcial —Ética nunca se bloqueó en
+secundaria ese bimestre—; en B2, **solo 1**.
+
+#### Impacto medido (BD local, 23-24/09/2026)
+
+| Bimestre | Regla anterior | Regla MINEDU | de los cuales PER |
 |---|---|---|---|
-| Primaria | **B + C** (sumadas) | ≥ 3 | ≥ 6 |
-| Secundaria | **solo C** | ≥ 3 | ≥ 6 |
+| I  | 199 | **144** | 15 |
+| II | 157 | **106** | 6 |
 
-Es exactamente «competencias **no aprobatorias**» con la línea de aprobado de cada nivel,
-así que **sale de `LITERALES_APROBATORIOS`**: `riesgo_literales()` → `riesgo_conteo()` →
-`riesgo_rotulo()` en `helpers.php` (punto único). Umbrales: `OrdenMeritoModel::RIESGO_MIN_C`
-(3; el nombre `_C` se conserva por compatibilidad) y `RIESGO_CRITICO` (6).
+No son subconjunto uno del otro: la norma **saca** a quien acumula «B» repartidas y **mete**
+a quien tiene una sola «C» en un grado final de ciclo. Por grado en B2: primaria 2.º 3,
+4.º 4, 5.º 5, 6.º 11; secundaria 1.º 21, 2.º 23, 3.º 6, 4.º 10, 5.º 23. Los grados
+intermedios de primaria (3.º, 5.º) salen casi limpios: su condición es muy permisiva.
 
-- **Orden en el grado:** conteo desc → C desc → promedio asc → puesto. En secundaria
-  conteo = C, así que el orden no cambia respecto del anterior.
-- **Desglose:** primaria lista **todas sus B y C**; secundaria solo C. Columnas: Área ·
-  curso · Competencia · Literal · Nota · Docente. `detalleCompetenciasRiesgo()` (antes
-  `detalleCompetenciasC`) trae B y C en una consulta y el corte por nivel se hace en PHP
-  con `riesgo_literales()`, para no copiar la regla en SQL.
-- **Impacto medido (BD local, 23/09):** B1 pasa de 118 a **199** estudiantes (primaria
-  22 → 103; 110 de mayor atención) y ~1 400 filas de desglose; B2 de 77 a 157. Los
-  snapshots guardan `num_b`, así que la regla vale también en bimestres cerrados.
-- La banda del tablero usa la misma regla: su cifra **subió** al desplegar esto.
+**Estructura curricular que la norma lee:** primaria 8 áreas / 25 competencias; secundaria
+10 / 26 (5.º: 9 / 24), más Ética. Áreas de **una sola competencia** —*Educación para el
+Trabajo*, *Taller de Pre-Cálculo* y *Ética y Valores*—: ahí «la mitad» es esa única y una
+«C» reprueba el área entera.
+
+#### Lo que se retiró (y por qué)
+
+- **La lente «primaria solo C»** (`?primaria=c`, `riesgo_sin_b()`, el flag `$contarB` que
+  recorría siete funciones, los radios del formulario y la línea del A4). Existió para mirar
+  primaria con el listón de secundaria mientras el riesgo era un conteo. La regla ya no se
+  cuenta por literales sueltos: no hay nada que recortar, y ofrecer media regla sería
+  ofrecer una cifra que no significa nada. **Los filtros por SECCIÓN se conservan.**
+- **El puesto y el promedio en la franja del estudiante.** Eran del mérito. La pregunta
+  ahora es si será promovido, no en qué puesto quedó, y con el roster nuevo las matrículas
+  `pendiente` habrían tenido que mostrar un puesto vacío. En su lugar van la **situación**,
+  el **motivo** y la **cobertura**.
+- **El «guard del descuadre»** entre fila y desglose: ambos salen ahora de la MISMA consulta
+  (`componerFila`), así que no pueden contradecirse. `sin_desglose` desapareció.
 
 #### Estadísticas (`riesgo_estadisticas()`, función pura, 0 consultas)
 
-Banda (total, % de evaluados, mayor atención, grados con casos, y una línea por nivel con
-su regla) · distribución por grado · por sección (casos y **% de la sección**: el modelo
-devuelve ahora `por_seccion` con los evaluados, contados del mismo ranking) · por nivel:
-concentración **por área** y **por docente** (estudiantes distintos y notas B/C) y las
-**10 competencias** con más casos · tabla de **casos de mayor atención** · «Cómo leer».
-Las barras son CSS: una clase `riesgo-barra__v--N` (0-100) generada con `@for`, porque no
-se permite `style` inline. Los filtros van **por URL** (el resumen y el A4 describen lo
-filtrado); el buscador es solo de pantalla y no toca cifras.
+Banda (total, % de evaluados, `PER`, `RR`, grados con casos, cobertura, sin datos y
+promoción automática; una línea por nivel) · distribución por grado y por sección (casos y %
+sobre sus evaluados) · por nivel: concentración **por área** y **por docente** (estudiantes
+distintos y notas no aprobatorias) y las **10 competencias** con más casos · tabla de
+**permanencias** · «Cómo leer». Las barras son CSS (`riesgo-barra__v--N`, generada con
+`@for`): no se permite `style` inline. Los filtros van **por URL**; el buscador es solo de
+pantalla y no toca cifras.
 
-#### Retorno de grado en el informe (23/09/2026)
+El **desglose** de cada estudiante lista sus competencias **no aprobatorias del nivel**
+(`nota_es_aprobatoria()`: primaria B y C, secundaria solo C). No es la regla de la promoción
+—esa se cuenta por área, y el **motivo** de la franja la resume—: es lo que el tutor tiene
+que remontar.
 
-**El riesgo se cuenta por la MATRÍCULA OFICIAL**, no por donde se evalúa (decisión del
-usuario: el retorno es un proceso interno del colegio). Antes el informe heredaba la
-ubicación del mérito, y el único retorno real (oficial 190 en 2.° B, operativa 692 en 1.° B,
-del 21/06) salía en **1.° B en los dos bimestres**, aunque el I Bimestre lo cursó en 2.° B,
-con competencias y docente de 2.° B bajo el título «1.° de Primaria».
+#### Retorno de grado en el informe
 
-- **`statsPorGrado` separa las dos preguntas.** `mejor`, `peores` y `total` son del
-  MÉRITO (grado operativo, sin cambios). `en_riesgo`, `por_seccion` y la clave nueva
-  **`evaluados`** son del RIESGO: la fila del retorno se **reubica** en el grado y la
-  sección oficiales, con las mismas cifras (no se recalcula nada) y la regla del nivel
-  **oficial**. `evaluados` (denominador del riesgo) y `total` (competidores) difieren solo
-  en los grados afectados: en B1, 1.° tiene 42 en el mérito y 41 evaluados; 2.°, 37 y 38.
-- Mapa operativa → grado/sección oficial: `OrdenMeritoModel::ubicacionOficialRetornos()`,
-  una consulta, **sin filtrar `estado`** (activo o revertido: la operativa nunca es la
-  identidad, igual que `matricula_documento()`). Si el grado oficial no tuviera ranking en
-  ese periodo, la fila se queda donde está en vez de perderse.
-- **Puesto**: el del grado operativo, dicho en la franja («Retorno de grado: se evalúa en
-  1.° B de Primaria, puesto 42 de 42») y en la tabla de mayor atención («42 (en 1.° B)»).
-- La banda de `/admin/cuadros` cuenta igual (sale de la misma lista). Totales sin cambio:
-  B1 199 / B2 157, porque el retorno no cruza de nivel.
-- Decisiones: puesto del grado operativo · banda también por la oficial · revertidos
-  también · retorno que cruza de nivel → regla del nivel oficial.
+**El riesgo se cuenta por la MATRÍCULA OFICIAL** (decisión del usuario: el retorno es un
+proceso interno del colegio), mientras que las **notas** salen de donde cursó el bimestre
+(el anclaje del roster). La fila se reubica en el grado y la sección oficiales con
+`ubicacionOficialRetornos()` —una consulta, **sin filtrar `estado`**— y conserva su origen en
+`retorno`, que la franja muestra: «Retorno de grado: cursó este bimestre en 1.º B de
+Primaria».
 
-**Verificación.** `verif_cuadros_merito_motor.php` arma el roster del riesgo **a mano**
-(mapa propio de `retornos_grado`) y exige `evaluados` = roster oficial, suma de secciones
-= `evaluados`, y que la fila reubicada lleve sección oficial y su puesto de origen. Como el
-único retorno real no ejerce tres ramas (misma letra de sección, mismo nivel, activo), las
-**simula en una transacción con rollback**: revertido, otra sección oficial y grado oficial
-de otro nivel. Sin la simulación, 3 de 5 mutantes sobrevivían; con ella caen los 5.
-`verif_direccion_superficies.php` exige la marca del retorno en pantalla y en papel.
+🔴 **Ahora el grado oficial pesa el doble**: además de dónde se lista, decide **qué regla se
+le aplica**, porque de él depende si es final de ciclo.
 
-#### Filtros del informe (23/09/2026)
+#### Filtros del informe
 
-Sustituyen a los chips de «un nivel o un grado». Formulario GET con botón **Aplicar**:
+Formulario GET con botón **Aplicar**, **varias SECCIONES de cualquier grado y nivel**
+(`secciones[]`). Casillas agrupadas por nivel con el número de casos de cada una; sin marcar
+= todas. El rótulo del grado y los atajos por nivel son **enlaces** (funcionan sin JS).
+Cambiar de bimestre **conserva** la selección; una sección que no sea de ese año se descarta.
 
-- **Varios grados, de cualquier nivel** (`grados[]`). Casillas agrupadas por nivel, con el
-  número de casos del modo actual; sin marcar = todos. Atajos «Solo primaria/secundaria» y
-  «Todos los grados» como **enlaces** (funcionan sin JS). Cambiar de bimestre **conserva**
-  los filtros; un grado que no exista en el otro bimestre se descarta.
-- **Lente «primaria solo C»** (`primaria=c`; radios «B y C» / «Solo C», no casilla: una
-  casilla desmarcada no se envía y no se distinguiría de «por defecto»). **Por defecto, la
-  regla oficial B+C.** Sin B, primaria entra con **C ≥ 3**, mayor atención **C ≥ 6**, el
-  desglose solo lista C y **ninguna cifra cuenta B** (área, docente y competencias pierden
-  la columna B). Quien no llega a 3 C sale de la lista. No afecta a secundaria. Solo se
-  aplica si la selección toca primaria (con solo secundaria se conserva lo pedido, pero ni
-  se aplica ni se declara). La franja del estudiante **conserva su distribución completa**
-  AD · A · B · C: es la del estudiante, no la cifra de riesgo.
-- 🔴 **Es una lente de LECTURA, no otra regla.** La regla oficial sigue siendo B+C, y la
-  banda de `/admin/cuadros` **no se filtra** en ningún modo. El A4 lo declara: línea
-  «Alcance» agrupada por nivel («Primaria: 5.º, 6.º · Secundaria: 1.º») y, sin B, «Primaria:
-  solo competencias en C (la regla oficial cuenta B y C)», para que una hoja suelta no se
-  lea como la regla oficial.
+⚠️ **`secciones` se valida contra el `$_GET` crudo**: solo arreglo de cadenas de dígitos que
+existan en el año del bimestre. Un escalar o un arreglo anidado se descartan — `(int)` de un
+arreglo vale **1** y elegiría en silencio la sección id 1.
 
-Implementación — todo puro en `helpers.php`, **ninguna consulta nueva** (quien tiene C ≥ 3
-ya tiene B+C ≥ 3: la lista sin B es un subconjunto de la oficial):
-`riesgo_literales/conteo/rotulo/resumen/estadisticas(…, bool $contarB = true)`,
-`riesgo_filtrar($porGrado, int[] $gradoIds)`, `riesgo_ordenar()` (el orden que vivía dentro
-de `statsPorGrado`, ahora punto único) y `riesgo_sin_b()`. El controlador solo compone.
+#### Verificación
 
-- 🔴 **`riesgo_sin_b()` vuelve a aplicar el guard del descuadre.** Un desglose que cuadraba
-  con B+C no tiene por qué cuadrar con C (un desbloqueo posterior puede cambiar una B por
-  una C sin mover la suma): las filas C deben ser exactamente `num_c` o el desglose pasa a
-  `null`. Un `null` sigue `null` (no hay filas en crudo para recomponerlo): es la matrícula
-  530 de B1.
-- ⚠️ **`grados` se valida contra el `$_GET` crudo**: solo arreglo de cadenas de dígitos que
-  existan en el ranking. Un escalar o un arreglo anidado se descartan — `(int)` de un
-  arreglo vale **1** y elegiría en silencio el grado id 1.
+| Archivo | Qué cubre |
+|---|---|
+| `verif_situacion_final.php` | La **regla pura**, con casos sintéticos escritos a mano: una rama de la norma por caso, el redondeo de «la mitad», el área de una competencia, la frontera «la mitad o más» vs «más de la mitad», el hueco de datos y los rótulos. **No toca la BD.** 27 asertos. |
+| `verif_riesgo_situacion_bd.php` | El **cuadre con los datos**: roster, selección, orden, perfil de literales, desglose, 1.º de primaria y retorno. La regla de control está **escrita a mano en el verificador**, no llamando al helper. Incluye la **simulación del retorno** (revertido, otra sección, otro grado) en transacción con rollback. |
+| `verif_cuadros_merito_motor.php` | Que el mérito **no vuelva a calcular el riesgo**. |
+| `verif_riesgo_tutor.php` · `verif_direccion_superficies.php` | Las superficies. |
 
-Medido en B1: oficial 199 (110 de mayor atención) → sin B 118 (65); solo primaria sin B, 22
-(15). B2: 157 → 77. PDF: sin B 25 hojas (24 tras reubicar el retorno), 5.º-6.º prim + 1.º
-sec 17, primaria sin B 7; el listado sin encabezados huérfanos en las tres.
-
-**Probado con sesión de admin (23/09/2026):** clics reales en casillas, radios y Aplicar;
-Imprimir, URL pegada de nuevo, cambio de bimestre, atajos, buscador y consola, todo correcto.
-Dos defectos encontrados y corregidos:
-- 🔴 **Hueco de ~80 px bajo los grados.** El formulario heredaba `flex-wrap: wrap` de
-  `.cuadros-riesgo__filtros`; en un flex en COLUMNA con varias líneas, Chrome mide la altura
-  de cada hijo a un ancho provisional más angosto (los chips se envolvían en 3 filas).
-  `.cuadros-riesgo__form { flex-wrap: nowrap }`: cada nivel pasa de 156 a 74 px. No era el
-  `fieldset` ni la rejilla (probado en vivo cambiando cada uno).
-- **Desborde lateral en celular** (371 px: la página medía 490). Lo causaban las 2 tablas
-  de distribución y la de mayor atención, no el formulario. Van dentro de
-  `.tabla-notas-wrapper`, como el listado: 0 px de desborde, con y sin filtros. El papel no
-  cambia (A/B con y sin el contenedor: mismas hojas).
+**Mutantes que caen** (medido el 24/09): umbral de permanencia 4 → 5; transversales coladas
+en el universo de notas; `ceil` → `floor` en «la mitad». **Batería completa: 47/47 en verde.**
 
 #### Maquetación A4 — elegida imprimiendo, no a ojo
 
@@ -1098,23 +1196,10 @@ del retorno de grado, que mueve un estudiante de la tabla de 1.° a la de 2.°).
 Hoy el máximo es 20 filas; si algún día un plan curricular diera 40+ competencias de riesgo a
 un estudiante, habría que partirlo.
 
-**Verificación:** `verif_cuadros_merito_motor.php` mide la lista contra una suma escrita a
-mano por nivel (no contra el helper), los críticos, y que el desglose cuadre con la fila;
-un desglose NULL se acepta **solo si cuadra con el ranking en vivo** (dato rectificado tras
-el cierre: matrícula 530 de B1, snapshot B=7 / vivo B=6), si no, falla. Mutantes: primaria
-sin B, secundaria con B y umbral crítico 5 → caen; quitar el filtro de extraordinarias es
-**equivalente con estos datos** (ningún estudiante de la lista tiene extraordinarias B/C).
-`verif_direccion_superficies.php`: tarjeta 12 de Dirección, rutas, CSS servido, banda sola
-en el tablero y render real del informe (tablas con título en `thead`, un `<tbody>` por
-estudiante, filas de desglose, marcas, sin `<details>`, buscador solo en pantalla, estado
-vacío de B3) y, desde los filtros: varios grados de dos niveles (lista, resumen, casillas y
-alcance del A4), el enlace Imprimir reproduce la consulta, `grados` escalar/anidado/inválido
-descartado, sin B = C ≥ 3 y C ≥ 6 **a mano**, desglose sin filas B y cuadrado con `num_c`,
-0 B en área/docente/competencia, secundaria idéntica, «solo C» con solo secundaria no se
-declara, y la banda no lee los filtros (aserto de código). Un aserto con **datos
-sintéticos** ejerce el guard del descuadre y la rama de secundaria, que con los datos reales
-de hoy no se ejercen: sin él, dos de los cinco mutantes (`riesgo_sin_b` sin el guard / que
-toca secundaria) sobrevivían. Los cinco caen.
+**Verificación (histórica).** Estos asertos se reescribieron el 24/09/2026 al cambiar la
+regla: la lista, los críticos y el desglose se miden ahora en `verif_riesgo_situacion_bd.php`
+contra una regla escrita a mano, y `verif_cuadros_merito_motor.php` solo comprueba que el
+mérito **no vuelva a calcular el riesgo**. Ver § «Verificación» de la sección vigente.
 
 #### Riesgo por sección y panel del tutor (23/09/2026)
 
@@ -1129,21 +1214,22 @@ Decisiones del usuario:
   secciones (su rótulo es un enlace que las marca todas). Sustituye a `grados[]`, que solo
   existió en `dev`. Alcance del A4: «Primaria: 5°, 6° A · Secundaria: 1° B»
   (`riesgo_alcance()`).
-- **Contenido enfocado al tutor** (`_seccion.php`): resumen corto, mayor atención,
-  concentración por área y docente (extraída a `_concentracion.php`), «Cómo leer» y listado.
-  Sin casos → mensaje de buena noticia en su hoja (el lote la entrega igual).
+- **Contenido enfocado al tutor** (`_seccion.php`): resumen corto, los casos de
+  **permanencia**, concentración por área y docente (extraída a `_concentracion.php`),
+  «Cómo leer», listado y el bloque de 1.º de primaria. Sin casos → mensaje de buena noticia
+  en su hoja (el lote la entrega igual).
 - **Retorno de grado → tutor de la sección OFICIAL** (190/692 va a 2.° B).
-- **El tutor solo ve bimestres PUBLICADOS de su nivel** (compuerta 044: el informe lleva
-  puestos del mérito). Ve todos los publicados de su sección aunque sea tutor desde hace poco.
-  **Sin la lente «solo C»**: siempre la regla oficial.
+- **El tutor solo ve bimestres PUBLICADOS de su nivel** (compuerta 044). Ve todos los
+  publicados de su sección aunque sea tutor desde hace poco. La regla es **una**: la del
+  MINEDU; no hay variantes de lectura.
 - **Card propia en `/docente/inicio`** para tutores, con las cifras del último bimestre
   publicado. Wayfinding: rosa oscuro `#be185d` + `warning.svg` (ver `docs/modulos/ui.md`).
 
 Implementación (puntos únicos):
-- `riesgo_filtrar_secciones()` — recorta filas, `por_seccion` y **`evaluados`** (= suma de
-  las secciones elegidas); `total` (competidores del mérito, el «de N» del puesto) no se toca.
+- `riesgo_filtrar_secciones()` — recorta `en_riesgo`, `automatica`, `por_seccion` y
+  **`evaluados`** (= suma de las secciones elegidas).
 - `riesgo_por_seccion()` — un bloque `{seccion, filtrado, stats}` por sección; lo usan el lote
-  y el tutor. `OrdenMeritoModel::riesgoDeSeccion()` lo envuelve para una sección: lo usan el
+  y el tutor. `SituacionFinalModel::deSeccion()` lo envuelve para una sección: lo usan el
   panel del tutor y su card, así que **la card no puede decir otra cifra que el informe**.
 - `Docente\RiesgoTutorController` (`/docente/tutoria/riesgo` y `/imprimir`, rutas literales
   antes de `/docente/tutoria/{periodo_id}`). 🔴 **La sección NUNCA sale de la URL**
