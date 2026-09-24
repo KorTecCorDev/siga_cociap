@@ -34,7 +34,8 @@ quien tiene una sola «C» en un grado final de ciclo.
       boleta—. `OrdenMeritoModel::statsPorGrado` deja de calcular el riesgo.
 - [x] **Cobertura declarada**: las áreas sin nota no entran al cálculo (la proyección sale
       optimista), y el informe dice cuántos estudiantes no tienen su plan completo. Medido:
-      B1 266 (Ética nunca se bloqueó en secundaria), B2 solo 1.
+      B1 266, B2 solo 1. ⚠️ **Corregido el 24/09**: el 266 NO era «Ética sin bloquear» sino
+      Ética registrada como extraordinaria, que el filtro descartaba. Ver la entrada de abajo.
 - [x] **Se retira la lente «primaria solo C»** (`?primaria=c`): no hay umbral de conteo que
       recortar. Los filtros por SECCIÓN se conservan.
 - [x] **La franja ya no dice puesto ni promedio**: eran del mérito, y con el roster nuevo la
@@ -55,21 +56,91 @@ quien tiene una sola «C» en un grado final de ciclo.
          commit con el informe llamando a helpers ya borrados.
       4. `962ffce` `docs`.
 
-### 🔜 RETOMAR AQUÍ (25/09/2026)
+### 🔜 RETOMAR AQUÍ (fin del turno mañana, 24/09/2026)
 
-- [ ] 🔴 **Probar en navegador con sesión — ES LO ÚNICO QUE FALTA.** El 24/09 no se pudo: el
-      clasificador de auto mode denegó `tabs_context_mcp` con `createIfEmpty: true` (motivo
-      «Out-of-Place Publication», aparentemente erróneo: esa llamada solo abre una pestaña en
-      blanco). El listado sin crear grupo sí pasa, pero devuelve que no hay grupo. **Para
-      desbloquear:** aprobar la acción cuando la pida, o una regla para
-      `mcp__claude-in-chrome__*` en `settings.json`.
-      Guion: `/admin/cuadros` (banda), `/admin/cuadros/riesgo` (pantalla, filtros por
-      sección, Aplicar, los dos Imprimir, cambio de bimestre, buscador, ancho de celular),
-      su A4, el lote por tutor, y con un docente tutor `/docente/tutoria/riesgo` + la card.
-      Mirar en concreto lo que solo se ve con CSS: las marcas **RR/PER**, la línea del
-      **motivo** y el aviso de **cobertura parcial** (B1 lo dispara: 266 estudiantes).
-- [ ] **Visto bueno del usuario a las dos retiradas** (commiteadas, reversibles): la lente
-      «primaria solo C» y el puesto/promedio de la franja del estudiante.
+Todo lo del 24/09 está **commiteado y pusheado a `dev`** (`556bea4`, `c31881d`, `acebdfb` + el
+commit de docs). **Sin desplegar a `main`** (el usuario lo deja para el final). Queda:
+
+- [ ] **Al desplegar: aplicar a mano la migración `064` en producción** (tipo `taller`,
+      `talleres_aprobacion`, `talleres_resolucion`). Sin ella, la situación final falla al
+      consultar `talleres_aprobacion`.
+- [ ] Avisar a Dirección al desplegar: la cifra de riesgo de B1 pasa de 199 (regla vieja) a
+      **136**, y ahora significa «no sería promovido» (situación final del MINEDU).
+- [ ] Probar con una sesión de **docente tutor** la vista `/docente/tutoria/riesgo` con el
+      arrastre (solo se probó la de admin).
+- [ ] Pendientes por decisión del usuario: cuerpo de la **Resolución Directoral** del taller;
+      **vínculo de talleres con las actas SIAGIE** (aún sin código de hoja).
+- [ ] Opcional, no pedido: tildes de los mensajes antiguos de Currículo («El nombre del area…»);
+      rótulo «Seguro» (se decidió mantenerlo, con la aclaración en «Cómo leer»).
+
+### 🆕 COMPETENCIAS PENDIENTES: certeza seguro/proyectado + extraordinarias (24/09/2026)
+
+Análisis pedido por el usuario sobre las áreas que no tienen todas sus competencias evaluadas
+(en B1-B3 son la norma: el docente elige qué evalúa). Detalle y cifras en
+`docs/modulos/usuarios-direccion.md` § «Certeza: seguro o proyectado».
+
+- [x] **Decisiones del usuario**: sin arrastre de bimestres anteriores (L5 se mantiene); las
+      **extraordinarias cuentan** para la situación final (el mérito no cambia); un listado con
+      marca **Seguro / Proyectado**; en el periodo final, pendientes → «situación final
+      pendiente» (red de seguridad de la regla del IV Bimestre).
+- [x] `situacion_final_proyectar()` (pura) + plan POR COMPETENCIA en `SituacionFinalModel`;
+      cobertura por competencias; `_pendiente-final.php`; A4 «definitiva» en el periodo final.
+- [x] Medido: B1 145 en riesgo (135 seguros, 10 proyectados), B2 106 (105 / 1), B3 0. El
+      listado anterior no tenía falsos negativos.
+- [x] Verificadores: `verif_situacion_final.php` (+ monotonía en 3 000 casos) y
+      `verif_riesgo_situacion_bd.php` § 7c; 2 mutantes caen. **Batería 47/47.** Probado en
+      navegador (B1, B2, B3, filtro, A4, lote).
+- [x] **Mismo día, segunda vuelta (pedido del usuario)**: (1) **último nivel registrado como el
+      SIAGIE** en B1-B3 —en el periodo final solo sus notas—, y (2) **talleres fuera** de la
+      situación final con el tipo nuevo `taller` (**migración 064**). Cifras: B1 **136** (135 seguros /
+      1 proyectado), B2 **100** (100 / 0), B3 **100** (hoy igual a B2: casi todo arrastrado).
+      Copia de control con arrastre a mano; 3 mutantes nuevos caen. **Batería 47/47.**
+- [x] **Tercera vuelta**: la exclusión de talleres pasa a ser **por aprobación de la UGEL, por año
+      y grado** (`talleres_aprobacion`, en la 064), marcada en Currículo en la ficha del taller.
+      2026 sin aprobados: cifras sin cambio. Simulación con rollback + 3 mutantes.
+- [x] **Cuarta vuelta**: en un retorno la aprobación se mira por el grado **OFICIAL** (simulado +
+      mutante); la **Resolución Directoral del colegio** pasa a `talleres_resolucion` (una por
+      taller y año, número y fecha; la casilla sigue siendo la aprobación de la UGEL); guarda del
+      **candado de nivel** del retorno en `verif_retorno_grado.php` (ya lo imponía el código).
+- [ ] **PENDIENTE (decisión del usuario):** vínculo de los talleres con las actas SIAGIE — aún no
+      hay código de hoja de talleres en el Excel de actas. Ver `export-siagie.md`.
+- [ ] **PENDIENTE:** cuerpo de la Resolución Directoral del taller (se trabajará después).
+- [x] Probado en navegador (24/09): marcar 1.º + RD en la ficha → 1.º sec pasa de 18 a 24 en
+      riesgo (B1 136 → 142) y el taller solo aparece en 1.º; revertido desde la pantalla (vuelve a
+      136) y fila de prueba borrada. Cazó un error real: `\DateTime` sin la barra inicial (fatal al
+      guardar con fecha), ya corregido.
+- [x] **Commiteado y pusheado a `dev`** (24/09/2026): `556bea4` (talleres), `c31881d` (riesgo),
+      `acebdfb` (candado de retorno) y el commit de docs.
+- [ ] **Al desplegar: aplicar la migración `064` en producción** y avisar a Dirección de que la
+      cifra de B1 pasa de 144 a **136** (talleres fuera, Ética extraordinaria dentro).
+
+### ✅ PROBADO EN NAVEGADOR Y CORREGIDO (24/09/2026)
+
+- [x] **Prueba en navegador con sesión**: admin (`/admin/cuadros`, `/admin/cuadros/riesgo`
+      con filtros, Aplicar, cambio de bimestre, buscador, los dos A4, lote por tutor) y tutor
+      de 3.° A sec (card, `/docente/tutoria/riesgo` B1/B2, su A4). Seguridad del tutor: un
+      bimestre no publicado o un `periodo_id` inválido caen a uno publicado; `seccion_id`,
+      `secciones[]` y `tutor_id` en la URL se ignoran; su A4 de B3 da 404 y las tres rutas
+      de `/admin/cuadros/riesgo*` le dan 403. Cero avisos de PHP y cero errores de consola.
+- [x] **Visto bueno del usuario a las dos retiradas**: la lente «primaria solo C» y el
+      puesto/promedio de la franja. Se quedan retiradas.
+- [x] **Seis defectos hallados en la prueba, corregidos** (detalle en
+      `docs/modulos/usuarios-direccion.md` § «Cobertura: por qué se declara»):
+      1. Cero casos con proyección parcial decía «todos alcanzarían la promoción» (B3: 23
+         evaluados parciales, 500 sin notas) → punto único `riesgo/_sin-casos.php` en las 5
+         vistas + card del tutor.
+      2. El filtro por sección no recortaba `cobertura` ni `sin_datos` (52 parciales con 47
+         evaluados) → `cobertura_seccion` en `SituacionFinalModel` + recomposición en
+         `riesgo_filtrar_secciones()`.
+      3. Textos sin tildes en el motivo, la marca y la cabecera del grado.
+      4. Concordancia «1 estudiante no alcanzarían», «1 permanecerían», «1 requieren»,
+         «(1 estudiantes;» y «Todos serian».
+      5. Aviso de cobertura con texto neutro (ya no «puede empeorar al completarse el
+         bimestre», falso en un bimestre cerrado).
+      6. Móvil: cabecera del grado y franja del estudiante fijas a la izquierda (sticky).
+      Guardas nuevas con mutante que cae: `verif_riesgo_situacion_bd.php` § 7b y el aserto
+      «sin casos en …» de `verif_direccion_superficies.php`. **Batería 47/47.**
+- [x] **Commiteado y pusheado a `dev`** (24/09/2026), dentro de `c31881d`.
 - [ ] Al desplegar: avisar a Dirección de que la cifra de riesgo **baja** (199 → 144 en B1) y
       de que ahora significa otra cosa (no «acumula notas bajas» sino «no sería promovido»).
 
@@ -2101,6 +2172,12 @@ pregunta siempre antes.
    dato el rol no se puede ejercitar. Es dato del colegio: preguntar antes de crearlo.
 
 ## Migraciones
+- 🆕 **`064_areas_tipo_taller`** (24/09): `areas.tipo` admite `'taller'`, los dos talleres de
+  secundaria pasan a ese tipo (por NOMBRE, no por id) y crea `talleres_aprobacion` (aprobación de
+  la UGEL por año y grado) y `talleres_resolucion` (RD del colegio por taller y año); ambas nacen
+  vacías. **APLICADA EN LOCAL, PENDIENTE EN
+  PRODUCCIÓN** — ejecutarla a mano tras el push: sin ella la situación final seguiría contando
+  los talleres. Idempotente. Detalle en `docs/modulos/usuarios-direccion.md` § «Talleres».
 - 🆕 **`056_codigo_criterios_conducta`** (25/08): añade `criterios_conducta.codigo`
   (VARCHAR(8) NULL) y lo siembra como `CONCAT('C', orden)`. **APLICADA EN LOCAL,
   PENDIENTE EN PRODUCCIÓN** — el auto-deploy publica código, no repara datos: hay

@@ -350,7 +350,15 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   una sola «C» impide la promoción; en los intermedios basta la mitad o más en B o superior
   **en cada área**. «La mitad» es `ceil(n/2)` por convención explícita de la norma (5 → 3,
   3 → 2, 1 → esa única). **1.º de primaria: promoción automática**, nunca en riesgo (se
-  lista aparte como seguimiento). Las **transversales NO cuentan** (numeral 5.1.3.9).
+  lista aparte como seguimiento). Las **transversales NO cuentan** (numeral 5.1.3.9);
+  las **extraordinarias SÍ** (el mérito no: son filtros distintos a propósito).
+  **Competencias pendientes** (24/09/2026): la sigla sale de lo evaluado y
+  `situacion_final_proyectar()` la prueba contra el PLAN completo de cada área →
+  riesgo **seguro** o **proyectado**. Cada competencia usa su **último nivel registrado**
+  (como el SIAGIE), salvo en el periodo final, que usa solo sus notas. Los **talleres**
+  (`tipo='taller'`, migración 064) cuentan SOLO en los años y grados que la UGEL aprobó
+  (`talleres_aprobacion`, se marca en Currículo; 2026: ninguno); boleta y mérito, siempre.
+  En un retorno de grado, toda regla (también esta) usa el grado de la matrícula OFICIAL.
   PUNTO ÚNICO: `situacion_final_analisis()` en `helpers.php` (función pura) y
   `SituacionFinalModel` (los datos). ⚠️ **Su roster NO es `roster_evaluacion()` ni
   `ROSTER_MERITO`**: es `matriculas_vigentes()` + el anclaje por bimestre del retorno —el

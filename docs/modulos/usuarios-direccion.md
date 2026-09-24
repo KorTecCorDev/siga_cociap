@@ -988,7 +988,9 @@ evaluación. El cuadro de **Primaria sigue siendo el original de 2020**.
 
 - **9.** Las **competencias transversales NO se tienen en cuenta** para la situación final.
 - **10.** Las competencias adicionales sin área curricular tampoco.
-- **11.** Las organizadas en áreas curriculares **y los talleres SÍ** cuentan.
+- **11.** Las organizadas en áreas curriculares **y los talleres SÍ** cuentan. ⚠️ **En este
+  colegio los talleres NO cuentan** (24/09/2026): la UGEL no los aprobó, no están en el plan del
+  SIAGIE y el SIAGIE calcula la situación final sin ellos. Ver «Talleres» más abajo.
 - **«La mitad» con número impar**, literal de la norma: área de 5 competencias → **3**; de
   3 → **2**; de 1 competencia → **esa única**. Es `ceil(n/2)`.
 - El nivel de logro final de una competencia es **el último registrado** (numeral 5.1.2.2,
@@ -1025,9 +1027,9 @@ según el grado y según en qué áreas caiga.
 |---|---|
 | L1 | **«Más de la mitad»** = `n_c > ceil(n/2)`, con la misma convención que la norma fija para «la mitad». |
 | L2 | La condición de **PER de primaria** dice «"C" en más de la mitad … **y "B" en las demás»**. Al pie de la letra, un alumno con «C» de sobra quedaría FUERA de la permanencia —el absurdo contrario—. Es un artefacto de redacción: **se aplica solo la condición de «C»**, como el SIAGIE. |
-| L3 | **Competencias/áreas sin nota**: quedan fuera del cálculo (no del numerador ni del denominador) y el informe **declara la cobertura**. No se cuentan como no logradas: sería inventar un dato en contra. |
+| L3 | **Competencias/áreas sin nota**: la SIGLA se calcula solo con lo evaluado (no se cuentan como no logradas: sería inventar un dato en contra). **Desde el 24/09/2026 lo pendiente SÍ se usa para la CERTEZA**: la sigla se prueba contra el plan completo del área (ver «Certeza: seguro o proyectado»). |
 | L4 | **1.º de primaria** no entra al riesgo ni a sus cifras; se lista **aparte** («seguimiento pedagógico») si tiene competencias por debajo de A. |
-| L5 | La proyección usa **los literales del bimestre elegido**. |
+| L5 | **Último nivel registrado, como el SIAGIE** (decisión del usuario, 24/09/2026; deroga «solo los literales del bimestre elegido»). En B1-B3 una competencia no evaluada en el bimestre toma su nivel del último bimestre anterior en que se registró (RVM 094-2020, 5.1.2.2 p. 3; RVM 048-2024, 5.1.1.3 p. 3). **En el periodo final no se arrastra**: manda solo ese bimestre, igual que el logro anual de la boleta. |
 | L6 | Un estudiante **sin ninguna** competencia evaluada es `ND` (no es sigla del SIAGIE, es el hueco de datos): no cuenta como evaluado ni como riesgo. |
 
 #### Dónde vive la regla
@@ -1066,11 +1068,18 @@ Las tres se parecen y responden preguntas distintas; pegarle a una el filtro de 
 
 #### Qué notas entran
 
-Mismo universo de NOTAS que usaba `detalleCompetenciasRiesgo` (`FILTRO_NOTAS`): solo
-competencias **bloqueadas**, `extraordinaria = 0`, sin `tipo IN ('transversal','tutoria')`
+`FILTRO_NOTAS`: solo competencias **bloqueadas**, **extraordinarias incluidas** (desde el
+24/09/2026; ver abajo), sin `tipo IN ('transversal','tutoria')`
 salvo **Ética y Valores** (`AREA_ETICA_NOMBRE_BOLETA`), sin áreas ni subáreas exoneradas.
 Lo que cambia: entran **todos** los literales (los conteos por área necesitan los AD y los A)
 y **todas** las matrículas del roster.
+
+🔴 **Las extraordinarias CUENTAN** (decisión del usuario, 24/09/2026). Hasta ese día el filtro
+llevaba `extraordinaria = 0`, copiado del universo del mérito, donde sí es una regla (la
+extraordinaria no mueve puestos). Pero son notas oficiales de boleta y SIAGIE, y el SIAGIE
+calcula la situación final con ellas. El costo fue real: las **276 notas de Ética de B1 son
+extraordinarias** y la situación final las ignoraba. **El mérito conserva su filtro**: las dos
+preguntas ya no comparten universo de notas.
 
 ⚠️ **Las transversales están duplicadas por alumno** —una fila por cada una de las 19 cargas
 que las registran (28 282 filas contra 13 308 pares en B2)—. El filtro de áreas ya las
@@ -1082,15 +1091,135 @@ Las áreas todavía sin calificar **no entran** al cálculo, así que la proyecc
 **optimista**. Callarlo convertiría un informe a medio llenar en una buena noticia. El
 modelo lleva `cobertura` por grado (`min`, `max`, `plan`, `parciales`) y el resumen lo
 agrega; la banda, el «Cómo leer» y el A4 lo declaran cuando `completa` es falso, y la franja
-de cada estudiante dice «N de M áreas evaluadas».
+de cada estudiante dice «N de M competencias evaluadas · P pendientes».
+
+🔴 **Desde el 24/09/2026 la cobertura se mide en COMPETENCIAS, no en áreas**: un área con 1 de 4
+evaluadas estaba «evaluada» y el aviso no la veía. `parciales` cuenta a quien tiene alguna
+competencia de su plan sin nivel de logro.
 
 🔴 **`parciales` se cuenta POR ESTUDIANTE**, no comparando el mínimo del grado con el plan
 máximo: cada alumno tiene su propio plan porque **las exoneraciones se lo recortan**
 (`planPorMatricula()` descuenta las exoneraciones por área). Cruzar el mínimo de uno con el
 plan de otro inventaba huecos donde solo había un exonerado.
 
-**Medido:** en B1 hay **266** estudiantes con cobertura parcial —Ética nunca se bloqueó en
-secundaria ese bimestre—; en B2, **solo 1**.
+**Medido (corregido el 24/09/2026):** el «266 con cobertura parcial en B1» que se atribuía a que
+«Ética nunca se bloqueó» era **falso**: Ética SÍ se bloqueó (11 bloqueos, 276 notas), pero como
+**extraordinaria**, y el filtro las descartaba. Con cobertura por competencias y extraordinarias
+incluidas: B1 **518** estudiantes con pendientes, B2 **475**, B3 23 (y 500 sin datos).
+
+#### Certeza: seguro o proyectado (24/09/2026)
+
+En B1-B3 el docente **elige qué competencias evalúa** (regla del colegio del 10/08; ver
+`calificaciones.md`), y la norma formula «la mitad» sobre **todas** las competencias del área.
+La sigla calculada solo con lo evaluado usa un denominador encogido: un área de 4 con una sola
+«C» evaluada cuenta para PER en sec 2.º/5.º, y una sola «B» de 4 aprueba el área. Usar el plan
+como denominador tampoco sirve (B1: 192 PRO → RR, el sesgo contrario).
+
+**Solución** — `situacion_final_proyectar()` en `helpers.php` (PURA; aplica tres veces
+`situacion_final_analisis()`, que no cambió):
+
+- **Sigla** = con lo evaluado, como antes. El listado no cambió de composición.
+- **Cotas** contra el plan completo de cada área (`planPorMatricula()`, ahora POR COMPETENCIA,
+  área por `COALESCE(sa.area_id, comp.area_id)`, sin exoneraciones de área ni subárea):
+  mejor caso = pendientes en AD; peor caso = pendientes en C.
+- **Certeza** (`CERTEZA_SEGURA` / `CERTEZA_PROYECTADA`): un riesgo es **seguro** si ni el mejor
+  caso llega a PRO; **proyectado** si lo pendiente aún puede salvarlo (su motivo dice cuántas
+  competencias y de qué áreas). Un PRO es proyectado si el peor caso ya es riesgo: esos solo se
+  cuentan (`pro_proyectados`), no se listan.
+- 🔴 **Las cotas son MONÓTONAS** (sigla PRO ⇒ mejor caso PRO; sigla riesgo ⇒ peor caso riesgo),
+  y por eso la certeza tiene dos valores. Probado con 3 000 casos aleatorios en
+  `verif_situacion_final.php`.
+- **Periodo final** (mayor `numero` del año): no se proyecta. Con competencias pendientes, la
+  situación es `SITUACION_PENDIENTE` (no es riesgo; lista aparte en `_pendiente-final.php`); sin
+  pendientes, el resumen marca `definitiva` y el A4 deja de decir «proyectada». Es red de
+  seguridad: la regla del periodo final exige evaluar todas las competencias.
+
+| Medido (24/09, con arrastre y sin talleres) | B1 | B2 | B3 |
+|---|---|---|---|
+| En riesgo | 136 | 100 | 100 |
+| · seguros / proyectados | 135 / 1 | 100 / 0 | 100 / 0 |
+| PRO proyectados | 341 | 109 | 109 |
+| Con competencias pendientes | 518 | 279 | 279 |
+
+B3 da hoy la misma foto que B2 porque casi todo viene arrastrado de B2 (solo hay 23 notas
+bloqueadas de B3). Con el arrastre, «pendiente» significa **nunca registrada en el año**.
+
+⚠️ **«Seguro» no es definitivo.** Significa que lo pendiente ya no lo cambia; pero por la misma
+regla del último nivel registrado, las notas de los bimestres siguientes reemplazan a las de hoy.
+El «Cómo leer» lo dice.
+
+#### Talleres (24/09/2026, migración 064)
+
+`areas.tipo` admite **`taller`**, y los dos talleres de secundaria (Taller de Razonamiento
+Matemático y Taller de Pre-Cálculo) pasaron a ese tipo, identificados por nombre.
+
+🔴 **Un taller cuenta para la situación final SOLO en los años y grados que la UGEL aprobó**
+(decisión del usuario, 24/09/2026). La norma cuenta los talleres del plan de estudios registrado
+en el SIAGIE (RVM 094-2020, 5.1.3 p. 11); en 2026 la UGEL no aprobó ninguno, pero puede
+aprobarlos otro año y solo para algunos grados.
+
+- **Dónde vive:** tabla `talleres_aprobacion` (taller, año, grado, `aprobado`, quién y
+  cuándo), en la misma migración 064. **No es una columna de `areas`** a propósito:
+  las áreas son un catálogo SIN año y la situación final se calcula EN VIVO; una marca en el
+  área, cambiada en 2027, reescribiría los informes de 2026.
+- **Sin fila, o con `aprobado = 0`, no cuenta.** Retirar una aprobación deja la fila en 0 con
+  quién y cuándo, no la borra. Nace vacía: 2026 sin talleres aprobados.
+- **Se marca en Currículo, en la ficha del taller** (solo admin), un año a la vez y grado por
+  grado. **Siempre editable**, también en años
+  cerrados (decisión del usuario); la pantalla avisa que recalcula los informes de ese año.
+  Muestra en cuántas secciones de cada grado se dicta el taller. No hay pantalla para CREAR
+  talleres (decisión del usuario): se crean en la BD.
+- **Resolución Directoral DEL COLEGIO** que crea el taller: tabla `talleres_resolucion`, **una
+  por taller y año** (número y fecha), en la misma 064 y en la misma ficha. Es el **sustento**
+  del colegio; lo que hace que el taller cuente es la casilla de la UGEL (decisión del usuario,
+  24/09/2026). El cuerpo de la resolución se trabajará después: por eso es una tabla propia y no
+  un texto repetido en cada grado.
+- **Punto único:** `SituacionFinalModel::areasQueCuentan()` (lo usan las notas y el plan). Mira
+  el año y el grado de la matrícula **OFICIAL**: en un retorno de grado (activo o revertido),
+  **jamás el de la operativa** (decisión del usuario, 24/09/2026), igual que las demás reglas.
+  El PLAN de competencias sí sale de donde cursa: es un dato, no una regla.
+- Guardas: `verif_riesgo_situacion_bd.php` § 7e simula con rollback la aprobación solo en 1.º
+  (18 filas de 1.º incorporan el taller, 0 de otros grados) y su retiro (vuelve a 136). Tres
+  mutantes caen: ignorar la aprobación, ignorar el grado, ignorar `aprobado = 0`. Además simula
+  un retorno de secundaria (operativa en 1.º, oficial en 2.º): aprobado en 2.º el plan pasa de 25
+  a 27; aprobado solo en 1.º se queda en 25. Cae el mutante que mira el grado de la operativa.
+
+**Siguen en la boleta y en el orden de mérito del colegio**
+(decisión del usuario): esos filtros excluyen en negativo (`tipo NOT IN ('transversal','tutoria')`)
+y no cambiaron. Efecto medido sin talleres aprobados: B1 145 → 136 en riesgo, y 9 de los 10
+«proyectados» de B1 dependían solo del Taller de Raz. Mat. (su competencia C55 casi no se evaluó).
+
+El listado anterior **no tenía falsos negativos**; lo que fallaba era presentar como igual de
+cierto lo que depende de competencias pendientes. Guardas: `verif_situacion_final.php` (asertos
+puros + monotonía) y `verif_riesgo_situacion_bd.php` § 7c (certeza contra la regla y el plan
+escritos a mano) y § 7d (talleres fuera; toda nota arrastrada viene de un bimestre anterior).
+La copia de control aplica también a mano el último nivel registrado. Mutantes que caen: cotas con
+el `n` encogido, `extraordinaria = 0`, sin arrastre, talleres dentro y arrastre en el periodo final.
+
+🔴 **La cobertura se recorta con el filtro por sección** (24/09/2026). El modelo guarda
+además `cobertura_seccion` (parciales y `sin_datos` por sección, dentro de cada grado) y
+`riesgo_filtrar_secciones()` recompone `cobertura` y `sin_datos` solo con las secciones
+elegidas. Antes quedaban los del grado entero: filtrar a 6.° B prim + 2.° A sec decía «52 sin
+su plan completo» con 47 evaluados (eran los 52 de todo 2.° de secundaria), y cada hoja del
+lote por tutor heredaba el aviso del grado. Guarda: `verif_riesgo_situacion_bd.php` § 7b
+(cada sección ≤ sus evaluados, y la suma de secciones = el grado).
+
+🔴 **Cero casos con la proyección parcial NO es «todos alcanzarían la promoción»**
+(24/09/2026). El aviso de cobertura vivía en `_resumen.php`, que con cero casos no se pinta,
+así que en B3 (23 evaluados, los 23 a medio calificar, 500 sin una sola nota) las cinco
+vistas daban la buena noticia sin aviso. **Punto único del texto de «nadie en riesgo»:
+`riesgo/_sin-casos.php`** —banda de `/admin/cuadros` y su A4, `/admin/cuadros/riesgo` y su
+A4, y `_seccion.php` (lote y panel del tutor)—: con cobertura parcial o estudiantes sin datos
+dice «Por ahora ninguno de los N … queda en riesgo, pero la proyección es parcial» con las
+cifras. La card del tutor muestra «Proyección parcial» en vez de «Todos serían promovidos».
+Guarda: `verif_direccion_superficies.php` («sin casos en …»). El texto del aviso es
+**neutro** a propósito (decisión del usuario): «se calculó sin las áreas que aún no tienen
+nota», válido para un bimestre abierto y para uno cerrado con áreas sin calificar.
+
+**Móvil:** la cabecera del grado y la franja del estudiante van dentro de un `div`
+(`riesgo-tabla__grado-cont`, `riesgo-alumno__franja-cont`) que, hasta 640 px, queda
+`sticky` a la izquierda con el ancho visible del wrapper (`container-type` + `100cqw`); las
+filas de competencias siguen desplazando. El A4 lo anula en `.riesgo-print`.
 
 #### Impacto medido (BD local, 23-24/09/2026)
 

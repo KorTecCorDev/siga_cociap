@@ -103,6 +103,19 @@ ventana de calendario.
 *El retorno real del 21/06/2026 pasa este candado* — la oficial no tenía nada en
 B2 ese día. Por eso salió limpio: por ausencia de datos, no por diseño.
 
+## Candado: un retorno NUNCA cruza de nivel (24/09/2026)
+
+Regla del usuario: **un estudiante de 1.º de secundaria jamás puede retornar a 6.º de primaria**.
+El retorno es a un grado **inferior**, del **mismo nivel** y del **mismo año**. Ya lo imponían
+`create()` (solo lista secciones con `g.nivel_id = ?` y `g.numero < ?`) y `store()` (valida lo
+mismo en servidor). Desde el 24/09 lo vigila `verif_retorno_grado.php` en el DATO (0 retornos
+que crucen de nivel, suban de grado o cambien de año) y en el CÓDIGO (los dos filtros siguen
+ahí; cae el mutante que quita el de `store()`).
+
+**Toda regla académica usa el grado de la matrícula OFICIAL**, jamás el de la operativa: la
+situación final (regla por grado) y, desde el 24/09, también la aprobación de la UGEL de los
+talleres. Ver `docs/modulos/usuarios-direccion.md` § «Talleres».
+
 ## Qué hace `store()` al crear el retorno
 
 1. Crea la matrícula operativa en el grado destino (`estado='aprobada'`).
