@@ -64,6 +64,30 @@ $ok     = static function (bool $cond, string $msg) use (&$fallos): void {
     if (!$cond) { $fallos++; }
 };
 
+// ── Candado: un retorno NUNCA cruza de nivel (24/09/2026) ────────
+// Regla del usuario: «un estudiante de 1.º de secundaria jamás puede retornar
+// a 6.º de primaria». El retorno es a un grado INFERIOR del MISMO nivel y del
+// mismo año. Lo impiden `create()` (la lista de secciones) y `store()` (la
+// validacion); aqui se vigilan las dos cosas: el DATO (por si alguien lo carga
+// a mano) y el CODIGO (por si alguien afloja el filtro).
+echo "Candado de nivel del retorno de grado\n";
+$cruzados = (int) $pdo->query("
+    SELECT COUNT(*)
+    FROM retornos_grado r
+    JOIN matriculas mo ON mo.id = r.matricula_oficial_id   JOIN secciones so ON so.id = mo.seccion_id
+    JOIN grados go     ON go.id = so.grado_id
+    JOIN matriculas mp ON mp.id = r.matricula_operativa_id JOIN secciones sp ON sp.id = mp.seccion_id
+    JOIN grados gp     ON gp.id = sp.grado_id
+    WHERE gp.nivel_id <> go.nivel_id OR gp.numero >= go.numero OR mp.anio_id <> mo.anio_id
+")->fetchColumn();
+$ok($cruzados === 0, "ningun retorno cruza de nivel, sube de grado o cambia de año ($cruzados)");
+$srcRet = (string) file_get_contents(ROOT_PATH . '/app/Controllers/Matricula/RetornoGradoController.php');
+$ok(preg_match('~function store\(.*?g\.nivel_id = \?.*?>= \(int\) \$oficial\[\'grado_numero\'\]~s', $srcRet) === 1,
+    'store() valida mismo nivel y grado inferior');
+$ok(preg_match('~function create\(.*?g\.nivel_id = \?\s+AND g\.numero < \?~s', $srcRet) === 1,
+    'create() solo ofrece secciones del mismo nivel y de grado inferior');
+echo "\n";
+
 // ── Contexto: retornos y periodos ────────────────────────────────
 $retornos = $pdo->query("
     SELECT r.id, r.matricula_oficial_id, r.matricula_operativa_id, r.estado, r.fecha_retorno,
