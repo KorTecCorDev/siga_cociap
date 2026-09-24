@@ -1206,6 +1206,47 @@ retorno de grado: una medición que la omite da una fila más en 1.º.)
 § 6b (solo PRO/automática sobre el umbral y nunca a la vez en riesgo),
 `verif_riesgo_tutor.php` y `verif_direccion_superficies.php` (filas = riesgo + seguimiento).
 
+#### Chips de EFECTO por competencia (24/09/2026)
+
+El desglose lista todas las competencias NO APROBATORIAS, pero la norma decide POR ÁREA: en B2,
+en los grados intermedios, solo **134 de 250 filas (54 %)** eran de un área que causa el RR
+(5.° B prim: a un estudiante se le listaban 12 y su RR lo causaba solo Ciencia y Tecnología).
+Decisión del usuario: **no alterar las tablas** —ni reagrupar ni columnas nuevas—, solo un
+**chip** en la fila.
+
+🔴 **El chip responde a la SITUACIÓN DEL ESTUDIANTE** (decisión del usuario, 24/09/2026). En
+los grados intermedios **toda área que suma a PER también causa RR** (3 C de 3: no llega a 2 en
+B o superior y tiene C en más de 2). Con una precedencia fija «PER > RR», en B1 **88 de 123 RR**
+llevaban chips «Suma a PER» y **23 no tenían ni un «Causa RR»**: se leían como PER.
+
+| Situación | Chip | Grado intermedio | Grado final de ciclo |
+|---|---|---|---|
+| **PER** | **Suma a PER** (rojo) | fila en C de un área con `c > mitad` | prim `c > mitad` · sec `c ≥ mitad` |
+| **RR** | **Causa RR** (ámbar) | fila en C de un área con `ab + b < mitad` | toda fila en C; y si faltan áreas con la mitad en A/AD, las B de esas áreas |
+| **RR o PRO** | **En el límite** (gris, discontinuo) | área que cumple justo (`ab + b == mitad`) | no aplica |
+
+- Un PER solo lleva «Suma a PER». La cercanía de un RR a la permanencia va en **texto**, en su
+  motivo: «Reúne N de las 4 áreas que llevarían a la permanencia (PER)» (`areas_per`).
+- Guarda: todo RR lleva al menos un «Causa RR» (B1-B3: 0 sin él). Mutante que cae: volver a la
+  precedencia fija PER > RR.
+- **Punto único:** `situacion_efecto_competencia()` en `helpers.php`, que lee el veredicto
+  `por_area` que deja `situacion_final_analisis()` en el MISMO bucle que decide la sigla.
+  El modelo lo pone en `detalle[].efecto`. 1.º de primaria: sin chips.
+- También en el seguimiento (allí solo puede salir «En el límite»).
+- Cada estudiante lleva además **su fila de columnas** debajo del nombre
+  (`riesgo-alumno__cols`); el `<thead>` del grado no cambió.
+- Medido: **ningún RR/PER queda sin chip** en B1-B3.
+- **A4, medido con el estándar** (PDF con Chrome sin interfaz, análisis por hoja, A/B contra
+  `HEAD` en un worktree): **0 estudiantes partidos, 0 títulos de grado huérfanos, 0 franjas al
+  pie sin sus filas**. Hojas: informe B1 **43 → 52**, B2 **36 → 43**; lote por tutor B1
+  **71 → 79**, B2 **63 → 69**. Aislado en B1: los chips aportan +3 (la celda de la
+  competencia pasa a dos líneas) y la fila de columnas por estudiante +4. El usuario eligió
+  mantener **todo también en papel** (alternativa medida y descartada: chips cortos y
+  columnas solo en pantalla, B1 45 / B2 37).
+- Guardas: `verif_situacion_final.php` (ramas y cortes `>`/`≥`) y
+  `verif_riesgo_situacion_bd.php` § 6c (cada fila contra la regla escrita a mano). Mutante
+  que cae: corte de PER de sec final `≥` → `>` (2.° y 5.° sec).
+
 #### Fuera del cálculo: tres grupos que no se mezclan (24/09/2026)
 
 Pedido del usuario: «diferenciar en los contadores a los estudiantes que ya no pertenecen al

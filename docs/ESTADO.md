@@ -74,6 +74,10 @@ commit de docs). **Sin desplegar a `main`** (el usuario lo deja para el final). 
 - [x] 375 px confirmado por el usuario (24/09).
 - [ ] Queda: ver una fila **arrastrada** en la vista del tutor (su sección no tiene ninguna;
       en admin sí se ve).
+- [x] **Chips de efecto por competencia** (24/09): «Suma a PER» · «Causa RR» · «En el
+      límite» en el desglose, sin tocar las tablas, según la SITUACIÓN del estudiante, y fila
+      de columnas bajo cada estudiante (también en papel: A4 B1 43 → 52 hojas, B2 36 → 43).
+      Ver `docs/modulos/usuarios-direccion.md`. Pusheado a `dev`.
 - [x] **Footer con la versión real** (24/09): leía `v1.0.0` escrito a mano desde su creación;
       ahora sale de `config('version')` (hoy `1.0.3`). Al hacer un release basta con subir
       `config/app.php` y crear el tag.
