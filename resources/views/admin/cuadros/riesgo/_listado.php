@@ -22,11 +22,19 @@
  *
  * `data-riesgo-fila` va en el `<tbody>` de cada estudiante: es lo que cuenta y
  * oculta el buscador (`cuadros-riesgo.js`). El buscador NO recalcula el
- * resumen; los filtros de secciones y de B en primaria sí, porque van por URL.
+ * resumen; el filtro por secciones sí, porque va por URL.
  *
- * En la lente «primaria solo C» la franja conserva la distribución completa
- * (AD · A · B · C): es la del estudiante, no la cifra de riesgo, y sin la B no
- * sumaría sus competencias evaluadas (decisión del usuario, 23/09/2026).
+ * 🔴 LA FRANJA YA NO DICE PUESTO NI PROMEDIO (23/09/2026). Los decía cuando el
+ * riesgo era un subproducto del ranking del mérito. Ahora la pregunta es si el
+ * estudiante será PROMOVIDO, no en qué puesto quedó, y además el roster es
+ * otro: las matrículas `pendiente` se evalúan y reciben boleta pero NO compiten
+ * en el mérito, así que habrían tenido que mostrar un puesto vacío. En su lugar
+ * van la SITUACIÓN FINAL, el motivo que la produce y la cobertura.
+ *
+ * El desglose lista las competencias NO APROBATORIAS del nivel (primaria B y C,
+ * secundaria solo C; `nota_es_aprobatoria()`). No es la regla de la promoción
+ * —esa se cuenta por ÁREA, y el motivo de la franja la resume—: es lo que el
+ * tutor tiene que remontar.
  *
  * @var array $riesgo
  */
@@ -35,13 +43,14 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
 <section class="riesgo-listado">
     <h2 class="riesgo-h2">Listado por grado</h2>
     <?php foreach ($lista as $g):
-        $gr    = $g['grado'];
-        // `total` = competidores del MÉRITO (el «de N» del puesto); `evaluados`
-        // = denominador del RIESGO, por matrícula oficial. Solo difieren en los
-        // grados con un retorno de grado.
-        $total     = (int) $g['total'];
-        $evaluados = (int) ($g['evaluados'] ?? $g['total']);
-        $rot   = riesgo_rotulo($gr['nivel_codigo'], $riesgo['contar_b'] ?? true);
+        $gr        = $g['grado'];
+        $evaluados = (int) ($g['evaluados'] ?? 0);
+        // La regla del MINEDU depende del GRADO, no solo del nivel: en los
+        // finales de ciclo una sola «C» impide la promoción. Decirlo en la
+        // cabecera evita que la lista parezca arbitraria.
+        $ciclo = grado_final_de_ciclo($gr['nivel_codigo'], (int) $gr['numero'])
+            ? 'grado final de ciclo: la promocion exige B o superior en TODAS las competencias'
+            : 'grado intermedio: la promocion exige la mitad o mas en B o superior en cada area';
     ?>
         <div class="riesgo-grado" data-riesgo-bloque>
             <div class="tabla-notas-wrapper">
@@ -58,7 +67,7 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                         <th scope="colgroup" colspan="5">
                             <?= e($gr['nombre_display'] . ' de ' . $gr['nivel_nombre']) ?>
                             <span>&mdash; <?= count($g['en_riesgo']) ?> de <?= $evaluados ?> estudiantes evaluados
-                            &middot; se cuentan las competencias <?= e($rot) ?></span>
+                            &middot; <?= e($ciclo) ?></span>
                         </th>
                     </tr>
                     <tr class="riesgo-tabla__cols">
@@ -72,53 +81,38 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                 <?php foreach ($g['en_riesgo'] as $al):
                     $buscar = $al['nombre_completo'] . ' ' . $al['seccion_nombre'] . ' '
                             . $gr['nombre_display'] . ' ' . $gr['nivel_nombre'];
-                    $det = $al['detalle'];
+                    $per = $al['situacion'] === SITUACION_PER;
                 ?>
-                    <tbody class="riesgo-alumno<?= $al['critico'] ? ' riesgo-alumno--critico' : '' ?>"
+                    <tbody class="riesgo-alumno<?= $per ? ' riesgo-alumno--critico' : '' ?>"
                            data-riesgo-fila data-buscar="<?= e($buscar) ?>">
                         <tr class="riesgo-alumno__franja">
                             <th scope="rowgroup" colspan="5">
                                 <span class="riesgo-alumno__nombre"><?= e($al['nombre_completo']) ?></span>
-                                <?php if ($al['critico']): ?>
-                                    <span class="riesgo-alumno__marca">Mayor atención</span>
-                                <?php endif; ?>
+                                <span class="riesgo-alumno__marca riesgo-alumno__marca--<?= e(strtolower($al['situacion'])) ?>">
+                                    <?= e($al['situacion']) ?> &middot; <?= e(situacion_rotulo($al['situacion'])) ?>
+                                </span>
                                 <span class="riesgo-alumno__dato">
                                     Sección <?= e($al['seccion_nombre']) ?>
                                     <?php if (!empty($al['retorno'])):
                                         // Retorno de grado: se lista en su matrícula OFICIAL,
-                                        // pero compite en el mérito donde se evalúa. El puesto
-                                        // es de ese grado, y se dice cuál (decisión del usuario).
+                                        // que es la que fija su grado y, con él, la regla que
+                                        // se le aplica. Se dice dónde cursó el bimestre.
                                         $rt = $al['retorno']; ?>
-                                        &middot; <span class="riesgo-cur">Retorno de grado: se evalúa en
-                                        <?= e($rt['grado']['nombre_display'] . ' ' . $rt['seccion_nombre'] . ' de ' . $rt['grado']['nivel_nombre']) ?>,
-                                        puesto <?= (int) $al['puesto'] ?> de <?= (int) $rt['total'] ?></span>
-                                    <?php else: ?>
-                                        &middot; Puesto <?= (int) $al['puesto'] ?> de <?= $total ?>
+                                        &middot; <span class="riesgo-cur">Retorno de grado: cursó este bimestre en
+                                        <?= e($rt['grado_nombre'] . ' ' . $rt['seccion_nombre'] . ' de ' . $rt['nivel_nombre']) ?></span>
                                     <?php endif; ?>
-                                    &middot; Promedio <?= e(number_format((float) $al['promedio_general'], 2)) ?>
-                                    &middot; <strong><?= (int) $al['conteo'] ?> <?= e($rot) ?></strong>
-                                    de <?= (int) $al['num_competencias'] ?>
+                                    &middot; <?= (int) $al['areas_evaluadas'] ?> de <?= (int) $al['areas_plan'] ?> áreas evaluadas
+                                    &middot; <?= (int) $al['num_competencias'] ?> competencias
                                     (AD <?= (int) $al['num_ad'] ?> &middot; A <?= (int) $al['num_a'] ?>
                                     &middot; B <?= (int) $al['num_b'] ?> &middot; C <?= (int) $al['num_c'] ?>)
                                 </span>
+                                <span class="riesgo-alumno__motivo"><?= e($al['motivo']) ?></span>
                             </th>
                         </tr>
-                        <?php if ($det === null): ?>
-                            <?php // En un bimestre cerrado la fila viene del snapshot y
-                                  // el desglose se calcula en vivo: si no cuadran, se
-                                  // calla en vez de mostrar dos cifras distintas. ?>
-                            <tr>
-                                <td colspan="5" class="riesgo-alumno__aviso">
-                                    El desglose no coincide con el dato oficial del cierre (las notas
-                                    cambiaron después de cerrar el bimestre), así que se omite para no
-                                    mostrar dos cifras distintas.
-                                </td>
-                            </tr>
-                        <?php else: ?>
 <?php // ⚠️ SIN INDENTAR a propósito: se repite ~1 400 veces en B1 y no hay
       // minificador de HTML en el pipeline (ver la nota de peso del 07/09 en
       // docs/modulos/usuarios-direccion.md). ?>
-<?php foreach ($det as $d): ?>
+<?php foreach ($al['detalle'] as $d): ?>
 <tr>
 <td><?= e($d['area']) ?><?php if ($d['curso'] !== null): ?> <span class="riesgo-cur">&middot; <?= e($d['curso']) ?></span><?php endif; ?></td>
 <td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?></td>
@@ -127,7 +121,6 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
 <td><?= e($d['docente']) ?></td>
 </tr>
 <?php endforeach; ?>
-                        <?php endif; ?>
                     </tbody>
                 <?php endforeach; ?>
             </table>

@@ -3,7 +3,7 @@
  * Estudiantes en riesgo académico — A4 vertical (layout print, 23/09/2026).
  *
  * Documento de TRABAJO: sin sello del Director EBR. Imprime LO FILTRADO
- * (?secciones[], ?primaria=c) y el encabezado dice qué filtro se aplicó, para que una hoja
+ * (?secciones[]) y el encabezado dice qué alcance se aplicó, para que una hoja
  * suelta no se lea como el informe completo.
  *
  * Mismos partials que la pantalla: el papel no puede decir otra cifra. La
@@ -17,7 +17,6 @@
 // nombra entero («5°»); si no, sección por sección («6° A»). Sin selección,
 // todos. Sale de las mismas secciones validadas que recortaron la lista.
 $alcance = riesgo_alcance($riesgo['niveles'], $riesgo['secciones_ids']);
-$contarB = $riesgo['contar_b'];
 ?>
 <div class="riesgo-print">
 
@@ -27,9 +26,10 @@ $contarB = $riesgo['contar_b'];
         <p class="cuadros-print__vacio">
             <?php if (empty($riesgo['por_grado'])): ?>
                 Este bimestre todavía no tiene competencias bloqueadas: aún no puede determinarse
-                quién está en riesgo.
+                la situación final de ningún estudiante.
             <?php else: ?>
-                Ningún estudiante de este alcance llega al umbral de riesgo en el bimestre.
+                Con las notas de este bimestre, todos los estudiantes evaluados de este alcance
+                alcanzarían la promoción de grado.
             <?php endif; ?>
         </p>
     <?php else: ?>
@@ -38,4 +38,7 @@ $contarB = $riesgo['contar_b'];
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_criticos.php'; ?>
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_listado.php'; ?>
     <?php endif; ?>
+
+    <?php // Fuera del `if` por el mismo motivo que en la pantalla. ?>
+    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_automatica.php'; ?>
 </div>

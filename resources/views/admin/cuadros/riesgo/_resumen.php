@@ -9,6 +9,9 @@
  * número va siempre al lado. La barra NO lleva `style` inline (regla del
  * repo): el ancho es una clase `riesgo-barra__v--N` que genera SASS (0-100).
  *
+ * «En riesgo» es la SITUACIÓN FINAL proyectada del MINEDU: requiere
+ * recuperación (RR) o permanece en el grado (PER). Ver `situacion_final()`.
+ *
  * @var array $riesgo  salida de CuadrosEstadisticosController::componerRiesgo
  */
 $st  = $riesgo['stats'];
@@ -31,28 +34,52 @@ $etqGrado = static fn(array $gr): string => $gr['nombre_display'] . ' ' . $gr['n
         <p class="cuadros-banda__cifra">
             <span class="cuadros-banda__n"><?= (int) $res['total'] ?></span>
             <span class="cuadros-banda__q">
-                estudiante<?= $res['total'] !== 1 ? 's' : '' ?> en riesgo académico de
-                <strong><?= (int) $res['evaluados'] ?></strong> evaluados
+                estudiante<?= $res['total'] !== 1 ? 's' : '' ?> no alcanzarían la promoción,
+                de <strong><?= (int) $res['evaluados'] ?></strong> evaluados
                 (<strong><?= (int) $res['pct'] ?>%</strong>)
             </span>
         </p>
         <ul class="cuadros-banda__datos">
-            <li><strong><?= (int) $res['criticos'] ?></strong> de mayor atención</li>
+            <li><strong><?= (int) $res['permanencia'] ?></strong> permanecerían en el grado (PER)</li>
+            <li><strong><?= (int) $res['recuperacion'] ?></strong> requieren recuperación (RR)</li>
             <li><strong><?= (int) $res['grados'] ?> de <?= (int) $res['grados_total'] ?></strong> grados con casos</li>
         </ul>
-        <?php // Una línea por nivel: la regla cambia de uno a otro, y una cifra
-              // global sola no diría qué se contó. ?>
+        <?php // Una línea por nivel: la regla del MINEDU cambia de uno a otro, y
+              // una cifra global sola no diría qué se contó. ?>
         <ul class="riesgo-banda__niveles">
             <?php foreach ($res['por_nivel'] as $niv): ?>
                 <li>
                     <strong><?= e($niv['nombre']) ?>:</strong>
                     <?= (int) $niv['total'] ?> de <?= (int) $niv['evaluados'] ?>
-                    (<?= (int) $niv['pct'] ?>%) con <?= (int) $riesgo['min'] ?> o más
-                    competencias <?= e($niv['rotulo']) ?>
-                    &middot; <?= (int) $niv['criticos'] ?> con <?= (int) $riesgo['critico_min'] ?> o más
+                    (<?= (int) $niv['pct'] ?>%) no alcanzarían la promoción
+                    &middot; <?= (int) $niv['permanencia'] ?> permanecerían en el grado
                 </li>
             <?php endforeach; ?>
         </ul>
+        <?php // La COBERTURA decide cuánto vale esta proyección. Un bimestre a
+              // medio calificar no cuenta las áreas sin nota, así que sale
+              // optimista: callarlo convertiría un informe incompleto en una
+              // buena noticia. ?>
+        <?php if (!$res['cobertura']['completa']): ?>
+            <p class="riesgo-banda__cobertura">
+                <strong>Proyección parcial.</strong>
+                <?= (int) $res['cobertura']['parciales'] ?>
+                estudiante<?= $res['cobertura']['parciales'] !== 1 ? 's' : '' ?>
+                todavía no tiene<?= $res['cobertura']['parciales'] !== 1 ? 'n' : '' ?> calificadas
+                todas las áreas de su plan: la situación final se calculó solo con las áreas
+                que ya tienen nivel de logro, y puede empeorar al completarse el bimestre.
+            </p>
+        <?php endif; ?>
+        <?php if ($res['sin_datos'] > 0 || $res['automatica'] > 0): ?>
+            <ul class="cuadros-banda__datos">
+                <?php if ($res['sin_datos'] > 0): ?>
+                    <li><strong><?= (int) $res['sin_datos'] ?></strong> sin ninguna competencia evaluada (fuera del cálculo)</li>
+                <?php endif; ?>
+                <?php if ($res['automatica'] > 0): ?>
+                    <li><strong><?= (int) $res['automatica'] ?></strong> en 1.º de primaria con notas por debajo de A (promoción automática)</li>
+                <?php endif; ?>
+            </ul>
+        <?php endif; ?>
     </div>
 
     <?php // ── Distribución por grado y por sección ─────────────────────── ?>
@@ -66,7 +93,7 @@ $etqGrado = static fn(array $gr): string => $gr['nombre_display'] . ' ' . $gr['n
                     <th scope="col" class="riesgo-stat__n">Evaluados</th>
                     <th scope="col" class="riesgo-stat__n">En riesgo</th>
                     <th scope="col" class="riesgo-stat__barra">% del grado</th>
-                    <th scope="col" class="riesgo-stat__n">Mayor atención</th>
+                    <th scope="col" class="riesgo-stat__n">Permanencia</th>
                 </tr>
             </thead>
             <tbody>
@@ -92,7 +119,7 @@ $etqGrado = static fn(array $gr): string => $gr['nombre_display'] . ' ' . $gr['n
                     <th scope="col" class="riesgo-stat__n">Evaluados</th>
                     <th scope="col" class="riesgo-stat__n">En riesgo</th>
                     <th scope="col" class="riesgo-stat__barra">% de la sección</th>
-                    <th scope="col" class="riesgo-stat__n">Mayor atención</th>
+                    <th scope="col" class="riesgo-stat__n">Permanencia</th>
                 </tr>
             </thead>
             <tbody>

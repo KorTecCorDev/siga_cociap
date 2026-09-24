@@ -197,16 +197,16 @@ $saludo = match($auth_user['sexo'] ?? null) {
                 <h2 class="card__title">Estudiantes en riesgo — <?= e($riesgoTutor['seccion']['grado_nombre']) ?> <?= e($riesgoTutor['seccion']['nombre']) ?></h2>
             </div>
             <?php if ($riesgoTutor['periodo'] === null): ?>
-                <p class="dpanel-card__sub">Estudiantes de tu sección con competencias no aprobadas, con su desglose por área y docente.</p>
+                <p class="dpanel-card__sub">Estudiantes de tu sección que no alcanzarían la promoción de grado, con su desglose por área y docente.</p>
                 <span class="badge badge--espera">Aún no hay bimestre publicado</span>
             <?php else: ?>
                 <p class="dpanel-card__sub">
                     <?= e($riesgoTutor['periodo']['nombre_display']) ?> &middot;
-                    <?= (int) $rs['total'] ?> de <?= (int) $rs['evaluados'] ?> en riesgo
-                    &middot; <?= (int) $rs['criticos'] ?> de mayor atención
+                    <?= (int) $rs['total'] ?> de <?= (int) $rs['evaluados'] ?> no alcanzarían la promoción
+                    &middot; <?= (int) $rs['permanencia'] ?> permanecerían en el grado
                 </p>
                 <span class="badge badge--espera">
-                    <?= (int) $rs['total'] === 0 ? 'Nadie llega al umbral' : 'Ver informe de tu sección' ?>
+                    <?= (int) $rs['total'] === 0 ? 'Todos serian promovidos' : 'Ver informe de tu sección' ?>
                 </span>
             <?php endif; ?>
         </a>

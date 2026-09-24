@@ -11,6 +11,7 @@ use App\Models\DirectorEbrModel;
 use App\Models\MatriculaModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\SeccionModel;
+use App\Models\SituacionFinalModel;
 use Core\View;
 
 /**
@@ -41,6 +42,7 @@ class CuadrosEstadisticosController extends BaseController
     private OrdenMeritoModel   $meritoModel;
     private ControlOperativoModel $controlModel;
     private SeccionModel       $seccionModel;
+    private SituacionFinalModel $situacionModel;
 
     public function __construct()
     {
@@ -53,6 +55,7 @@ class CuadrosEstadisticosController extends BaseController
         $this->meritoModel     = new OrdenMeritoModel();
         $this->controlModel    = new ControlOperativoModel();
         $this->seccionModel    = new SeccionModel();
+        $this->situacionModel  = new SituacionFinalModel();
     }
 
     /**
@@ -161,7 +164,7 @@ class CuadrosEstadisticosController extends BaseController
     }
 
     /**
-     * GET /admin/cuadros/riesgo/imprimir  (acepta ?periodo_id, ?secciones[], ?primaria=c)
+     * GET /admin/cuadros/riesgo/imprimir  (acepta ?periodo_id, ?secciones[])
      *
      * A4 vertical del informe. Imprime LO FILTRADO (decisión del usuario,
      * 23/09/2026): sin filtro son ~40 hojas en B1, y el que prepara una reunión
@@ -193,13 +196,13 @@ class CuadrosEstadisticosController extends BaseController
     }
 
     /**
-     * GET /admin/cuadros/riesgo/tutores  (acepta ?periodo_id, ?secciones[], ?primaria=c)
+     * GET /admin/cuadros/riesgo/tutores  (acepta ?periodo_id, ?secciones[])
      *
      * LOTE para repartir a los tutores (23/09/2026): un bloque por sección,
      * cada uno en hoja nueva y con su tutor ACTUAL en el encabezado, para que
      * cada tutor se lleve solo sus hojas. Sin selección van las 23 secciones.
-     * Mismo recorte y misma lente que la pantalla (`componerRiesgo()`), y el
-     * bloque es el mismo que ve el tutor en su panel (`riesgo_por_seccion()`).
+     * Mismo recorte que la pantalla (`componerRiesgo()`), y el bloque es el
+     * mismo que ve el tutor en su panel (`riesgo_por_seccion()`).
      *
      * Documento de TRABAJO, sin sello; niega el bimestre fuera de alcance como
      * `riesgoImprimir()`.
@@ -226,8 +229,7 @@ class CuadrosEstadisticosController extends BaseController
             'riesgo'  => $riesgo,
             'bloques' => riesgo_por_seccion(
                 $riesgo['por_grado'],
-                $riesgo['elegidas'] ?: $riesgo['secciones'],
-                $riesgo['contar_b']
+                $riesgo['elegidas'] ?: $riesgo['secciones']
             ),
         ]);
     }
@@ -237,13 +239,20 @@ class CuadrosEstadisticosController extends BaseController
      * mismo motivo que `componerBloques()`: si cada uno armara los suyos, el
      * papel podría decir otra cifra que la pantalla.
      *
-     * Compone, no calcula: la lista sale de `OrdenMeritoModel::statsPorGrado`
-     * (regla por nivel incluida) y el filtro y las estadísticas de funciones
-     * puras de `helpers.php`. Aquí no hay ni un SELECT.
+     * Compone, no calcula: la lista sale de `SituacionFinalModel::porGrado()`
+     * (la regla del MINEDU incluida) y el filtro y las estadísticas de
+     * funciones puras de `helpers.php`. Aquí no hay ni un SELECT.
+     *
+     * 🔴 YA NO HAY LENTE «PRIMARIA SOLO C» (23/09/2026). Existió mientras el
+     * riesgo fue un conteo de competencias no aprobatorias y servía para mirar
+     * primaria con el listón de secundaria. La regla es ahora la situación
+     * final del MINEDU, que no se cuenta por literales sueltos sino por áreas y
+     * por grado: no hay nada que recortar, y ofrecer media regla sería ofrecer
+     * una cifra que no significa nada. Los filtros por SECCIÓN se conservan.
      */
     private function componerRiesgo(array $periodo): array
     {
-        $porGrado  = $this->meritoModel->statsPorGrado((int) $periodo['id']);
+        $porGrado  = $this->situacionModel->porGrado((int) $periodo['id']);
         $secciones = $this->seccionModel->seccionesDelAnio((int) $periodo['anio_id']);
 
         // ?secciones[] llega de la URL y se VALIDA contra las secciones del año
@@ -262,19 +271,7 @@ class CuadrosEstadisticosController extends BaseController
         $ids     = array_values($ids);
         $elegida = array_map(static fn(int $id): array => $porId[$id], $ids);
 
-        // Lente «primaria solo C»: solo aplica si la selección toca primaria
-        // (o es vacía = todas). Con solo secundaria no hay nada que cambiar, y
-        // el A4 no debe declarar un modo que no se aplicó.
-        $hayPrimaria = (bool) array_filter(
-            $elegida === [] ? $secciones : $elegida,
-            static fn(array $s): bool => str_starts_with($s['nivel_codigo'], 'prim')
-        );
-        $pideSoloC = $this->query('primaria') === 'c';
-        $soloC     = $pideSoloC && $hayPrimaria;
-
-        $base = $soloC
-            ? riesgo_sin_b($porGrado, OrdenMeritoModel::RIESGO_MIN_C, OrdenMeritoModel::RIESGO_CRITICO)
-            : $porGrado;
+        $base     = $porGrado;
         $filtrado = riesgo_filtrar_secciones($base, $elegida);
 
         // Secciones agrupadas nivel → grado para el formulario, con los casos
@@ -300,18 +297,11 @@ class CuadrosEstadisticosController extends BaseController
         return [
             'por_grado'     => $base,
             'filtrado'      => $filtrado,
-            'stats'         => riesgo_estadisticas($filtrado, !$soloC),
+            'stats'         => riesgo_estadisticas($filtrado),
             'niveles'       => $niveles,
             'secciones'     => $secciones,
             'secciones_ids' => $ids,
             'elegidas'      => $elegida,
-            'contar_b'      => !$soloC,
-            // Lo PEDIDO, aunque no se aplique: el formulario y los enlaces lo
-            // conservan al pasar a una selección que sí toca primaria.
-            'pide_solo_c'   => $pideSoloC,
-            'hay_primaria'  => $hayPrimaria,
-            'min'           => OrdenMeritoModel::RIESGO_MIN_C,
-            'critico_min'   => OrdenMeritoModel::RIESGO_CRITICO,
         ];
     }
 
@@ -408,6 +398,12 @@ class CuadrosEstadisticosController extends BaseController
             // que ser la de aquel año.
             'evolucion'      => $this->anioModel->getEvolucionAnual($anioId),
             'merito'         => $this->anioModel->getStatsCierre($periodoId),
+            // El RIESGO ACADÉMICO es un bloque propio desde el 23/09/2026: ya
+            // no es un subproducto del ranking del mérito sino la situación
+            // final que proyecta `SituacionFinalModel`, con su propio roster.
+            // La banda lo lee de aquí; el informe completo lo recompone en
+            // `componerRiesgo()` porque además filtra por sección.
+            'situacion'      => $this->situacionModel->porGrado($periodoId),
             'empates'        => $this->meritoModel->gradosConEmpatesPendientes($periodoId),
             'reaperturas'    => $this->anioModel->getReaperturas($periodoId),
             'conducta'       => $this->resumirConducta($conducta),

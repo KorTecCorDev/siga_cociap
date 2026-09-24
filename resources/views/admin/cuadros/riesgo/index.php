@@ -6,26 +6,27 @@
  * enlace aquí. Roles: admin, registro académico y los tres directores
  * (Dirección solo ve bimestres cerrados).
  *
- * Filtros: varias SECCIONES de cualquier grado y nivel (`secciones[]`) y la
- * lente «primaria solo C» (`primaria=c`) van por URL, en un formulario con
- * «Aplicar»: recargan y recalculan el resumen, y los botones Imprimir los llevan
- * al A4 (se imprime lo filtrado) y al LOTE por tutor (una sección por hoja). El
- * rótulo de cada grado y los atajos por nivel son ENLACES que marcan todas sus
- * secciones, para que funcionen sin JS. El buscador es solo de pantalla.
+ * «En riesgo» es la SITUACIÓN FINAL proyectada del MINEDU: requiere
+ * recuperación (RR) o permanece en el grado (PER).
+ *
+ * Filtros: varias SECCIONES de cualquier grado y nivel (`secciones[]`) van por
+ * URL, en un formulario con «Aplicar»: recargan y recalculan el resumen, y los
+ * botones Imprimir los llevan al A4 (se imprime lo filtrado) y al LOTE por
+ * tutor (una sección por hoja). El rótulo de cada grado y los atajos por nivel
+ * son ENLACES que marcan todas sus secciones, para que funcionen sin JS. El
+ * buscador es solo de pantalla.
  *
  * @var array      $periodos
  * @var array|null $periodo
  * @var array|null $riesgo   salida de componerRiesgo()
  * @var bool       $avisoNoCerrado
  */
-// Enlace a esta vista (o a sus A4) conservando el bimestre y el modo pedido.
-// «Todas las secciones» es la ausencia de `secciones`; «B y C», la de
-// `primaria`. `http_build_query` emite `secciones[0]=…`, que PHP lee igual.
-$pideC = $riesgo && $riesgo['pide_solo_c'];
-$base  = static function (array $secciones, string $ruta = 'admin/cuadros/riesgo') use ($periodo, $pideC): string {
+// Enlace a esta vista (o a sus A4) conservando el bimestre y la selección.
+// «Todas las secciones» es la ausencia de `secciones`. `http_build_query`
+// emite `secciones[0]=…`, que PHP lee igual.
+$base = static function (array $secciones, string $ruta = 'admin/cuadros/riesgo') use ($periodo): string {
     $q = ['periodo_id' => (int) $periodo['id']];
     if ($secciones) { $q['secciones'] = array_values($secciones); }
-    if ($pideC)     { $q['primaria'] = 'c'; }
     return $ruta . '?' . http_build_query($q);
 };
 $sel = $riesgo ? $riesgo['secciones_ids'] : [];
@@ -37,8 +38,10 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
     <div>
         <h1 class="page-title">Estudiantes en riesgo académico</h1>
         <p class="page-subtitle">
-            Estudiantes que acumulan competencias no aprobadas en el bimestre, con su
-            desglose y dónde se concentran los casos. Solo lectura.
+            Estudiantes que, con las notas de este bimestre, <strong>no alcanzarían la
+            promoción de grado</strong> según la norma del MINEDU: requieren recuperación
+            o permanecerían en el grado. Con su desglose y dónde se concentran los casos.
+            Solo lectura.
         </p>
     </div>
 </div>
@@ -60,15 +63,12 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
             <?php foreach ($sel as $sid): ?>
                 <input type="hidden" name="secciones[]" value="<?= (int) $sid ?>">
             <?php endforeach; ?>
-            <?php if ($pideC): ?>
-                <input type="hidden" name="primaria" value="c">
-            <?php endif; ?>
             <noscript><button type="submit" class="btn btn--primary btn--sm">Ver</button></noscript>
         </form>
         <?php if ($periodo && $riesgo && $riesgo['stats']['resumen']['total'] > 0): ?>
             <a href="<?= url($base($sel, 'admin/cuadros/riesgo/imprimir')) ?>"
                class="btn btn--secondary btn--sm" target="_blank" rel="noopener">
-                &#128424; Imprimir<?= $sel || !$riesgo['contar_b'] ? ' lo filtrado' : ' informe' ?>
+                &#128424; Imprimir<?= $sel ? ' lo filtrado' : ' informe' ?>
             </a>
         <?php endif; ?>
         <?php // El lote va aunque la selección no tenga casos: cada tutor recibe
@@ -103,7 +103,7 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
 <?php elseif (empty($riesgo['por_grado'])): ?>
     <div class="empty-state">
         <p>Este bimestre todavía no tiene competencias bloqueadas: hasta que los docentes aprueben
-           y bloqueen sus notas no se puede saber quién está en riesgo.</p>
+           y bloqueen sus notas no puede proyectarse ninguna situación final.</p>
     </div>
 <?php else: ?>
 
@@ -111,7 +111,6 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
           // Formulario GET con «Aplicar»: las casillas no recargan solas, para
           // poder marcar varias secciones de una vez. Sin marcar = todas. El
           // rótulo del grado y los atajos son enlaces (funcionan sin JS). El
-          // contador de cada sección sale del modo actual (con o sin B), y el
           // `title` nombra a su tutor actual. ?>
     <form method="GET" action="<?= url('admin/cuadros/riesgo') ?>" class="cuadros-riesgo__filtros cuadros-riesgo__form">
         <input type="hidden" name="periodo_id" value="<?= (int) $periodo['id'] ?>">
@@ -146,13 +145,6 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
             <?php endforeach; ?>
         </div>
 
-        <fieldset class="cuadros-riesgo__modo">
-            <legend class="cuadros-riesgo__rotulo">Primaria cuenta</legend>
-            <label><input type="radio" name="primaria" value="" <?= $pideC ? '' : 'checked' ?>> B y C (regla oficial)</label>
-            <label><input type="radio" name="primaria" value="c" <?= $pideC ? 'checked' : '' ?>> Solo C</label>
-            <small class="cuadros-riesgo__nota">No afecta a secundaria, que siempre cuenta solo C.</small>
-        </fieldset>
-
         <div class="cuadros-riesgo__acciones">
             <button type="submit" class="btn btn--primary btn--sm">Aplicar</button>
             <?php if ($sel): ?>
@@ -163,8 +155,8 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
 
     <?php if ($riesgo['stats']['resumen']['total'] === 0): ?>
         <div class="empty-state">
-            <p>Ningún estudiante <?= $sel || !$riesgo['contar_b'] ? 'de esta selección ' : '' ?>llega
-               al umbral de riesgo en este bimestre.</p>
+            <p>Con las notas de este bimestre, todos los estudiantes evaluados
+               <?= $sel ? 'de esta selección ' : '' ?>alcanzarían la promoción de grado.</p>
         </div>
     <?php else: ?>
 
@@ -188,6 +180,11 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
 
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_listado.php'; ?>
     <?php endif; ?>
+
+    <?php // Fuera del `if`: 1.º de primaria no es riesgo, así que con la lista
+          // filtrada justo a ese grado `total` vale 0 y el bloque quedaría
+          // oculto dentro del `else`. ?>
+    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_automatica.php'; ?>
 
 <?php endif; ?>
 

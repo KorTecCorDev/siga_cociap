@@ -4,17 +4,18 @@
  *
  * Es lo que quedó del bloque 3b cuando el listado se fue a su propia vista
  * (`/admin/cuadros/riesgo`): la cifra que un informe de Dirección necesita en
- * una línea, con la regla de cada nivel. Forma PAR con `_banda-merito.php`
- * (azul ↔ rojo; ver su comentario).
+ * una línea. Forma PAR con `_banda-merito.php` (azul ↔ rojo; ver su comentario).
  *
- * Las cifras salen de `riesgo_resumen()`, el mismo punto único que usa la vista
- * propia: el tablero y el informe no pueden decir números distintos.
+ * «En riesgo» es la SITUACIÓN FINAL proyectada del MINEDU: los que requieren
+ * recuperación (RR) más los que permanecen en el grado (PER). Las cifras salen
+ * de `riesgo_resumen()`, el mismo punto único que usa la vista propia: el
+ * tablero y el informe no pueden decir números distintos.
  *
  * @var array     $bloques
  * @var bool|null $riesgoEnlace  lo pone la PANTALLA; el A4 no lo define y no
  *                               emite el enlace (en papel sería un enlace muerto).
  */
-$res = riesgo_resumen($bloques['merito']['por_grado'] ?? []);
+$res = riesgo_resumen($bloques['situacion'] ?? []);
 ?>
 <div class="cuadros-banda cuadros-banda--riesgo">
     <p class="cuadros-banda__cifra">
@@ -25,15 +26,27 @@ $res = riesgo_resumen($bloques['merito']['por_grado'] ?? []);
         </span>
     </p>
     <ul class="cuadros-banda__datos">
-        <li><strong><?= (int) $res['criticos'] ?></strong> de mayor atención</li>
+        <li><strong><?= (int) $res['permanencia'] ?></strong> permanecerían en el grado</li>
+        <li><strong><?= (int) $res['recuperacion'] ?></strong> requieren recuperación</li>
         <li><strong><?= (int) $res['grados'] ?> de <?= (int) $res['grados_total'] ?></strong> grados con casos</li>
     </ul>
+    <?php // La cobertura NO es decoracion: en un bimestre a medio calificar las
+          // areas sin nota no cuentan y la proyeccion sale optimista. Callarlo
+          // convertiria un informe incompleto en una buena noticia. ?>
+    <?php if (!$res['cobertura']['completa']): ?>
+        <p class="cuadros-banda__nota">
+            Proyección parcial: <strong><?= (int) $res['cobertura']['parciales'] ?></strong>
+            estudiante<?= $res['cobertura']['parciales'] !== 1 ? 's' : '' ?> todavía sin todas
+            las áreas de su plan calificadas.
+        </p>
+    <?php endif; ?>
     <ul class="riesgo-banda__niveles">
         <?php foreach ($res['por_nivel'] as $niv): ?>
             <li>
                 <strong><?= e($niv['nombre']) ?>:</strong>
                 <?= (int) $niv['total'] ?> de <?= (int) $niv['evaluados'] ?> (<?= (int) $niv['pct'] ?>%)
-                con <?= (int) ($bloques['merito']['riesgo_min_c'] ?? 3) ?> o más competencias <?= e($niv['rotulo']) ?>
+                no alcanzarían la promoción<?php if ($niv['permanencia'] > 0): ?>,
+                    de los cuales <?= (int) $niv['permanencia'] ?> permanecerían en el grado<?php endif; ?>
             </li>
         <?php endforeach; ?>
     </ul>

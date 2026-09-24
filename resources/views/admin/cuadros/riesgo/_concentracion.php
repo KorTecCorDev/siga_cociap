@@ -5,7 +5,7 @@
  * tutor, `_seccion.php`). Cuenta SOLO a los estudiantes de la lista recibida:
  * es «dónde se concentran los casos», no la distribución de notas.
  *
- * @var array $riesgo  con `stats` (de `riesgo_estadisticas()`) y `contar_b`
+ * @var array $riesgo  con `stats` (de `riesgo_estadisticas()`)
  */
 $st  = $riesgo['stats'];
 $res = $st['resumen'];
@@ -19,11 +19,13 @@ $barra ??= static function (int $n, int $de): string {
 };
 ?>
 <?php // ── Concentración por área, competencia y docente, POR NIVEL ──────
-      // Por nivel porque la regla lo es: en primaria se cuentan B y C, en
-      // secundaria solo C. Mezclarlas sumaría cosas distintas. ?>
+      // Por nivel porque lo que se lista lo es: son las competencias NO
+      // aprobatorias de cada nivel (primaria B y C, secundaria solo C).
+      // Mezclarlas sumaría cosas distintas. ?>
 <?php foreach ($res['por_nivel'] as $niv):
     $nid     = (int) $niv['nivel_id'];
-    $conB    = in_array('B', riesgo_literales($niv['codigo'], $riesgo['contar_b'] ?? true), true);
+    // En secundaria la B aprueba, así que no hay columna B que mostrar.
+    $conB    = !nota_es_aprobatoria('B', (string) $niv['codigo']);
     $totNiv  = (int) $niv['total'];
     $areas   = $st['areas'][$nid] ?? [];
     $comps   = $st['competencias'][$nid] ?? [];
@@ -33,7 +35,8 @@ $barra ??= static function (int $n, int $de): string {
     <section class="riesgo-conc">
         <h3 class="riesgo-conc__titulo">
             Concentración de casos &middot; <?= e($niv['nombre']) ?>
-            <span>(<?= $totNiv ?> estudiantes; se cuentan sus competencias <?= e($niv['rotulo']) ?>)</span>
+            <span>(<?= $totNiv ?> estudiantes; se cuentan sus competencias
+            <?= $conB ? 'en B o C' : 'en C' ?>)</span>
         </h3>
 
         <div class="riesgo-resumen__par">
@@ -111,11 +114,3 @@ $barra ??= static function (int $n, int $de): string {
     </section>
 <?php endforeach; ?>
 
-<?php if ($st['sin_desglose'] > 0): ?>
-    <p class="riesgo-nota">
-        <?= (int) $st['sin_desglose'] ?> estudiante<?= $st['sin_desglose'] !== 1 ? 's' : '' ?>
-        no entra<?= $st['sin_desglose'] !== 1 ? 'n' : '' ?> en la concentración por área,
-        competencia y docente: su desglose no coincide con el dato oficial del cierre
-        (las notas cambiaron después de cerrar el bimestre).
-    </p>
-<?php endif; ?>

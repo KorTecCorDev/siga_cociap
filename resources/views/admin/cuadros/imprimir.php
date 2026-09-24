@@ -173,7 +173,7 @@ $k = $bloques['matricula']['kpis'];
 
         <?php
         $hayRiesgo = (bool) array_filter(
-            $bloques['merito']['por_grado'] ?? [],
+            $bloques['situacion'] ?? [],
             static fn(array $g): bool => !empty($g['en_riesgo'])
         );
         ?>
@@ -182,11 +182,12 @@ $k = $bloques['matricula']['kpis'];
                   // archiva, y "no hay nadie en riesgo" y "todavia no se puede
                   // saber" son afirmaciones muy distintas para quien lo lea. ?>
             <p class="cuadros-print__vacio">
-                <?php if (empty($bloques['merito']['por_grado'])): ?>
+                <?php if (empty($bloques['situacion'])): ?>
                     Este bimestre todavía no tiene competencias bloqueadas: aún no puede
                     determinarse quién está en riesgo.
                 <?php else: ?>
-                    Ningún estudiante llega al umbral de riesgo en este bimestre.
+                    Con las notas de este bimestre, todos los estudiantes evaluados
+                    alcanzarían la promoción de grado.
                 <?php endif; ?>
             </p>
         <?php else: ?>

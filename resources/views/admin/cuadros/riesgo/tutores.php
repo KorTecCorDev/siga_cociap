@@ -11,19 +11,12 @@
  * El bloque es `_seccion.php`, el mismo que ve el tutor en su panel.
  *
  * @var array $periodo
- * @var array $riesgo   salida de componerRiesgo() (lente y alcance)
+ * @var array $riesgo   salida de componerRiesgo() (alcance)
  * @var array $bloques  salida de riesgo_por_seccion()
  */
-$opts = [
-    'contar_b'    => $riesgo['contar_b'],
-    'min'         => $riesgo['min'],
-    'critico_min' => $riesgo['critico_min'],
-];
-$contarB = $riesgo['contar_b'];
-
 // Aislado en un closure: `_seccion.php` redefine `$riesgo` para sus partials
 // y no debe pisar el de esta página.
-$pintarSeccion = static function (array $bloque, array $opts): void {
+$pintarSeccion = static function (array $bloque): void {
     require VIEW_PATH . '/admin/cuadros/riesgo/_seccion.php';
 };
 ?>
@@ -33,7 +26,7 @@ $pintarSeccion = static function (array $bloque, array $opts): void {
         $alcance = $sec['grado_nombre'] . ' ' . $sec['nombre'] . ' de ' . $sec['nivel_nombre']; ?>
         <div class="riesgo-lote__hoja">
             <?php require VIEW_PATH . '/admin/cuadros/riesgo/_cabecera.php'; ?>
-            <?php $pintarSeccion($bloque, $opts); ?>
+            <?php $pintarSeccion($bloque); ?>
         </div>
     <?php endforeach; ?>
 </div>

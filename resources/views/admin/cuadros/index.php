@@ -99,7 +99,7 @@ require VIEW_PATH . '/admin/cuadros/_chart-data.php';
       // Las entradas se ARMAN, no se escriben a mano en el HTML: Reaperturas es
       // condicional, y un ancla a un `id` que la página no emitió es un enlace
       // que no lleva a ninguna parte. El verificador comprueba justo eso.
-      $resRiesgo = riesgo_resumen($bloques['merito']['por_grado'] ?? []);
+      $resRiesgo = riesgo_resumen($bloques['situacion'] ?? []);
 
       $indice = [
           ['cuadros-g-matricula',     'Matrícula',             null],
@@ -279,7 +279,7 @@ require VIEW_PATH . '/admin/cuadros/_chart-data.php';
 // da el puesto y el promedio de la fila. Por eso NO hay una clave nueva en el
 // controlador ni una consulta mas.
 $hayRiesgo = (bool) array_filter(
-    $bloques['merito']['por_grado'] ?? [],
+    $bloques['situacion'] ?? [],
     static fn(array $g): bool => !empty($g['en_riesgo'])
 );
 ?>
@@ -292,14 +292,12 @@ $hayRiesgo = (bool) array_filter(
               // bloqueadas (todavia no se puede saber). ?>
         <div class="empty-state">
             <p>
-                <?php if (empty($bloques['merito']['por_grado'])): ?>
+                <?php if (empty($bloques['situacion'])): ?>
                     Este bimestre todavía no tiene competencias bloqueadas: hasta que los
                     docentes aprueben y bloqueen sus notas no se puede saber quién está en riesgo.
                 <?php else: ?>
-                    Ningún estudiante llega al umbral de riesgo en lo que va del bimestre
-                    (primaria: <?= (int) ($bloques['merito']['riesgo_min_c'] ?? 3) ?> o más
-                    competencias <?= e(riesgo_rotulo('prim')) ?>; secundaria:
-                    <?= (int) ($bloques['merito']['riesgo_min_c'] ?? 3) ?> o más <?= e(riesgo_rotulo('sec')) ?>).
+                    Con las notas de este bimestre, todos los estudiantes evaluados
+                    alcanzarían la promoción de grado.
                 <?php endif; ?>
             </p>
         </div>

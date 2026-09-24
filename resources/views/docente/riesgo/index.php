@@ -4,19 +4,21 @@
  * Solo lectura.
  *
  * Mismo bloque que Dirección imprime en el lote por tutor (`_seccion.php`).
- * Solo bimestres PUBLICADOS del nivel (compuerta 044): el informe lleva puestos
- * del orden de mérito. La sección la fija el servidor (`tutor_id`), nunca la URL.
+ * «En riesgo» es la SITUACIÓN FINAL proyectada del MINEDU: requiere
+ * recuperación (RR) o permanece en el grado (PER). Solo bimestres PUBLICADOS
+ * del nivel (compuerta 044). La sección la fija el servidor (`tutor_id`),
+ * nunca la URL.
  *
  * @var array      $seccion      fila de `SeccionModel::seccionesDelAnio()`
  * @var array      $periodos     bimestres publicados de su nivel
  * @var array|null $periodo      el elegido
- * @var array|null $bloque       `OrdenMeritoModel::riesgoDeSeccion()`
+ * @var array|null $bloque       `SituacionFinalModel::deSeccion()`
  * @var bool       $noPublicado  se pidió un bimestre que aún no está publicado
  */
 $pid = $periodo ? (int) $periodo['id'] : 0;
 
 // Aislado en un closure: `_seccion.php` redefine `$riesgo` para sus partials.
-$pintarSeccion = static function (array $bloque, array $opts): void {
+$pintarSeccion = static function (array $bloque): void {
     require VIEW_PATH . '/admin/cuadros/riesgo/_seccion.php';
 };
 ?>
@@ -27,8 +29,9 @@ $pintarSeccion = static function (array $bloque, array $opts): void {
         <h1 class="page-title page-title--wf page-title--riesgo">Estudiantes en riesgo académico</h1>
         <p class="page-subtitle">
             <?= e($seccion['nivel_nombre']) ?> &mdash; <?= e($seccion['grado_nombre']) ?> &mdash;
-            Sección <?= e($seccion['nombre']) ?>. Estudiantes de tu sección que acumulan
-            competencias no aprobadas, con su desglose. Solo lectura.
+            Sección <?= e($seccion['nombre']) ?>. Estudiantes de tu sección que, con las notas
+            de este bimestre, <strong>no alcanzarían la promoción de grado</strong>, con su
+            desglose. Solo lectura.
         </p>
     </div>
 </div>
@@ -60,9 +63,5 @@ $pintarSeccion = static function (array $bloque, array $opts): void {
            class="btn btn--secondary btn--sm" target="_blank" rel="noopener">&#128424; Imprimir</a>
     </div>
 
-    <?php $pintarSeccion($bloque, [
-        'contar_b'    => true,
-        'min'         => App\Models\OrdenMeritoModel::RIESGO_MIN_C,
-        'critico_min' => App\Models\OrdenMeritoModel::RIESGO_CRITICO,
-    ]); ?>
+    <?php $pintarSeccion($bloque); ?>
 <?php endif; ?>

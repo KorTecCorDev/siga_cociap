@@ -373,9 +373,45 @@
         border-radius: 2px;
     }
 
+    // PER (permanece en el grado) es la situacion final mas grave que contempla
+    // la norma; RR (requiere recuperacion) es la otra. Se distinguen por el
+    // color del contorno, no por relleno: el peso visual sigue siendo de la
+    // seccion, no de la persona.
+    &__marca--per { border-color: $color-error;   color: $color-error; }
+    &__marca--rr  { border-color: $color-warning; color: $color-warning; }
+
     &__dato { color: $text-secondary; strong { color: $text-primary; } }
 
+    // El motivo explica POR QUE no alcanza la promocion: va en linea propia
+    // porque la regla se cuenta por area y no cabe en el resumen de la franja.
+    &__motivo {
+        display: block;
+        margin-top: 2px;
+        font-size: $font-size-sm;
+        font-style: italic;
+        color: $text-secondary;
+    }
+
     &__aviso { font-style: italic; color: $text-secondary; }
+}
+
+// Cobertura de la proyeccion: en un bimestre a medio calificar las areas sin
+// nota no cuentan y el resultado sale optimista. Se avisa dentro de la banda.
+.riesgo-banda__cobertura,
+.cuadros-banda__nota {
+    flex: 1 1 100%;
+    margin: $spacing-xs 0 0;
+    font-size: $font-size-sm;
+    color: $color-warning;
+
+    strong { color: $color-warning; }
+}
+
+// 1.o de primaria: promocion automatica. NO es riesgo, y la seccion lo dice.
+.riesgo-automatica {
+    margin-top: $spacing-lg;
+
+    .riesgo-nota { margin-bottom: $spacing-sm; }
 }
 
 // ── A4 (layout print) ────────────────────────────────────────────────
@@ -493,7 +529,10 @@
 
     .riesgo-alumno__nombre { font-size: 8.5pt; color: #000; }
     .riesgo-alumno__dato   { color: #333; }
-    .riesgo-alumno__marca  { font-size: 6.5pt; border-color: #000; }
+    .riesgo-alumno__marca  { font-size: 6.5pt; border-color: #000; color: #000; }
+    .riesgo-alumno__motivo { font-size: 7pt; color: #333; }
+    .riesgo-banda__cobertura,
+    .cuadros-banda__nota   { font-size: 7.5pt; color: #000; strong { color: #000; } }
     .riesgo-cur            { color: #555; }
 }
 

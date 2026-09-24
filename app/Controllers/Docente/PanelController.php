@@ -11,6 +11,7 @@ use App\Models\HorarioModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\PublicacionBoletaModel;
 use App\Models\SeccionModel;
+use App\Models\SituacionFinalModel;
 use App\Models\TransversalModel;
 use App\Models\NotaExternaModel;
 use Core\Session;
@@ -161,8 +162,8 @@ class PanelController extends BaseController
         // Card de Estudiantes en riesgo (solo tutores; 23/09/2026): cifras de SU
         // sección en el ÚLTIMO bimestre PUBLICADO de su nivel —compuerta 044,
         // como el mérito del claustro: el informe lleva puestos—. Sale del mismo
-        // punto único que el informe al que lleva (`riesgoDeSeccion`), así que
-        // la card no puede decir otra cifra. Solo el tutor paga el cálculo.
+        // punto único que el informe al que lleva (`SituacionFinalModel::deSeccion`),
+        // así que la card no puede decir otra cifra. Solo el tutor paga el cálculo.
         $riesgoTutor = null;
         if ($seccionTutor) {
             $anioT  = (int) $seccionTutor['anio_id'];
@@ -171,8 +172,8 @@ class PanelController extends BaseController
             $riesgoTutor = ['seccion' => $seccionTutor, 'periodo' => $ultimo, 'resumen' => null];
             if ($ultimo) {
                 $fila = array_column((new SeccionModel())->seccionesDelAnio($anioT), null, 'id')[(int) $seccionTutor['id']];
-                $riesgoTutor['resumen'] = (new OrdenMeritoModel())
-                    ->riesgoDeSeccion((int) $ultimo['id'], $fila)['stats']['resumen'];
+                $riesgoTutor['resumen'] = (new SituacionFinalModel())
+                    ->deSeccion((int) $ultimo['id'], $fila)['stats']['resumen'];
             }
         }
 

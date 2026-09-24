@@ -4,7 +4,7 @@ namespace App\Controllers\Docente;
 
 use App\Controllers\BaseController;
 use App\Models\ControlOperativoModel;
-use App\Models\OrdenMeritoModel;
+use App\Models\SituacionFinalModel;
 use App\Models\PublicacionBoletaModel;
 use App\Models\SeccionModel;
 use App\Models\TransversalModel;
@@ -16,7 +16,7 @@ use Core\View;
  * (23/09/2026). Solo lectura.
  *
  * Es el mismo bloque que Dirección imprime en el lote por tutor
- * (`/admin/cuadros/riesgo/tutores`): `OrdenMeritoModel::riesgoDeSeccion()` →
+ * (`/admin/cuadros/riesgo/tutores`): `SituacionFinalModel::deSeccion()` →
  * `_seccion.php`. Aquí no se calcula nada.
  *
  * 🔴 DOS CANDADOS, los dos en SERVIDOR:
@@ -28,15 +28,16 @@ use Core\View;
  *     el claustro ve el mérito solo cuando su nivel está publicado. Un bimestre
  *     cerrado sin publicar no se lista ni se acepta por `?periodo_id`.
  *
- * Siempre con la regla oficial (primaria B+C): el tutor no tiene la lente
- * «solo C» de Dirección (decisión del usuario). El tutor que se nombra es el
- * ACTUAL; ve todos los bimestres publicados de su sección.
+ * «En riesgo» es la SITUACIÓN FINAL proyectada del MINEDU —requiere
+ * recuperación o permanece en el grado—, la misma regla que ve Dirección. El
+ * tutor que se nombra es el ACTUAL; ve todos los bimestres publicados de su
+ * sección.
  */
 class RiesgoTutorController extends BaseController
 {
     private TransversalModel       $transModel;
     private SeccionModel           $seccionModel;
-    private OrdenMeritoModel       $meritoModel;
+    private SituacionFinalModel    $situacionModel;
     private PublicacionBoletaModel $publicacionModel;
     private ControlOperativoModel  $controlModel;
 
@@ -45,7 +46,7 @@ class RiesgoTutorController extends BaseController
         $this->requireRole(['docente']);
         $this->transModel       = new TransversalModel();
         $this->seccionModel     = new SeccionModel();
-        $this->meritoModel      = new OrdenMeritoModel();
+        $this->situacionModel   = new SituacionFinalModel();
         $this->publicacionModel = new PublicacionBoletaModel();
         $this->controlModel     = new ControlOperativoModel();
     }
@@ -62,7 +63,7 @@ class RiesgoTutorController extends BaseController
             'seccion'     => $seccion,
             'periodos'    => $periodos,
             'periodo'     => $periodo,
-            'bloque'      => $periodo ? $this->meritoModel->riesgoDeSeccion((int) $periodo['id'], $seccion) : null,
+            'bloque'      => $periodo ? $this->situacionModel->deSeccion((int) $periodo['id'], $seccion) : null,
             'noPublicado' => $noPublicado,
         ]);
     }
@@ -86,7 +87,7 @@ class RiesgoTutorController extends BaseController
             'titulo'  => 'Estudiantes en riesgo — ' . $seccion['grado_nombre'] . ' ' . $seccion['nombre'],
             'seccion' => $seccion,
             'periodo' => $periodo,
-            'bloque'  => $this->meritoModel->riesgoDeSeccion((int) $periodo['id'], $seccion),
+            'bloque'  => $this->situacionModel->deSeccion((int) $periodo['id'], $seccion),
         ]);
     }
 

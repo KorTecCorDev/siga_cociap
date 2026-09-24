@@ -7,22 +7,17 @@
  *
  * @var array $seccion
  * @var array $periodo
- * @var array $bloque   `OrdenMeritoModel::riesgoDeSeccion()`
+ * @var array $bloque   `SituacionFinalModel::deSeccion()`
  */
 $alcance = $seccion['grado_nombre'] . ' ' . $seccion['nombre'] . ' de ' . $seccion['nivel_nombre'];
-$contarB = true;
 
-$pintarSeccion = static function (array $bloque, array $opts): void {
+$pintarSeccion = static function (array $bloque): void {
     require VIEW_PATH . '/admin/cuadros/riesgo/_seccion.php';
 };
 ?>
 <div class="riesgo-print riesgo-lote">
     <div class="riesgo-lote__hoja">
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_cabecera.php'; ?>
-        <?php $pintarSeccion($bloque, [
-            'contar_b'    => true,
-            'min'         => App\Models\OrdenMeritoModel::RIESGO_MIN_C,
-            'critico_min' => App\Models\OrdenMeritoModel::RIESGO_CRITICO,
-        ]); ?>
+        <?php $pintarSeccion($bloque); ?>
     </div>
 </div>

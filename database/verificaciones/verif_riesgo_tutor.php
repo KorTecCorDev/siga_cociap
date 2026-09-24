@@ -39,7 +39,7 @@ $pdo = Core\Database::connect();
 
 use App\Controllers\Docente\PanelController;
 use App\Controllers\Docente\RiesgoTutorController;
-use App\Models\OrdenMeritoModel;
+use App\Models\SituacionFinalModel;
 
 // Instancia sin constructor (el constructor exige sesión) con sus modelos.
 $armar = static function (string $clase, array $modelos): array {
@@ -55,7 +55,7 @@ $armar = static function (string $clase, array $modelos): array {
 [$rcT, $tutorCtrl] = $armar(RiesgoTutorController::class, [
     'transModel'       => new App\Models\TransversalModel(),
     'seccionModel'     => new App\Models\SeccionModel(),
-    'meritoModel'      => new OrdenMeritoModel(),
+    'situacionModel'   => new SituacionFinalModel(),
     'publicacionModel' => new App\Models\PublicacionBoletaModel(),
     'controlModel'     => new App\Models\ControlOperativoModel(),
 ]);
@@ -161,12 +161,12 @@ if ($periodos) {
 // ── 3. El informe: su sección, con la regla oficial ─────────────────────
 echo "\nINFORME DEL TUTOR\n";
 if ($periodo) {
-    $merito = new OrdenMeritoModel();
-    $bloque = $merito->riesgoDeSeccion((int) $periodo['id'], $sec);
-    // A mano sobre el ranking oficial: filas de ESTA sección (grado + nombre).
+    $situacion = new SituacionFinalModel();
+    $bloque = $situacion->deSeccion((int) $periodo['id'], $sec);
+    // A mano sobre la lista oficial: filas de ESTA sección (grado + nombre).
     $esperado = 0;
     $conRetorno = false;
-    foreach ($merito->statsPorGrado((int) $periodo['id']) as $g) {
+    foreach ($situacion->porGrado((int) $periodo['id']) as $g) {
         if ((int) $g['grado']['id'] !== (int) $sec['grado_id']) { continue; }
         foreach ($g['en_riesgo'] as $al) {
             if ($al['seccion_nombre'] === $sec['nombre']) {
@@ -186,18 +186,19 @@ if ($periodo) {
         $chk('el retorno de grado aparece en el informe del tutor de su sección OFICIAL', $conRetorno || $esperado === 0);
     }
 
-    $opts = ['contar_b' => true, 'min' => OrdenMeritoModel::RIESGO_MIN_C, 'critico_min' => OrdenMeritoModel::RIESGO_CRITICO];
-    $_GET = ['primaria' => 'c'];
     [$hI, $eI] = $render('docente/riesgo/index', ['seccion' => $sec, 'periodos' => $periodos, 'periodo' => $periodo, 'bloque' => $bloque, 'noPublicado' => false]);
-    $_GET = [];
     [$hP, $eP] = $render('docente/riesgo/imprimir', ['seccion' => $sec, 'periodo' => $periodo, 'bloque' => $bloque]);
     $chk('pantalla y A4 del tutor renderizan sin avisos, con su tutor y sus filas',
         $eI === [] && $eP === []
             && substr_count($hI, 'data-riesgo-fila') === $esperado && substr_count($hP, 'data-riesgo-fila') === $esperado
             && str_contains($hI, 'Tutor(a) actual:') && str_contains($hP, 'Tutor(a) actual:'),
         ($eI[0] ?? $eP[0] ?? "$esperado fila(s) en cada una"));
-    $chk('el tutor ve siempre la regla oficial (?primaria=c no cambia nada)',
-        !str_contains($hI . $hP, 'solo competencias en C') && !str_contains($hI, 'name="primaria"'));
+    // La regla es la del MINEDU y es UNA: el informe habla de situacion final,
+    // no de umbrales de conteo, y no ofrece variantes de lectura.
+    $chk('el informe del tutor habla de la situacion final, sin umbrales de conteo',
+        !str_contains($hI . $hP, 'name="primaria"')
+            && !str_contains($hI . $hP, 'o más competencias')
+            && (str_contains($hI, 'promoción') || str_contains($hI, 'promocion')));
     $chk('ninguna vista del tutor lleva CSS inline',
         !preg_match('~\sstyle="~', file_get_contents(VIEW_PATH . '/docente/riesgo/index.php') . file_get_contents(VIEW_PATH . '/docente/riesgo/imprimir.php')));
 }
@@ -227,11 +228,11 @@ $ultimo = (new App\Models\PublicacionBoletaModel())
 if (preg_match('~<a href="[^"]*docente/tutoria/riesgo" class="card dpanel-card dpanel-card--riesgo">(.*?)</a>~s', $hC, $mC)) {
     $txt = trim(preg_replace('~\s+~', ' ', strip_tags($mC[1])));
     if ($ultimo) {
-        $res = (new OrdenMeritoModel())->riesgoDeSeccion((int) $ultimo['id'], $sec)['stats']['resumen'];
+        $res = (new SituacionFinalModel())->deSeccion((int) $ultimo['id'], $sec)['stats']['resumen'];
         $chk('la card del tutor muestra las cifras del ÚLTIMO bimestre publicado, iguales al informe',
             str_contains($txt, $ultimo['nombre_display'])
-                && str_contains($txt, $res['total'] . ' de ' . $res['evaluados'] . ' en riesgo')
-                && str_contains($txt, $res['criticos'] . ' de mayor atención') && $eC === [],
+                && str_contains($txt, $res['total'] . ' de ' . $res['evaluados'] . ' no alcanzarían la promoción')
+                && str_contains($txt, $res['permanencia'] . ' permanecerían en el grado') && $eC === [],
             $txt);
     } else {
         $chk('sin bimestre publicado, la card lo dice', str_contains($txt, 'Aún no hay bimestre publicado'), $txt);

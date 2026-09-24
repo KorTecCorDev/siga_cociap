@@ -1202,11 +1202,16 @@ foreach (['solo_bimestres_cerrados', 'periodos_cerrados', 'ultimo_periodo_cerrad
 // Vista propia `/admin/cuadros/riesgo` y su A4. Se arma con el MISMO
 // `componerRiesgo()` del controlador (por reflexion) y se renderiza de verdad:
 // es lo unico que atrapa una clave inexistente en los partials.
+//
+// «En riesgo» es la SITUACION FINAL del MINEDU (RR + PER). La REGLA la
+// verifican `verif_situacion_final.php` (casos sinteticos) y
+// `verif_riesgo_situacion_bd.php` (cuadre con los datos). Aqui se verifican las
+// SUPERFICIES: que pantalla, A4 y lote por tutor digan lo mismo que el modelo.
 echo "\nINFORME DE RIESGO — /admin/cuadros/riesgo\n";
 $sesionComo('admin');
-$propMerito = $ctrlClase->getProperty('meritoModel');
-$propMerito->setAccessible(true);
-$propMerito->setValue($ctrl, new App\Models\OrdenMeritoModel());
+$propSituacion = $ctrlClase->getProperty('situacionModel');
+$propSituacion->setAccessible(true);
+$propSituacion->setValue($ctrl, new App\Models\SituacionFinalModel());
 $propSeccion = $ctrlClase->getProperty('seccionModel');
 $propSeccion->setAccessible(true);
 $propSeccion->setValue($ctrl, new App\Models\SeccionModel());
@@ -1232,7 +1237,7 @@ $chk('el A4 de riesgo no lleva el sello del Director EBR (documento de trabajo)'
     && !str_contains($leer('/resources/views/admin/cuadros/riesgo/imprimir.php'), '$directorEbr')
     && !preg_match('~function riesgoImprimir\(\).*?directorEbr.*?function componerRiesgo~s', $ctrlSrcR));
 
-$vistasRiesgo = ['index', 'imprimir', '_resumen', '_criticos', '_listado', '_leer'];
+$vistasRiesgo = ['index', 'imprimir', '_resumen', '_criticos', '_listado', '_leer', '_automatica'];
 $conStyle = array_values(array_filter($vistasRiesgo, fn($v) =>
     (bool) preg_match('~\sstyle="~', $leer("/resources/views/admin/cuadros/riesgo/$v.php"))));
 $chk('ninguna vista del informe de riesgo lleva CSS inline', $conStyle === [], implode(', ', $conStyle));
@@ -1258,26 +1263,37 @@ foreach ($todos as $pr) {
     // lo correcto es el estado vacio, en las dos superficies.
     if ((int) $riesgo['stats']['resumen']['total'] === 0) {
         $chk("sin casos en $etqR: estado vacio en pantalla y en papel, sin listado",
-            str_contains($hIdx, 'llega') && str_contains($hPrn, 'cuadros-print__vacio')
-                && !str_contains($hIdx . $hPrn, 'riesgo-tabla'));
+            str_contains($hIdx, 'alcanzarían la promoción') && str_contains($hPrn, 'cuadros-print__vacio')
+                && !str_contains($hPrn, 'riesgo-listado'));
         continue;
     }
 
     $conCasos = array_values(array_filter($riesgo['filtrado'], fn($g) => !empty($g['en_riesgo'])));
     $total    = (int) $riesgo['stats']['resumen']['total'];
     $filasDet = 0;
-    $bajo     = 0;
+    $malSit   = 0;
     foreach ($conCasos as $g) {
-        $esPrim = str_starts_with((string) $g['grado']['nivel_codigo'], 'prim');
         foreach ($g['en_riesgo'] as $al) {
             $filasDet += count($al['detalle'] ?? []);
-            // Suma escrita aqui a mano por nivel: primaria B+C, secundaria C.
-            $n = (int) $al['num_c'] + ($esPrim ? (int) $al['num_b'] : 0);
-            if ($n < App\Models\OrdenMeritoModel::RIESGO_MIN_C) { $bajo++; }
+            // Solo RR y PER llegan a la lista: un PRO o un ND aqui seria un fallo.
+            if (!in_array($al['situacion'], [SITUACION_RR, SITUACION_PER], true)) { $malSit++; }
+            if (trim((string) $al['motivo']) === '') { $malSit++; }
         }
     }
-    $chk("nadie por debajo del umbral en el informe de $etqR (primaria B+C, secundaria C)",
-        $bajo === 0, $bajo > 0 ? "$bajo fila(s) indebidas" : "$total estudiante(s)");
+    $chk("en el informe de $etqR solo hay RR y PER, y cada fila dice su motivo",
+        $malSit === 0, $malSit > 0 ? "$malSit fila(s) indebidas" : "$total estudiante(s)");
+
+    // 1.o de primaria (promocion automatica) NUNCA entra a la lista de riesgo.
+    $auto = 0;
+    foreach ($riesgo['filtrado'] as $g) {
+        if (str_starts_with((string) $g['grado']['nivel_codigo'], 'prim') && (int) $g['grado']['numero'] === 1) {
+            $auto += count($g['en_riesgo']);
+        }
+    }
+    $chk("1.o de primaria no aparece en riesgo en $etqR (promocion automatica)", $auto === 0);
+
+    $conAuto   = count(array_filter($riesgo['filtrado'], fn($g) => !empty($g['automatica'])));
+    $autoFilas = array_sum(array_map(fn($g) => count($g['automatica']), $riesgo['filtrado']));
 
     foreach ([['pantalla', $hIdx], ['papel', $hPrn]] as [$donde, $doc]) {
         // Una tabla por grado con casos, con el TITULO DEL GRADO DENTRO DEL
@@ -1292,16 +1308,15 @@ foreach ($todos as $pr) {
             }
         }
         $chk("en $donde de $etqR: una tabla por grado, con el titulo en el thead",
-            count($mT[1] ?? []) === count($conCasos) && $malas === 0,
-            count($mT[1] ?? []) . ' tabla(s) para ' . count($conCasos) . " grado(s) · $malas mal formada(s)");
+            count($mT[1] ?? []) === count($conCasos) + $conAuto && $malas === 0,
+            count($mT[1] ?? []) . ' tabla(s) para ' . count($conCasos) . " grado(s) + $conAuto de 1.o · $malas mal formada(s)");
 
         $chk("en $donde de $etqR: un <tbody> por estudiante, y ninguno se queda sin desglose",
-            substr_count($doc, 'data-riesgo-fila') === $total
-                && preg_match_all('~<tr>\R<td>~', $doc) === $filasDet,
-            substr_count($doc, 'data-riesgo-fila') . " estudiante(s) · $filasDet fila(s) de desglose");
+            substr_count($doc, 'data-riesgo-fila') === $total + $autoFilas,
+            substr_count($doc, 'data-riesgo-fila') . ' estudiante(s) · ' . ($total + $autoFilas) . ' esperados');
 
-        $chk("en $donde de $etqR: los de mayor atención llevan su marca",
-            substr_count($doc, 'riesgo-alumno--critico') === (int) $riesgo['stats']['resumen']['criticos'],
+        $chk("en $donde de $etqR: los que permanecen en el grado llevan su marca",
+            substr_count($doc, 'riesgo-alumno--critico') === (int) $riesgo['stats']['resumen']['permanencia'],
             substr_count($doc, 'riesgo-alumno--critico') . ' marcado(s)');
 
         $chk("en $donde de $etqR no hay datos detras de un <details>",
@@ -1316,7 +1331,12 @@ foreach ($todos as $pr) {
     $chk("el A4 de $etqR separa el listado en hoja propia",
         str_contains($hPrn, '<section class="riesgo-listado">'));
 
-    // ── Filtros (23/09/2026): varias secciones + lente «primaria solo C» ──
+    // Una hoja suelta tiene que decir QUE regla la produjo: sin esto se lee
+    // como una lista de castigo y no como la proyeccion normativa.
+    $chk("el A4 de $etqR nombra la norma que lo produce",
+        str_contains($hPrn, '00094-2020-MINEDU') && str_contains($hPrn, '048-2024-MINEDU'));
+
+    // ── Filtros (23/09/2026): varias SECCIONES, de cualquier grado y nivel ──
     // Todo se arma con el MISMO `componerRiesgo()` y se renderiza de verdad.
     $componer = static function (array $get) use ($privado, $pr): array {
         $_GET = $get;
@@ -1336,15 +1356,14 @@ foreach ($todos as $pr) {
     $idsSec  = array_keys(array_filter($porId, fn($g) => !$esPrimG($g)));
 
     // Por defecto: regla oficial, todos los grados, idéntico a la banda del tablero.
-    $oficial = riesgo_resumen((new App\Models\OrdenMeritoModel())->statsPorGrado($pidR));
-    $chk("por defecto el informe de $etqR es la regla oficial (B+C) sobre todos los grados",
-        $riesgo['contar_b'] === true && $riesgo['pide_solo_c'] === false && $riesgo['secciones_ids'] === []
+    $oficial = riesgo_resumen((new App\Models\SituacionFinalModel())->porGrado($pidR));
+    $chk("por defecto el informe de $etqR cubre todos los grados y cuadra con la banda",
+        $riesgo['secciones_ids'] === []
             && $idsDe($riesgo['filtrado']) === array_keys($porId)
             && (int) $riesgo['stats']['resumen']['total'] === (int) $oficial['total']
-            && (int) $riesgo['stats']['resumen']['criticos'] === (int) $oficial['criticos']
-            && $alcance($hPrn) === 'Todos los niveles y grados'
-            && !str_contains($hPrn, 'solo competencias en C'),
-        $oficial['total'] . ' estudiante(s) · ' . $oficial['criticos'] . ' de mayor atención');
+            && (int) $riesgo['stats']['resumen']['permanencia'] === (int) $oficial['permanencia']
+            && $alcance($hPrn) === 'Todos los niveles y grados',
+        $oficial['total'] . ' estudiante(s) · ' . $oficial['permanencia'] . ' permanencia(s)');
 
     // Retorno de grado: se lista en su grado OFICIAL y su franja dice dónde se
     // evalúa y con qué puesto (pantalla y papel).
@@ -1353,8 +1372,8 @@ foreach ($todos as $pr) {
         foreach ($g['en_riesgo'] as $al) { $nRet += empty($al['retorno']) ? 0 : 1; }
     }
     $chk("en $etqR cada retorno de grado lleva su marca en la franja (pantalla y papel)",
-        substr_count($hIdx, 'Retorno de grado: se evalúa en') === $nRet
-            && substr_count($hPrn, 'Retorno de grado: se evalúa en') === $nRet,
+        substr_count($hIdx, 'Retorno de grado: cursó este bimestre en') === $nRet
+            && substr_count($hPrn, 'Retorno de grado: cursó este bimestre en') === $nRet,
         "$nRet retorno(s) en la lista");
 
     // Secciones del año del bimestre, leídas aquí A MANO (no con el modelo).
@@ -1391,11 +1410,12 @@ foreach ($todos as $pr) {
         . $porId[$gPrim[1]]['grado']['nombre_display'] . ' · ' . $porId[$idsSec[0]]['grado']['nivel_nombre'] . ': '
         . $porId[$idsSec[0]]['grado']['nombre_display'] . ' ' . $secsAnio[$unaSec]['nombre']);
     $evalObt = array_sum(array_map(fn($g) => (int) $g['evaluados'], $rg['filtrado']));
+    $autoSel = array_sum(array_map(fn($g) => count($g['automatica']), $rg['filtrado']));
     $chk("varias secciones de dos niveles en $etqR: lista, evaluados, resumen y A4 describen exactamente esa selección",
         $rg['secciones_ids'] === $selIds
             && (int) $rg['stats']['resumen']['total'] === $esperado
             && $evalObt === $evalEsp && (int) $rg['stats']['resumen']['evaluados'] === $evalEsp
-            && substr_count($hG, 'data-riesgo-fila') === $esperado
+            && substr_count($hG, 'data-riesgo-fila') === $esperado + $autoSel
             && $alcance($hG) === $alcEsp && $eG === [] && $eGi === [],
         count($selIds) . " sección(es) · $esperado estudiante(s) de $evalEsp evaluados · alcance «" . html_entity_decode($alcance($hG)) . '»');
 
@@ -1411,7 +1431,7 @@ foreach ($todos as $pr) {
     $rT = $componer($qT);
     $chk("en $etqR las casillas marcadas son la selección y los enlaces Imprimir e Imprimir por tutor la reproducen",
         preg_match_all('~name="secciones\[\]" value="\d+"\s*checked~', $hGi) === count($selIds)
-            && $rU['secciones_ids'] === $rg['secciones_ids'] && $rU['contar_b'] === $rg['contar_b']
+            && $rU['secciones_ids'] === $rg['secciones_ids']
             && $rT['secciones_ids'] === $rg['secciones_ids']
             && (int) ($qU['periodo_id'] ?? 0) === $pidR && (int) ($qT['periodo_id'] ?? 0) === $pidR);
 
@@ -1425,7 +1445,7 @@ foreach ($todos as $pr) {
 
     // ── Lote por tutor: una sección por hoja, cada una con lo SUYO ──
     $renderLote = static function (array $r) use ($renderRiesgo, $pr): array {
-        $bloques = riesgo_por_seccion($r['por_grado'], $r['elegidas'] ?: $r['secciones'], $r['contar_b']);
+        $bloques = riesgo_por_seccion($r['por_grado'], $r['elegidas'] ?: $r['secciones']);
         [$h, $e] = $renderRiesgo(['periodo' => $pr, 'riesgo' => $r, 'bloques' => $bloques], 'tutores');
         return [$h, $e, $bloques];
     };
@@ -1458,120 +1478,36 @@ foreach ($todos as $pr) {
             && $eL0 === [],
         count($bL0) . ' hoja(s)');
 
-    // Lente «primaria solo C».
-    $rc = $componer(['primaria' => 'c']);
-    [$hC, $eC]   = $renderRiesgo(['periodo' => $pr, 'riesgo' => $rc], 'imprimir');
-    [$hCi, $eCi] = $renderRiesgo(['periodos' => $todos, 'periodo' => $pr, 'riesgo' => $rc, 'avisoNoCerrado' => false], 'index');
-    $minR  = App\Models\OrdenMeritoModel::RIESGO_MIN_C;
-    $critR = App\Models\OrdenMeritoModel::RIESGO_CRITICO;
-    $listaMal = $critMal = $filasB = $vacios = $descuadre = 0;
-    $secIgual = true;
-    $cPorId = [];
-    foreach ($rc['por_grado'] as $g) { $cPorId[(int) $g['grado']['id']] = $g; }
-    foreach ($porId as $id => $g) {
-        if (!$esPrimG($g)) {
-            $secIgual = $secIgual && ($cPorId[$id] ?? null) === $g;
-            continue;
-        }
-        // A mano, sobre la lista OFICIAL: C >= 3 entra, C >= 6 es crítico.
-        $mano = $manoCrit = [];
-        foreach ($g['en_riesgo'] as $al) {
-            if ((int) $al['num_c'] >= $minR) {
-                $mano[] = (int) $al['matricula_id'];
-                if ((int) $al['num_c'] >= $critR) { $manoCrit[] = (int) $al['matricula_id']; }
-            }
-        }
-        $suyos = $cPorId[$id]['en_riesgo'] ?? [];
-        $ids = array_map(fn($al) => (int) $al['matricula_id'], $suyos);
-        $crs = array_map(fn($al) => (int) $al['matricula_id'], array_filter($suyos, fn($al) => !empty($al['critico'])));
-        sort($mano); sort($manoCrit); sort($ids); sort($crs);
-        $listaMal += $mano === $ids ? 0 : 1;
-        $critMal  += $manoCrit === $crs ? 0 : 1;
-        foreach ($suyos as $al) {
-            if ((int) $al['conteo'] !== (int) $al['num_c']) { $listaMal++; }
-            if ($al['detalle'] === null) { continue; }
-            if ($al['detalle'] === []) { $vacios++; }
-            if (count($al['detalle']) !== (int) $al['num_c']) { $descuadre++; }
-            foreach ($al['detalle'] as $d) { if ($d['literal'] !== 'C') { $filasB++; } }
-        }
-    }
-    $chk("sin B en $etqR: la lista de primaria es C >= $minR calculada a mano",
-        $rc['contar_b'] === false && $listaMal === 0, "$listaMal grado(s)/fila(s) distintos");
-    $chk("sin B en $etqR: mayor atención de primaria es C >= $critR", $critMal === 0, "$critMal grado(s) distintos");
-    $chk("sin B en $etqR: el desglose no tiene filas B, ninguno queda vacío y todos cuadran con num_c",
-        $filasB === 0 && $vacios === 0 && $descuadre === 0,
-        "$filasB fila(s) B · $vacios vacío(s) · $descuadre descuadre(s)");
-
-    $bPrim = 0;
-    foreach ($rc['stats']['resumen']['por_nivel'] as $niv) {
-        if (!str_starts_with($niv['codigo'], 'prim')) { continue; }
-        foreach (['areas', 'docentes', 'competencias'] as $k) {
-            foreach ($rc['stats'][$k][$niv['nivel_id']] ?? [] as $f) { $bPrim += (int) $f['B']; }
-        }
-        $rotPrim = $niv['rotulo'];
-    }
-    $chk("sin B en $etqR: área, docente y competencia de primaria tienen 0 B y el rótulo dice «en C»",
-        $bPrim === 0 && ($rotPrim ?? '') === 'en C', "$bPrim nota(s) B · rótulo «" . ($rotPrim ?? '?') . '»');
-    $chk("sin B en $etqR: secundaria queda idéntica a la regla oficial", $secIgual);
-    $chk("sin B en $etqR: el A4 declara el modo y renderiza sin avisos",
-        str_contains($hC, 'solo competencias en C') && $eC === [] && $eCi === []
-            && substr_count($hC, 'data-riesgo-fila') === (int) $rc['stats']['resumen']['total']
-            && preg_match('~name="primaria" value="c"\s*checked~', $hCi) === 1,
-        $rc['stats']['resumen']['total'] . ' estudiante(s) · ' . $rc['stats']['resumen']['criticos'] . ' de mayor atención');
-
-    // «Solo C» pedido con solo secundaria: no se aplica ni se declara, pero se conserva.
-    $idsSecciones2 = array_merge(...array_map($secDe, $idsSec));
-    $rs = $componer(['primaria' => 'c', 'secciones' => array_map('strval', $idsSecciones2)]);
-    [$hS] = $renderRiesgo(['periodo' => $pr, 'riesgo' => $rs], 'imprimir');
-    $chk("en $etqR «solo C» con solo secundaria no cambia nada ni se declara en el A4",
-        $rs['contar_b'] === true && $rs['hay_primaria'] === false && $rs['pide_solo_c'] === true
-            && !str_contains($hS, 'solo competencias en C'));
-
-    // El punto unico del conteo sale de LITERALES_APROBATORIOS.
-    $chk('riesgo_literales(): primaria cuenta B y C, secundaria solo C',
-        riesgo_literales('prim') === ['B', 'C'] && riesgo_literales('sec') === ['C']);
+    // La COBERTURA se declara cuando la proyeccion es parcial: callarla
+    // convertiria un informe a medio calificar en una buena noticia.
+    $parciales = (int) $riesgo['stats']['resumen']['cobertura']['parciales'];
+    $chk("la cobertura de $etqR se declara si es parcial y se calla si es completa",
+        $parciales > 0
+            ? (str_contains($hIdx, 'Proyección parcial') && str_contains($hPrn, 'Proyección parcial'))
+            : !str_contains($hIdx, 'Proyección parcial'),
+        $parciales > 0 ? "$parciales estudiante(s) sin su plan completo" : 'cobertura completa');
 }
-// riesgo_sin_b() sobre datos SINTETICOS. Con los datos reales de hoy el guard
-// del descuadre no se ejerce (0 casos) y secundaria ya cuenta solo C, asi que
-// un `riesgo_sin_b` que se saltara el guard o tocara secundaria pasaria en
-// verde. Aqui se fuerzan los dos casos.
-$alS = static fn(int $mid, int $b, int $c, ?array $det): array => [
-    'matricula_id' => $mid, 'num_b' => $b, 'num_c' => $c, 'conteo' => $b + $c, 'critico' => false,
-    'promedio_exacto' => 10.0, 'puesto' => $mid, 'detalle' => $det,
-];
-$dS = static fn(string $lit): array => ['literal' => $lit, 'area' => 'X', 'curso' => null,
-    'competencia' => 'Y', 'codigo' => null, 'nota' => 0, 'docente' => 'Z'];
-$sint = [
-    ['grado' => ['id' => 1, 'nivel_codigo' => 'prim'], 'en_riesgo' => [
-        $alS(1, 0, 3, [$dS('B'), $dS('C'), $dS('C')]),            // B+C cuadraba (3); C no (2 != 3)
-        $alS(2, 1, 3, [$dS('B'), $dS('C'), $dS('C'), $dS('C')]),  // cuadra: queda con sus 3 C
-        $alS(3, 2, 2, [$dS('B'), $dS('B'), $dS('C'), $dS('C')]),  // no llega a 3 C: sale
-        $alS(5, 0, 6, null),                                      // null sigue null; critico
-    ]],
-    ['grado' => ['id' => 2, 'nivel_codigo' => 'sec'], 'en_riesgo' => [
-        $alS(4, 5, 3, [$dS('B'), $dS('C'), $dS('C'), $dS('C')]),
-    ]],
-];
-$outS = riesgo_sin_b($sint, 3, 6);
-$porMid = array_column($outS[0]['en_riesgo'], null, 'matricula_id');
-ksort($porMid);
-$chk('riesgo_sin_b() (sintetico): recorta a C >= 3, quita las B, anula el desglose que no cuadra y no toca secundaria',
-    array_keys($porMid) === [1, 2, 5]
-        && $porMid[1]['detalle'] === null
-        && count($porMid[2]['detalle']) === 3 && $porMid[2]['conteo'] === 3
-        && array_unique(array_column($porMid[2]['detalle'], 'literal')) === ['C']
-        && $porMid[5]['detalle'] === null && $porMid[5]['critico'] === true && $porMid[2]['critico'] === false
-        && $outS[1] === $sint[1],
-    'quedan ' . implode(', ', array_keys($porMid)));
+// La lente «primaria solo C» se retiro con la regla vieja: ya no hay umbral
+// de conteo que recortar, y ofrecer media regla seria ofrecer una cifra que
+// no significa nada. Este aserto impide que vuelva a medias.
+$chk('la lente «primaria solo C» ya no existe en el controlador ni en las vistas',
+    !str_contains($ctrlSrcR, "query('primaria')")
+        && !preg_match('~name="primaria"~', implode('', array_map(
+            fn($v) => $leer("/resources/views/admin/cuadros/riesgo/$v.php"), $vistasRiesgo))));
 
-// La banda del tablero NO se filtra (23/09/2026): ni `secciones[]` ni la lente
-// «solo C» llegan a ella. Se mira el CODIGO: `componerBloques()` no lee esos
-// parametros y la banda no llama a la lente ni pasa `$contarB = false`.
-preg_match('~private function componerBloques\(.*?\n    \}~s', $ctrlSrcR, $mBq);
+// La banda del tablero NO se filtra (23/09/2026): `secciones[]` no llega a
+// ella. Se mira el CODIGO: `componerBloques()` no lee ese parametro.
+preg_match('~private function componerBloques\(.*?
+    \}~s', $ctrlSrcR, $mBq);
 $bandaSrc = $leer('/resources/views/admin/cuadros/_banda-riesgo.php');
-$chk('la banda de /admin/cuadros no se filtra: ni secciones ni lente «solo C»',
+$chk('la banda de /admin/cuadros no se filtra por secciones',
     isset($mBq[0]) && !preg_match("~query\('(grados|secciones|primaria)'\)~", $mBq[0])
-        && !preg_match('~riesgo_(sin_b|filtrar)\(|riesgo_\w+\([^)]*false~', $bandaSrc));
+        && !preg_match('~riesgo_filtrar~', $bandaSrc));
+// La banda y el informe salen del MISMO punto unico: si divergieran, el
+// tablero diria una cifra y el informe al que enlaza, otra.
+$chk('la banda y el informe leen el mismo bloque `situacion`',
+    str_contains($bandaSrc, "riesgo_resumen(\$bloques['situacion']")
+        && str_contains($mBq[0] ?? '', "'situacion'      => \$this->situacionModel->porGrado"));
 
 $sesionComo(null);
 echo "\n", $ok ? "== FASES 4-7 EN VERDE ==\n" : "== HAY FALLOS ==\n";
