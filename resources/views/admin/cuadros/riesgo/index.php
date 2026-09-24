@@ -1,6 +1,9 @@
 <?php
 /**
- * Vista: Estudiantes en riesgo académico (23/09/2026). Solo lectura.
+ * Vista: Acompañamiento pedagógico (23/09/2026; nació como «Estudiantes en
+ * riesgo académico» y se amplió el 24/09 con el bloque de SEGUIMIENTO). Solo
+ * lectura. Dos bloques que no se suman: EN RIESGO (RR/PER) y EN SEGUIMIENTO
+ * (promovidos con competencias bajas, `seguimiento_pedagogico()`).
  *
  * Salió del bloque 3b de `/admin/cuadros`, que conserva solo la banda con un
  * enlace aquí. Roles: admin, registro académico y los tres directores
@@ -24,7 +27,7 @@
 // Enlace a esta vista (o a sus A4) conservando el bimestre y la selección.
 // «Todas las secciones» es la ausencia de `secciones`. `http_build_query`
 // emite `secciones[0]=…`, que PHP lee igual.
-$base = static function (array $secciones, string $ruta = 'admin/cuadros/riesgo') use ($periodo): string {
+$base = static function (array $secciones, string $ruta = 'admin/cuadros/acompanamiento') use ($periodo): string {
     $q = ['periodo_id' => (int) $periodo['id']];
     if ($secciones) { $q['secciones'] = array_values($secciones); }
     return $ruta . '?' . http_build_query($q);
@@ -36,19 +39,20 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
     <a href="<?= url('admin/cuadros' . ($periodo ? '?periodo_id=' . (int) $periodo['id'] : '')) ?>"
        class="btn btn--secondary btn--sm">&larr; Cuadros estadísticos</a>
     <div>
-        <h1 class="page-title">Estudiantes en riesgo académico</h1>
+        <h1 class="page-title">Acompañamiento pedagógico</h1>
         <p class="page-subtitle">
-            Estudiantes que, con el último nivel registrado de cada competencia hasta este bimestre, <strong>no alcanzarían la
-            promoción de grado</strong> según la norma del MINEDU: requieren recuperación
-            o permanecerían en el grado. Con su desglose y dónde se concentran los casos.
-            Solo lectura.
+            <strong>En riesgo académico:</strong> estudiantes que, con el último nivel registrado de
+            cada competencia hasta este bimestre, <strong>no alcanzarían la promoción de grado</strong>
+            según la norma del MINEDU (requieren recuperación o permanecerían en el grado), con su
+            desglose y dónde se concentran los casos. <strong>En seguimiento:</strong> promovidos con
+            competencias bajas que conviene acompañar. Solo lectura.
         </p>
     </div>
 </div>
 
 <div class="card mb-md">
     <div class="card__body">
-        <form method="GET" action="<?= url('admin/cuadros/riesgo') ?>" class="form-inline">
+        <form method="GET" action="<?= url('admin/cuadros/acompanamiento') ?>" class="form-inline">
             <label for="periodo_id" class="form-label">Bimestre</label>
             <select name="periodo_id" id="periodo_id" class="form-select" onchange="this.form.submit()">
                 <?php foreach ($periodos as $p): ?>
@@ -65,8 +69,8 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
             <?php endforeach; ?>
             <noscript><button type="submit" class="btn btn--primary btn--sm">Ver</button></noscript>
         </form>
-        <?php if ($periodo && $riesgo && $riesgo['stats']['resumen']['total'] > 0): ?>
-            <a href="<?= url($base($sel, 'admin/cuadros/riesgo/imprimir')) ?>"
+        <?php if ($periodo && $riesgo && ($riesgo['stats']['resumen']['total'] > 0 || $riesgo['stats']['resumen']['seguimiento'] > 0)): ?>
+            <a href="<?= url($base($sel, 'admin/cuadros/acompanamiento/imprimir')) ?>"
                class="btn btn--secondary btn--sm" target="_blank" rel="noopener">
                 &#128424; Imprimir<?= $sel ? ' lo filtrado' : ' informe' ?>
             </a>
@@ -74,7 +78,7 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
         <?php // El lote va aunque la selección no tenga casos: cada tutor recibe
               // su hoja, y «nadie llega al umbral» también se entrega. ?>
         <?php if ($periodo && $riesgo && !empty($riesgo['por_grado'])): ?>
-            <a href="<?= url($base($sel, 'admin/cuadros/riesgo/tutores')) ?>"
+            <a href="<?= url($base($sel, 'admin/cuadros/acompanamiento/tutores')) ?>"
                class="btn btn--secondary btn--sm" target="_blank" rel="noopener">
                 &#128424; Imprimir por tutor
                 (<?= $sel ? count($sel) : count($riesgo['secciones']) ?> secci<?= ($sel ? count($sel) : count($riesgo['secciones'])) !== 1 ? 'ones' : 'ón' ?>,
@@ -112,7 +116,7 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
           // poder marcar varias secciones de una vez. Sin marcar = todas. El
           // rótulo del grado y los atajos son enlaces (funcionan sin JS). El
           // `title` nombra a su tutor actual. ?>
-    <form method="GET" action="<?= url('admin/cuadros/riesgo') ?>" class="cuadros-riesgo__filtros cuadros-riesgo__form">
+    <form method="GET" action="<?= url('admin/cuadros/acompanamiento') ?>" class="cuadros-riesgo__filtros cuadros-riesgo__form">
         <input type="hidden" name="periodo_id" value="<?= (int) $periodo['id'] ?>">
 
         <div class="cuadros-riesgo__niveles">
@@ -153,6 +157,7 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
         </div>
     </form>
 
+    <h2 class="riesgo-h2">Estudiantes en riesgo académico</h2>
     <?php if ($riesgo['stats']['resumen']['total'] === 0): ?>
         <div class="empty-state">
             <p><?php $res = $riesgo['stats']['resumen']; $sinCasosAlcance = $sel ? 'de esta selección' : ''; ?>
@@ -181,10 +186,9 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_listado.php'; ?>
     <?php endif; ?>
 
-    <?php // Fuera del `if`: 1.º de primaria no es riesgo, así que con la lista
-          // filtrada justo a ese grado `total` vale 0 y el bloque quedaría
-          // oculto dentro del `else`. ?>
-    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_automatica.php'; ?>
+    <?php // Fuera del `if`: el seguimiento son promovidos, así que existe aunque
+          // la selección no tenga ningún caso de riesgo (`total` = 0). ?>
+    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_seguimiento.php'; ?>
     <?php require VIEW_PATH . '/admin/cuadros/riesgo/_pendiente-final.php'; ?>
 
 <?php endif; ?>

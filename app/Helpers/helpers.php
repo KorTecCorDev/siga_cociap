@@ -688,6 +688,37 @@ const CERTEZA_SEGURA     = 'segura';
 const CERTEZA_PROYECTADA = 'proyectada';
 
 /**
+ * SEGUIMIENTO PEDAGÓGICO (24/09/2026) — umbrales. NO es riesgo: es la señal de
+ * acompañamiento para quien SÍ sería promovido (o tiene promoción automática,
+ * 1.º de primaria) pero acumula competencias bajas. Recicla, como señal
+ * pedagógica, los umbrales de la primera versión del riesgo (23/09), que se
+ * derogó como regla de PROMOCIÓN. Ver `seguimiento_pedagogico()`.
+ */
+const SEGUIMIENTO_MIN_B = 3;
+const SEGUIMIENTO_MIN_C = 3;
+
+/**
+ * ¿El estudiante necesita SEGUIMIENTO pedagógico? — PUNTO ÚNICO de la regla
+ * (decisión del usuario, 24/09/2026). Función PURA.
+ *
+ *  · primaria:   `SEGUIMIENTO_MIN_B` o más en B, **o** `SEGUIMIENTO_MIN_C` o más
+ *                en C (cada literal por separado: 2 B + 1 C NO entra, a propósito);
+ *  · secundaria: `SEGUIMIENTO_MIN_C` o más en C (la B aprueba en secundaria).
+ *
+ * Solo se pregunta de estudiantes PRO o con promoción automática: quien está en
+ * riesgo (RR/PER) ya se atiende en su propio bloque, y nunca está en los dos.
+ * Cuenta las mismas competencias que la situación final (último nivel
+ * registrado, sin transversales).
+ */
+function seguimiento_pedagogico(int $numB, int $numC, string $nivelCodigo): bool
+{
+    if (nivel_clave($nivelCodigo) === 'prim') {
+        return $numB >= SEGUIMIENTO_MIN_B || $numC >= SEGUIMIENTO_MIN_C;
+    }
+    return $numC >= SEGUIMIENTO_MIN_C;
+}
+
+/**
  * Cuántas competencias son «la mitad» de un área — PUNTO ÚNICO del redondeo.
  *
  * La norma fija la convención de forma explícita para los números impares
@@ -923,8 +954,9 @@ function situacion_final_motivo(array $a, int $minAreasAb): string
  * (24/09/2026). Envoltorio PURO de `situacion_final_analisis()`: no cambia la
  * regla, la aplica tres veces.
  *
- *  1. La SIGLA sale, como hasta hoy, de las competencias EVALUADAS del bimestre
- *     (decisión del usuario: sin arrastrar notas de bimestres anteriores).
+ *  1. La SIGLA sale de las competencias EVALUADAS: su último nivel registrado
+ *     hasta el bimestre, como el SIAGIE (el arrastre lo hace el modelo; aquí
+ *     llegan ya resueltas).
  *  2. Las COTAS se calculan contra el PLAN completo de cada área, que es sobre
  *     lo que la norma formula «la mitad»: mejor caso (lo pendiente = AD) y peor
  *     caso (lo pendiente = C).
@@ -1165,7 +1197,7 @@ function stats_competencia(array $alumnos, array $exonerados, string $nivelCodig
  * en el modelo ni en el controlador, porque la necesitan varios sitios que no
  * pueden llamarse entre sí:
  *   · la banda de `/admin/cuadros` (`_banda-riesgo.php`) y su índice de anclas,
- *   · la vista `/admin/cuadros/riesgo` y su A4 (vía `riesgo_estadisticas()`),
+ *   · la vista `/admin/cuadros/acompanamiento` y su A4 (vía `riesgo_estadisticas()`),
  *   · `verif_direccion_superficies.php`, que asevera contra la misma cuenta.
  * Sumarlo a mano en cada uno es exactamente la copia latente con la que ya
  * divergieron cuatro reglas en este repositorio.
@@ -1189,17 +1221,18 @@ function stats_competencia(array $alumnos, array $exonerados, string $nivelCodig
  * @param  array $porGrado  la salida de `SituacionFinalModel::porGrado()` (o filtrada)
  * @return array{total:int, permanencia:int, recuperacion:int, evaluados:int,
  *               pct:int, grados:int, grados_total:int, max:int, sin_datos:int,
- *               automatica:int, cobertura:array, por_nivel:array}
+ *               seguimiento:int, cobertura:array, por_nivel:array}
  */
 function riesgo_resumen(array $porGrado): array
 {
     $total = $evaluados = $grados = $permanencia = $max = 0;
-    $sinDatos = $automatica = 0;
+    $sinDatos = $seguimiento = 0;
     $porNivel = [];
     $cobMin    = null;
     $cobPlan   = 0;
     $parciales = 0;
     $seguros = $proPro = $pendFinal = 0;
+    $incorporados = $trasladados = $retirados = 0;
     $periodoFinal = false;
 
     foreach ($porGrado as $g) {
@@ -1216,13 +1249,16 @@ function riesgo_resumen(array $porGrado): array
 
         $evaluados  += $n;
         $sinDatos   += (int) ($g['sin_datos'] ?? 0);
-        $automatica += count($g['automatica'] ?? []);
+        $seguimiento += count($g['seguimiento'] ?? []);
         $pendFinal  += count($g['pendiente_final'] ?? []);
         $periodoFinal = $periodoFinal || !empty($g['periodo_final']);
         $porNivel[$nid]['evaluados'] += $n;
 
         $cob = $g['cobertura'] ?? null;
-        $proPro += (int) ($cob['pro_proyectados'] ?? 0);
+        $proPro       += (int) ($cob['pro_proyectados'] ?? 0);
+        $incorporados += (int) ($cob['incorporados'] ?? 0);
+        $trasladados  += (int) ($cob['trasladados'] ?? 0);
+        $retirados    += (int) ($cob['retirados'] ?? 0);
         if ($cob !== null && $cob['min'] !== null) {
             $cobMin      = $cobMin === null ? (int) $cob['min'] : min($cobMin, (int) $cob['min']);
             $cobPlan     = max($cobPlan, (int) $cob['plan']);
@@ -1267,13 +1303,21 @@ function riesgo_resumen(array $porGrado): array
         'grados_total' => count($porGrado),
         'max'          => $max,
         'sin_datos'    => $sinDatos,
-        'automatica'   => $automatica,
+        // Seguimiento pedagógico (24/09/2026): cifra PROPIA, nunca sumada a
+        // `total` ni a `pct`: son promovidos, no estudiantes en riesgo.
+        'seguimiento'  => $seguimiento,
         // Certeza (24/09/2026): de los `total` en riesgo, cuántos ya no pueden
         // salvarse aunque lo pendiente salga bien, y cuántos promovidos
         // todavía pueden caer. Ver `situacion_final_proyectar()`.
         'seguros'         => $seguros,
         'proyectados'     => $total - $seguros,
         'pro_proyectados' => $proPro,
+        // Fuera del cálculo sin ser un hueco de datos (24/09/2026): quien se
+        // incorporó después del bimestre y quien ya no pertenece al colegio
+        // (cursó el bimestre y luego se trasladó o se retiró).
+        'incorporados'    => $incorporados,
+        'trasladados'     => $trasladados,
+        'retirados'       => $retirados,
         // Periodo final: ahí ya no se proyecta. `definitiva` = sin pendientes.
         'pendiente_final' => $pendFinal,
         'periodo_final'   => $periodoFinal,
@@ -1286,6 +1330,45 @@ function riesgo_resumen(array $porGrado): array
         ],
         'por_nivel'    => array_values($porNivel),
     ];
+}
+
+/**
+ * Quiénes quedan FUERA del cálculo, en frases listas para pintar (24/09/2026).
+ * PUNTO ÚNICO del texto: lo usan la banda del informe, la de `/admin/cuadros`,
+ * el bloque por sección y el mensaje de «nadie en riesgo». Son tres grupos
+ * distintos y no se mezclan:
+ *   · sin ninguna competencia evaluada — pertenece al colegio y no tiene notas
+ *     (hueco de datos: hace PARCIAL la proyección);
+ *   · se incorporó después del bimestre — aún no pertenecía;
+ *   · ya no pertenece — cursó el bimestre y luego se trasladó o se retiró.
+ *
+ * @param  array $res  salida de `riesgo_resumen()`
+ * @return string[]    texto plano (la vista escapa)
+ */
+function riesgo_fuera_del_calculo(array $res): array
+{
+    $plural = static fn(int $n, string $s, string $p): string => $n === 1 ? $s : $p;
+    $out = [];
+
+    $sd = (int) ($res['sin_datos'] ?? 0);
+    if ($sd > 0) {
+        $out[] = "$sd sin ninguna competencia evaluada (fuera del cálculo)";
+    }
+    $inc = (int) ($res['incorporados'] ?? 0);
+    if ($inc > 0) {
+        $out[] = "$inc " . $plural($inc, 'se incorporó', 'se incorporaron')
+               . ' después de este bimestre (fuera del cálculo)';
+    }
+    $tr = (int) ($res['trasladados'] ?? 0);
+    $re = (int) ($res['retirados'] ?? 0);
+    if ($tr + $re > 0) {
+        $partes = [];
+        if ($tr > 0) { $partes[] = "$tr " . $plural($tr, 'trasladado', 'trasladados'); }
+        if ($re > 0) { $partes[] = "$re " . $plural($re, 'retirado', 'retirados'); }
+        $out[] = ($tr + $re) . ' ' . $plural($tr + $re, 'ya no pertenece', 'ya no pertenecen')
+               . ' al colegio (' . implode(' · ', $partes) . '), fuera del cálculo';
+    }
+    return $out;
 }
 
 /**
@@ -1325,7 +1408,7 @@ function riesgo_filtrar_secciones(array $porGrado, array $secciones): array
             continue;
         }
 
-        foreach (['en_riesgo', 'automatica', 'pendiente_final'] as $lista) {
+        foreach (['en_riesgo', 'seguimiento', 'pendiente_final'] as $lista) {
             $g[$lista] = array_values(array_filter(
                 $g[$lista] ?? [],
                 static fn(array $al): bool => isset($suyas[(string) $al['seccion_nombre']])
@@ -1343,7 +1426,8 @@ function riesgo_filtrar_secciones(array $porGrado, array $secciones): array
         // La cobertura y los `sin_datos` se RECOMPONEN con las secciones
         // elegidas (24/09/2026): antes quedaban los del grado entero y el aviso
         // de proyección parcial podía contar más estudiantes que evaluados.
-        $cob = ['min' => null, 'max' => 0, 'plan' => 0, 'parciales' => 0, 'pro_proyectados' => 0];
+        $cob = ['min' => null, 'max' => 0, 'plan' => 0, 'parciales' => 0, 'pro_proyectados' => 0,
+                'incorporados' => 0, 'trasladados' => 0, 'retirados' => 0];
         $sinDatos = 0;
         foreach ($g['cobertura_seccion'] ?? [] as $nombre => $c) {
             if (!isset($suyas[(string) $nombre])) {
@@ -1352,6 +1436,9 @@ function riesgo_filtrar_secciones(array $porGrado, array $secciones): array
             $sinDatos         += (int) $c['sin_datos'];
             $cob['parciales'] += (int) $c['parciales'];
             $cob['pro_proyectados'] += (int) ($c['pro_proyectados'] ?? 0);
+            foreach (['incorporados', 'trasladados', 'retirados'] as $k) {
+                $cob[$k] += (int) ($c[$k] ?? 0);
+            }
             $cob['max']        = max($cob['max'],  (int) $c['max']);
             $cob['plan']       = max($cob['plan'], (int) $c['plan']);
             if ($c['min'] !== null) {
@@ -1369,7 +1456,7 @@ function riesgo_filtrar_secciones(array $porGrado, array $secciones): array
 
 /**
  * Un bloque de riesgo POR SECCIÓN (23/09/2026): PUNTO ÚNICO del informe que va
- * a cada tutor. Lo usan el lote de Dirección (`/admin/cuadros/riesgo/tutores`,
+ * a cada tutor. Lo usan el lote de Dirección (`/admin/cuadros/acompanamiento/tutores`,
  * una sección por hoja) y el panel del tutor (una sola sección).
  *
  * Función PURA: recorta con `riesgo_filtrar_secciones()` y calcula con

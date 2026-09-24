@@ -165,7 +165,7 @@ $k = $bloques['matricula']['kpis'];
 
     <?php // ── 3b. ESTUDIANTES EN RIESGO ───────────────────────────── ?>
     <?php // Desde el 23/09/2026 el A4 del tablero lleva solo la BANDA: el listado
-          // con su desglose es un informe propio (`/admin/cuadros/riesgo/imprimir`),
+          // con su desglose es un informe propio (`/admin/cuadros/acompanamiento/imprimir`),
           // y con él se fueron los saltos de hoja de esta sección y de Conducta,
           // que existían para separar esas hojas del resto del informe. ?>
     <section class="cuadros-print__bloque">
@@ -187,7 +187,7 @@ $k = $bloques['matricula']['kpis'];
                     determinarse quién está en riesgo.
                 <?php else: ?>
                     <?php $res = riesgo_resumen($bloques['situacion']); $sinCasosAlcance = ''; ?>
-                    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_sin-casos.php'; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/acompanamiento/_sin-casos.php'; ?>
                 <?php endif; ?>
             </p>
         <?php else: ?>

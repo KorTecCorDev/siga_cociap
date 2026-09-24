@@ -3,7 +3,7 @@
  * Banda de «Estudiantes en riesgo» en `/admin/cuadros` y su A4 (23/09/2026).
  *
  * Es lo que quedó del bloque 3b cuando el listado se fue a su propia vista
- * (`/admin/cuadros/riesgo`): la cifra que un informe de Dirección necesita en
+ * (`/admin/cuadros/acompanamiento`): la cifra que un informe de Dirección necesita en
  * una línea. Forma PAR con `_banda-merito.php` (azul ↔ rojo; ver su comentario).
  *
  * «En riesgo» es la SITUACIÓN FINAL proyectada del MINEDU: los que requieren
@@ -29,8 +29,18 @@ $res = riesgo_resumen($bloques['situacion'] ?? []);
         <li><strong><?= (int) $res['permanencia'] ?></strong> permanecería<?= (int) $res['permanencia'] !== 1 ? 'n' : '' ?> en el grado</li>
         <li><strong><?= (int) $res['recuperacion'] ?></strong> requiere<?= (int) $res['recuperacion'] !== 1 ? 'n' : '' ?> recuperación</li>
         <li><strong><?= (int) $res['grados'] ?> de <?= (int) $res['grados_total'] ?></strong> grados con casos</li>
-        <li><strong><?= (int) $res['seguros'] ?></strong> seguro<?= (int) $res['seguros'] !== 1 ? 's' : '' ?>
-            &middot; <strong><?= (int) $res['proyectados'] ?></strong> proyectado<?= (int) $res['proyectados'] !== 1 ? 's' : '' ?></li>
+        <?php if ((int) $res['proyectados'] > 0): ?>
+            <li><strong><?= (int) $res['proyectados'] ?></strong> depende<?= (int) $res['proyectados'] !== 1 ? 'n' : '' ?>
+                de competencias aún sin calificar</li>
+        <?php endif; ?>
+        <?php // Seguimiento (24/09/2026): promovidos con competencias bajas.
+              // Cifra aparte: no se suma al riesgo. ?>
+        <?php if ((int) $res['seguimiento'] > 0): ?>
+            <li><strong><?= (int) $res['seguimiento'] ?></strong> en seguimiento pedagógico (promovidos)</li>
+        <?php endif; ?>
+        <?php foreach (riesgo_fuera_del_calculo($res) as $frase): ?>
+            <li><?= e($frase) ?></li>
+        <?php endforeach; ?>
     </ul>
     <?php // La cobertura NO es decoracion: en un bimestre a medio calificar las
           // areas sin nota no cuentan y la proyeccion sale optimista. Callarlo
@@ -54,7 +64,7 @@ $res = riesgo_resumen($bloques['situacion'] ?? []);
     </ul>
     <?php if (!empty($riesgoEnlace)): ?>
         <p class="riesgo-banda__enlace">
-            <a href="<?= url('admin/cuadros/riesgo?periodo_id=' . (int) $periodo['id']) ?>" class="btn btn--secondary btn--sm">
+            <a href="<?= url('admin/cuadros/acompanamiento?periodo_id=' . (int) $periodo['id']) ?>" class="btn btn--secondary btn--sm">
                 Ver el informe completo &rarr;
             </a>
         </p>

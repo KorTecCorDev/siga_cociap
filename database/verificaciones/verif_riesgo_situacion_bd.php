@@ -221,7 +221,7 @@ foreach ($pdo->query("
 }
 
 $periodos = $pdo->query("
-    SELECT p.id, p.numero, p.nombre_display, p.estado
+    SELECT p.id, p.anio_id, p.numero, p.nombre_display, p.estado
     FROM periodos p ORDER BY p.anio_id, p.numero
 ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -237,8 +237,30 @@ foreach ($periodos as $p) {
     }
     printf("== %s (%s) ==\n", $p['nombre_display'], $p['estado']);
 
+    // Los que YA NO PERTENECEN (24/09/2026): trasladados y retirados que
+    // cursaron ESTE bimestre, contados a mano con los literales del enum.
+    $fueraCtl = ['trasladado' => 0, 'retirado' => 0];
+    foreach ($pdo->query("SELECT m.tipo, COUNT(*) n FROM matriculas m
+        WHERE m.tipo IN ('trasladado', 'retirado')
+          AND m.id IN (SELECT matricula_id FROM calificaciones WHERE periodo_id = $pid)
+        GROUP BY m.tipo")->fetchAll(PDO::FETCH_ASSOC) as $f) { $fueraCtl[$f['tipo']] = (int) $f['n']; }
+    $resF = riesgo_resumen($porGrado);
+    $ok($resF['trasladados'] === $fueraCtl['trasladado'] && $resF['retirados'] === $fueraCtl['retirado'],
+        '  ya no pertenecen: trasladados y retirados que cursaron el bimestre',
+        "{$resF['trasladados']} trasladados · {$resF['retirados']} retirados");
+
     $roster = $rosterControl($pid);
     $areas  = $areasControl($pid);
+
+    // Incorporados DESPUÉS del bimestre, escritos a mano con otra forma (el
+    // primer bimestre con notas de la matrícula es posterior a este): el modelo
+    // los saca de «sin datos» a su propio contador (24/09/2026).
+    $incCtl = array_fill_keys(array_map('intval', array_column($pdo->query("
+        SELECT c.matricula_id FROM calificaciones c
+        INNER JOIN periodos pp ON pp.id = c.periodo_id
+        WHERE pp.anio_id = " . (int) $p['anio_id'] . "
+        GROUP BY c.matricula_id
+        HAVING MIN(pp.numero) > " . (int) $p['numero'])->fetchAll(PDO::FETCH_ASSOC), 'matricula_id')), true);
 
     // Control por grado OFICIAL: cada matrícula del roster cae en el grado de
     // su matrícula oficial si es la operativa de un retorno.
@@ -260,11 +282,11 @@ foreach ($periodos as $p) {
         $mios = $espPorGrado[$gid] ?? [];
 
         // 1. Roster y denominadores.
-        $evalEsp = $ndEsp = 0;
+        $evalEsp = $ndEsp = $incEsp = 0;
         $espRR = $espPER = [];
         foreach ($mios as $mid => $d) {
             $sit = $situacionControl($d['areas'], $nivel, $gnum);
-            if ($sit === 'ND') { $ndEsp++; continue; }
+            if ($sit === 'ND') { isset($incCtl[$mid]) ? $incEsp++ : $ndEsp++; continue; }
             $evalEsp++;
             if ($sit === 'PER') { $espPER[] = $mid; }
             elseif ($sit === 'RR') { $espRR[] = $mid; }
@@ -273,9 +295,11 @@ foreach ($periodos as $p) {
 
         $ok((int) $g['evaluados'] === $evalEsp
             && (int) $g['sin_datos'] === $ndEsp
+            && (int) $g['cobertura']['incorporados'] === $incEsp
             && $secSuma === $evalEsp,
-            "  $etq · roster: evaluados, sin datos y suma de secciones",
-            $g['evaluados'] . " evaluados · " . $g['sin_datos'] . ' sin datos');
+            "  $etq · roster: evaluados, sin datos, incorporados y suma de secciones",
+            $g['evaluados'] . " evaluados · " . $g['sin_datos'] . ' sin datos · '
+                . $g['cobertura']['incorporados'] . ' incorporados despues');
 
         // 2. Selección: exactamente RR + PER.
         $esperados = array_merge($espRR, $espPER);
@@ -336,8 +360,22 @@ foreach ($periodos as $p) {
         if ($nivel === 'prim' && $gnum === 1) {
             $ok($g['en_riesgo'] === [],
                 "  $etq · promocion automatica: nunca en riesgo",
-                count($g['automatica']) . ' en seguimiento pedagogico');
+                count($g['seguimiento']) . ' en seguimiento pedagogico');
         }
+
+        // 6b. Seguimiento (24/09/2026): nunca a la vez en riesgo; solo PRO o
+        // promocion automatica, y cada fila cumple el umbral de su nivel.
+        $idsRiesgo = array_column($g['en_riesgo'], 'matricula_id');
+        $segMal = 0;
+        foreach ($g['seguimiento'] as $al) {
+            if (in_array($al['matricula_id'], $idsRiesgo, true)
+                || !($al['automatica'] || $al['situacion'] === SITUACION_PRO)
+                || !seguimiento_pedagogico($al['num_b'], $al['num_c'], $nivel)) {
+                $segMal++;
+            }
+        }
+        $ok($segMal === 0, "  $etq · seguimiento: solo PRO/automatica sobre el umbral y fuera del riesgo",
+            $segMal > 0 ? "$segMal fila(s) indebidas" : count($g['seguimiento']) . ' en seguimiento');
 
         // 7a. Reubicación del retorno. Un aserto por GRADO, no por alumno: con
         // 250 filas la salida se volvía ilegible y un fallo se perdía dentro.
@@ -592,7 +630,7 @@ foreach ($periodos as $p) {
     $porGr = (new SituacionFinalModel())->porGrado($pid);
     $conTaller = $arr = $arrMal = 0;
     foreach ($porGr as $g) {
-        foreach (array_merge($g['en_riesgo'], $g['automatica']) as $al) {
+        foreach (array_merge($g['en_riesgo'], $g['seguimiento']) as $al) {
             foreach ($al['detalle'] as $d) {
                 if (isset($nombresTaller[$d['area']])) { $conTaller++; }
                 if (!empty($d['arrastrada'])) {
@@ -627,7 +665,7 @@ if ($tallerRm && $p1) {
     $planDe = static function () use ($p1): array {
         $out = [];
         foreach ((new SituacionFinalModel())->porGrado((int) $p1['id']) as $g) {
-            foreach (array_merge($g['en_riesgo'], $g['automatica']) as $al) {
+            foreach (array_merge($g['en_riesgo'], $g['seguimiento']) as $al) {
                 $out[(int) $al['matricula_id']] = [(int) $g['grado']['id'], (int) $al['competencias_plan'], $al['situacion']];
             }
         }
@@ -689,7 +727,7 @@ if ($tallerRm && $p1) {
                 ->execute([$opMid, $ofMid, $ret]);
             $planDeMid = static function (int $mid) use ($p1): ?int {
                 foreach ((new SituacionFinalModel())->porGrado((int) $p1['id']) as $g) {
-                    foreach (array_merge($g['en_riesgo'], $g['automatica']) as $al) {
+                    foreach (array_merge($g['en_riesgo'], $g['seguimiento']) as $al) {
                         if ((int) $al['matricula_id'] === $mid) { return (int) $al['competencias_plan']; }
                     }
                 }

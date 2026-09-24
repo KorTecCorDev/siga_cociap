@@ -1,6 +1,6 @@
 <?php
 /**
- * Estudiantes en riesgo de MI sección — A4 vertical del tutor (layout print,
+ * Acompañamiento pedagógico de MI sección — A4 vertical del tutor (layout print,
  * 23/09/2026). Misma cabecera y mismo bloque que una hoja del lote de Dirección
  * (`admin/cuadros/riesgo/tutores.php`): el tutor imprime lo mismo que le
  * entregarían. Documento de trabajo, sin sello.

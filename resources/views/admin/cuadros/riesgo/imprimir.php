@@ -1,6 +1,7 @@
 <?php
 /**
- * Estudiantes en riesgo académico — A4 vertical (layout print, 23/09/2026).
+ * Acompañamiento pedagógico — A4 vertical (layout print, 23/09/2026; con el
+ * bloque de seguimiento desde el 24/09).
  *
  * Documento de TRABAJO: sin sello del Director EBR. Imprime LO FILTRADO
  * (?secciones[]) y el encabezado dice qué alcance se aplicó, para que una hoja
@@ -22,6 +23,7 @@ $alcance = riesgo_alcance($riesgo['niveles'], $riesgo['secciones_ids']);
 
     <?php require VIEW_PATH . '/admin/cuadros/riesgo/_cabecera.php'; ?>
 
+    <h2 class="riesgo-h2">Estudiantes en riesgo académico</h2>
     <?php if ($riesgo['stats']['resumen']['total'] === 0): ?>
         <p class="cuadros-print__vacio">
             <?php if (empty($riesgo['por_grado'])): ?>
@@ -40,6 +42,6 @@ $alcance = riesgo_alcance($riesgo['niveles'], $riesgo['secciones_ids']);
     <?php endif; ?>
 
     <?php // Fuera del `if` por el mismo motivo que en la pantalla. ?>
-    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_automatica.php'; ?>
+    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_seguimiento.php'; ?>
     <?php require VIEW_PATH . '/admin/cuadros/riesgo/_pendiente-final.php'; ?>
 </div>

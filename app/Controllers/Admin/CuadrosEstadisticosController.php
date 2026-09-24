@@ -134,7 +134,16 @@ class CuadrosEstadisticosController extends BaseController
     }
 
     /**
-     * GET /admin/cuadros/riesgo  (acepta ?periodo_id, ?secciones[], ?primaria=c)
+     * GET /admin/cuadros/riesgo[/imprimir|/tutores] — rutas anteriores al
+     * 24/09/2026: redirigen a `acompanamiento` con su query string.
+     */
+    public function riesgoRutaAnterior(): never
+    {
+        $this->redirigirRutaRenombrada('admin/cuadros/riesgo', 'admin/cuadros/acompanamiento');
+    }
+
+    /**
+     * GET /admin/cuadros/acompanamiento  (acepta ?periodo_id, ?secciones[], ?primaria=c)
      *
      * Informe de estudiantes en riesgo académico (23/09/2026). Nació como el
      * bloque 3b del tablero y se sacó a su propia vista: con la regla de
@@ -155,7 +164,7 @@ class CuadrosEstadisticosController extends BaseController
         );
 
         $this->view('admin/cuadros/riesgo/index', [
-            'titulo'         => 'Estudiantes en riesgo académico',
+            'titulo'         => 'Acompañamiento pedagógico',
             'periodos'       => $periodos,
             'periodo'        => $periodo,
             'riesgo'         => $periodo ? $this->componerRiesgo($periodo) : null,
@@ -164,7 +173,7 @@ class CuadrosEstadisticosController extends BaseController
     }
 
     /**
-     * GET /admin/cuadros/riesgo/imprimir  (acepta ?periodo_id, ?secciones[])
+     * GET /admin/cuadros/acompanamiento/imprimir  (acepta ?periodo_id, ?secciones[])
      *
      * A4 vertical del informe. Imprime LO FILTRADO (decisión del usuario,
      * 23/09/2026): sin filtro son ~40 hojas en B1, y el que prepara una reunión
@@ -189,14 +198,14 @@ class CuadrosEstadisticosController extends BaseController
 
         View::setLayout('print');
         $this->view('admin/cuadros/riesgo/imprimir', [
-            'titulo'  => 'Estudiantes en riesgo académico',
+            'titulo'  => 'Acompañamiento pedagógico',
             'periodo' => $periodo,
             'riesgo'  => $this->componerRiesgo($periodo),
         ]);
     }
 
     /**
-     * GET /admin/cuadros/riesgo/tutores  (acepta ?periodo_id, ?secciones[])
+     * GET /admin/cuadros/acompanamiento/tutores  (acepta ?periodo_id, ?secciones[])
      *
      * LOTE para repartir a los tutores (23/09/2026): un bloque por sección,
      * cada uno en hoja nueva y con su tutor ACTUAL en el encabezado, para que
@@ -224,7 +233,7 @@ class CuadrosEstadisticosController extends BaseController
 
         View::setLayout('print');
         $this->view('admin/cuadros/riesgo/tutores', [
-            'titulo'  => 'Estudiantes en riesgo por tutor',
+            'titulo'  => 'Acompañamiento pedagógico por tutor',
             'periodo' => $periodo,
             'riesgo'  => $riesgo,
             'bloques' => riesgo_por_seccion(

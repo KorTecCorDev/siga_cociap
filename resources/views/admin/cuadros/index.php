@@ -297,13 +297,13 @@ $hayRiesgo = (bool) array_filter(
                     docentes aprueben y bloqueen sus notas no se puede saber quién está en riesgo.
                 <?php else: ?>
                     <?php $res = riesgo_resumen($bloques['situacion']); $sinCasosAlcance = ''; ?>
-                    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_sin-casos.php'; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/acompanamiento/_sin-casos.php'; ?>
                 <?php endif; ?>
             </p>
         </div>
     <?php else: ?>
         <?php // Desde el 23/09/2026 aquí queda solo la BANDA: el listado, su
-              // desglose y las estadísticas viven en `/admin/cuadros/riesgo`.
+              // desglose y las estadísticas viven en `/admin/cuadros/acompanamiento`.
               // La pantalla pone el enlace; el A4 no define el flag. ?>
         <?php $riesgoEnlace = true; ?>
         <?php require VIEW_PATH . '/admin/cuadros/_banda-riesgo.php'; ?>

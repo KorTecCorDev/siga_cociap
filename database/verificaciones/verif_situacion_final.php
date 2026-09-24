@@ -280,5 +280,18 @@ foreach ([SITUACION_PRO, SITUACION_RR, SITUACION_PER, SITUACION_SIN_DATOS, SITUA
     $chk("rotulo de $sig no esta vacio", situacion_rotulo($sig) !== '', situacion_rotulo($sig));
 }
 
+echo "\n=== Seguimiento pedagogico (24/09/2026) ===\n";
+// Umbral literal de la decision: primaria >= 3 B o >= 3 C (cada literal por
+// separado), secundaria >= 3 C. Los casos del borde, en las dos ramas.
+$chk('seguimiento: umbrales en 3', SEGUIMIENTO_MIN_B === 3 && SEGUIMIENTO_MIN_C === 3);
+$chk('prim: 3 B entra',          seguimiento_pedagogico(3, 0, 'prim'));
+$chk('prim: 3 C entra',          seguimiento_pedagogico(0, 3, 'prim'));
+$chk('prim: 2 B + 1 C NO entra', !seguimiento_pedagogico(2, 1, 'prim'));
+$chk('prim: 2 B + 2 C NO entra', !seguimiento_pedagogico(2, 2, 'prim'));
+$chk('prim: nivel largo primaria se normaliza', seguimiento_pedagogico(3, 0, 'primaria'));
+$chk('sec: 3 C entra',           seguimiento_pedagogico(0, 3, 'sec'));
+$chk('sec: 2 C NO entra',        !seguimiento_pedagogico(9, 2, 'sec'));
+$chk('sec: 3 B NO entra (la B aprueba en secundaria)', !seguimiento_pedagogico(3, 0, 'sec'));
+
 echo "\n", $ok ? "TODO OK\n" : "HAY FALLAS\n";
 exit($ok ? 0 : 1);

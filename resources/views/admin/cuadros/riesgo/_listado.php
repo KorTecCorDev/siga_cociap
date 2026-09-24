@@ -94,12 +94,13 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                                 <span class="riesgo-alumno__marca riesgo-alumno__marca--<?= e(strtolower($al['situacion'])) ?>">
                                     <?= e($al['situacion']) ?> &middot; <?= e(situacion_rotulo($al['situacion'])) ?>
                                 </span>
-                                <?php // Certeza (24/09/2026): «seguro» si ni con AD en todo lo
-                                      // pendiente alcanzaría la promoción; «proyectado» si lo
-                                      // pendiente todavía puede salvarlo. ?>
-                                <?php if ($al['certeza'] !== null): ?>
-                                    <span class="riesgo-alumno__certeza riesgo-alumno__certeza--<?= e($al['certeza']) ?>">
-                                        <?= $al['certeza'] === CERTEZA_SEGURA ? 'Seguro' : 'Proyectado' ?>
+                                <?php // Certeza (24/09/2026): se marca SOLO la excepción —el
+                                      // riesgo que lo pendiente todavía puede salvar—. Una marca
+                                      // «Seguro» en casi cada fila tapaba el caso raro y sonaba
+                                      // a definitivo en un informe que es proyección. ?>
+                                <?php if ($al['certeza'] === CERTEZA_PROYECTADA): ?>
+                                    <span class="riesgo-alumno__certeza riesgo-alumno__certeza--proyectada">
+                                        Depende de <?= (int) $al['pendientes'] ?> pendiente<?= (int) $al['pendientes'] !== 1 ? 's' : '' ?>
                                     </span>
                                 <?php endif; ?>
                                 <span class="riesgo-alumno__dato">

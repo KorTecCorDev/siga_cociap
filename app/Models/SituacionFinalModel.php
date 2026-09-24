@@ -179,7 +179,7 @@ class SituacionFinalModel extends BaseModel
      * decide si es final de ciclo. La fila conserva su origen en `retorno`.
      *
      * @return array<int, array{grado:array, evaluados:int, sin_datos:int,
-     *                          en_riesgo:array, automatica:array, por_seccion:array,
+     *                          en_riesgo:array, seguimiento:array, por_seccion:array,
      *                          cobertura:array, cobertura_seccion:array}>
      */
     public function porGrado(int $periodoId): array
@@ -189,6 +189,7 @@ class SituacionFinalModel extends BaseModel
         $notas    = $this->notasPorMatricula($periodoId, $final);
         $plan     = $this->planPorMatricula($periodoId);
         $oficial  = $this->ubicacionOficialRetornos();
+        $incorp   = $this->incorporadosDespues($periodoId);
 
         $porGrado   = [];
         $porSeccion = [];
@@ -230,7 +231,10 @@ class SituacionFinalModel extends BaseModel
                 'evaluados'   => 0,
                 'sin_datos'   => 0,
                 'en_riesgo'   => [],
-                'automatica'  => [],
+                // Seguimiento pedagógico (24/09/2026): promovidos —y 1.º de
+                // primaria, promoción automática— con competencias bajas según
+                // `seguimiento_pedagogico()`. NO es riesgo ni entra a sus cifras.
+                'seguimiento' => [],
                 // Periodo final con competencias sin nota: no es riesgo, se
                 // lista aparte hasta completarse (`SITUACION_PENDIENTE`).
                 'pendiente_final' => [],
@@ -267,6 +271,14 @@ class SituacionFinalModel extends BaseModel
             // tiene ninguno no entra al denominador: decir que un alumno sin
             // notas es el 100 % de algo sería un dato falso, no ausente.
             if ($fila['situacion'] === SITUACION_SIN_DATOS) {
+                // Sin notas porque AÚN NO PERTENECÍA al colegio (24/09/2026): se
+                // incorporó después de este bimestre. No es un hueco de datos y
+                // no hace parcial la proyección: va en su propio contador.
+                if (isset($incorp[$mid])) {
+                    $porGrado[$gid]['cobertura']['incorporados']++;
+                    $porGrado[$gid]['cobertura_seccion'][$sec]['incorporados']++;
+                    continue;
+                }
                 $porGrado[$gid]['sin_datos']++;
                 $porGrado[$gid]['cobertura_seccion'][$sec]['sin_datos']++;
                 continue;
@@ -279,26 +291,48 @@ class SituacionFinalModel extends BaseModel
             self::sumarCobertura($porGrado[$gid]['cobertura'], $fila);
             self::sumarCobertura($porGrado[$gid]['cobertura_seccion'][$sec], $fila);
 
-            if ($fila['automatica']) {
-                // 1.º de primaria: promoción automática. Se lista aparte, como
-                // seguimiento pedagógico, y NUNCA como riesgo: decir de un
-                // alumno de 1.º que no será promovido es sencillamente falso.
-                if ($fila['num_c'] > 0 || $fila['num_b'] > 0) {
-                    $porGrado[$gid]['automatica'][] = $fila;
-                }
-            } elseif ($fila['situacion'] === SITUACION_PENDIENTE) {
+            if ($fila['situacion'] === SITUACION_PENDIENTE) {
                 $porGrado[$gid]['pendiente_final'][] = $fila;
-            } elseif (situacion_es_riesgo($fila['situacion'])) {
+                continue;
+            }
+            if (situacion_es_riesgo($fila['situacion'])) {
                 $porGrado[$gid]['en_riesgo'][] = $fila;
-            } elseif ($fila['certeza'] === CERTEZA_PROYECTADA) {
+                continue;
+            }
+
+            // PRO o promoción automática (1.º de primaria): NUNCA riesgo —decir
+            // de un alumno de 1.º que no será promovido es sencillamente falso—.
+            // Si acumula competencias bajas va al SEGUIMIENTO pedagógico
+            // (24/09/2026; umbral único en `seguimiento_pedagogico()`, el mismo
+            // para 1.º que para el resto de primaria).
+            if (seguimiento_pedagogico($fila['num_b'], $fila['num_c'], (string) $m['nivel_codigo'])) {
+                $porGrado[$gid]['seguimiento'][] = $fila;
+            }
+            if (!$fila['automatica'] && $fila['certeza'] === CERTEZA_PROYECTADA) {
                 $porGrado[$gid]['cobertura']['pro_proyectados']++;
                 $porGrado[$gid]['cobertura_seccion'][$sec]['pro_proyectados']++;
             }
         }
 
+        // Los que YA NO PERTENECEN al colegio y cursaron este bimestre
+        // (24/09/2026): fuera del cálculo —su situación final la determina la
+        // nueva institución—, pero contados, para que el total de la sección
+        // cuadre con el que tuvo en el bimestre.
+        foreach ($this->fueraDelColegio($periodoId) as $f) {
+            $gid = (int) $f['grado_id'];
+            if (!isset($porGrado[$gid])) {
+                continue;
+            }
+            $k   = $f['tipo'] === 'retirado' ? 'retirados' : 'trasladados';
+            $sec = (string) $f['seccion_nombre'];
+            $porGrado[$gid]['cobertura'][$k] += (int) $f['n'];
+            $porGrado[$gid]['cobertura_seccion'][$sec] ??= self::COBERTURA_VACIA;
+            $porGrado[$gid]['cobertura_seccion'][$sec][$k] += (int) $f['n'];
+        }
+
         foreach ($porGrado as $gid => &$g) {
             situacion_ordenar($g['en_riesgo']);
-            situacion_ordenar($g['automatica']);
+            situacion_ordenar($g['seguimiento']);
 
             $secs = $porSeccion[$gid] ?? [];
             ksort($secs, SORT_STRING);
@@ -317,7 +351,8 @@ class SituacionFinalModel extends BaseModel
 
     /** Cobertura de una sección antes de contar a nadie. */
     private const COBERTURA_VACIA = ['min' => null, 'max' => 0, 'plan' => 0, 'parciales' => 0,
-                                     'sin_datos' => 0, 'pro_proyectados' => 0];
+                                     'sin_datos' => 0, 'pro_proyectados' => 0,
+                                     'incorporados' => 0, 'trasladados' => 0, 'retirados' => 0];
 
     /**
      * Suma un estudiante EVALUADO a una cobertura (la del grado o la de su
@@ -335,7 +370,7 @@ class SituacionFinalModel extends BaseModel
 
     /**
      * La situación final de UNA sección, para su tutor. PUNTO ÚNICO del panel
-     * (`/docente/tutoria/riesgo`) y de su card en `/docente/inicio`: si cada uno
+     * (`/docente/tutoria/acompanamiento`) y de su card en `/docente/inicio`: si cada uno
      * recortara por su cuenta, la card podría decir otra cifra que el informe al
      * que lleva.
      *
@@ -649,6 +684,54 @@ class SituacionFinalModel extends BaseModel
      *
      * @return array{0:int, 1:bool}
      */
+    /**
+     * Matrículas del año SIN ninguna nota hasta este bimestre y CON notas en uno
+     * posterior: se incorporaron después (24/09/2026). Se ancla en el DATO, no
+     * en `fecha_registro`: los bimestres se solapan, y hay matrículas
+     * registradas dentro de las fechas de B1 cuya primera nota es de B2.
+     *
+     * @return array<int, true>  clave = matrícula
+     */
+    private function incorporadosDespues(int $periodoId): array
+    {
+        $filas = $this->query("
+            SELECT m.id
+            FROM matriculas m
+            INNER JOIN periodos per ON per.anio_id = m.anio_id AND per.id = ?
+            WHERE NOT EXISTS (
+                    SELECT 1 FROM calificaciones c
+                    INNER JOIN periodos p1 ON p1.id = c.periodo_id
+                    WHERE c.matricula_id = m.id AND p1.numero <= per.numero)
+              AND EXISTS (
+                    SELECT 1 FROM calificaciones c
+                    INNER JOIN periodos p2 ON p2.id = c.periodo_id
+                    WHERE c.matricula_id = m.id AND p2.numero > per.numero)
+        ", [$periodoId]);
+
+        return array_fill_keys(array_map(static fn(array $f): int => (int) $f['id'], $filas), true);
+    }
+
+    /**
+     * Trasladados y retirados que CURSARON este bimestre (tienen notas en él),
+     * por grado, sección y tipo (decisión del usuario, 24/09/2026). Solo se
+     * cuentan: no se calcula su situación final.
+     *
+     * Es la NEGACIÓN de `matriculas_vigentes()`, que sigue siendo el punto único
+     * de quién «ya no pertenece» (`NOT (1 = 1 AND tipo NOT IN …)`).
+     */
+    private function fueraDelColegio(int $periodoId): array
+    {
+        return $this->query("
+            SELECT m.tipo, s.grado_id, s.nombre AS seccion_nombre, COUNT(*) AS n
+            FROM matriculas m
+            INNER JOIN secciones s ON s.id = m.seccion_id
+            WHERE NOT (1 = 1 " . matriculas_vigentes('m') . ")
+              AND EXISTS (SELECT 1 FROM calificaciones c
+                          WHERE c.matricula_id = m.id AND c.periodo_id = ?)
+            GROUP BY m.tipo, s.grado_id, s.nombre
+        ", [$periodoId]);
+    }
+
     private function datosPeriodo(int $periodoId): array
     {
         $f = $this->query("

@@ -20,7 +20,7 @@ if ($filas === []) {
     return;
 }
 ?>
-<section class="riesgo-automatica">
+<section class="riesgo-pendiente-final">
     <h2 class="riesgo-h2">Situación final pendiente</h2>
     <p class="riesgo-nota">
         Estamos en el <strong>periodo final</strong> y a estos estudiantes les falta el nivel de

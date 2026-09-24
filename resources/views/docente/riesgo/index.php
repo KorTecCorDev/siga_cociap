@@ -1,6 +1,7 @@
 <?php
 /**
- * Estudiantes en riesgo de MI sección — panel del tutor (23/09/2026).
+ * Acompañamiento pedagógico de MI sección — panel del tutor (23/09/2026;
+ * con el bloque de seguimiento desde el 24/09).
  * Solo lectura.
  *
  * Mismo bloque que Dirección imprime en el lote por tutor (`_seccion.php`).
@@ -26,12 +27,12 @@ $pintarSeccion = static function (array $bloque): void {
 <div class="page-header">
     <a href="<?= url('docente/inicio') ?>" class="btn btn--secondary btn--sm">&larr; Volver</a>
     <div>
-        <h1 class="page-title page-title--wf page-title--riesgo">Estudiantes en riesgo académico</h1>
+        <h1 class="page-title page-title--wf page-title--riesgo">Acompañamiento pedagógico</h1>
         <p class="page-subtitle">
             <?= e($seccion['nivel_nombre']) ?> &mdash; <?= e($seccion['grado_nombre']) ?> &mdash;
             Sección <?= e($seccion['nombre']) ?>. Estudiantes de tu sección que, con el último nivel
             registrado de cada competencia hasta este bimestre, <strong>no alcanzarían la promoción de grado</strong>, con su
-            desglose. Solo lectura.
+            desglose, y los promovidos que conviene acompañar (seguimiento). Solo lectura.
         </p>
     </div>
 </div>
@@ -54,12 +55,12 @@ $pintarSeccion = static function (array $bloque): void {
 <?php else: ?>
     <div class="tutoria-bimestres">
         <?php foreach ($periodos as $p): ?>
-            <a href="<?= url('docente/tutoria/riesgo?periodo_id=' . (int) $p['id']) ?>"
+            <a href="<?= url('docente/tutoria/acompanamiento?periodo_id=' . (int) $p['id']) ?>"
                class="tutoria-bimestres__item<?= (int) $p['id'] === $pid ? ' tutoria-bimestres__item--activo' : '' ?>">
                 <?= e($p['nombre_display']) ?>
             </a>
         <?php endforeach; ?>
-        <a href="<?= url('docente/tutoria/riesgo/imprimir?periodo_id=' . $pid) ?>"
+        <a href="<?= url('docente/tutoria/acompanamiento/imprimir?periodo_id=' . $pid) ?>"
            class="btn btn--secondary btn--sm" target="_blank" rel="noopener">&#128424; Imprimir</a>
     </div>
 

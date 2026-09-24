@@ -110,6 +110,22 @@ abstract class BaseController
         redirect($url);
     }
 
+    /**
+     * Redirige una ruta RENOMBRADA a la nueva, conservando lo que sigue al
+     * prefijo (`/imprimir`, `/tutores`) y el query string entero
+     * (`?periodo_id`, `?secciones[]`), para que los enlaces y marcadores
+     * viejos sigan llegando (24/09/2026: `riesgo` → `acompanamiento`).
+     * Solo la llaman rutas literales, así que el resto es uno de sus sufijos.
+     */
+    protected function redirigirRutaRenombrada(string $vieja, string $nueva): never
+    {
+        $ruta  = (string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $pos   = strpos($ruta, $vieja);
+        $resto = $pos === false ? '' : substr($ruta, $pos + strlen($vieja));
+        $qs    = (string) ($_SERVER['QUERY_STRING'] ?? '');
+        redirect('/' . $nueva . $resto . ($qs !== '' ? '?' . $qs : ''));
+    }
+
     /** Valida el token CSRF del request actual */
     protected function validateCsrf(): void
     {

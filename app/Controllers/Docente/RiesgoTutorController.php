@@ -16,7 +16,7 @@ use Core\View;
  * (23/09/2026). Solo lectura.
  *
  * Es el mismo bloque que Dirección imprime en el lote por tutor
- * (`/admin/cuadros/riesgo/tutores`): `SituacionFinalModel::deSeccion()` →
+ * (`/admin/cuadros/acompanamiento/tutores`): `SituacionFinalModel::deSeccion()` →
  * `_seccion.php`. Aquí no se calcula nada.
  *
  * 🔴 DOS CANDADOS, los dos en SERVIDOR:
@@ -52,14 +52,23 @@ class RiesgoTutorController extends BaseController
     }
 
     /**
-     * GET /docente/tutoria/riesgo  (acepta ?periodo_id, solo publicados)
+     * GET /docente/tutoria/riesgo[/imprimir] — rutas anteriores al 24/09/2026:
+     * redirigen a `acompanamiento` con su query string.
+     */
+    public function rutaAnterior(): never
+    {
+        $this->redirigirRutaRenombrada('docente/tutoria/riesgo', 'docente/tutoria/acompanamiento');
+    }
+
+    /**
+     * GET /docente/tutoria/acompanamiento  (acepta ?periodo_id, solo publicados)
      */
     public function index(): void
     {
         [$seccion, $periodos, $periodo, $noPublicado] = $this->contexto();
 
         $this->view('docente/riesgo/index', [
-            'titulo'      => 'Estudiantes en riesgo — ' . $seccion['grado_nombre'] . ' ' . $seccion['nombre'],
+            'titulo'      => 'Acompañamiento pedagógico — ' . $seccion['grado_nombre'] . ' ' . $seccion['nombre'],
             'seccion'     => $seccion,
             'periodos'    => $periodos,
             'periodo'     => $periodo,
@@ -69,7 +78,7 @@ class RiesgoTutorController extends BaseController
     }
 
     /**
-     * GET /docente/tutoria/riesgo/imprimir  (acepta ?periodo_id, solo publicados)
+     * GET /docente/tutoria/acompanamiento/imprimir  (acepta ?periodo_id, solo publicados)
      *
      * Un papel no puede decir un bimestre y mostrar otro: si se pide uno que no
      * está publicado, se niega en vez de caer al último.
@@ -84,7 +93,7 @@ class RiesgoTutorController extends BaseController
 
         View::setLayout('print');
         $this->view('docente/riesgo/imprimir', [
-            'titulo'  => 'Estudiantes en riesgo — ' . $seccion['grado_nombre'] . ' ' . $seccion['nombre'],
+            'titulo'  => 'Acompañamiento pedagógico — ' . $seccion['grado_nombre'] . ' ' . $seccion['nombre'],
             'seccion' => $seccion,
             'periodo' => $periodo,
             'bloque'  => $this->situacionModel->deSeccion((int) $periodo['id'], $seccion),

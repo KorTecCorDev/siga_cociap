@@ -42,6 +42,9 @@ $riesgo = [
         </p>
     </div>
 
+    <?php if ((int) $res['evaluados'] > 0): ?>
+        <h3 class="riesgo-seccion__bloque">Estudiantes en riesgo académico</h3>
+    <?php endif; ?>
     <?php if ((int) $res['evaluados'] === 0): ?>
         <p class="riesgo-seccion__vacio">
             Esta sección todavía no tiene estudiantes evaluados en el bimestre (aún no hay
@@ -66,13 +69,18 @@ $riesgo = [
             <ul class="cuadros-banda__datos">
                 <li><strong><?= (int) $res['permanencia'] ?></strong> permanecería<?= (int) $res['permanencia'] !== 1 ? 'n' : '' ?> en el grado (PER)</li>
                 <li><strong><?= (int) $res['recuperacion'] ?></strong> requiere<?= (int) $res['recuperacion'] !== 1 ? 'n' : '' ?> recuperación (RR)</li>
-                <li><strong><?= (int) $res['seguros'] ?></strong> seguro<?= (int) $res['seguros'] !== 1 ? 's' : '' ?>
-                    &middot; <strong><?= (int) $res['proyectados'] ?></strong> proyectado<?= (int) $res['proyectados'] !== 1 ? 's' : '' ?></li>
+                <?php if ((int) $res['proyectados'] > 0): ?>
+                    <li><strong><?= (int) $res['proyectados'] ?></strong> depende<?= (int) $res['proyectados'] !== 1 ? 'n' : '' ?>
+                        de competencias aún sin calificar</li>
+                <?php endif; ?>
+                <?php foreach (riesgo_fuera_del_calculo($res) as $frase): ?>
+                    <li><?= e($frase) ?></li>
+                <?php endforeach; ?>
             </ul>
             <?php if (!$res['cobertura']['completa']): ?>
                 <p class="riesgo-banda__cobertura">
                     <strong>Proyección parcial:</strong> faltan competencias por calificar; la
-                    marca <em>Seguro</em> o <em>Proyectado</em> dice si todavía pueden cambiar el resultado.
+                    marca <em>Depende de N pendientes</em> señala a quien todavía pueden sacar del riesgo.
                 </p>
             <?php endif; ?>
         </div>
@@ -83,10 +91,11 @@ $riesgo = [
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_listado.php'; ?>
     <?php endif; ?>
 
-    <?php // Fuera del `if`: un 1.º de primaria no tiene riesgo por definición,
-          // y su tutor igual necesita la lista de seguimiento. ?>
+    <?php // Fuera del `if`: el seguimiento son PROMOVIDOS (y 1.º de primaria,
+          // que no tiene riesgo por definición), así que existe aunque la
+          // sección no tenga ningún caso de riesgo. ?>
     <?php if ((int) $res['evaluados'] > 0): ?>
-        <?php require VIEW_PATH . '/admin/cuadros/riesgo/_automatica.php'; ?>
+        <?php require VIEW_PATH . '/admin/cuadros/riesgo/_seguimiento.php'; ?>
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_pendiente-final.php'; ?>
     <?php endif; ?>
 </section>

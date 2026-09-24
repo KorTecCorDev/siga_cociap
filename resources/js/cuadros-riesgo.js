@@ -1,7 +1,7 @@
 /**
  * cuadros-riesgo.js — SIGA-COCIAP
  *
- * Buscador del listado de /admin/cuadros/riesgo (23/09/2026). Antes filtraba
+ * Buscador del listado de /admin/cuadros/acompanamiento (23/09/2026). Antes filtraba
  * tambien por nivel y grado en cliente, dentro de /admin/cuadros; desde que el
  * informe tiene vista propia esos dos filtros van por URL, porque el resumen
  * estadistico y el A4 tienen que describir lo filtrado. Aqui queda solo ubicar

@@ -14,6 +14,9 @@
  *
  * @var array  $res      salida de `riesgo_resumen()` (ya filtrada si corresponde)
  * @var string $sinCasosAlcance  complemento del sujeto: '', 'de esta selección', 'de esta sección'…
+ *
+ * «Nadie en riesgo» tampoco es «nadie que acompañar» (24/09/2026): si hay
+ * estudiantes en seguimiento, se remite a su bloque, que va aparte.
  */
 $evaluados = (int) $res['evaluados'];
 $parciales = (int) $res['cobertura']['parciales'];
@@ -35,4 +38,13 @@ $sujeto    = $sinCasosAlcance !== '' ? ' ' . $sinCasosAlcance : '';
     <?php if ($sinDatos > 0): ?>
         <?= $sinDatos ?> sin ninguna competencia evaluada, que queda<?= $sinDatos !== 1 ? 'n' : '' ?> fuera del cálculo.
     <?php endif; ?>
+<?php endif; ?>
+<?php // Incorporados después y los que ya no pertenecen (24/09/2026): NO son
+      // huecos de datos (no hacen parcial la proyección), pero se nombran para
+      // que el total cuadre con la sección del bimestre. `sin_datos` ya va arriba. ?>
+<?php foreach (riesgo_fuera_del_calculo(['sin_datos' => 0] + $res) as $frase): ?>
+    <?= e(mb_strtoupper(mb_substr($frase, 0, 1)) . mb_substr($frase, 1)) ?>.
+<?php endforeach; ?>
+<?php if ((int) ($res['seguimiento'] ?? 0) > 0): ?>
+    <?= (int) $res['seguimiento'] ?> estudiante<?= (int) $res['seguimiento'] !== 1 ? 's' : '' ?> promovido<?= (int) $res['seguimiento'] !== 1 ? 's' : '' ?> sí necesita<?= (int) $res['seguimiento'] !== 1 ? 'n' : '' ?> seguimiento (ver su bloque).
 <?php endif; ?>

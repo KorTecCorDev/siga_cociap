@@ -70,7 +70,7 @@ foreach ($grupos as $g) { foreach ($g as $mod) { $cards[$mod['url']] = $mod['rol
 $esperadasDirector = [
     'director/anios', 'director/cargas', 'matriculas', 'admin/buscar-estudiante',
     'admin/control', 'consulta-notas', 'consulta-notas/criterios', 'admin/cuadros',
-    'admin/cuadros/riesgo',
+    'admin/cuadros/acompanamiento',
     'director/bloqueos', 'director/orden-merito', 'director/ranking-seccion',
 ];
 foreach (ROLES_DIRECCION as $rol) {
@@ -129,8 +129,8 @@ foreach ([
     '/director/cargas/seccion/{seccion_id}/horario',
     '/admin/cuadros',
     '/admin/cuadros/imprimir',
-    '/admin/cuadros/riesgo',
-    '/admin/cuadros/riesgo/imprimir',
+    '/admin/cuadros/acompanamiento',
+    '/admin/cuadros/acompanamiento/imprimir',
     '/consulta-notas/{periodo_id}/criterios',
     '/consulta-notas/{periodo_id}/criterios/imprimir',
     '/consulta-notas/criterios',
@@ -152,9 +152,9 @@ $chk('/criterios/imprimir se registra ANTES que /criterios',
     < strpos($rutas, "'/consulta-notas/{periodo_id}/criterios'"));
 $chk('/admin/cuadros/imprimir se registra ANTES que /admin/cuadros',
     strpos($rutas, "'/admin/cuadros/imprimir'") < strpos($rutas, "'/admin/cuadros'"));
-$chk('/admin/cuadros/riesgo/imprimir y /riesgo se registran ANTES que /admin/cuadros',
-    strpos($rutas, "'/admin/cuadros/riesgo/imprimir'") < strpos($rutas, "'/admin/cuadros/riesgo'")
-    && strpos($rutas, "'/admin/cuadros/riesgo'") < strpos($rutas, "'/admin/cuadros'"));
+$chk('/admin/cuadros/acompanamiento/imprimir y /riesgo se registran ANTES que /admin/cuadros',
+    strpos($rutas, "'/admin/cuadros/acompanamiento/imprimir'") < strpos($rutas, "'/admin/cuadros/acompanamiento'")
+    && strpos($rutas, "'/admin/cuadros/acompanamiento'") < strpos($rutas, "'/admin/cuadros'"));
 
 // El imprimible NO puede reusar el arbol de la pantalla: un <details> cerrado
 // no imprime su contenido.
@@ -595,7 +595,7 @@ foreach ($periodos as $p) {
 
     // ── Estudiantes en riesgo en el tablero (23/09/2026) ──────────────
     // Desde el 23/09 el tablero lleva solo la BANDA; el listado vive en
-    // `/admin/cuadros/riesgo` (se verifica al final de este archivo).
+    // `/admin/cuadros/acompanamiento` (se verifica al final de este archivo).
     $gradosRiesgo = array_values(array_filter(
         $datos['bloques']['merito']['por_grado'],
         static fn(array $g): bool => !empty($g['en_riesgo'])
@@ -895,8 +895,8 @@ foreach ($periodos as $p) {
         $res['total'] . ' en la banda · ' . $filas . ' en el modelo');
 
     $chk("el enlace al informe de riesgo de $etiquetaP es de pantalla, no de papel",
-        ($nRiesgo === 0 || str_contains($html, 'admin/cuadros/riesgo?periodo_id=' . $pid))
-            && !str_contains($htmlPrint, 'admin/cuadros/riesgo'),
+        ($nRiesgo === 0 || str_contains($html, 'admin/cuadros/acompanamiento?periodo_id=' . $pid))
+            && !str_contains($htmlPrint, 'admin/cuadros/acompanamiento'),
         $nRiesgo === 0 ? 'sin casos' : 'enlace solo en pantalla');
 
     // El listado ya NO vive en el tablero: ni filas, ni desglose, ni su script,
@@ -1199,7 +1199,7 @@ foreach (['solo_bimestres_cerrados', 'periodos_cerrados', 'ultimo_periodo_cerrad
 }
 
 // ── INFORME DE ESTUDIANTES EN RIESGO (23/09/2026) ─────────────────
-// Vista propia `/admin/cuadros/riesgo` y su A4. Se arma con el MISMO
+// Vista propia `/admin/cuadros/acompanamiento` y su A4. Se arma con el MISMO
 // `componerRiesgo()` del controlador (por reflexion) y se renderiza de verdad:
 // es lo unico que atrapa una clave inexistente en los partials.
 //
@@ -1207,7 +1207,7 @@ foreach (['solo_bimestres_cerrados', 'periodos_cerrados', 'ultimo_periodo_cerrad
 // verifican `verif_situacion_final.php` (casos sinteticos) y
 // `verif_riesgo_situacion_bd.php` (cuadre con los datos). Aqui se verifican las
 // SUPERFICIES: que pantalla, A4 y lote por tutor digan lo mismo que el modelo.
-echo "\nINFORME DE RIESGO — /admin/cuadros/riesgo\n";
+echo "\nINFORME DE RIESGO — /admin/cuadros/acompanamiento\n";
 $sesionComo('admin');
 $propSituacion = $ctrlClase->getProperty('situacionModel');
 $propSituacion->setAccessible(true);
@@ -1237,7 +1237,7 @@ $chk('el A4 de riesgo no lleva el sello del Director EBR (documento de trabajo)'
     && !str_contains($leer('/resources/views/admin/cuadros/riesgo/imprimir.php'), '$directorEbr')
     && !preg_match('~function riesgoImprimir\(\).*?directorEbr.*?function componerRiesgo~s', $ctrlSrcR));
 
-$vistasRiesgo = ['index', 'imprimir', '_resumen', '_criticos', '_listado', '_leer', '_automatica'];
+$vistasRiesgo = ['index', 'imprimir', '_resumen', '_criticos', '_listado', '_leer', '_seguimiento'];
 $conStyle = array_values(array_filter($vistasRiesgo, fn($v) =>
     (bool) preg_match('~\sstyle="~', $leer("/resources/views/admin/cuadros/riesgo/$v.php"))));
 $chk('ninguna vista del informe de riesgo lleva CSS inline', $conStyle === [], implode(', ', $conStyle));
@@ -1300,8 +1300,8 @@ foreach ($todos as $pr) {
     }
     $chk("1.o de primaria no aparece en riesgo en $etqR (promocion automatica)", $auto === 0);
 
-    $conAuto   = count(array_filter($riesgo['filtrado'], fn($g) => !empty($g['automatica'])));
-    $autoFilas = array_sum(array_map(fn($g) => count($g['automatica']), $riesgo['filtrado']));
+    $conAuto   = count(array_filter($riesgo['filtrado'], fn($g) => !empty($g['seguimiento'])));
+    $autoFilas = array_sum(array_map(fn($g) => count($g['seguimiento']), $riesgo['filtrado']));
 
     foreach ([['pantalla', $hIdx], ['papel', $hPrn]] as [$donde, $doc]) {
         // Una tabla por grado con casos, con el TITULO DEL GRADO DENTRO DEL
@@ -1317,7 +1317,7 @@ foreach ($todos as $pr) {
         }
         $chk("en $donde de $etqR: una tabla por grado, con el titulo en el thead",
             count($mT[1] ?? []) === count($conCasos) + $conAuto && $malas === 0,
-            count($mT[1] ?? []) . ' tabla(s) para ' . count($conCasos) . " grado(s) + $conAuto de 1.o · $malas mal formada(s)");
+            count($mT[1] ?? []) . ' tabla(s) para ' . count($conCasos) . " grado(s) + $conAuto de seguimiento · $malas mal formada(s)");
 
         $chk("en $donde de $etqR: un <tbody> por estudiante, y ninguno se queda sin desglose",
             substr_count($doc, 'data-riesgo-fila') === $total + $autoFilas,
@@ -1377,7 +1377,8 @@ foreach ($todos as $pr) {
     // evalúa y con qué puesto (pantalla y papel).
     $nRet = 0;
     foreach ($riesgo['filtrado'] as $g) {
-        foreach ($g['en_riesgo'] as $al) { $nRet += empty($al['retorno']) ? 0 : 1; }
+        // El seguimiento (24/09/2026) lleva la misma franja con la misma marca.
+        foreach (array_merge($g['en_riesgo'], $g['seguimiento']) as $al) { $nRet += empty($al['retorno']) ? 0 : 1; }
     }
     $chk("en $etqR cada retorno de grado lleva su marca en la franja (pantalla y papel)",
         substr_count($hIdx, 'Retorno de grado: cursó este bimestre en') === $nRet
@@ -1418,7 +1419,7 @@ foreach ($todos as $pr) {
         . $porId[$gPrim[1]]['grado']['nombre_display'] . ' · ' . $porId[$idsSec[0]]['grado']['nivel_nombre'] . ': '
         . $porId[$idsSec[0]]['grado']['nombre_display'] . ' ' . $secsAnio[$unaSec]['nombre']);
     $evalObt = array_sum(array_map(fn($g) => (int) $g['evaluados'], $rg['filtrado']));
-    $autoSel = array_sum(array_map(fn($g) => count($g['automatica']), $rg['filtrado']));
+    $autoSel = array_sum(array_map(fn($g) => count($g['seguimiento']), $rg['filtrado']));
     $chk("varias secciones de dos niveles en $etqR: lista, evaluados, resumen y A4 describen exactamente esa selección",
         $rg['secciones_ids'] === $selIds
             && (int) $rg['stats']['resumen']['total'] === $esperado
@@ -1429,7 +1430,7 @@ foreach ($todos as $pr) {
 
     // Las casillas marcadas son la selección, y los dos Imprimir llevan la MISMA consulta.
     $urlDe = static function (string $html, string $ruta): array {
-        preg_match('~href="([^"]*admin/cuadros/riesgo/' . $ruta . '\?[^"]*)"~', $html, $mU);
+        preg_match('~href="([^"]*admin/cuadros/acompanamiento/' . $ruta . '\?[^"]*)"~', $html, $mU);
         parse_str((string) parse_url(html_entity_decode($mU[1] ?? ''), PHP_URL_QUERY), $qU);
         return $qU;
     };

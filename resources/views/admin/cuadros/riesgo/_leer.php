@@ -33,8 +33,15 @@ $res = $riesgo['stats']['resumen'];
             superior <em>en cada área</em>, y se admiten «C» en el resto.
         </li>
         <li>
-            <strong>1.º de primaria</strong> tiene promoción automática: nunca aparece en la lista.
-            Si tiene notas por debajo de A se lista aparte, como seguimiento pedagógico.
+            <strong>1.º de primaria</strong> tiene promoción automática: nunca aparece en la lista
+            de riesgo. Si acumula competencias bajas, va al bloque de seguimiento.
+        </li>
+        <li>
+            <strong>Riesgo y seguimiento no se suman.</strong> El <strong>seguimiento</strong> lista a
+            estudiantes que <em>sí</em> serían promovidos pero acumulan competencias bajas: en primaria,
+            <?= (int) SEGUIMIENTO_MIN_B ?> o más en B o <?= (int) SEGUIMIENTO_MIN_C ?> o más en C; en
+            secundaria, <?= (int) SEGUIMIENTO_MIN_C ?> o más en C. No es una situación final del
+            MINEDU: es una señal para acompañarlos antes de que lleguen al riesgo.
         </li>
         <li>
             <strong>Qué notas entran.</strong> De cada competencia, su <strong>último nivel de logro
@@ -46,12 +53,13 @@ $res = $riesgo['stats']['resumen'];
             norma) ni los <strong>talleres</strong>, porque la UGEL no los aprobó y no están en el SIAGIE.
         </li>
         <li>
-            <strong>Seguro o proyectado.</strong> Quedan <strong>pendientes</strong> las competencias que
-            todavía no se evaluaron en ningún bimestre, y la norma cuenta «la mitad» sobre
-            <em>todas</em> las del área. Por eso la situación se prueba contra lo pendiente:
-            <strong>Seguro</strong> = no alcanzaría la promoción ni con AD en todo lo que falta;
-            <strong>Proyectado</strong> = lo pendiente todavía puede salvarlo. «Seguro» no es
-            definitivo: las notas de los bimestres siguientes reemplazan a las de hoy.
+            <strong>«Depende de N pendientes».</strong> Quedan <strong>pendientes</strong> las
+            competencias que todavía no se evaluaron en ningún bimestre, y la norma cuenta «la mitad»
+            sobre <em>todas</em> las del área. Por eso la situación se prueba contra lo pendiente: la
+            marca señala a quien <strong>todavía podría alcanzar la promoción</strong> si lo que falta
+            sale bien. Sin la marca, lo pendiente ya no lo cambia; pero nada de este informe es
+            definitivo antes del último bimestre: las notas de los bimestres siguientes reemplazan a
+            las de hoy.
         </li>
         <?php if (!$res['cobertura']['completa']): ?>
             <li>

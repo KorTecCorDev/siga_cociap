@@ -2,7 +2,7 @@
 
 /**
  * Verificación del RIESGO POR TUTOR (23/09/2026): el panel del tutor
- * (`/docente/tutoria/riesgo`), su A4 y su card en `/docente/inicio`.
+ * (`/docente/tutoria/acompanamiento`), su A4 y su card en `/docente/inicio`.
  *
  * Solo lectura. Lo que escribe para simular un bimestre despublicado va dentro
  * de una TRANSACCIÓN con ROLLBACK (regla del repo: ningún script de database/
@@ -188,11 +188,13 @@ if ($periodo) {
 
     [$hI, $eI] = $render('docente/riesgo/index', ['seccion' => $sec, 'periodos' => $periodos, 'periodo' => $periodo, 'bloque' => $bloque, 'noPublicado' => false]);
     [$hP, $eP] = $render('docente/riesgo/imprimir', ['seccion' => $sec, 'periodo' => $periodo, 'bloque' => $bloque]);
+    // Filas = riesgo + seguimiento (24/09/2026): las dos listas usan la franja.
+    $filasEsp = $esperado + array_sum(array_map(fn($g) => count($g['seguimiento']), $bloque['filtrado']));
     $chk('pantalla y A4 del tutor renderizan sin avisos, con su tutor y sus filas',
         $eI === [] && $eP === []
-            && substr_count($hI, 'data-riesgo-fila') === $esperado && substr_count($hP, 'data-riesgo-fila') === $esperado
+            && substr_count($hI, 'data-riesgo-fila') === $filasEsp && substr_count($hP, 'data-riesgo-fila') === $filasEsp
             && str_contains($hI, 'Tutor(a) actual:') && str_contains($hP, 'Tutor(a) actual:'),
-        ($eI[0] ?? $eP[0] ?? "$esperado fila(s) en cada una"));
+        ($eI[0] ?? $eP[0] ?? "$filasEsp fila(s) en cada una ($esperado de riesgo)"));
     // La regla es la del MINEDU y es UNA: el informe habla de situacion final,
     // no de umbrales de conteo, y no ofrece variantes de lectura.
     $chk('el informe del tutor habla de la situacion final, sin umbrales de conteo',
@@ -225,7 +227,7 @@ $panelHtml = static function (int $usuarioId) use ($panel, $como): array {
 [$hC, $eC] = $panelHtml($tutorId);
 $ultimo = (new App\Models\PublicacionBoletaModel())
     ->ultimoPeriodoPublicadoPorNivel($anioSec)[(int) $sec['nivel_id']] ?? null;
-if (preg_match('~<a href="[^"]*docente/tutoria/riesgo" class="card dpanel-card dpanel-card--riesgo">(.*?)</a>~s', $hC, $mC)) {
+if (preg_match('~<a href="[^"]*docente/tutoria/acompanamiento" class="card dpanel-card dpanel-card--riesgo">(.*?)</a>~s', $hC, $mC)) {
     $txt = trim(preg_replace('~\s+~', ' ', strip_tags($mC[1])));
     if ($ultimo) {
         $res = (new SituacionFinalModel())->deSeccion((int) $ultimo['id'], $sec)['stats']['resumen'];
@@ -250,11 +252,11 @@ echo "\nRUTAS Y ESTILOS\n";
 $rutas = file_get_contents(ROOT_PATH . '/routes/web.php');
 $pos   = static fn(string $r) => strpos($rutas, "'$r'");
 $chk('las rutas del tutor van ANTES de /docente/tutoria/{periodo_id}',
-    $pos('/docente/tutoria/riesgo') !== false && $pos('/docente/tutoria/riesgo/imprimir') !== false
-        && $pos('/docente/tutoria/riesgo') < $pos('/docente/tutoria/{periodo_id}')
-        && $pos('/docente/tutoria/riesgo/imprimir') < $pos('/docente/tutoria/{periodo_id}'));
+    $pos('/docente/tutoria/acompanamiento') !== false && $pos('/docente/tutoria/acompanamiento/imprimir') !== false
+        && $pos('/docente/tutoria/acompanamiento') < $pos('/docente/tutoria/{periodo_id}')
+        && $pos('/docente/tutoria/acompanamiento/imprimir') < $pos('/docente/tutoria/{periodo_id}'));
 $chk('la ruta del lote de Dirección va ANTES de /admin/cuadros',
-    $pos('/admin/cuadros/riesgo/tutores') !== false && $pos('/admin/cuadros/riesgo/tutores') < $pos('/admin/cuadros'));
+    $pos('/admin/cuadros/acompanamiento/tutores') !== false && $pos('/admin/cuadros/acompanamiento/tutores') < $pos('/admin/cuadros'));
 $css = file_get_contents(ROOT_PATH . '/public/css/app.css');
 $chk('el CSS servido salta de hoja entre secciones del lote',
     (bool) preg_match('~\.riesgo-lote__hoja\s*\+\s*\.riesgo-lote__hoja\s*\{[^}]*break-before:\s*page~', $css));

@@ -18,7 +18,7 @@ $definitiva = !empty($resCab['definitiva']);
     <img class="cuadros-print__logo" src="<?= url('assets/img/logo_cociap.png') ?>" alt="COCIAP">
     <div class="cuadros-print__titulo">
         <h1><?= e(config('institucion')) ?></h1>
-        <p>Estudiantes en riesgo académico &middot; <?= e($periodo['nombre_display']) ?> <?= e((string) $periodo['anio']) ?></p>
+        <p>Acompañamiento pedagógico &middot; <?= e($periodo['nombre_display']) ?> <?= e((string) $periodo['anio']) ?></p>
         <p class="cuadros-print__sub">
             <strong>Alcance:</strong> <?= e($alcance) ?>
             &middot; <strong>Estado del bimestre:</strong> <?= e($periodo['estado']) ?>
@@ -29,6 +29,7 @@ $definitiva = !empty($resCab['definitiva']);
         <p class="cuadros-print__sub">
             Situación final <?= $definitiva ? '' : 'proyectada ' ?>según la RVM 00094-2020-MINEDU (modificada por la
             RVM 048-2024-MINEDU): requiere recuperación (RR) o permanece en el grado (PER).
+            El seguimiento lista a promovidos con competencias bajas: no es riesgo.
         </p>
     </div>
 </header>

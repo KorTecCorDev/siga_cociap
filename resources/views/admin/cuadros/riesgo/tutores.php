@@ -1,6 +1,6 @@
 <?php
 /**
- * Estudiantes en riesgo — LOTE por tutor, A4 vertical (layout print, 23/09/2026).
+ * Acompañamiento pedagógico — LOTE por tutor, A4 vertical (layout print, 23/09/2026).
  *
  * Una sección por bloque, CADA UNA EN HOJA NUEVA (`riesgo-lote__hoja`, salto
  * antes de todas salvo la primera), con la cabecera institucional y su tutor

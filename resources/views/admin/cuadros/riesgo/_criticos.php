@@ -56,9 +56,10 @@ foreach ($criticos as $al) {
                     <tr>
                         <th scope="row">
                             <?= e($al['nombre_completo']) ?>
-                            <?php if ($al['certeza'] !== null): ?>
-                                <span class="riesgo-alumno__certeza riesgo-alumno__certeza--<?= e($al['certeza']) ?>">
-                                    <?= $al['certeza'] === CERTEZA_SEGURA ? 'Seguro' : 'Proyectado' ?>
+                            <?php // Solo la excepción, como en `_listado.php`. ?>
+                            <?php if ($al['certeza'] === CERTEZA_PROYECTADA): ?>
+                                <span class="riesgo-alumno__certeza riesgo-alumno__certeza--proyectada">
+                                    Depende de <?= (int) $al['pendientes'] ?> pendiente<?= (int) $al['pendientes'] !== 1 ? 's' : '' ?>
                                 </span>
                             <?php endif; ?>
                         </th>

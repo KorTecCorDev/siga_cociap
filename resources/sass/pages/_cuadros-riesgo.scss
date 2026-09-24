@@ -268,6 +268,10 @@
 
     &__titulo { margin: 0; font-size: 1.15rem; }
 
+    // Rótulo del bloque de riesgo dentro de la sección (24/09/2026): el
+    // seguimiento lleva el suyo (`.riesgo-h2`), y sin este el riesgo no tenía.
+    &__bloque { margin: $spacing-sm 0 $spacing-xs; font-size: $font-size-lg; }
+
     &__tutor {
         margin: 2px 0 0;
         font-size: $font-size-sm;
@@ -379,6 +383,10 @@
     // seccion, no de la persona.
     &__marca--per { border-color: $color-error;   color: $color-error; }
     &__marca--rr  { border-color: $color-warning; color: $color-warning; }
+    // PRO en el bloque de seguimiento (24/09/2026): NEUTRA a propósito. Un
+    // verde diría «todo bien» en una lista que existe porque hay algo que
+    // atender; un color de alarma lo confundiría con el riesgo.
+    &__marca--pro { border-color: $border-color; color: $text-secondary; }
 
     // Certeza (24/09/2026): «Seguro» no depende de lo pendiente; «Proyectado»
     // si. El proyectado lleva borde discontinuo: es el que todavia puede cambiar.
@@ -440,8 +448,10 @@
     strong { color: $color-warning; }
 }
 
-// 1.o de primaria: promocion automatica. NO es riesgo, y la seccion lo dice.
-.riesgo-automatica {
+// Seguimiento (promovidos con competencias bajas) y situacion final pendiente:
+// NO son riesgo, y cada seccion lo dice.
+.riesgo-seguimiento,
+.riesgo-pendiente-final {
     margin-top: $spacing-lg;
 
     .riesgo-nota { margin-bottom: $spacing-sm; }
@@ -564,7 +574,10 @@
 
     .riesgo-alumno__nombre { font-size: 8.5pt; color: #000; }
     .riesgo-alumno__dato   { color: #333; }
-    .riesgo-alumno__marca  { font-size: 6.5pt; border-color: #000; color: #000; }
+    // PER y RR conservan su COLOR en papel (decisión del usuario, 24/09/2026):
+    // aquí solo cambia el tamaño; `print-color-adjust: exact` los imprime.
+    .riesgo-alumno__marca  { font-size: 6.5pt; }
+    .riesgo-alumno__marca--pro { border-color: #888; color: #333; }
     .riesgo-alumno__motivo { font-size: 7pt; color: #333; }
     .riesgo-alumno__certeza { font-size: 6.5pt; border-color: #000; color: #000; }
     .riesgo-banda__cobertura,
