@@ -14,12 +14,16 @@ $tipoBadge = fn(string $tipo): string => match($tipo) {
     'con_subareas' => 'Con subáreas',
     'area_curso'   => 'Área-curso',
     'transversal'  => 'Transversal',
+    // Taller (migración 064): cuenta para la situación final solo en los años
+    // y grados que la UGEL aprobó (`talleres_aprobacion`, bloque de abajo).
+    'taller'       => 'Taller',
     default        => $tipo,
 };
 
 $tipoAbrev = fn(string $tipo): string => match($tipo) {
     'con_subareas' => 'C/sub',
     'transversal'  => 'Transv.',
+    'taller'       => 'Taller',
     default        => 'Curso',
 };
 
@@ -168,6 +172,79 @@ if ($area) {
                 </form>
             </div>
         </div>
+
+        <?php // ── Aprobación de la UGEL (solo talleres, migración 064) ─────
+              // Por AÑO y GRADO. Decide si el taller cuenta para la situación
+              // final (promoción) de los estudiantes de ese grado ese año. La
+              // boleta y el orden de mérito lo incluyen siempre. ?>
+        <?php if ($area['tipo'] === 'taller' && $anioSel): ?>
+        <div class="curr-aprobacion">
+            <div class="curr-aprobacion__cab">
+                <h3 class="curr-aprobacion__titulo">Aprobación de la UGEL &mdash; plan de estudios <?= e($anioSel['anio']) ?></h3>
+                <?php if (count($anios) > 1): ?>
+                <form method="GET" action="<?= e(url('admin/curriculum')) ?>" class="curr-aprobacion__anio">
+                    <input type="hidden" name="nivel" value="<?= (int) $area['nivel_id'] ?>">
+                    <input type="hidden" name="area" value="<?= (int) $area['id'] ?>">
+                    <label for="aprob-anio" class="form-label">Año</label>
+                    <select id="aprob-anio" name="anio" class="form-select" onchange="this.form.submit()">
+                        <?php foreach ($anios as $an): ?>
+                        <option value="<?= (int) $an['id'] ?>" <?= (int) $an['id'] === (int) $anioSel['id'] ? 'selected' : '' ?>>
+                            <?= e($an['anio']) ?> (<?= e($an['estado']) ?>)
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </form>
+                <?php endif; ?>
+            </div>
+            <p class="curr-aprobacion__nota">
+                Marca los grados en los que la <strong>UGEL</strong> incluyó este taller en el plan de
+                estudios <?= e($anioSel['anio']) ?>. Si un estudiante está en retorno de grado, cuenta el
+                grado de su matrícula oficial.
+                Solo en esos grados el taller <strong>cuenta para la situación final</strong>
+                (promoción, recuperación o permanencia), como en el SIAGIE. Sin marcar, no cuenta.
+                La boleta y el orden de mérito lo incluyen siempre. Cambiarlo recalcula los informes
+                de riesgo de todo ese año, también los ya impresos.
+            </p>
+            <form method="POST" action="<?= e(url('admin/curriculum/areas/' . $area['id'] . '/aprobacion')) ?>">
+                <?= csrf_field() ?>
+                <input type="hidden" name="nivel_id" value="<?= (int) $area['nivel_id'] ?>">
+                <input type="hidden" name="anio_id" value="<?= (int) $anioSel['id'] ?>">
+                <div class="curr-aprobacion__grados">
+                    <?php foreach ($aprobacion as $g): ?>
+                    <label class="curr-aprobacion__grado<?= (int) $g['secciones'] === 0 ? ' curr-aprobacion__grado--sin-carga' : '' ?>">
+                        <input type="checkbox" name="grados[]" value="<?= (int) $g['grado_id'] ?>"
+                               <?= (int) $g['aprobado'] === 1 ? 'checked' : '' ?>>
+                        <?= e($g['grado']) ?>
+                        <span class="curr-aprobacion__secc">
+                            <?= (int) $g['secciones'] ?> secci<?= (int) $g['secciones'] === 1 ? 'ón' : 'ones' ?>
+                        </span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+                <?php // Resolución Directoral DEL COLEGIO que crea el taller: una por
+                      // taller y año. Es el sustento; no decide si el taller cuenta. ?>
+                <div class="curr-aprobacion__pie">
+                    <span class="form-label">Resolución Directoral del colegio que crea el taller (opcional)</span>
+                    <input type="text" id="rd-numero" name="rd_numero" class="form-input" maxlength="60"
+                           placeholder="N.º de la RD" aria-label="Número de la Resolución Directoral"
+                           value="<?= e($resolucion['numero'] ?? '') ?>">
+                    <input type="date" id="rd-fecha" name="rd_fecha" class="form-input curr-aprobacion__fecha"
+                           aria-label="Fecha de la Resolución Directoral"
+                           value="<?= e($resolucion['fecha'] ?? '') ?>">
+                    <button type="submit" class="btn btn--primary btn--sm">Guardar</button>
+                </div>
+                <?php $ultimo = null;
+                      foreach ($aprobacion as $g) {
+                          if ($g['actualizado_en'] !== null && ($ultimo === null || $g['actualizado_en'] > $ultimo['actualizado_en'])) { $ultimo = $g; }
+                      } ?>
+                <?php if ($ultimo): ?>
+                <p class="curr-aprobacion__audit">
+                    Último cambio: <?= e($ultimo['actualizado_por']) ?> &middot; <?= e(date('d/m/Y H:i', strtotime($ultimo['actualizado_en']))) ?>
+                </p>
+                <?php endif; ?>
+            </form>
+        </div>
+        <?php endif; ?>
 
         <!-- Contenido: área con subáreas -->
         <?php if ($area['tipo'] === 'con_subareas'): ?>

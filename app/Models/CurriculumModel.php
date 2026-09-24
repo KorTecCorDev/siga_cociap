@@ -64,6 +64,132 @@ class CurriculumModel extends BaseModel
         return $this->update($id, $data);
     }
 
+    /** Años académicos, el más reciente primero (selector de la aprobación de talleres). */
+    public function aniosAcademicos(): array
+    {
+        return $this->query("SELECT id, anio, estado FROM anios_academicos ORDER BY anio DESC");
+    }
+
+    /**
+     * Aprobación de la UGEL de un TALLER para un año, grado por grado
+     * (24/09/2026, migración 064). Una fila por cada grado del nivel del
+     * taller, con `aprobado` (0 si no hay fila: sin aprobación el taller NO
+     * cuenta para la situación final), quién la tocó por última vez y en cuántas secciones de ese grado se dicta el taller ese año —para
+     * que quien marca vea dónde tiene efecto—.
+     */
+    public function aprobacionTaller(int $areaId, int $anioId): array
+    {
+        return $this->query("
+            SELECT g.id AS grado_id, g.nombre_display AS grado,
+                   COALESCE(ta.aprobado, 0) AS aprobado,
+                   ta.actualizado_en,
+                   TRIM(CONCAT(COALESCE(p.apellido_paterno, ''), ' ', COALESCE(p.apellido_materno, ''),
+                               IF(p.nombres IS NULL, '', CONCAT(', ', p.nombres)))) AS actualizado_por,
+                   (SELECT COUNT(DISTINCT ca.seccion_id)
+                    FROM cargas_academicas ca
+                    INNER JOIN secciones s ON s.id = ca.seccion_id
+                    WHERE ca.estado = 'activa' AND ca.anio_id = ? AND s.grado_id = g.id
+                      AND (ca.area_id = a.id
+                           OR ca.subarea_id IN (SELECT id FROM subareas WHERE area_id = a.id))
+                   ) AS secciones
+            FROM areas a
+            INNER JOIN grados g ON g.nivel_id = a.nivel_id
+            LEFT  JOIN talleres_aprobacion ta ON ta.area_id  = a.id
+                                             AND ta.anio_id  = ?
+                                             AND ta.grado_id = g.id
+            LEFT  JOIN usuarios u ON u.id = ta.actualizado_por
+            LEFT  JOIN personas p ON p.id = u.persona_id
+            WHERE a.id = ? AND a.tipo = 'taller'
+            ORDER BY g.numero
+        ", [$anioId, $anioId, $areaId]);
+    }
+
+    /**
+     * Resolución Directoral DEL COLEGIO que crea el taller para un año (migración
+     * 064): una por taller y año, o null si no se registró. Es el sustento del
+     * colegio; lo que hace que el taller cuente es la aprobación de la UGEL.
+     */
+    public function resolucionTaller(int $areaId, int $anioId): ?array
+    {
+        return $this->queryOne("
+            SELECT tr.numero, tr.fecha, tr.actualizado_en,
+                   TRIM(CONCAT(COALESCE(p.apellido_paterno, ''), ' ', COALESCE(p.apellido_materno, ''),
+                               IF(p.nombres IS NULL, '', CONCAT(', ', p.nombres)))) AS actualizado_por
+            FROM talleres_resolucion tr
+            LEFT JOIN usuarios u ON u.id = tr.actualizado_por
+            LEFT JOIN personas p ON p.id = u.persona_id
+            WHERE tr.area_id = ? AND tr.anio_id = ?
+        ", [$areaId, $anioId]);
+    }
+
+    /**
+     * Guarda, para un taller y un año, la aprobación de la UGEL (aprobado en los
+     * grados de `$gradosAprobados`, no aprobado en los demás de su nivel) y la
+     * Resolución Directoral del colegio.
+     *
+     * Retirar una aprobación NO borra la fila: la deja en `aprobado = 0` con
+     * quién y cuándo. Un grado sin fila y sin marcar no se escribe (no hay nada
+     * que registrar). La RD se guarda si llega su número; si llega vacío, se
+     * quita la registrada (el formulario siempre trae la actual). Todo en una
+     * transacción.
+     *
+     * @param int[]      $gradosAprobados ids ya validados contra el nivel del taller
+     * @param array|null $rd  ['numero' => string, 'fecha' => ?string Y-m-d] ya validada, o null
+     */
+    public function guardarAprobacionTaller(int $areaId, int $anioId, array $gradosAprobados,
+                                            ?array $rd, int $usuarioId): void
+    {
+        $filas = $this->aprobacionTaller($areaId, $anioId);
+        $marca = array_flip(array_map('intval', $gradosAprobados));
+
+        // Si ya hay una transacción abierta (la de un verificador con rollback),
+        // se trabaja dentro de ella: PDO no admite transacciones anidadas.
+        $propia = !$this->db->inTransaction();
+        if ($propia) {
+            $this->beginTransaction();
+        }
+        try {
+            foreach ($filas as $f) {
+                $gid      = (int) $f['grado_id'];
+                $aprobado = isset($marca[$gid]) ? 1 : 0;
+                $existe   = $f['actualizado_en'] !== null;
+                if (!$aprobado && !$existe) {
+                    continue;
+                }
+                $this->execute("
+                    INSERT INTO talleres_aprobacion
+                        (area_id, anio_id, grado_id, aprobado, actualizado_por)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        aprobado        = VALUES(aprobado),
+                        actualizado_por = VALUES(actualizado_por)
+                ", [$areaId, $anioId, $gid, $aprobado, $usuarioId]);
+            }
+
+            if ($rd !== null) {
+                $this->execute("
+                    INSERT INTO talleres_resolucion (area_id, anio_id, numero, fecha, actualizado_por)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        numero          = VALUES(numero),
+                        fecha           = VALUES(fecha),
+                        actualizado_por = VALUES(actualizado_por)
+                ", [$areaId, $anioId, $rd['numero'], $rd['fecha'], $usuarioId]);
+            } else {
+                $this->execute("DELETE FROM talleres_resolucion WHERE area_id = ? AND anio_id = ?",
+                    [$areaId, $anioId]);
+            }
+            if ($propia) {
+                $this->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($propia) {
+                $this->rollback();
+            }
+            throw $e;
+        }
+    }
+
     /**
      * Otra área del MISMO nivel que ya usa alguno de estos códigos SIAGIE.
      * Devuelve su nombre, o null si el código está libre.

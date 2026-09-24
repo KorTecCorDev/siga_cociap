@@ -39,6 +39,7 @@ $router->get( '/admin/curriculum',                                  'Admin\Curri
 $router->post('/admin/curriculum/areas/{id}/editar',               'Admin\CurriculumController@guardarArea');
 $router->post('/admin/curriculum/areas/{id}/toggle',               'Admin\CurriculumController@toggleActivaArea');
 $router->post('/admin/curriculum/areas/{id}/mover',                'Admin\CurriculumController@moverArea');
+$router->post('/admin/curriculum/areas/{id}/aprobacion',           'Admin\CurriculumController@guardarAprobacionTaller');
 $router->post('/admin/curriculum/subareas/{id}/editar',            'Admin\CurriculumController@guardarSubarea');
 $router->post('/admin/curriculum/competencias/{id}/editar',        'Admin\CurriculumController@guardarCompetencia');
 
