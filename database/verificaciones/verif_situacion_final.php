@@ -66,6 +66,21 @@ $chk('area de 1 competencia: la mitad es esa unica', mitad_competencias(1) === 1
 $chk('area de 4 competencias: la mitad son 2', mitad_competencias(4) === 2, (string) mitad_competencias(4));
 $chk('area de 2 competencias: la mitad es 1', mitad_competencias(2) === 1, (string) mitad_competencias(2));
 
+// «Mas de la mitad» = la mitad entera mas una (decision del usuario, 24/09/2026):
+// c > n/2. Minimo de C que cuenta, por tamano de area.
+foreach ([1 => 1, 2 => 2, 3 => 2, 4 => 3, 5 => 3] as $n => $min) {
+    $chk("mas de la mitad de $n: desde $min C",
+        mas_de_la_mitad($min, $n) && !mas_de_la_mitad($min - 1, $n));
+}
+// Coherencia: «C en mas de la mitad» <=> «no llega a la mitad en B o superior».
+$coherente = true;
+for ($n = 1; $n <= 6; $n++) {
+    for ($c = 0; $c <= $n; $c++) {
+        $coherente = $coherente && (mas_de_la_mitad($c, $n) === ($n - $c < mitad_competencias($n)));
+    }
+}
+$chk('mas de la mitad en C <=> no llega a la mitad en B o superior (n = 1..6)', $coherente);
+
 // ── 2. Grados finales de ciclo y promoción automática ────────────────────────
 echo "\n=== 2. Grados finales de ciclo y promocion automatica ===\n";
 
@@ -162,19 +177,35 @@ foreach ($casos as [$nivel, $grado, $esperado, $titulo, $areas]) {
 // ── 4. «La mitad o más» (sec 2.o/5.o) NO es «más de la mitad» (el resto) ─────
 echo "\n=== 4. El umbral de permanencia difiere entre grados ===\n";
 
-// 4 areas de 3 competencias con EXACTAMENTE 2 en C (la mitad de 3 es 2):
-//   · «la mitad o mas»  -> cuenta  -> secundaria 2.o y 5.o permanecen
-//   · «mas de la mitad» -> NO cuenta -> secundaria 1.o, 3.o y 4.o solo recuperan
-// Ademas ninguna de esas areas llega a la mitad en B o superior (1 < 2), asi que
-// en los grados intermedios tampoco hay promocion: el caso aisla el umbral.
-$frontera = array_merge($rep($area(1, 0, 2), 4), $rep($area(3, 0, 0), 6));
+// La frontera solo existe con areas PARES (con impares, «la mitad» de la norma y
+// «mas de la mitad» coinciden desde el 24/09/2026). 4 areas de 4 competencias con
+// EXACTAMENTE 2 en C:
+//   · «la mitad o mas»  -> cuenta    -> secundaria 2.o y 5.o permanecen
+//   · «mas de la mitad» -> NO cuenta -> y en 1.o, 3.o y 4.o el area conserva la
+//     mitad en B o superior, asi que el alumno es PROMOVIDO.
+$frontera = array_merge($rep($area(2, 0, 2), 4), $rep($area(3, 0, 0), 6));
 
 $chk('sec 2.o: 4 areas con la MITAD de sus competencias en C -> PER',
     situacion_final($frontera, 'sec', 2) === SITUACION_PER,
     situacion_final($frontera, 'sec', 2));
-$chk('sec 1.o: el mismo alumno -> RR (exige MAS de la mitad)',
-    situacion_final($frontera, 'sec', 1) === SITUACION_RR,
+$chk('sec 1.o: el mismo alumno -> PRO (la mitad no es MAS de la mitad)',
+    situacion_final($frontera, 'sec', 1) === SITUACION_PRO,
     situacion_final($frontera, 'sec', 1));
+
+// Areas IMPARES con la mitad entera mas una en C (24/09/2026): cuentan para PER.
+$tres = array_merge($rep($area(1, 0, 2), 4), $rep($area(3, 0, 0), 6));
+$chk('sec 1.o: 4 areas de 3 con 2 C -> PER (2 de 3 es mas de la mitad)',
+    situacion_final($tres, 'sec', 1) === SITUACION_PER,
+    situacion_final($tres, 'sec', 1));
+$cinco = array_merge($rep($area(2, 0, 3), 4), $rep($area(3, 0, 0), 4));
+$chk('prim 5.o: 4 areas de 5 con 3 C -> PER (3 de 5 es mas de la mitad)',
+    situacion_final($cinco, 'prim', 5) === SITUACION_PER,
+    situacion_final($cinco, 'prim', 5));
+// Area de UNA competencia en C: antes nunca contaba (1 > 1 imposible).
+$uno = array_merge($rep($area(1, 0, 2), 3), [$area(0, 0, 1)], $rep($area(3, 0, 0), 5));
+$chk('sec 3.o: 3 areas de 3 con 2 C + area de 1 en C -> PER',
+    situacion_final($uno, 'sec', 3) === SITUACION_PER,
+    situacion_final($uno, 'sec', 3));
 
 // ── 5. Riesgo, huecos de datos y rótulos ─────────────────────────────────────
 echo "\n=== 5. Riesgo, huecos de datos y rotulos ===\n";

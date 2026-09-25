@@ -5,6 +5,16 @@
 > **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
 
 
+## 🆕 «MÁS DE LA MITAD» = LA MITAD ENTERA MÁS UNA — EN `dev`, sin commit (24/09/2026)
+
+Sin migración. Decisión del usuario: `c > n/2` (Personal Social: 3 de 5; área de 3: 2; área de 1:
+1). Deroga la L1 del 23/09 (`c > ceil(n/2)`). Punto único `mas_de_la_mitad()` en `helpers.php`.
+Efecto medido: B1 13 → 20 PER, B2 y B3 4 → 7 (RR que pasan a PER; el total en riesgo no cambia).
+Cierra además la divergencia de Ética→EREL con el SIAGIE. Probado: `verif_situacion_final`,
+`verif_riesgo_situacion_bd`, `verif_riesgo_tutor` y `verif_direccion_superficies` en verde; en el
+navegador, B2 muestra 7 PER. **Pendiente al cierre del IV bimestre:** contrastar con la situación
+final del SIAGIE, y GAMA→EPT en 5.º (D3). Detalle en `docs/modulos/usuarios-direccion.md` § «L1».
+
 ## 🆕 BUSCADOR DE ESTUDIANTES Y RETORNO DE GRADO — EN `dev`, sin commit (24/09/2026)
 
 Sin migración. `/admin/buscar-estudiante` mostraba **dos tarjetas** para un retorno activo: la

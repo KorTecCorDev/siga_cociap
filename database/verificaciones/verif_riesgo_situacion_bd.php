@@ -196,7 +196,8 @@ $situacionControl = static function (array $areas, string $nivel, int $grado): s
         $cTot += $a['c'];
         if ($a['ab'] >= $mitad)             { $nAb++; }
         if ($a['ab'] + $a['b'] >= $mitad)   { $nB++; }
-        if ($a['c'] >  $mitad)              { $cMas++; }
+        // «Mas de la mitad» = la mitad entera mas una (24/09/2026): c > n/2.
+        if (2 * $a['c'] > $a['n'])          { $cMas++; }
         if ($a['c'] >= $mitad)              { $cMitad++; }
     }
 
@@ -380,7 +381,7 @@ foreach ($periodos as $p) {
                 $sit = $al['situacion'];
                 if ($x !== null && !($nivel === 'prim' && $gnum === 1)) {
                     $m   = (int) ceil($x['n'] / 2);
-                    $per = ($nivel === 'sec' && $finalC) ? $x['c'] >= $m : $x['c'] > $m;
+                    $per = ($nivel === 'sec' && $finalC) ? $x['c'] >= $m : 2 * $x['c'] > $x['n'];
                     if ($sit === 'PER') {
                         $esp = ($d['literal'] === 'C' && $per) ? 'per' : null;
                     } elseif ($sit === 'PRO') {

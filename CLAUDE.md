@@ -349,7 +349,9 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   **depende del GRADO**: en los finales de ciclo (primaria 2.º/4.º/6.º, secundaria 2.º/5.º)
   una sola «C» impide la promoción; en los intermedios basta la mitad o más en B o superior
   **en cada área**. «La mitad» es `ceil(n/2)` por convención explícita de la norma (5 → 3,
-  3 → 2, 1 → esa única). **1.º de primaria: promoción automática**, nunca en riesgo (se
+  3 → 2, 1 → esa única). **«Más de la mitad» es la mitad entera más una, `c > n/2`**
+  (3 de 5, 2 de 3, 1 de 1; decisión del usuario del 24/09/2026, punto único
+  `mas_de_la_mitad()`) — NO se deriva de `ceil(n/2)`. **1.º de primaria: promoción automática**, nunca en riesgo (se
   lista aparte como seguimiento). Las **transversales NO cuentan** (numeral 5.1.3.9);
   las **extraordinarias SÍ** (el mérito no: son filtros distintos a propósito).
   **Competencias pendientes** (24/09/2026): la sigla sale de lo evaluado y

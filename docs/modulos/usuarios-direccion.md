@@ -1027,12 +1027,36 @@ según el grado y según en qué áreas caiga.
 
 | # | Decisión |
 |---|---|
-| L1 | **«Más de la mitad»** = `n_c > ceil(n/2)`, con la misma convención que la norma fija para «la mitad». |
+| L1 | **«Más de la mitad» = la mitad entera más una: `c > n/2`** (decisión del usuario, 24/09/2026; punto único `mas_de_la_mitad()`). Área de 1 → 1 C · de 3 → **2** · de 5 → **3** (Personal Social: 3 de 5) · con `n` par no cambia (2 → 2, 4 → 3). **Deroga la lectura del 23/09** (`c > ceil(n/2)`: 4 de 5, 3 de 3 y, en un área de 1 competencia, nunca). Ver «L1: por qué cambió» abajo. |
 | L2 | La condición de **PER de primaria** dice «"C" en más de la mitad … **y "B" en las demás»**. Al pie de la letra, un alumno con «C» de sobra quedaría FUERA de la permanencia —el absurdo contrario—. Es un artefacto de redacción: **se aplica solo la condición de «C»**, como el SIAGIE. |
 | L3 | **Competencias/áreas sin nota**: la SIGLA se calcula solo con lo evaluado (no se cuentan como no logradas: sería inventar un dato en contra). **Desde el 24/09/2026 lo pendiente SÍ se usa para la CERTEZA**: la sigla se prueba contra el plan completo del área (ver «Certeza: seguro o proyectado»). |
 | L4 | **1.º de primaria** no entra al riesgo ni a sus cifras. Desde el 24/09/2026 entra al bloque de **seguimiento** con el MISMO umbral que el resto de primaria (antes: cualquier B o C). Ver «Acompañamiento pedagógico». |
 | L5 | **Último nivel registrado, como el SIAGIE** (decisión del usuario, 24/09/2026; deroga «solo los literales del bimestre elegido»). En B1-B3 una competencia no evaluada en el bimestre toma su nivel del último bimestre anterior en que se registró (RVM 094-2020, 5.1.2.2 p. 3; RVM 048-2024, 5.1.1.3 p. 3). **En el periodo final no se arrastra**: manda solo ese bimestre, igual que el logro anual de la boleta. |
 | L6 | Un estudiante **sin ninguna** competencia evaluada es `ND` (no es sigla del SIAGIE, es el hueco de datos): no cuenta como evaluado ni como riesgo. |
+
+#### L1: por qué cambió «más de la mitad» (24/09/2026)
+
+- **La norma no lo define para los impares.** La RVM 094-2020 fija solo «la mitad» (5 → 3,
+  3 → 2, 1 → esa única). La RVM 048-2024, leída del PDF oficial, cambió el cuadro de secundaria
+  pero tampoco define «más de la mitad». El manual del SIAGIE no es público. No hay acta final
+  2026 con la que contrastar: el SIAGIE solo calcula la situación al cierre del IV bimestre.
+- **Decide el usuario:** la mitad entera más una.
+- **Coherencia:** con esta lectura, «C en más de la mitad» ⇔ «no llega a la mitad en B o
+  superior», para todo `n`. Es la misma frontera vista desde los dos lados. Con la anterior había
+  áreas que fallaban la promoción sin contar para la permanencia, y un área de UNA competencia
+  (EPT, Ética) al 100 % en C nunca contaba (`1 > 1`).
+- **Frontera que sigue existiendo:** solo con áreas **pares** «la mitad o más» (PER de sec
+  2.º/5.º) y «más de la mitad» (el resto) difieren. Con 4 áreas de 4 competencias con 2 C, sec
+  2.º → PER y sec 1.º → PRO. Lo prueba `verif_situacion_final.php` § 4.
+- **Impacto medido (BD local):** B1 13 → **20** PER; B2 y B3 4 → **7**. Son RR que pasan a PER; el
+  total en riesgo no cambia (136 · 100 · 100), así que el seguimiento tampoco.
+- **Cierra además la divergencia de Ética con el SIAGIE.** Ética (1 competencia) se exporta a
+  EREL, que tiene 2 columnas con la misma nota. Con la lectura anterior, en sec 1.º/3.º/4.º una
+  C contaba para PER en el SIAGIE (2 de 2) y no en el SIGA (1 de 1). Ahora las tres reglas dan
+  lo mismo con 1 de 1 que con 2 de 2.
+- ⚠️ **Divergencia con el SIAGIE aún abierta** (0 casos hoy; revisar al cierre del IV bimestre):
+  en 5.º de secundaria el acta de EPT (`032-ETRA`) se llena con **GAMA**, una transversal que el
+  SIGA no cuenta. Para el SIAGIE, 5.º tiene un área más, y una GAMA en C daría RR.
 
 #### Dónde vive la regla
 

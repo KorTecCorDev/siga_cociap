@@ -727,10 +727,13 @@ function seguimiento_pedagogico(int $numB, int $numC, string $nivelCodigo): bool
  * como "la mitad" a 2 competencias. En el caso de áreas curriculares con una sola
  * competencia, se considera esa única competencia del área.»
  *
- * Es exactamente `ceil(n / 2)`, y por tanto «más de la mitad» es `> ceil(n / 2)`,
- * leído con la misma convención. NUNCA usar `n / 2` a secas: en un área de 3
+ * Es exactamente `ceil(n / 2)`. NUNCA usar `n / 2` a secas: en un área de 3
  * competencias daría 1,5 y «la mitad» pasaría a ser 2 solo por redondeo del
  * lenguaje, no por la norma.
+ *
+ * ⚠️ «MÁS DE LA MITAD» NO se deriva de aquí: tiene su propio punto único,
+ * `mas_de_la_mitad()`. Hasta el 24/09/2026 se leía `> ceil(n / 2)` y exigía 4 C
+ * de 5; el usuario lo derogó.
  *
  * ⚠️ En este colegio hay áreas de UNA SOLA competencia (Educación para el
  * Trabajo, Taller de Pre-Cálculo y Ética y Valores): ahí «la mitad» es esa
@@ -739,6 +742,32 @@ function seguimiento_pedagogico(int $numB, int $numC, string $nivelCodigo): bool
 function mitad_competencias(int $n): int
 {
     return (int) ceil($n / 2);
+}
+
+/**
+ * ¿`$c` competencias son «MÁS DE LA MITAD» de un área de `$n`? — PUNTO ÚNICO
+ * (decisión del usuario, 24/09/2026: «la mitad entera más una»).
+ *
+ * Es `c > n / 2`:
+ *
+ * ```
+ *   n   1   2   3   4   5
+ *   c   1   2   2   3   3      (antes, con `c > ceil(n/2)`: nunca, 2, 3, 3, 4)
+ * ```
+ *
+ * Con `n` par coincide con la lectura anterior; cambia solo con `n` impar. La
+ * norma (RVM 094-2020 y RVM 048-2024) no define «más de la mitad» para los
+ * impares, y el manual del SIAGIE no es público.
+ *
+ * Coherencia con la norma: así, «C en más de la mitad» equivale EXACTAMENTE a
+ * «no llega a la mitad en B o superior» (`ab + b < ceil(n/2)`), para todo `n`.
+ * Con la lectura anterior había áreas que fallaban la promoción sin contar para
+ * la permanencia, y un área de UNA competencia (EPT, Ética) al 100 % en C nunca
+ * contaba, porque `1 > 1` es imposible.
+ */
+function mas_de_la_mitad(int $c, int $n): bool
+{
+    return 2 * $c > $n;
 }
 
 /**
@@ -875,7 +904,7 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
         if ($ab >= $mitad)      { $out['areas_ab']++; }
         if ($ab + $b >= $mitad) { $out['areas_b']++; }
         else                    { $out['fallan'][] = (string) ($a['nombre'] ?? '—'); }
-        if ($c >  $mitad)       { $out['areas_c_mas']++; }
+        if (mas_de_la_mitad($c, $n)) { $out['areas_c_mas']++; }
         if ($c >= $mitad)       { $out['areas_c_mitad']++; }
 
         $out['por_area'][] = [
@@ -883,7 +912,7 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
             'nombre'     => $a['nombre'] ?? null,
             'n' => $n, 'ab' => $ab, 'b' => $b, 'c' => $c, 'mitad' => $mitad,
             // Cuenta para las 4 áreas de la permanencia (mismo corte que abajo).
-            'suma_per'   => (!$prim && $final) ? $c >= $mitad : $c > $mitad,
+            'suma_per'   => (!$prim && $final) ? $c >= $mitad : mas_de_la_mitad($c, $n),
             'no_llega_b' => $ab + $b < $mitad,
             // Cumple justo: una competencia más en C la haría fallar.
             'limite'     => $ab + $b === $mitad,
