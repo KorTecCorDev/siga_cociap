@@ -291,6 +291,9 @@
     &--observada   { background: $color-warning-bg; color: $color-warning; }
     &--desactivado { background: $color-error-bg;   color: $color-error;   }
     &--retirada    { background: $color-error-bg;   color: $color-error;   }
+    // Retorno de grado (modo separar): mismos colores que el listado /matriculas
+    &--oficial     { background: #eef5fb; color: #1a5a8c; } // azul (SIAGIE)
+    &--operativa   { background: #f5f0fe; color: #6d28d9; } // púrpura (cursa aquí)
 }
 
 // ── Mensajes (vacío / error) ──────────────────────────────────

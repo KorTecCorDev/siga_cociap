@@ -74,9 +74,11 @@ class BuscadorEstudianteController extends BaseController
         // (OrdenMeritoModel, con cascada de desempate y resolución manual).
         $puestos = [];
         if ($periodoId !== null && $filas) {
-            $gradoIds = array_filter(array_map(
-                static fn($f) => (int) ($f['grado_id'] ?? 0),
-                $filas
+            // Incluye el grado OPERATIVO de un retorno: el puesto de la oficial
+            // sale de ahí aunque la fila operativa no haya entrado al LIMIT.
+            $gradoIds = array_filter(array_merge(
+                array_map(static fn($f) => (int) ($f['grado_id'] ?? 0), $filas),
+                array_map(static fn($f) => (int) ($f['retorno_grado_id'] ?? 0), $filas)
             ));
             if ($gradoIds) {
                 $puestos = $this->ordenMeritoModel->puestosPorGrado($gradoIds, $periodoId);
@@ -92,6 +94,24 @@ class BuscadorEstudianteController extends BaseController
 
             $puesto = $puestos[(int) $f['matricula_id']]['puesto'] ?? null;
 
+            // Retorno de grado ACTIVO: la oficial es la gestión y el documento;
+            // el mérito vive en la operativa, así que su puesto se lee de allí.
+            // El JS decide si agrupa (buscador) o separa (Rectificación).
+            $retorno = null;
+            if (!empty($f['retorno_operativa_id'])) {
+                $puestoOp = $puestos[(int) $f['retorno_operativa_id']]['puesto'] ?? null;
+                $retorno  = [
+                    'rol'      => 'oficial',
+                    'cursa_en' => $f['retorno_grado_nombre'] . ' "' . $f['retorno_seccion_nombre'] . '"',
+                    'puesto'   => $puestoOp !== null ? (int) $puestoOp : null,
+                ];
+            } elseif (!empty($f['retorno_oficial_id'])) {
+                $retorno = [
+                    'rol'        => 'operativa',
+                    'oficial_id' => (int) $f['retorno_oficial_id'],
+                ];
+            }
+
             return [
                 'matricula_id' => (int) $f['matricula_id'],
                 'dni'      => $f['dni'],
@@ -105,6 +125,7 @@ class BuscadorEstudianteController extends BaseController
                 'estado'   => $f['matricula_estado'],
                 'tutor'    => $tutor,
                 'puesto'   => $puesto !== null ? (int) $puesto : null,
+                'retorno'  => $retorno,
             ];
         }, $filas);
 
