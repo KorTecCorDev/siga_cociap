@@ -91,9 +91,9 @@ $riesgo = [
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_listado.php'; ?>
     <?php endif; ?>
 
-    <?php // Fuera del `if`: el seguimiento son PROMOVIDOS (y 1.º de primaria,
-          // que no tiene riesgo por definición), así que existe aunque la
-          // sección no tenga ningún caso de riesgo. ?>
+    <?php // Fuera del `if`: el seguimiento incluye a PROMOVIDOS (y a 1.º de
+          // primaria, que no tiene riesgo por definición), así que existe
+          // aunque la sección no tenga ningún caso de riesgo. ?>
     <?php if ((int) $res['evaluados'] > 0): ?>
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_seguimiento.php'; ?>
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_pendiente-final.php'; ?>

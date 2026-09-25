@@ -372,7 +372,8 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   (`/docente/tutoria/acompanamiento` y su card): sale de `tutor_id` en servidor, nunca de la URL, y
   solo en bimestres PUBLICADOS de su nivel (compuerta 044). El informe se llama
   **«Acompañamiento pedagógico»** (24/09/2026; las rutas `riesgo` redirigen) y suma un bloque de
-  **SEGUIMIENTO** que NO es riesgo ni entra a sus cifras: PRO y 1.º de primaria con
+  **SEGUIMIENTO** que NO es riesgo ni entra a sus cifras: **todo evaluado** (PRO, RR, PER y
+  1.º de primaria; desde el 25/09/2026 un RR/PER sale en los dos bloques) con
   prim ≥ 3 B o ≥ 3 C · sec ≥ 3 C (punto único `seguimiento_pedagogico()`). Ver
   `docs/modulos/usuarios-direccion.md`.
 - **Los TRES directores son SOLO LECTURA y salen de `ROLES_DIRECCION`**

@@ -94,8 +94,8 @@ $etqGrado = static fn(array $gr): string => $gr['nombre_display'] . ' ' . $gr['n
                     <li><?= e($frase) ?></li>
                 <?php endforeach; ?>
                 <?php if ($res['seguimiento'] > 0): ?>
-                    <li><strong><?= (int) $res['seguimiento'] ?></strong> en seguimiento: promovido<?= (int) $res['seguimiento'] !== 1 ? 's' : '' ?>
-                        con competencias bajas, fuera de las cifras de riesgo (ver su bloque)</li>
+                    <li><strong><?= (int) $res['seguimiento'] ?></strong> en seguimiento: con competencias bajas, estén o no en
+                        riesgo; fuera de las cifras de riesgo (ver su bloque)</li>
                 <?php endif; ?>
             </ul>
         <?php endif; ?>

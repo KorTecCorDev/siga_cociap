@@ -5,6 +5,15 @@
 > **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
 
 
+## 🆕 ACOMPAÑAMIENTO PARA TODOS (TAMBIÉN RR/PER) — EN `dev` (25/09/2026)
+
+Revisión de los tres filtros de la situación final (`docs/modulos/promocion-de-grado.md` § 4.5).
+Sin cambios en la regla: «la mitad o más» ya era `ceil(n/2)` y PER/PRO son excluyentes, así
+que el orden no altera ninguna sigla. **Único cambio:** el bloque de seguimiento
+(`seguimiento_pedagogico()`, umbral ≥ 3 sin cambios) se aplica a **todo** evaluado, también a
+los RR/PER, que salen en los dos bloques con su sigla real. Las cifras de riesgo no cambian. Sin
+migración. Verificadores en verde. **Falta probarlo en el navegador** (informe, A4 y vista del tutor).
+
 ## 🆕 «MÁS DE LA MITAD» = LA MITAD ENTERA MÁS UNA — EN `dev`, sin commit (24/09/2026)
 
 Sin migración. Decisión del usuario: `c > n/2` (Personal Social: 3 de 5; área de 3: 2; área de 1:

@@ -29,7 +29,7 @@ $definitiva = !empty($resCab['definitiva']);
         <p class="cuadros-print__sub">
             Situación final <?= $definitiva ? '' : 'proyectada ' ?>según la RVM 00094-2020-MINEDU (modificada por la
             RVM 048-2024-MINEDU): requiere recuperación (RR) o permanece en el grado (PER).
-            El seguimiento lista a promovidos con competencias bajas: no es riesgo.
+            El seguimiento lista a quienes acumulan competencias bajas, estén o no en riesgo.
         </p>
     </div>
 </header>

@@ -121,6 +121,23 @@ Leída al pie de la letra, un estudiante con C de sobra quedaría **fuera** de l
 lo contrario de lo que busca la norma. Se considera un artefacto de redacción: **se aplica solo la
 condición de C**, igual que el SIAGIE.
 
+### 4.5 Los tres filtros y su jerarquía (revisado el 25/09/2026)
+
+| Filtro | Pregunta | Resultado |
+|---|---|---|
+| **Permanencia** | ¿Reúne las 4 áreas en C de § 4.1/4.2? | `PER`: sin oportunidad de recuperación |
+| **Promoción** | ¿Cumple el cuadro de su grado? | `PRO`; si no, y no es PER, `RR` |
+| **Acompañamiento** | ¿Acumula competencias bajas? Primaria ≥ 3 B **o** ≥ 3 C (por separado) · secundaria ≥ 3 C | Bloque de **seguimiento** (no es una situación final) |
+
+- **PER y PRO son mutuamente excluyentes**, así que da igual cuál se evalúe primero. En los grados
+  intermedios, «C en más de la mitad» equivale a «no llega a la mitad en B o superior». En los
+  grados finales, PRO exige cero C. El código evalúa PRO → PER → RR, y por esa exclusión es lo
+  mismo que PER → PRO/RR. Se decidió no reordenarlo.
+- **El acompañamiento es transversal**: se aplica **a todos** los evaluados, sean PRO, RR o PER
+  (decisión del 25/09/2026). Un RR o PER sobre el umbral sale también en el bloque de riesgo.
+  No se aplica a `PEND` ni a los estudiantes sin datos. Punto único: `seguimiento_pedagogico()`.
+  Detalle de pantalla en `docs/modulos/usuarios-direccion.md`.
+
 ---
 
 ## 5. Qué entra al cálculo
@@ -256,3 +273,4 @@ de control de las verificaciones, que existen precisamente para detectar si la r
 | 24/09/2026 | **Las extraordinarias cuentan.** Los **talleres** solo con aprobación de la UGEL por año y grado. |
 | 24/09/2026 | **Certeza** seguro / proyectado contra el plan completo; `PEND` en el último bimestre. |
 | 24/09/2026 | **«Más de la mitad» = la mitad entera más una** (`c > n/2`). Deroga `c > ceil(n/2)`. |
+| 25/09/2026 | Revisión de los tres filtros (§ 4.5): «la mitad o más» sigue siendo `ceil(n/2)`: en las áreas impares es la mitad entera más una (5 → 3) y en las pares, la mitad exacta (4 → 2). El **acompañamiento** pasa a aplicarse a **todos** (también RR/PER). |

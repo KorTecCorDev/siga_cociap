@@ -1207,16 +1207,23 @@ rutas `acompanamiento`) y tiene dos bloques que **no se suman**:
 2. **Estudiantes en seguimiento** — `riesgo/_seguimiento.php` (antes `_automatica.php`, solo 1.º).
 
 **Regla** (decisión del usuario, 24/09/2026; punto único `seguimiento_pedagogico()` y
-`SEGUIMIENTO_MIN_B` / `SEGUIMIENTO_MIN_C` en `helpers.php`): estudiantes **PRO** o con
-**promoción automática** (1.º de primaria) con:
+`SEGUIMIENTO_MIN_B` / `SEGUIMIENTO_MIN_C` en `helpers.php`): **cualquier estudiante evaluado**
+—PRO, RR, PER o 1.º de primaria— con:
 
 - **primaria:** ≥ 3 B **o** ≥ 3 C, cada literal por separado (2 B + 1 C **no** entra, a propósito);
 - **secundaria:** ≥ 3 C.
 
 Son los umbrales de la primera versión del riesgo (23/09), derogados como regla de PROMOCIÓN y
 reciclados como señal pedagógica. Cuentan las mismas competencias que la situación final (último
-nivel registrado, sin transversales ni talleres no aprobados). Riesgo, `PEND` y sin datos nunca
-entran.
+nivel registrado, sin transversales ni talleres no aprobados). `PEND` y sin datos nunca entran.
+
+> **25/09/2026 — el seguimiento es para TODOS.** Hasta ese día solo entraban PRO y 1.º de
+> primaria («un RR/PER ya se atiende en su bloque»). El usuario lo amplió: es un filtro
+> **transversal** a la situación final, no un cuarto estado. Un RR o PER sobre el umbral sale
+> **en los dos bloques**, y la franja del seguimiento muestra su **sigla real** (antes estaba fija
+> en PRO). Las cifras de riesgo no cambian: el seguimiento sigue fuera de `total` y `pct`. Umbral
+> y conteo, sin cambios (≥ 3; primaria B **o** C por separado; secundaria solo C). Medido en B1:
+> **182** en seguimiento, de ellos **107** también RR/PER (los 75 de antes + 107).
 
 **Datos:** `SituacionFinalModel::porGrado()` deja la lista en `seguimiento` (clave que reemplaza
 a `automatica`); `riesgo_resumen()` da la cifra `seguimiento`, **nunca sumada a `total` ni a
@@ -1231,7 +1238,8 @@ a `automatica`); `riesgo_resumen()` da la cifra `seguimiento`, **nunca sumada a 
 retorno de grado: una medición que la omite da una fila más en 1.º.)
 
 **Guardas:** `verif_situacion_final.php` (bordes de las dos ramas), `verif_riesgo_situacion_bd.php`
-§ 6b (solo PRO/automática sobre el umbral y nunca a la vez en riesgo),
+§ 6b (cada fila sobre el umbral y con situación determinada; desde el 25/09, además, ningún
+RR/PER sobre el umbral queda fuera),
 `verif_riesgo_tutor.php` y `verif_direccion_superficies.php` (filas = riesgo + seguimiento).
 
 #### Chips de EFECTO por competencia (24/09/2026)

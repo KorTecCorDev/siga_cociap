@@ -38,10 +38,10 @@ $res = $riesgo['stats']['resumen'];
         </li>
         <li>
             <strong>Riesgo y seguimiento no se suman.</strong> El <strong>seguimiento</strong> lista a
-            estudiantes que <em>sí</em> serían promovidos pero acumulan competencias bajas: en primaria,
+            todo estudiante que acumula competencias bajas, esté o no en riesgo: en primaria,
             <?= (int) SEGUIMIENTO_MIN_B ?> o más en B o <?= (int) SEGUIMIENTO_MIN_C ?> o más en C; en
-            secundaria, <?= (int) SEGUIMIENTO_MIN_C ?> o más en C. No es una situación final del
-            MINEDU: es una señal para acompañarlos antes de que lleguen al riesgo.
+            secundaria, <?= (int) SEGUIMIENTO_MIN_C ?> o más en C. Un estudiante RR o PER puede salir
+            en los dos bloques. No es una situación final del MINEDU: es una señal para acompañarlo.
         </li>
         <li>
             <strong>Qué notas entran.</strong> De cada competencia, su <strong>último nivel de logro

@@ -33,10 +33,10 @@ $res = riesgo_resumen($bloques['situacion'] ?? []);
             <li><strong><?= (int) $res['proyectados'] ?></strong> depende<?= (int) $res['proyectados'] !== 1 ? 'n' : '' ?>
                 de competencias aún sin calificar</li>
         <?php endif; ?>
-        <?php // Seguimiento (24/09/2026): promovidos con competencias bajas.
-              // Cifra aparte: no se suma al riesgo. ?>
+        <?php // Seguimiento (24/09/2026; desde el 25/09, también RR/PER): con
+              // competencias bajas. Cifra aparte: no se suma al riesgo. ?>
         <?php if ((int) $res['seguimiento'] > 0): ?>
-            <li><strong><?= (int) $res['seguimiento'] ?></strong> en seguimiento pedagógico (promovidos)</li>
+            <li><strong><?= (int) $res['seguimiento'] ?></strong> en seguimiento pedagógico</li>
         <?php endif; ?>
         <?php foreach (riesgo_fuera_del_calculo($res) as $frase): ?>
             <li><?= e($frase) ?></li>

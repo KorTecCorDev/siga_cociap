@@ -3,20 +3,19 @@
  * Estudiantes en SEGUIMIENTO pedagógico (24/09/2026; nació el 23/09 como la
  * lista de 1.º de primaria).
  *
- * 🔴 NO ES UNA LISTA DE RIESGO, Y POR ESO VA APARTE. Son estudiantes que SÍ
- * serían promovidos —o tienen promoción automática: 1.º de primaria, cuadro
- * del literal A, sub numeral 5.1.3 de la RVM 00094-2020-MINEDU— pero acumulan
- * competencias bajas. Decir de ellos que «no alcanzarían la promoción» sería
- * falso; callarlos, perder la señal que el tutor necesita. No entran en
- * ninguna cifra de riesgo.
+ * 🔴 NO ES UNA LISTA DE RIESGO, Y POR ESO VA APARTE. Es un filtro TRANSVERSAL
+ * a la situación final: estudiantes que acumulan competencias bajas, sean PRO,
+ * RR o PER (desde el 25/09/2026; antes solo PRO y 1.º de primaria, que tiene
+ * promoción automática). Un RR o PER sale también en el bloque de riesgo, así
+ * que la franja muestra su sigla REAL. No entran en ninguna cifra de riesgo.
  *
  * El umbral es `seguimiento_pedagogico()` (punto único en `helpers.php`), el
  * mismo para 1.º que para el resto de primaria: aquí solo se CITA, con sus
  * constantes, nunca se escribe a mano.
  *
  * Mismo marcado que `_listado.php` (tabla por grado, franja por estudiante,
- * desglose de sus competencias no aprobatorias), con marca NEUTRA: un color de
- * semáforo diría «todo bien» o «alarma», y no es ninguna de las dos.
+ * desglose de sus competencias no aprobatorias). La marca es la de su
+ * situación: neutra para PRO y el color de `_listado.php` para RR/PER.
  *
  * @var array $riesgo
  */
@@ -28,9 +27,10 @@ if (empty($lista)) {
 <section class="riesgo-seguimiento">
     <h2 class="riesgo-h2">Estudiantes en seguimiento</h2>
     <p class="riesgo-nota">
-        <strong>No están en riesgo</strong>: serían promovidos (en 1.º de primaria la promoción es
-        automática) y no entran en ninguna de las cifras anteriores. Se listan porque acumulan
-        competencias bajas que conviene acompañar: en primaria, <strong><?= (int) SEGUIMIENTO_MIN_B ?>
+        Estudiantes que acumulan competencias bajas que conviene acompañar, <strong>estén o no en
+        riesgo</strong>: quien requiere recuperación (RR) o permanecería en el grado (PER) aparece
+        también en el bloque de riesgo, con la misma sigla. Este bloque no entra en las cifras de
+        riesgo. El umbral es: en primaria, <strong><?= (int) SEGUIMIENTO_MIN_B ?>
         o más en B</strong> o <strong><?= (int) SEGUIMIENTO_MIN_C ?> o más en C</strong>; en
         secundaria, <strong><?= (int) SEGUIMIENTO_MIN_C ?> o más en C</strong>.
     </p>
@@ -70,8 +70,8 @@ if (empty($lista)) {
                         <tr class="riesgo-alumno__franja">
                             <th scope="rowgroup" colspan="5"><div class="riesgo-alumno__franja-cont">
                                 <span class="riesgo-alumno__nombre"><?= e($al['nombre_completo']) ?></span>
-                                <span class="riesgo-alumno__marca riesgo-alumno__marca--pro">
-                                    <?= $al['automatica'] ? 'Promoción automática' : e(SITUACION_PRO . ' · ' . situacion_rotulo(SITUACION_PRO)) ?>
+                                <span class="riesgo-alumno__marca riesgo-alumno__marca--<?= e(strtolower($al['situacion'])) ?>">
+                                    <?= $al['automatica'] ? 'Promoción automática' : e($al['situacion'] . ' · ' . situacion_rotulo($al['situacion'])) ?>
                                 </span>
                                 <span class="riesgo-alumno__dato">
                                     Sección <?= e($al['seccion_nombre']) ?>

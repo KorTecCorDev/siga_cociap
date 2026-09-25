@@ -46,5 +46,5 @@ $sujeto    = $sinCasosAlcance !== '' ? ' ' . $sinCasosAlcance : '';
     <?= e(mb_strtoupper(mb_substr($frase, 0, 1)) . mb_substr($frase, 1)) ?>.
 <?php endforeach; ?>
 <?php if ((int) ($res['seguimiento'] ?? 0) > 0): ?>
-    <?= (int) $res['seguimiento'] ?> estudiante<?= (int) $res['seguimiento'] !== 1 ? 's' : '' ?> promovido<?= (int) $res['seguimiento'] !== 1 ? 's' : '' ?> sí necesita<?= (int) $res['seguimiento'] !== 1 ? 'n' : '' ?> seguimiento (ver su bloque).
+    <?= (int) $res['seguimiento'] ?> estudiante<?= (int) $res['seguimiento'] !== 1 ? 's' : '' ?> sí necesita<?= (int) $res['seguimiento'] !== 1 ? 'n' : '' ?> seguimiento (ver su bloque).
 <?php endif; ?>

@@ -405,19 +405,26 @@ foreach ($periodos as $p) {
         if ($sinChip > 0) { echo "  (medida) $etq · $sinChip en riesgo sin ningun chip\n"; }
         $ok($rrSinRr === 0, "  $etq · todo RR lleva al menos un chip Causa RR", "$rrSinRr sin Causa RR");
 
-        // 6b. Seguimiento (24/09/2026): nunca a la vez en riesgo; solo PRO o
-        // promocion automatica, y cada fila cumple el umbral de su nivel.
-        $idsRiesgo = array_column($g['en_riesgo'], 'matricula_id');
-        $segMal = 0;
+        // 6b. Seguimiento (24/09/2026; desde el 25/09 para TODOS, tambien
+        // RR/PER). Las DOS ramas: cada fila del seguimiento cumple el umbral de
+        // su nivel y tiene situacion determinada (PRO/RR/PER, nunca PEND), y
+        // ningun RR/PER sobre el umbral se queda fuera del seguimiento.
+        $idsSeg = array_column($g['seguimiento'], 'matricula_id');
+        $segMal = $riesgoFuera = $riesgoDentro = 0;
         foreach ($g['seguimiento'] as $al) {
-            if (in_array($al['matricula_id'], $idsRiesgo, true)
-                || !($al['automatica'] || $al['situacion'] === SITUACION_PRO)
+            if (!in_array($al['situacion'], [SITUACION_PRO, SITUACION_RR, SITUACION_PER], true)
                 || !seguimiento_pedagogico($al['num_b'], $al['num_c'], $nivel)) {
                 $segMal++;
             }
         }
-        $ok($segMal === 0, "  $etq · seguimiento: solo PRO/automatica sobre el umbral y fuera del riesgo",
+        foreach ($g['en_riesgo'] as $al) {
+            if (!seguimiento_pedagogico($al['num_b'], $al['num_c'], $nivel)) { continue; }
+            if (in_array($al['matricula_id'], $idsSeg, true)) { $riesgoDentro++; } else { $riesgoFuera++; }
+        }
+        $ok($segMal === 0, "  $etq · seguimiento: cada fila sobre el umbral y con situacion determinada",
             $segMal > 0 ? "$segMal fila(s) indebidas" : count($g['seguimiento']) . ' en seguimiento');
+        $ok($riesgoFuera === 0, "  $etq · seguimiento: ningun RR/PER sobre el umbral queda fuera",
+            $riesgoFuera > 0 ? "$riesgoFuera fuera" : "$riesgoDentro RR/PER tambien en seguimiento");
 
         // 7a. Reubicación del retorno. Un aserto por GRADO, no por alumno: con
         // 250 filas la salida se volvía ilegible y un fallo se perdía dentro.

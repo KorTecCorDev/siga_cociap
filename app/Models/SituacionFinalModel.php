@@ -231,9 +231,9 @@ class SituacionFinalModel extends BaseModel
                 'evaluados'   => 0,
                 'sin_datos'   => 0,
                 'en_riesgo'   => [],
-                // Seguimiento pedagógico (24/09/2026): promovidos —y 1.º de
-                // primaria, promoción automática— con competencias bajas según
-                // `seguimiento_pedagogico()`. NO es riesgo ni entra a sus cifras.
+                // Seguimiento pedagógico (24/09/2026; desde el 25/09 para
+                // TODOS, también RR/PER): evaluados con competencias bajas según
+                // `seguimiento_pedagogico()`. No entra a las cifras de riesgo.
                 'seguimiento' => [],
                 // Periodo final con competencias sin nota: no es riesgo, se
                 // lista aparte hasta completarse (`SITUACION_PENDIENTE`).
@@ -295,6 +295,15 @@ class SituacionFinalModel extends BaseModel
                 $porGrado[$gid]['pendiente_final'][] = $fila;
                 continue;
             }
+            // SEGUIMIENTO pedagógico: cualquier evaluado con competencias bajas
+            // (umbral único en `seguimiento_pedagogico()`), SEA CUAL SEA su
+            // situación. Desde el 25/09/2026 incluye a los RR y PER, que salen
+            // además en el bloque de riesgo; antes solo PRO y 1.º de primaria.
+            // No entra a ninguna cifra de riesgo.
+            if (seguimiento_pedagogico($fila['num_b'], $fila['num_c'], (string) $m['nivel_codigo'])) {
+                $porGrado[$gid]['seguimiento'][] = $fila;
+            }
+
             if (situacion_es_riesgo($fila['situacion'])) {
                 $porGrado[$gid]['en_riesgo'][] = $fila;
                 continue;
@@ -302,12 +311,6 @@ class SituacionFinalModel extends BaseModel
 
             // PRO o promoción automática (1.º de primaria): NUNCA riesgo —decir
             // de un alumno de 1.º que no será promovido es sencillamente falso—.
-            // Si acumula competencias bajas va al SEGUIMIENTO pedagógico
-            // (24/09/2026; umbral único en `seguimiento_pedagogico()`, el mismo
-            // para 1.º que para el resto de primaria).
-            if (seguimiento_pedagogico($fila['num_b'], $fila['num_c'], (string) $m['nivel_codigo'])) {
-                $porGrado[$gid]['seguimiento'][] = $fila;
-            }
             if (!$fila['automatica'] && $fila['certeza'] === CERTEZA_PROYECTADA) {
                 $porGrado[$gid]['cobertura']['pro_proyectados']++;
                 $porGrado[$gid]['cobertura_seccion'][$sec]['pro_proyectados']++;

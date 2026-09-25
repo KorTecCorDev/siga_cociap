@@ -3,7 +3,8 @@
  * Vista: Acompañamiento pedagógico (23/09/2026; nació como «Estudiantes en
  * riesgo académico» y se amplió el 24/09 con el bloque de SEGUIMIENTO). Solo
  * lectura. Dos bloques que no se suman: EN RIESGO (RR/PER) y EN SEGUIMIENTO
- * (promovidos con competencias bajas, `seguimiento_pedagogico()`).
+ * (competencias bajas, `seguimiento_pedagogico()`; desde el 25/09/2026 incluye
+ * también RR/PER, que salen en los dos).
  *
  * Salió del bloque 3b de `/admin/cuadros`, que conserva solo la banda con un
  * enlace aquí. Roles: admin, registro académico y los tres directores
@@ -44,8 +45,8 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
             <strong>En riesgo académico:</strong> estudiantes que, con el último nivel registrado de
             cada competencia hasta este bimestre, <strong>no alcanzarían la promoción de grado</strong>
             según la norma del MINEDU (requieren recuperación o permanecerían en el grado), con su
-            desglose y dónde se concentran los casos. <strong>En seguimiento:</strong> promovidos con
-            competencias bajas que conviene acompañar. Solo lectura.
+            desglose y dónde se concentran los casos. <strong>En seguimiento:</strong> estudiantes con
+            competencias bajas que conviene acompañar, estén o no en riesgo. Solo lectura.
         </p>
     </div>
 </div>
@@ -186,7 +187,7 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
         <?php require VIEW_PATH . '/admin/cuadros/riesgo/_listado.php'; ?>
     <?php endif; ?>
 
-    <?php // Fuera del `if`: el seguimiento son promovidos, así que existe aunque
+    <?php // Fuera del `if`: el seguimiento incluye promovidos, así que existe aunque
           // la selección no tenga ningún caso de riesgo (`total` = 0). ?>
     <?php require VIEW_PATH . '/admin/cuadros/riesgo/_seguimiento.php'; ?>
     <?php require VIEW_PATH . '/admin/cuadros/riesgo/_pendiente-final.php'; ?>

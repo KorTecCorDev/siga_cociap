@@ -688,9 +688,9 @@ const CERTEZA_SEGURA     = 'segura';
 const CERTEZA_PROYECTADA = 'proyectada';
 
 /**
- * SEGUIMIENTO PEDAGÓGICO (24/09/2026) — umbrales. NO es riesgo: es la señal de
- * acompañamiento para quien SÍ sería promovido (o tiene promoción automática,
- * 1.º de primaria) pero acumula competencias bajas. Recicla, como señal
+ * SEGUIMIENTO PEDAGÓGICO (24/09/2026) — umbrales. NO es una situación final: es
+ * la señal de acompañamiento para quien acumula competencias bajas, sea PRO, RR
+ * o PER (desde el 25/09/2026; antes solo PRO y 1.º de primaria). Recicla, como señal
  * pedagógica, los umbrales de la primera versión del riesgo (23/09), que se
  * derogó como regla de PROMOCIÓN. Ver `seguimiento_pedagogico()`.
  */
@@ -705,8 +705,10 @@ const SEGUIMIENTO_MIN_C = 3;
  *                en C (cada literal por separado: 2 B + 1 C NO entra, a propósito);
  *  · secundaria: `SEGUIMIENTO_MIN_C` o más en C (la B aprueba en secundaria).
  *
- * Solo se pregunta de estudiantes PRO o con promoción automática: quien está en
- * riesgo (RR/PER) ya se atiende en su propio bloque, y nunca está en los dos.
+ * Se pregunta de TODO estudiante evaluado (decisión del usuario, 25/09/2026):
+ * un RR o PER que llega al umbral sale también aquí, además de en el bloque de
+ * riesgo. Es un filtro TRANSVERSAL a la situación final, no un cuarto estado.
+ * Los `PEND` del periodo final siguen fuera (situación no determinada).
  * Cuenta las mismas competencias que la situación final (último nivel
  * registrado, sin transversales).
  */
