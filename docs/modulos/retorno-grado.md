@@ -79,6 +79,28 @@ usan legítimamente: son **listados operativos**, no el documento. El híbrido e
 específicamente pegarle ese `WHERE` a la línea que decide **quién recibe documento o se
 cuenta**.
 
+## Buscador de estudiantes (24/09/2026)
+
+`EstudianteModel::buscarEnAnioActivo` devuelve **una fila por matrícula**, así que un retorno
+**activo** trae las dos matrículas. Lleva el rol de cada una con la misma convención que
+`MatriculaModel::listar` (`retorno_operativa_id` → la fila es la oficial; `retorno_oficial_id`
+→ es la operativa). Quien pinta decide qué hacer con eso (`data-retornos` del contenedor,
+en `buscador-estudiante.js`):
+
+| Pantalla | Modo | Qué muestra |
+|---|---|---|
+| `/admin/buscar-estudiante` | `agrupar` (por defecto) | **Una tarjeta, la oficial**, con «Retorno de grado: cursa en 1.° "B"» y el puesto **del grado operativo** |
+| `/rectificaciones` | `separar` | **Las dos**, marcadas «Oficial» / «Operativa»: cada una guarda notas distintas (Regla A) |
+
+**Por qué no se agrupa también en Rectificación:** allí la tarjeta lleva a las notas de ESA
+matrícula. Si se quitara la operativa, las notas posteriores al retorno quedarían inalcanzables
+desde el buscador.
+
+**Por qué el puesto sale de la operativa:** el mérito rankea en el grado operativo, así que la
+oficial nunca tiene puesto propio. El controlador añade el grado operativo a `puestosPorGrado`
+aunque la fila operativa no haya entrado al `LIMIT`. Un retorno **revertido** no se marca, igual
+que en el listado `/matriculas`.
+
 ## Candado: NO se puede retornar a mitad de un bimestre ya evaluado
 
 `RetornoGradoController::evaluacionEnBimestreActivo()` bloquea el retorno si la

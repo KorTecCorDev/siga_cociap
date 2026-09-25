@@ -5,6 +5,19 @@
 > **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
 
 
+## 🆕 BUSCADOR DE ESTUDIANTES Y RETORNO DE GRADO — EN `dev`, sin commit (24/09/2026)
+
+Sin migración. `/admin/buscar-estudiante` mostraba **dos tarjetas** para un retorno activo: la
+oficial decía «Sin puesto aún» y la operativa llevaba a `/matriculas/{operativa}`, que redirige
+**con error**. Ahora sale una sola tarjeta, la oficial, con «Retorno de grado: cursa en …» y
+el puesto del grado operativo. Rectificación usa la misma API con `data-retornos="separar"`:
+mantiene las dos tarjetas, marcadas «Oficial» / «Operativa». Detalle en
+`docs/modulos/retorno-grado.md` § «Buscador de estudiantes». **Probado en navegador
+(24/09):** buscador con 1 tarjeta y clic a `/matriculas/190` sin error; Rectificación con 2
+tarjetas marcadas; búsqueda por apellido con el conteo correcto; sin errores de consola. Queda
+el ancho móvil (la ventana no se dejó redimensionar).
+
+
 ## 🆕 RIESGO ACADÉMICO = SITUACIÓN FINAL DEL MINEDU (PRO/RR/PER) — EN `dev` (24/09/2026)
 
 Sin migración. **Deroga la regla del 23/09** (primaria B+C ≥ 3 · secundaria C ≥ 3), que era un
