@@ -948,6 +948,10 @@ el caption «Competencias en C ·», y los dos saltos de hoja.
 
 ### Riesgo académico = situación final del MINEDU (24/09/2026)
 
+> **Las reglas de promoción, explicadas de principio a fin, viven en
+> `docs/modulos/promocion-de-grado.md`.** Esta sección es el diario de implementación del
+> informe: mediciones, pantallas y guardas.
+
 Estado: **en `dev`**, sin desplegar. Sin migración.
 
 **Rutas** (renombradas el 24/09/2026; las `…/riesgo…` anteriores redirigen con su query
