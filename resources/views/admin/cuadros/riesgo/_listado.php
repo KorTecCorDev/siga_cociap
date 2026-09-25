@@ -70,13 +70,9 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                             &middot; <?= e($ciclo) ?></span>
                         </div></th>
                     </tr>
-                    <tr class="riesgo-tabla__cols">
-                        <th scope="col">Área &middot; curso</th>
-                        <th scope="col">Competencia</th>
-                        <th scope="col" class="riesgo-tabla__num">Lit.</th>
-                        <th scope="col" class="riesgo-tabla__num">Nota</th>
-                        <th scope="col">Docente</th>
-                    </tr>
+                    <?php // Sin fila de columnas general (24/09/2026): era redundante con
+                          // la que lleva CADA estudiante. El título del grado sigue en el
+                          // <thead> —se repite arriba de cada hoja del A4—. ?>
                 </thead>
                 <?php foreach ($g['en_riesgo'] as $al):
                     $buscar = $al['nombre_completo'] . ' ' . $al['seccion_nombre'] . ' '
@@ -126,8 +122,8 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                                 <span class="riesgo-alumno__motivo"><?= e($al['motivo']) ?></span>
                             </div></th>
                         </tr>
-                        <?php // Columnas repetidas bajo CADA estudiante (24/09/2026): en
-                              // pantalla el <thead> del grado queda lejos al desplazarse. ?>
+                        <?php // Columnas bajo CADA estudiante (24/09/2026): son las ÚNICAS
+                              // del listado; el <thead> del grado solo lleva el título. ?>
                         <tr class="riesgo-tabla__cols riesgo-alumno__cols">
                             <th scope="col">Área &middot; curso</th>
                             <th scope="col">Competencia</th>
