@@ -348,8 +348,8 @@ $chk("prim final con las 4 areas en A/AD -> la B no causa nada",
     $efecto($sinAb2, "prim", 4, 4, "B") === null);
 $chk("1.o de primaria: nunca chip",
     $efecto([$ar(0, 0, 3)], "prim", 1, 0, "C") === null);
-$chk("rotulos de los chips", situacion_efecto_rotulo(EFECTO_PER) === "Suma a PER"
-    && situacion_efecto_rotulo(EFECTO_RR) === "Causa RR" && situacion_efecto_rotulo(EFECTO_LIMITE) === "En el límite");
+$chk("rotulos de los chips", situacion_efecto_rotulo(EFECTO_PER) === "PER"
+    && situacion_efecto_rotulo(EFECTO_RR) === "RR" && situacion_efecto_rotulo(EFECTO_LIMITE) === "En el límite");
 
 echo "\n", $ok ? "TODO OK\n" : "HAY FALLAS\n";
 exit($ok ? 0 : 1);

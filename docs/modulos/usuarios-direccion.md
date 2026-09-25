@@ -1221,8 +1221,8 @@ llevaban chips «Suma a PER» y **23 no tenían ni un «Causa RR»**: se leían 
 
 | Situación | Chip | Grado intermedio | Grado final de ciclo |
 |---|---|---|---|
-| **PER** | **Suma a PER** (rojo) | fila en C de un área con `c > mitad` | prim `c > mitad` · sec `c ≥ mitad` |
-| **RR** | **Causa RR** (ámbar) | fila en C de un área con `ab + b < mitad` | toda fila en C; y si faltan áreas con la mitad en A/AD, las B de esas áreas |
+| **PER** | **⚠ PER** (rojo; antes «Suma a PER») | fila en C de un área con `c > mitad` | prim `c > mitad` · sec `c ≥ mitad` |
+| **RR** | **⚠ RR** (ámbar; antes «Causa RR») | fila en C de un área con `ab + b < mitad` | toda fila en C; y si faltan áreas con la mitad en A/AD, las B de esas áreas |
 | **RR o PRO** | **En el límite** (gris, discontinuo) | área que cumple justo (`ab + b == mitad`) | no aplica |
 
 - Un PER solo lleva «Suma a PER». La cercanía de un RR a la permanencia va en **texto**, en su
@@ -1233,6 +1233,12 @@ llevaban chips «Suma a PER» y **23 no tenían ni un «Causa RR»**: se leían 
   `por_area` que deja `situacion_final_analisis()` en el MISMO bucle que decide la sigla.
   El modelo lo pone en `detalle[].efecto`. 1.º de primaria: sin chips.
 - También en el seguimiento (allí solo puede salir «En el límite»).
+- **Presentación (24/09/2026):** los chips de PER y RR dicen solo la sigla, precedida de un
+  **signo de alerta** SVG en `currentColor` (toma el rojo o el ámbar del chip, también en el A4):
+  «⚠ PER» · «⚠ RR». «En el límite» no lleva signo. Las reglas no cambian. Lo pinta **un solo
+  partial**, `admin/cuadros/riesgo/_efecto.php`, que usan el desglose, el seguimiento y la
+  leyenda «Cómo leer»; el rótulo sigue saliendo de `situacion_efecto_rotulo()`. Donde este doc
+  dice «Suma a PER» / «Causa RR», el chip hoy dice «PER» / «RR».
 - Cada estudiante lleva además **su fila de columnas** debajo del nombre
   (`riesgo-alumno__cols`); el `<thead>` del grado no cambió.
 - Medido: **ningún RR/PER queda sin chip** en B1-B3.

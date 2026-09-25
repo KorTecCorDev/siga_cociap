@@ -446,6 +446,15 @@
     &--per    { border-color: $color-error;   color: $color-error; }
     &--rr     { border-color: $color-warning; color: $color-warning; }
     &--limite { border-style: dashed; }
+
+    // Signo de alerta de PER y RR: pinta en currentColor (color del chip)
+    &__icono {
+        display: inline-block;
+        width: 1.1em;
+        height: 1.1em;
+        margin-right: 2px;
+        vertical-align: -.2em;
+    }
 }
 
 // Móvil (24/09/2026): la tabla mide 760px y desplaza dentro de su wrapper, y la

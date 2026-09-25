@@ -141,7 +141,7 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
 <?php foreach ($al['detalle'] as $d): ?>
 <tr>
 <td><?= e($d['area']) ?><?php if ($d['curso'] !== null): ?> <span class="riesgo-cur">&middot; <?= e($d['curso']) ?></span><?php endif; ?></td>
-<td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?><?php if (!empty($d['arrastrada'])): ?> <span class="riesgo-cur">&middot; <?= e($d['periodo']) ?></span><?php endif; ?><?php if (!empty($d['efecto'])): ?> <span class="riesgo-efecto riesgo-efecto--<?= e($d['efecto']) ?>"><?= e(situacion_efecto_rotulo($d['efecto'])) ?></span><?php endif; ?></td>
+<td><?php if ($d['codigo'] !== null): ?><span class="riesgo-cod"><?= e($d['codigo']) ?></span> <?php endif; ?><?= e($d['competencia']) ?><?php if (!empty($d['arrastrada'])): ?> <span class="riesgo-cur">&middot; <?= e($d['periodo']) ?></span><?php endif; ?><?php if (!empty($d['efecto'])): $efecto = $d['efecto']; ?> <?php require VIEW_PATH . '/admin/cuadros/riesgo/_efecto.php'; ?><?php endif; ?></td>
 <td class="riesgo-tabla__num riesgo-tabla__lit"><?= e($d['literal']) ?></td>
 <td class="riesgo-tabla__num"><?= (int) $d['nota'] ?></td>
 <td><?= e($d['docente']) ?></td>

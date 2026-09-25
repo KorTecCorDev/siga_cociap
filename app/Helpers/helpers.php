@@ -1169,12 +1169,15 @@ function situacion_efecto_competencia(array $area, string $literal, array $anali
     return !empty($area['limite']) ? EFECTO_LIMITE : null;
 }
 
-/** Rótulo del chip de efecto. */
+/**
+ * Rótulo del chip de efecto. Desde el 24/09/2026 PER y RR van solo con la
+ * sigla: el signo de alerta que las precede lo pinta la vista (`_efecto.php`).
+ */
 function situacion_efecto_rotulo(string $efecto): string
 {
     return match ($efecto) {
-        EFECTO_PER    => 'Suma a PER',
-        EFECTO_RR     => 'Causa RR',
+        EFECTO_PER    => 'PER',
+        EFECTO_RR     => 'RR',
         EFECTO_LIMITE => 'En el límite',
         default       => '',
     };
