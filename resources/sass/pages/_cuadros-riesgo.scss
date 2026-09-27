@@ -207,6 +207,15 @@
 
         // Leyendas de DATOS (27/09/2026): el término es un texto de la ficha.
         &--texto dt { font-weight: 700; color: $text-primary; }
+
+        // Móvil: el término arriba de su significado; en dos columnas, el
+        // significado quedaba en una tira de tres palabras por renglón.
+        @media screen and (max-width: 600px) {
+            grid-template-columns: 1fr;
+            gap: 0;
+
+            dd { margin-bottom: $spacing-xs; }
+        }
     }
 
     &__sin { font-style: italic; }

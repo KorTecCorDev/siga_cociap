@@ -48,7 +48,9 @@ $pendEj = 2;   // ejemplo de la marca «Depende de N pendientes»
             </dl>
         </section>
 
-        <section class="riesgo-leer__grupo">
+        <?php // Abre la 2.ª columna (en pantalla ancha y en el A4): distintivos y
+              // ficha juntos, los dos hablan de lo que se ve de cada estudiante. ?>
+        <section class="riesgo-leer__grupo riesgo-leer__grupo--col2">
             <h3 class="riesgo-leer__h">Distintivos de cada competencia</h3>
             <dl class="riesgo-leer__leyenda">
                 <dt><?php $efecto = EFECTO_PER; require VIEW_PATH . '/admin/cuadros/riesgo/_efecto.php'; ?></dt>
@@ -62,8 +64,7 @@ $pendEj = 2;   // ejemplo de la marca «Depende de N pendientes»
             </dl>
         </section>
 
-        <?php // Abre la 2.ª columna (en pantalla ancha y en el A4). ?>
-        <section class="riesgo-leer__grupo riesgo-leer__grupo--col2">
+        <section class="riesgo-leer__grupo">
             <h3 class="riesgo-leer__h">Ficha de cada estudiante</h3>
             <dl class="riesgo-leer__leyenda riesgo-leer__leyenda--texto">
                 <dt>N de M competencias evaluadas</dt>
