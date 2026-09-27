@@ -1431,19 +1431,21 @@ distintos y notas no aprobatorias) y las **10 competencias** con más casos · t
 `@for`): no se permite `style` inline. Los filtros van **por URL**; el buscador es solo de
 pantalla y no toca cifras.
 
-**«Cómo leer este informe»** (`riesgo/_leer.php`, reorganizado el 27/09/2026; antes, 11 viñetas
-seguidas): **cuatro grupos con título** — *La regla del MINEDU* (con la regla por grado como
-**tabla** final de ciclo / intermedio), *Riesgo y seguimiento*, *Qué notas entran* y *Cómo leer
-cada estudiante* (los distintivos PER · RR · EN EL LÍMITE como **leyenda**) — y un pie con la
-escala y «Promedio en C». Dos columnas que **fluyen** (CSS `columns`, no rejilla: la rejilla
-alineaba filas y dejaba huecos); `riesgo-leer__grupo--col2` abre la segunda, así que el orden
-del DOM es el de lectura en móvil. En el A4, siempre en 2 columnas. Redacción acortada sin
-quitar ninguna regla; umbrales y escala siguen saliendo de las constantes.
-🔴 **Decisión del usuario (27/09/2026): la sección dice CÓMO se trabaja, nunca POR QUÉ.** Sin
-causas ni motivos internos (se quitaron los paréntesis de transversales y talleres y la
-referencia al SIAGIE); no reintroducirlos en ningún texto visible del informe. El título cita la
-**RVM N.º 094-2020-MINEDU**, y la escala usa el chip de las calificaciones `.nota-literal`
-(el de la consulta de notas; la boleta tiene su propia paleta, con AD verde).
+**«Cómo leer este informe»** (`riesgo/_leer.php`; rehecho el 27/09/2026) es una **LEYENDA DE LO
+QUE SE VE**, no una explicación del cálculo: la leen los **tutores**. Cuatro grupos: *Situación
+final (RVM N.º 094-2020-MINEDU)* con las marcas RR · PER · PRO · Promoción automática; *Bloques del
+informe* (riesgo, seguimiento con su umbral, acompañamiento = la suma); *Distintivos de cada
+competencia* (PER · RR · EN EL LÍMITE · sin distintivo); *Ficha de cada estudiante* (qué significa
+cada dato de la franja, la marca «Depende de N pendientes», el MOTIVO, la tabla y «· I Bimestre»).
+Pie con la escala en el chip de calificaciones `.nota-literal` (el de la consulta de notas; la
+boleta tiene su propia paleta, con AD verde). Las marcas son las piezas REALES del informe (mismas
+clases). Dos columnas que fluyen (`columns`; `riesgo-leer__grupo--col2` abre la segunda), también
+en el A4.
+🔴 **Decisiones del usuario (27/09/2026):** 1) la sección dice **QUÉ significa lo que se ve**,
+nunca cómo se calculó: se quitaron «se cuenta por área / la mitad», «qué notas entran», la
+explicación de lo pendiente, la proyección parcial, la tabla de reglas por grado (la cabecera de
+cada grado ya la dice) y «Promedio en C»; 2) **sin causas ni motivos internos** en ningún texto
+visible del informe (se quitaron los de transversales, talleres y la referencia al SIAGIE).
 
 El **desglose** de cada estudiante lista sus competencias **no aprobatorias del nivel**
 (`nota_es_aprobatoria()`: primaria B y C, secundaria solo C). No es la regla de la promoción
