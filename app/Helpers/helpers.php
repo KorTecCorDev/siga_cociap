@@ -689,8 +689,8 @@ const CERTEZA_PROYECTADA = 'proyectada';
 
 /**
  * SEGUIMIENTO PEDAGÓGICO (24/09/2026) — umbrales. NO es una situación final: es
- * la señal de acompañamiento para quien acumula competencias bajas, sea PRO, RR
- * o PER (desde el 25/09/2026; antes solo PRO y 1.º de primaria). Recicla, como señal
+ * la señal de acompañamiento para quien SÍ sería promovido (o tiene promoción
+ * automática, 1.º de primaria) pero acumula competencias bajas. Recicla, como señal
  * pedagógica, los umbrales de la primera versión del riesgo (23/09), que se
  * derogó como regla de PROMOCIÓN. Ver `seguimiento_pedagogico()`.
  */
@@ -705,10 +705,10 @@ const SEGUIMIENTO_MIN_C = 3;
  *                en C (cada literal por separado: 2 B + 1 C NO entra, a propósito);
  *  · secundaria: `SEGUIMIENTO_MIN_C` o más en C (la B aprueba en secundaria).
  *
- * Se pregunta de TODO estudiante evaluado (decisión del usuario, 25/09/2026):
- * un RR o PER que llega al umbral sale también aquí, además de en el bloque de
- * riesgo. Es un filtro TRANSVERSAL a la situación final, no un cuarto estado.
- * Los `PEND` del periodo final siguen fuera (situación no determinada).
+ * Solo se pregunta de estudiantes PRO o con promoción automática: 🔴 RIESGO Y
+ * SEGUIMIENTO SON DISJUNTOS y su suma es el total de ACOMPAÑAMIENTO pedagógico
+ * (decisión del usuario, 27/09/2026; deroga la del 25/09, que repetía a los
+ * RR/PER en los dos bloques). Los `PEND` del periodo final siguen fuera.
  * Cuenta las mismas competencias que la situación final (último nivel
  * registrado, sin transversales).
  */
@@ -1390,7 +1390,7 @@ function stats_competencia(array $alumnos, array $exonerados, string $nivelCodig
  * @param  array $porGrado  la salida de `SituacionFinalModel::porGrado()` (o filtrada)
  * @return array{total:int, permanencia:int, recuperacion:int, evaluados:int,
  *               pct:int, grados:int, grados_total:int, max:int, sin_datos:int,
- *               seguimiento:int, cobertura:array, por_nivel:array}
+ *               seguimiento:int, acompanamiento:int, cobertura:array, por_nivel:array}
  */
 function riesgo_resumen(array $porGrado): array
 {
@@ -1475,6 +1475,9 @@ function riesgo_resumen(array $porGrado): array
         // Seguimiento pedagógico (24/09/2026): cifra PROPIA, nunca sumada a
         // `total` ni a `pct`: son promovidos, no estudiantes en riesgo.
         'seguimiento'  => $seguimiento,
+        // Total de ACOMPAÑAMIENTO pedagógico (27/09/2026): riesgo + seguimiento.
+        // Se pueden sumar porque son bloques DISJUNTOS (`SituacionFinalModel`).
+        'acompanamiento' => $total + $seguimiento,
         // Certeza (24/09/2026): de los `total` en riesgo, cuántos ya no pueden
         // salvarse aunque lo pendiente salga bien, y cuántos promovidos
         // todavía pueden caer. Ver `situacion_final_proyectar()`.

@@ -32,8 +32,7 @@ $pintarSeccion = static function (array $bloque): void {
             <?= e($seccion['nivel_nombre']) ?> &mdash; <?= e($seccion['grado_nombre']) ?> &mdash;
             Sección <?= e($seccion['nombre']) ?>. Estudiantes de tu sección que, con el último nivel
             registrado de cada competencia hasta este bimestre, <strong>no alcanzarían la promoción de grado</strong>, con su
-            desglose, y quienes acumulan competencias bajas que conviene acompañar, estén o no en
-            riesgo (seguimiento). Solo lectura.
+            desglose, y los promovidos que conviene acompañar (seguimiento). Solo lectura.
         </p>
     </div>
 </div>
