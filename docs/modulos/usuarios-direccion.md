@@ -1439,6 +1439,11 @@ escala y «Promedio en C». Dos columnas que **fluyen** (CSS `columns`, no rejil
 alineaba filas y dejaba huecos); `riesgo-leer__grupo--col2` abre la segunda, así que el orden
 del DOM es el de lectura en móvil. En el A4, siempre en 2 columnas. Redacción acortada sin
 quitar ninguna regla; umbrales y escala siguen saliendo de las constantes.
+🔴 **Decisión del usuario (27/09/2026): la sección dice CÓMO se trabaja, nunca POR QUÉ.** Sin
+causas ni motivos internos (se quitaron los paréntesis de transversales y talleres y la
+referencia al SIAGIE); no reintroducirlos en ningún texto visible del informe. El título cita la
+**RVM N.º 094-2020-MINEDU**, y la escala usa el chip de las calificaciones `.nota-literal`
+(el de la consulta de notas; la boleta tiene su propia paleta, con AD verde).
 
 El **desglose** de cada estudiante lista sus competencias **no aprobatorias del nivel**
 (`nota_es_aprobatoria()`: primaria B y C, secundaria solo C). No es la regla de la promoción
