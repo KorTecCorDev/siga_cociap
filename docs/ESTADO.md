@@ -5,7 +5,14 @@
 > **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
 
 
-## 🆕 ACOMPAÑAMIENTO PARA TODOS (TAMBIÉN RR/PER) — EN `dev` (25/09/2026)
+## 🆕 RIESGO Y SEGUIMIENTO DISJUNTOS + TOTAL DE ACOMPAÑAMIENTO — EN `dev` (27/09/2026)
+
+**Deroga la entrada del 25/09 de abajo.** Riesgo y seguimiento vuelven a ser disjuntos (el
+seguimiento solo toma PRO y 1.º de primaria) y el resumen muestra el total de acompañamiento
+(riesgo + seguimiento). También en `dev`: el motivo del RR/PER como nota lateral, una idea por
+línea en pantalla. Verificadores en verde y probado en el navegador (pantalla y A4). Sin migración.
+
+## ~~ACOMPAÑAMIENTO PARA TODOS (TAMBIÉN RR/PER)~~ — DEROGADO el 27/09 (25/09/2026)
 
 Revisión de los tres filtros de la situación final (`docs/modulos/promocion-de-grado.md` § 4.5).
 Sin cambios en la regla: «la mitad o más» ya era `ceil(n/2)` y PER/PRO son excluyentes, así

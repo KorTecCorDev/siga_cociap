@@ -1201,14 +1201,15 @@ hay algo que atender.
 #### Acompañamiento pedagógico: bloque de SEGUIMIENTO (24/09/2026)
 
 El informe se llama **«Acompañamiento pedagógico»** (títulos, cards, A4, lote y panel del tutor;
-rutas `acompanamiento`) y tiene dos bloques que **no se suman**:
+rutas `acompanamiento`) y tiene dos bloques **DISJUNTOS** (un estudiante está en uno o en otro,
+nunca en ambos); su suma es el **total de acompañamiento pedagógico** (27/09/2026):
 
 1. **Estudiantes en riesgo académico** — RR/PER, sin cambios de regla.
 2. **Estudiantes en seguimiento** — `riesgo/_seguimiento.php` (antes `_automatica.php`, solo 1.º).
 
 **Regla** (decisión del usuario, 24/09/2026; punto único `seguimiento_pedagogico()` y
-`SEGUIMIENTO_MIN_B` / `SEGUIMIENTO_MIN_C` en `helpers.php`): **cualquier estudiante evaluado**
-—PRO, RR, PER o 1.º de primaria— con:
+`SEGUIMIENTO_MIN_B` / `SEGUIMIENTO_MIN_C` en `helpers.php`): estudiantes **PRO** o con
+**promoción automática** (1.º de primaria) con:
 
 - **primaria:** ≥ 3 B **o** ≥ 3 C, cada literal por separado (2 B + 1 C **no** entra, a propósito);
 - **secundaria:** ≥ 3 C.
@@ -1217,17 +1218,20 @@ Son los umbrales de la primera versión del riesgo (23/09), derogados como regla
 reciclados como señal pedagógica. Cuentan las mismas competencias que la situación final (último
 nivel registrado, sin transversales ni talleres no aprobados). `PEND` y sin datos nunca entran.
 
-> **25/09/2026 — el seguimiento es para TODOS.** Hasta ese día solo entraban PRO y 1.º de
-> primaria («un RR/PER ya se atiende en su bloque»). El usuario lo amplió: es un filtro
-> **transversal** a la situación final, no un cuarto estado. Un RR o PER sobre el umbral sale
-> **en los dos bloques**, y la franja del seguimiento muestra su **sigla real** (antes estaba fija
-> en PRO). Las cifras de riesgo no cambian: el seguimiento sigue fuera de `total` y `pct`. Umbral
-> y conteo, sin cambios (≥ 3; primaria B **o** C por separado; secundaria solo C). Medido en B1:
-> **182** en seguimiento, de ellos **107** también RR/PER (los 75 de antes + 107).
+> **27/09/2026 — riesgo y seguimiento vuelven a ser DISJUNTOS.** El 25/09 se había leído
+> «el seguimiento se aplica a todos» como un filtro transversal, y un RR o PER sobre el umbral
+> salía **en los dos bloques** (en B1, 107 de 182 del seguimiento estaban repetidos). No era la
+> regla del usuario: **riesgo + seguimiento = total de acompañamiento pedagógico**, y para
+> sumarse no pueden repetirse. Se volvió a la regla del 24/09 (solo PRO y 1.º de primaria) y se
+> añadió la cifra total al resumen (`riesgo_resumen()['acompanamiento']`, línea «Acompañamiento
+> pedagógico: N estudiantes — X en riesgo académico + Y en seguimiento», pantalla y A4). El
+> **% de riesgo** sigue saliendo solo del riesgo. El commit del 25/09 nunca llegó a producción.
+> Medido con primaria 4.º, 5.º B y 6.º del II Bimestre: 20 en riesgo + 32 en seguimiento = 52
+> (antes el seguimiento decía 52, con los 20 RR repetidos).
 
 **Datos:** `SituacionFinalModel::porGrado()` deja la lista en `seguimiento` (clave que reemplaza
 a `automatica`); `riesgo_resumen()` da la cifra `seguimiento`, **nunca sumada a `total` ni a
-`pct`**; `riesgo_filtrar_secciones()` la recorta como `en_riesgo`.
+`pct`**, y `acompanamiento` = `total` + `seguimiento`; `riesgo_filtrar_secciones()` la recorta como `en_riesgo`.
 
 | Medido (24/09) | B1 | B2 | B3 |
 |---|---|---|---|
@@ -1238,8 +1242,7 @@ a `automatica`); `riesgo_resumen()` da la cifra `seguimiento`, **nunca sumada a 
 retorno de grado: una medición que la omite da una fila más en 1.º.)
 
 **Guardas:** `verif_situacion_final.php` (bordes de las dos ramas), `verif_riesgo_situacion_bd.php`
-§ 6b (cada fila sobre el umbral y con situación determinada; desde el 25/09, además, ningún
-RR/PER sobre el umbral queda fuera),
+§ 6b (solo PRO/automática sobre el umbral y nunca a la vez en riesgo; restaurado el 27/09),
 `verif_riesgo_tutor.php` y `verif_direccion_superficies.php` (filas = riesgo + seguimiento).
 
 #### Chips de EFECTO por competencia (24/09/2026)
