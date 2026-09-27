@@ -177,7 +177,7 @@ extraordinaria"). Lo que importa a ESTE módulo:
   (`rankingGradoLive`, `rankingPorSeccionLive`) filtran
   `AND cal.extraordinaria = 0`. Va a boleta y SIAGIE, no mueve puestos.
   ⚠️ **Es regla del MÉRITO, no de las notas en general**: la situación final
-  (riesgo académico, `SituacionFinalModel`) **sí cuenta las extraordinarias**
+  (informe de acompañamiento pedagógico, `SituacionFinalModel`) **sí cuenta las extraordinarias**
   desde el 24/09/2026 —el SIAGIE calcula la promoción con ellas—. No
   «unificar» los dos filtros: responden preguntas distintas.
 - Por eso el alta **NO regenera el snapshot** (el ranking no cambia); la
@@ -841,7 +841,7 @@ indicadores del mismo periodo debe sacarlos de una sola pasada, como hace
 `statsPorGrado`, y no llamar al ranking una vez por indicador.
 
 El «en riesgo» de `AnioAcademicoModel::getResumenBimestre` —promedio general bajo
-`NOTA_MIN_B` por nivel— **no es** el riesgo académico del informe de Dirección: son dos
+`NOTA_MIN_B` por nivel— **no es** el riesgo del informe de Acompañamiento pedagógico: son dos
 preguntas distintas que compartían pantalla y rótulo. Desde el 07/09/2026 ya no comparten el
 rótulo: aquélla se llama **«Promedio en C»**. Detalle en
 `docs/modulos/usuarios-direccion.md`.

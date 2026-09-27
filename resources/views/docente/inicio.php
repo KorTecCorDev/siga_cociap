@@ -151,7 +151,7 @@ $saludo = match($auth_user['sexo'] ?? null) {
             <div class="dpanel-card__head">
                 <h2 class="card__title">Competencias Transversales — <?= e($tutoria['seccion']['grado_nombre']) ?> <?= e($tutoria['seccion']['nombre']) ?></h2>
             </div>
-            <p class="dpanel-card__sub">Revisa los promedios TIC/GAMA, registra las conclusiones y cierra el bimestre de tu sección.</p>
+            <p class="dpanel-card__sub">Revisa las competencias transversales, registra las conclusiones y cierra el bimestre de tu sección.</p>
             <span class="badge badge--<?= $tBadge ?>"><?= e($tTexto) ?></span>
         </a>
     <?php endif; ?>
@@ -189,7 +189,9 @@ $saludo = match($auth_user['sexo'] ?? null) {
     <!-- Card: Acompañamiento pedagógico (solo tutores; 23/09/2026). Cifras del
          ULTIMO bimestre PUBLICADO de su nivel (compuerta 044). El badge es gris
          a proposito: es informacion, no una accion pendiente del tutor, asi
-         que no entra en el semaforo ambar/verde de las demas cards. -->
+         que no entra en el semaforo ambar/verde de las demas cards.
+         Solo el TOTAL de acompanamiento sobre los evaluados (27/09/2026): el
+         desglose RR/PER/seguimiento vive en el informe, no en el panel. -->
     <?php if (!empty($riesgoTutor)):
         $rs = $riesgoTutor['resumen']; ?>
         <a href="<?= url('docente/tutoria/acompanamiento') ?>" class="card dpanel-card dpanel-card--riesgo">
@@ -197,16 +199,13 @@ $saludo = match($auth_user['sexo'] ?? null) {
                 <h2 class="card__title">Acompañamiento pedagógico — <?= e($riesgoTutor['seccion']['grado_nombre']) ?> <?= e($riesgoTutor['seccion']['nombre']) ?></h2>
             </div>
             <?php if ($riesgoTutor['periodo'] === null): ?>
-                <p class="dpanel-card__sub">Estudiantes de tu sección que no alcanzarían la promoción de grado, con su desglose por área y docente.</p>
+                <p class="dpanel-card__sub">Estudiantes de tu sección que requieren acompañamiento, con su desglose por área.</p>
                 <span class="badge badge--espera">Aún no hay bimestre publicado</span>
             <?php else: ?>
                 <p class="dpanel-card__sub">
                     <?= e($riesgoTutor['periodo']['nombre_display']) ?> &middot;
-                    <?= (int) $rs['total'] ?> de <?= (int) $rs['evaluados'] ?> no alcanzaría<?= (int) $rs['total'] !== 1 ? 'n' : '' ?> la promoción
-                    &middot; <?= (int) $rs['permanencia'] ?> permanecería<?= (int) $rs['permanencia'] !== 1 ? 'n' : '' ?> en el grado
-                    <?php if ((int) $rs['seguimiento'] > 0): ?>
-                        &middot; <?= (int) $rs['seguimiento'] ?> en seguimiento
-                    <?php endif; ?>
+                    <?= (int) $rs['acompanamiento'] ?> de <?= (int) $rs['evaluados'] ?> estudiantes de tu sección
+                    requiere<?= (int) $rs['acompanamiento'] !== 1 ? 'n' : '' ?> acompañamiento
                 </p>
                 <span class="badge badge--espera">
                     <?php // Cero casos con la proyección parcial NO es «todos serían

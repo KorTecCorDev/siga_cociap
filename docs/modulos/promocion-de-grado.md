@@ -5,6 +5,9 @@
 > grado** (`PER`). Explica la norma, cómo se lee en los casos que la norma deja abiertos, qué
 > datos entran al cálculo y dónde vive cada regla en el código.
 >
+> 🔴 **REGLA OFICIAL DEL COLEGIO desde el 27/09/2026** (decisión del usuario): este algoritmo
+> define la **situación final de cada estudiante al terminar el año académico**. Ver § 6.2.
+>
 > **Vigente al 24/09/2026** (commit `c07e423`). El diario de cambios, las mediciones y los
 > detalles de pantalla del informe viven en `docs/modulos/usuarios-direccion.md`
 > § «Riesgo académico = situación final del MINEDU». Si este documento y el código discrepan,
@@ -202,6 +205,22 @@ registraron 2.
   aún puede salvarlo, y entonces el informe lo marca «Depende de N pendientes».
 - «Seguro» no es definitivo: las notas de los bimestres siguientes reemplazan a las de hoy.
 
+### 6.2 Al cerrar el año: la situación final oficial (27/09/2026)
+
+**Decisión del usuario:** desde el 27/09/2026 este algoritmo es la regla con la que SIGA-COCIAP
+**define la situación final (`PRO` / `RR` / `PER`) de cada estudiante al terminar el año
+académico**, y así se evalúa de aquí en adelante.
+
+- En el **último bimestre** la situación deja de ser proyección: cuenta solo lo registrado en ese
+  bimestre (§ 5.2) y el resultado es la **situación final del año**.
+- Es **definitiva** cuando no queda ninguna competencia sin evaluar ni ningún estudiante sin datos
+  (`riesgo_resumen()['definitiva']`). Mientras falte algo, el estudiante queda en `PEND`: no se le
+  asigna una situación que los datos todavía no sostienen.
+- Punto único: `situacion_final_analisis()` / `situacion_final_proyectar()` (`helpers.php`) y
+  `SituacionFinalModel`. Ninguna pantalla, informe o documento nuevo que hable de promoción de
+  grado calcula la situación por su cuenta.
+- Sigue abierto el contraste con la situación final del SIAGIE al cierre del IV bimestre (§ 8).
+
 ---
 
 ## 7. Ejemplos resueltos
@@ -276,4 +295,5 @@ de control de las verificaciones, que existen precisamente para detectar si la r
 | 24/09/2026 | **Certeza** seguro / proyectado contra el plan completo; `PEND` en el último bimestre. |
 | 24/09/2026 | **«Más de la mitad» = la mitad entera más una** (`c > n/2`). Deroga `c > ceil(n/2)`. |
 | 25/09/2026 | Revisión de los tres filtros (§ 4.5): «la mitad o más» sigue siendo `ceil(n/2)`: en las áreas impares es la mitad entera más una (5 → 3) y en las pares, la mitad exacta (4 → 2). El **acompañamiento** pasa a aplicarse a **todos** (también RR/PER). |
+| 27/09/2026 | **Este algoritmo pasa a ser la regla oficial de la situación final al cerrar el año académico** (§ 6.2). |
 | 27/09/2026 | Se deroga la ampliación del 25/09: **riesgo y seguimiento son disjuntos**; su suma es el total de acompañamiento pedagógico, que el resumen del informe muestra. |

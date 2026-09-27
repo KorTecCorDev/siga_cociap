@@ -15,28 +15,28 @@
 // al menos un módulo, así no aparecen títulos de sección huérfanos.
 $grupos = [
     'Gestión académica' => [
-        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/anios',         'icon' => 'calendar.svg',          'titulo' => 'Año académico',        'desc' => 'Periodos, secciones y cargas'],
-        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/cargas',        'icon' => 'files-packed.svg',     'titulo' => 'Cargas académicas',    'desc' => 'Gestión de cargas docentes'],
+        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/anios',         'icon' => 'calendar.svg',          'titulo' => 'Año académico',        'desc' => 'Bimestres, grados, secciones y reaperturas del año'],
+        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/cargas',        'icon' => 'files-packed.svg',     'titulo' => 'Cargas académicas',    'desc' => 'Asignar docentes a las áreas de cada sección'],
         ['roles' => ['admin', 'registro_academico', 'secretaria_academica', 'secretaria_administrativa', ...ROLES_DIRECCION], 'url' => 'matriculas',            'icon' => 'doc-add.svg',          'titulo' => 'Matrículas',           'desc' => 'Registro y seguimiento de matrículas'],
         ['roles' => ['admin', 'registro_academico', 'secretaria_academica', 'secretaria_administrativa', ...ROLES_DIRECCION], 'url' => 'admin/buscar-estudiante', 'icon' => 'lupa-look.svg', 'titulo' => 'Buscar estudiante',    'desc' => 'Consultar nivel, grado y sección por DNI o nombre'],
         ['roles' => ['admin'],                                                           'url' => 'admin/secciones',       'icon' => 'users-group-rounded.svg',     'titulo' => 'Secciones y Tutores',  'desc' => 'Asignar tutores por sección'],
-        ['roles' => ['admin'],                                                           'url' => 'admin/curriculum',      'icon' => 'book-bookmark.svg',           'titulo' => 'Currículo Académico',  'desc' => 'Orden de áreas, subáreas y competencias por nivel'],
+        ['roles' => ['admin'],                                                           'url' => 'admin/curriculum',      'icon' => 'book-bookmark.svg',           'titulo' => 'Currículo Académico',  'desc' => 'Áreas, subáreas, competencias y talleres por nivel'],
     ],
     'Evaluación y reportes' => [
-        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'admin/control',          'icon' => 'remote-controller.svg',      'titulo' => 'Centro de Control',    'desc' => 'Inconsistencias operativas pendientes'],
+        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'admin/control',          'icon' => 'remote-controller.svg',      'titulo' => 'Centro de Control',    'desc' => 'Registros incompletos o inconsistentes por corregir'],
         // Card nueva (24/08/2026): /consulta-notas no tenía ninguna, se llegaba
         // solo desde /director/bloqueos y /rectificaciones. Con los directores
         // aterrizando en el dashboard, era un módulo suyo sin puerta de entrada.
         ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'consulta-notas',        'icon' => 'notas.svg',             'titulo' => 'Consulta de notas',    'desc' => 'Calificaciones, transversales, conducta y asistencia en solo lectura'],
         ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'consulta-notas/criterios', 'icon' => 'criterios.svg',     'titulo' => 'Criterios de evaluación', 'desc' => 'Criterios por sección, docente y competencia'],
         ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'admin/cuadros',         'icon' => 'stats.svg',             'titulo' => 'Cuadros estadísticos', 'desc' => 'Indicadores de matrícula, notas, mérito, conducta y asistencia'],
-        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'admin/cuadros/acompanamiento', 'icon' => 'warning.svg',    'titulo' => 'Acompañamiento pedagógico', 'desc' => 'Estudiantes en riesgo académico y en seguimiento, por grado, sección, área y docente, con informe A4'],
-        ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/actas-siagie',    'icon' => 'document-add.svg',      'titulo' => 'Actas SIAGIE',         'desc' => 'Volcar notas a las plantillas RegNotas del SIAGIE'],
-        ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/conducta',        'icon' => 'social-city.svg',   'titulo' => 'Conducta',             'desc' => 'Calificaciones de comportamiento - Auxiliares académicos'],
+        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'admin/cuadros/acompanamiento', 'icon' => 'warning.svg',    'titulo' => 'Acompañamiento pedagógico', 'desc' => 'Estudiantes que requieren acompañamiento por grado y sección'],
+        ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/actas-siagie',    'icon' => 'document-add.svg',      'titulo' => 'Actas SIAGIE',         'desc' => 'Llenar las plantillas de notas del SIAGIE'],
+        ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/conducta',        'icon' => 'social-city.svg',   'titulo' => 'Conducta',             'desc' => 'Notas de conducta registradas por los auxiliares'],
         ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/asistencia',      'icon' => 'calendar-add.svg',      'titulo' => 'Asistencia',           'desc' => 'Registro de faltas y tardanzas por sección'],
         ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/bloqueos',     'icon' => 'key-unblocked.svg',      'titulo' => 'Bloqueos del bimestre','desc' => 'Gestionar permisos de edición de notas'],
         ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/orden-merito', 'icon' => 'medal-ribbon-star.svg', 'titulo' => 'Orden de mérito',      'desc' => 'Ranking bimestral por grado'],
-        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/ranking-seccion','icon' => 'users-group-rounded.svg','titulo' => 'Ranking por sección',  'desc' => 'Ranking interno de cada sección - no otorga media beca'],
+        ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/ranking-seccion','icon' => 'users-group-rounded.svg','titulo' => 'Ranking por sección',  'desc' => 'Ranking interno de cada sección'],
         ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/boletas-publicas','icon' => 'file-send.svg',         'titulo' => 'Boletas públicas',     'desc' => 'Generar y distribuir boletas con código QR'],
         ['roles' => ['admin', 'registro_academico'],                                     'url' => 'rectificaciones',       'icon' => 'edit-pen.svg',      'titulo' => 'Rectificación de notas','desc' => 'Corregir notas aprobadas y bloqueadas'],
     ],

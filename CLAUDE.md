@@ -362,6 +362,9 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   (`tipo='taller'`, migración 064) cuentan SOLO en los años y grados que la UGEL aprobó
   (`talleres_aprobacion`, se marca en Currículo; 2026: ninguno); boleta y mérito, siempre.
   En un retorno de grado, toda regla (también esta) usa el grado de la matrícula OFICIAL.
+  🔴 **Desde el 27/09/2026 es la regla OFICIAL de la situación final de cada estudiante
+  al cerrar el año académico**: en el periodo final deja de ser proyección y, con
+  pendientes, el estudiante queda en `PEND` (`docs/modulos/promocion-de-grado.md` § 6.2).
   PUNTO ÚNICO: `situacion_final_analisis()` en `helpers.php` (función pura) y
   `SituacionFinalModel` (los datos). ⚠️ **Su roster NO es `roster_evaluacion()` ni
   `ROSTER_MERITO`**: es `matriculas_vigentes()` + el anclaje por bimestre del retorno —el
