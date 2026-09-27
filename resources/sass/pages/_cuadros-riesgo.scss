@@ -414,11 +414,29 @@
 
     // El motivo explica POR QUE no alcanza la promocion: va en linea propia
     // porque la regla se cuenta por area y no cabe en el resumen de la franja.
+    // Nota lateral (27/09/2026): el color de la situacion va en el borde y el
+    // fondo tenue; el texto queda en color de lectura (el ambar sobre claro no
+    // llega al contraste AA para un parrafo).
     &__motivo {
         display: block;
-        margin-top: 2px;
+        margin-top: $spacing-xs;
+        padding: 4px 8px;
+        border-left: 3px solid $border-color;
+        border-radius: 0 2px 2px 0;
         font-size: $font-size-sm;
-        font-style: italic;
+        line-height: 1.4;
+        color: $text-primary;
+
+        &--per { border-left-color: $color-error;   background: $color-error-bg; }
+        &--rr  { border-left-color: $color-warning; background: $color-warning-bg; }
+    }
+
+    &__motivo-rotulo {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
         color: $text-secondary;
     }
 
@@ -615,7 +633,9 @@
     // aquí solo cambia el tamaño; `print-color-adjust: exact` los imprime.
     .riesgo-alumno__marca  { font-size: 6.5pt; }
     .riesgo-alumno__marca--pro { border-color: #888; color: #333; }
-    .riesgo-alumno__motivo { font-size: 7pt; color: #333; }
+    // El borde conserva su color en papel; el fondo tenue, no.
+    .riesgo-alumno__motivo { font-size: 7.5pt; color: #000; background: #fff; padding: 0.5mm 1.5mm; border-left-width: 1.5pt; }
+    .riesgo-alumno__motivo-rotulo { font-size: 6pt; color: #444; }
     .riesgo-alumno__certeza { font-size: 6.5pt; border-color: #000; color: #000; }
     .riesgo-efecto          { font-size: 5.5pt; padding: 0 2px; }
     .riesgo-efecto--limite  { border-color: #888; color: #333; }

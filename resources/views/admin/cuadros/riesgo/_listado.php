@@ -119,7 +119,12 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                                         &middot; <?= (int) $al['pendientes'] ?> pendiente<?= $al['pendientes'] !== 1 ? 's' : '' ?>
                                     <?php endif; ?>
                                 </span>
-                                <span class="riesgo-alumno__motivo"><?= e($al['motivo']) ?></span>
+                                <?php // Nota lateral (27/09/2026): borde y fondo tenue en el
+                                      // color de la situación; el texto, en color de lectura. ?>
+                                <span class="riesgo-alumno__motivo riesgo-alumno__motivo--<?= e(strtolower($al['situacion'])) ?>">
+                                    <span class="riesgo-alumno__motivo-rotulo">Motivo</span>
+                                    <?= e($al['motivo']) ?>
+                                </span>
                             </div></th>
                         </tr>
                         <?php // Columnas bajo CADA estudiante (24/09/2026): son las ÚNICAS
