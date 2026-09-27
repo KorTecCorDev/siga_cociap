@@ -5,6 +5,20 @@
 > **Versión desplegada: v1.0.4** (`config/app.php` + tag anotado `v1.0.4`, 27/09/2026).
 
 
+## 🆕 DESCRIPCIONES DE LAS CARDS DEL DASHBOARD + SITUACIÓN FINAL OFICIAL — EN `dev` (27/09/2026)
+
+Sin migración. **Cards:** 8 descripciones del dashboard general reescritas para decir adónde
+lleva cada card sin datos de más (p. ej. «Ranking interno de cada sección», sin la política de
+becas; Acompañamiento: «Estudiantes que requieren acompañamiento por grado y sección»). En el
+panel docente, Transversales sin siglas y la card del tutor con **solo el total**: «II Bimestre ·
+9 de 19 estudiantes de tu sección requieren acompañamiento» (antes desglosaba RR, PER y
+seguimiento). `verif_riesgo_tutor.php` exige que la cifra sea la del informe y que el panel no
+desglose. Batería 47/47. **Situación final:** desde hoy el algoritmo PRO/RR/PER es la regla
+oficial de la situación final de cada estudiante al cerrar el año (`promocion-de-grado.md`
+§ 6.2 e invariante en `CLAUDE.md`).
+
+- [ ] Probar en navegador: dashboard general (admin) y panel de un tutor.
+
 ## 🆕 RIESGO Y SEGUIMIENTO DISJUNTOS + TOTAL DE ACOMPAÑAMIENTO — EN `dev` (27/09/2026)
 
 **Deroga la entrada del 25/09 de abajo.** Riesgo y seguimiento vuelven a ser disjuntos (el
