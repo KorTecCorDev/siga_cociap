@@ -5,7 +5,7 @@
 > **Versión desplegada: v1.0.4** (`config/app.php` + tag anotado `v1.0.4`, 27/09/2026).
 
 
-## 🆕 DESCRIPCIONES DE LAS CARDS DEL DASHBOARD + SITUACIÓN FINAL OFICIAL — EN `dev` (27/09/2026)
+## 🟢 DESCRIPCIONES DE LAS CARDS DEL DASHBOARD + SITUACIÓN FINAL OFICIAL — DESPLEGADO el 27/09/2026 (sin cambio de versión: sigue v1.0.4)
 
 Sin migración. **Cards:** 8 descripciones del dashboard general reescritas para decir adónde
 lleva cada card sin datos de más (p. ej. «Ranking interno de cada sección», sin la política de
@@ -17,7 +17,11 @@ desglose. Batería 47/47. **Situación final:** desde hoy el algoritmo PRO/RR/PE
 oficial de la situación final de cada estudiante al cerrar el año (`promocion-de-grado.md`
 § 6.2 e invariante en `CLAUDE.md`).
 
-- [ ] Probar en navegador: dashboard general (admin) y panel de un tutor.
+- [x] Dado por correcto por el usuario el 27/09/2026 y desplegado ese día (merge `dev` → `main`,
+      sin tag nuevo por decisión del usuario: producción sigue diciendo v1.0.4, aunque su código ya
+      no es exactamente el del tag). Implementación del acompañamiento pedagógico **cerrada al 100 %**.
+- Nombre en la documentación: módulo/informe/cards = «Acompañamiento pedagógico»; «Estudiantes en
+  riesgo» solo donde la app lo muestra (bloque RR/PER y banda del tablero).
 
 ## 🆕 RIESGO Y SEGUIMIENTO DISJUNTOS + TOTAL DE ACOMPAÑAMIENTO — EN `dev` (27/09/2026)
 
