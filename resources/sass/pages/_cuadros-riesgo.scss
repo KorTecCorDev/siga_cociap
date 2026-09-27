@@ -193,49 +193,20 @@
         border-bottom: 1px solid $border-color;
     }
 
-    // La regla por grado: una comparación, no un párrafo.
-    &__tabla {
-        width: 100%;
-        margin: $spacing-xs 0;
-        border-collapse: collapse;
-        font-size: inherit;
-        background: $bg-white;
-
-        th, td {
-            padding: 3px 6px;
-            text-align: left;
-            vertical-align: top;
-            border: 1px solid $border-color;
-        }
-
-        thead th {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: .03em;
-            color: $text-secondary;
-            background: $bg-secondary;
-        }
-
-        tbody th {
-            font-weight: 700;
-            color: $text-primary;
-
-            span { display: block; font-weight: 400; color: $text-secondary; }
-        }
-    }
-
     // Leyenda de los distintivos: marca a la izquierda, significado a la derecha.
     &__leyenda {
         display: grid;
         grid-template-columns: auto 1fr;
         gap: 4px $spacing-sm;
         align-items: baseline;
-        margin: $spacing-xs 0 0 18px;
+        margin: 0;
 
         dt { margin: 0; white-space: nowrap; }
         dd { margin: 0; }
-        .riesgo-efecto { margin-left: 0; }
+        .riesgo-efecto, .riesgo-alumno__marca, .riesgo-alumno__certeza { margin: 0; }
+
+        // Leyendas de DATOS (27/09/2026): el término es un texto de la ficha.
+        &--texto dt { font-weight: 700; color: $text-primary; }
     }
 
     &__sin { font-style: italic; }
@@ -683,13 +654,10 @@
     .riesgo-leer__grupos  { columns: 2; column-gap: 12px; }
     .riesgo-leer__grupo   { margin-bottom: 4px; }
     .riesgo-leer__h       { font-size: 6.5pt; margin-bottom: 2px; border-bottom-color: #999; color: #000; }
-    .riesgo-leer__tabla   { margin: 2px 0; }
-    .riesgo-leer__tabla th,
-    .riesgo-leer__tabla td { padding: 1px 3px; border-color: #999; }
-    .riesgo-leer__tabla thead th { font-size: 6pt; background: #f2f2f2; color: #333; }
     .riesgo-leer__leyenda { gap: 1px 6px; }
     .riesgo-leer__pie     { margin-top: 4px; padding-top: 2px; border-top-color: #999; }
-    .riesgo-leer strong   { color: #000; }
+    .riesgo-leer strong,
+    .riesgo-leer__leyenda--texto dt { color: #000; }
     .riesgo-leer .nota-literal { font-size: 6.5pt; padding: 0 3px; border-radius: 2px; }
 
     // La de críticos SÍ puede seguir en la hoja siguiente (60 filas en B1): si
