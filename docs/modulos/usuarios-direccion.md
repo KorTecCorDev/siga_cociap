@@ -595,10 +595,10 @@ el que estos indicadores sirven para decidir algo.
   RANKING, no el promedio: `getResumenBimestre` sigue promediando por estudiante
   a propósito (ver abajo).
 
-### Estudiantes en riesgo (04/09/2026)
+### Origen del acompañamiento pedagógico: sección «Estudiantes en riesgo» del tablero (04/09/2026)
 
 > ⚠️ **HISTORIA.** Desde el 24/09/2026 «estudiante en riesgo» es la **situación final del
-> MINEDU** (`PRO`/`RR`/`PER`), con vista propia en `/admin/cuadros/riesgo` y modelo propio:
+> MINEDU** (`PRO`/`RR`/`PER`), con vista propia en `/admin/cuadros/acompanamiento` (antes `/riesgo`, que redirige) y modelo propio:
 > ver «Riesgo académico = situación final del MINEDU» más abajo. Los umbrales de conteo que
 > se describen aquí (3 competencias en C, y luego B+C por nivel) **ya no existen**. Lo que
 > sigue es la historia de la sección dentro del tablero.
@@ -1206,6 +1206,10 @@ nunca en ambos); su suma es el **total de acompañamiento pedagógico** (27/09/2
 
 1. **Estudiantes en riesgo académico** — RR/PER, sin cambios de regla.
 2. **Estudiantes en seguimiento** — `riesgo/_seguimiento.php` (antes `_automatica.php`, solo 1.º).
+
+> **Nombres (27/09/2026).** El módulo, el informe y las cards se llaman **«Acompañamiento
+> pedagógico»**. «Estudiantes en riesgo» / «riesgo académico» se conserva SOLO donde la app lo
+> muestra: el bloque RR/PER del informe y la banda del tablero de `/admin/cuadros`.
 
 **Regla** (decisión del usuario, 24/09/2026; punto único `seguimiento_pedagogico()` y
 `SEGUIMIENTO_MIN_B` / `SEGUIMIENTO_MIN_C` en `helpers.php`): estudiantes **PRO** o con
