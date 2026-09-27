@@ -1431,6 +1431,15 @@ distintos y notas no aprobatorias) y las **10 competencias** con más casos · t
 `@for`): no se permite `style` inline. Los filtros van **por URL**; el buscador es solo de
 pantalla y no toca cifras.
 
+**«Cómo leer este informe»** (`riesgo/_leer.php`, reorganizado el 27/09/2026; antes, 11 viñetas
+seguidas): **cuatro grupos con título** — *La regla del MINEDU* (con la regla por grado como
+**tabla** final de ciclo / intermedio), *Riesgo y seguimiento*, *Qué notas entran* y *Cómo leer
+cada estudiante* (los distintivos PER · RR · EN EL LÍMITE como **leyenda**) — y un pie con la
+escala y «Promedio en C». Dos columnas que **fluyen** (CSS `columns`, no rejilla: la rejilla
+alineaba filas y dejaba huecos); `riesgo-leer__grupo--col2` abre la segunda, así que el orden
+del DOM es el de lectura en móvil. En el A4, siempre en 2 columnas. Redacción acortada sin
+quitar ninguna regla; umbrales y escala siguen saliendo de las constantes.
+
 El **desglose** de cada estudiante lista sus competencias **no aprobatorias del nivel**
 (`nota_es_aprobatoria()`: primaria B y C, secundaria solo C). No es la regla de la promoción
 —esa se cuenta por área, y el **motivo** de la franja la resume—: es lo que el tutor tiene
