@@ -47,6 +47,19 @@
 
 .riesgo-banda__enlace { flex: 1 1 100%; margin: 0; }
 
+// Total de acompañamiento (27/09/2026): riesgo + seguimiento, que son
+// disjuntos. Cierra la banda con un filete, como una suma al pie.
+.riesgo-banda__acompanamiento {
+    flex: 1 1 100%;
+    margin: $spacing-xs 0 0;
+    padding-top: $spacing-xs;
+    border-top: 1px solid $border-color;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+
+    strong { color: $text-primary; }
+}
+
 // ── Tablas de estadística ────────────────────────────────────────────
 .riesgo-resumen__par {
     display: grid;
@@ -538,6 +551,7 @@
     }
     .cuadros-banda__n { font-size: 22px; color: #000; }
     .cuadros-banda__q, .cuadros-banda__datos, .riesgo-banda__niveles { font-size: 9px; }
+    .riesgo-banda__acompanamiento { font-size: 9px; color: #333; border-top-color: #999; strong { color: #000; } }
 
     .riesgo-resumen__par {
         grid-template-columns: 1fr 1fr;
