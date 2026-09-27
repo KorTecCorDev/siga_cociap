@@ -233,9 +233,13 @@ if (preg_match('~<a href="[^"]*docente/tutoria/acompanamiento" class="card dpane
         $res = (new SituacionFinalModel())->deSeccion((int) $ultimo['id'], $sec)['stats']['resumen'];
         $chk('la card del tutor muestra las cifras del ÚLTIMO bimestre publicado, iguales al informe',
             str_contains($txt, $ultimo['nombre_display'])
-                && str_contains($txt, $res['total'] . ' de ' . $res['evaluados'] . ' no alcanzarían la promoción')
-                && str_contains($txt, $res['permanencia'] . ' permanecerían en el grado') && $eC === [],
+                && str_contains($txt, $res['acompanamiento'] . ' de ' . $res['evaluados'] . ' estudiantes de tu sección requiere')
+                && $eC === [],
             $txt);
+        // 27/09/2026: el panel da solo el TOTAL de acompañamiento; el desglose
+        // (RR/PER/seguimiento) vive en el informe, no a la vista en el dashboard.
+        $chk('la card del tutor NO desglosa RR/PER ni seguimiento',
+            !preg_match('~permanecer|no alcanzar|en seguimiento~iu', $txt), $txt);
     } else {
         $chk('sin bimestre publicado, la card lo dice', str_contains($txt, 'Aún no hay bimestre publicado'), $txt);
     }
