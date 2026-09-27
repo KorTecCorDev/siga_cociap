@@ -1,8 +1,8 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **24/09/2026**.
-> **Versión desplegada: v1.0.3** (`config/app.php` + tag anotado `v1.0.3`, 22/09/2026).
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **27/09/2026**.
+> **Versión desplegada: v1.0.4** (`config/app.php` + tag anotado `v1.0.4`, 27/09/2026).
 
 
 ## 🆕 RIESGO Y SEGUIMIENTO DISJUNTOS + TOTAL DE ACOMPAÑAMIENTO — EN `dev` (27/09/2026)
@@ -100,9 +100,10 @@ quien tiene una sola «C» en un grado final de ciclo.
 Todo lo del 24/09 está **commiteado y pusheado a `dev`** (`556bea4`, `c31881d`, `acebdfb` + el
 commit de docs). **Sin desplegar a `main`** (el usuario lo deja para el final). Queda:
 
-- [ ] **Al desplegar: aplicar a mano la migración `064` en producción** (tipo `taller`,
-      `talleres_aprobacion`, `talleres_resolucion`). Sin ella, la situación final falla al
-      consultar `talleres_aprobacion`.
+- [x] **Antes del merge: migración `064` en PRODUCCIÓN, a mano** (tipo `taller`,
+      `talleres_aprobacion`, `talleres_resolucion`) — aplicada por el usuario el 27/09/2026; los dos
+      talleres de secundaria quedaron con `tipo = 'taller'`. Sin ella, el dashboard de todo tutor
+      falla (la card de riesgo consulta `talleres_aprobacion`): por eso va ANTES del merge.
 - [ ] Avisar a Dirección al desplegar: la cifra de riesgo de B1 pasa de 199 (regla vieja) a
       **136**, y ahora significa «no sería promovido» (situación final del MINEDU).
 - [x] Sesión de **docente tutor** (3.° A sec) el 24/09: card, `/docente/tutoria/acompanamiento`
@@ -169,7 +170,7 @@ Análisis pedido por el usuario sobre las áreas que no tienen todas sus compete
       guardar con fecha), ya corregido.
 - [x] **Commiteado y pusheado a `dev`** (24/09/2026): `556bea4` (talleres), `c31881d` (riesgo),
       `acebdfb` (candado de retorno) y el commit de docs.
-- [ ] **Al desplegar: aplicar la migración `064` en producción** y avisar a Dirección de que la
+- [x] Migración `064` aplicada en producción el 27/09/2026 (ver arriba). Queda avisar a Dirección de que la
       cifra de B1 pasa de 144 a **136** (talleres fuera, Ética extraordinaria dentro).
 
 ### ✅ PROBADO EN NAVEGADOR Y CORREGIDO (24/09/2026)
