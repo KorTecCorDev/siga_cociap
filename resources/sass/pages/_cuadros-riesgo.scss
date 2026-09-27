@@ -158,10 +158,95 @@
     padding: $spacing-sm $spacing-md;
     margin-bottom: $spacing-md;
 
-    &__titulo { margin: 0 0 $spacing-xs; color: $text-primary; }
+    &__titulo { margin: 0 0 $spacing-sm; font-size: $font-size-base; font-weight: 700; color: $text-primary; }
 
     ul { margin: 0; padding-left: 18px; list-style: disc; }
     li { margin-bottom: 2px; }
+    strong { color: $text-primary; }
+
+    // Cuatro grupos (27/09/2026): una columna en móvil, dos desde 900px.
+    // Columnas que FLUYEN, no una rejilla: la rejilla alineaba las filas y
+    // dejaba un hueco bajo el grupo más corto. `--col2` abre la segunda.
+    &__grupos {
+        column-gap: $spacing-lg;
+
+        @media (min-width: 900px) { columns: 2; }
+    }
+
+    &__grupo {
+        break-inside: avoid;
+        margin-bottom: $spacing-md;
+
+        &:last-child { margin-bottom: 0; }
+        &--col2 { break-before: column; }
+    }
+
+    // Mismo lenguaje que el rótulo del motivo y las marcas: versalitas.
+    &__h {
+        margin: 0 0 $spacing-xs;
+        padding-bottom: 2px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: $text-primary;
+        border-bottom: 1px solid $border-color;
+    }
+
+    // La regla por grado: una comparación, no un párrafo.
+    &__tabla {
+        width: 100%;
+        margin: $spacing-xs 0;
+        border-collapse: collapse;
+        font-size: inherit;
+        background: $bg-white;
+
+        th, td {
+            padding: 3px 6px;
+            text-align: left;
+            vertical-align: top;
+            border: 1px solid $border-color;
+        }
+
+        thead th {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            color: $text-secondary;
+            background: $bg-secondary;
+        }
+
+        tbody th {
+            font-weight: 700;
+            color: $text-primary;
+
+            span { display: block; font-weight: 400; color: $text-secondary; }
+        }
+    }
+
+    // Leyenda de los distintivos: marca a la izquierda, significado a la derecha.
+    &__leyenda {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px $spacing-sm;
+        align-items: baseline;
+        margin: $spacing-xs 0 0 18px;
+
+        dt { margin: 0; white-space: nowrap; }
+        dd { margin: 0; }
+        .riesgo-efecto { margin-left: 0; }
+    }
+
+    &__sin { font-style: italic; }
+
+    &__pie {
+        margin: $spacing-sm 0 0;
+        padding-top: $spacing-xs;
+        border-top: 1px solid $border-color;
+    }
+
+    &__lit { white-space: nowrap; margin-right: $spacing-xs; }
 }
 
 // ── Formulario de filtros (grados + lente «primaria solo C») ─────────
@@ -589,6 +674,18 @@
         break-inside: avoid;
         page-break-inside: avoid;
     }
+    // A4 (27/09/2026): siempre en 2 columnas, más compacto.
+    .riesgo-leer__titulo  { font-size: 9pt; margin-bottom: 3px; }
+    .riesgo-leer__grupos  { columns: 2; column-gap: 12px; }
+    .riesgo-leer__grupo   { margin-bottom: 4px; }
+    .riesgo-leer__h       { font-size: 6.5pt; margin-bottom: 2px; border-bottom-color: #999; color: #000; }
+    .riesgo-leer__tabla   { margin: 2px 0; }
+    .riesgo-leer__tabla th,
+    .riesgo-leer__tabla td { padding: 1px 3px; border-color: #999; }
+    .riesgo-leer__tabla thead th { font-size: 6pt; background: #f2f2f2; color: #333; }
+    .riesgo-leer__leyenda { gap: 1px 6px; }
+    .riesgo-leer__pie     { margin-top: 4px; padding-top: 2px; border-top-color: #999; }
+    .riesgo-leer strong   { color: #000; }
 
     // La de críticos SÍ puede seguir en la hoja siguiente (60 filas en B1): si
     // saltara entera dejaría media hoja en blanco. Se parte entre filas.
