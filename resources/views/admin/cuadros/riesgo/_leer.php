@@ -22,7 +22,7 @@ $res = $riesgo['stats']['resumen'];
     <div class="riesgo-leer__grupos">
 
         <section class="riesgo-leer__grupo">
-            <h3 class="riesgo-leer__h">La regla del MINEDU</h3>
+            <h3 class="riesgo-leer__h">La regla del MINEDU (RVM N.º 094-2020-MINEDU)</h3>
             <ul>
                 <li>
                     <strong>En riesgo</strong> = no alcanzaría la promoción de grado. Es la situación
@@ -87,9 +87,8 @@ $res = $riesgo['stats']['resumen'];
             <h3 class="riesgo-leer__h">Qué notas entran</h3>
             <ul>
                 <li>
-                    <strong>El último nivel registrado</strong> de cada competencia hasta este bimestre,
-                    como en el SIAGIE: si no se evaluó ahora, cuenta la del bimestre anterior y el
-                    desglose dice de cuál. En el <strong>último bimestre del año</strong>, solo sus
+                    <strong>El último nivel registrado</strong> de cada competencia hasta este bimestre:
+                    si no se evaluó ahora, cuenta la del bimestre anterior y el desglose dice de cuál. En el <strong>último bimestre del año</strong>, solo sus
                     propias notas.
                 </li>
                 <li>
@@ -97,8 +96,7 @@ $res = $riesgo['stats']['resumen'];
                     sin las áreas exoneradas.
                 </li>
                 <li>
-                    <strong>No entran</strong> las competencias transversales (por norma) ni los
-                    talleres (la UGEL no los aprobó y no están en el SIAGIE).
+                    <strong>No entran</strong> las competencias transversales ni los talleres.
                 </li>
                 <li>
                     <strong>«Depende de N pendientes»</strong>: «la mitad» se cuenta sobre
@@ -151,10 +149,11 @@ $res = $riesgo['stats']['resumen'];
     <p class="riesgo-leer__pie">
         <strong>Escala:</strong>
         <?php foreach (escala_rangos() as $lit => $rango): ?>
-            <span class="riesgo-leer__lit"><strong><?= e($lit) ?></strong> <?= e($rango) ?> (<?= e(descripcion_literal($lit)) ?>)</span>
+            <?php // Chip de las calificaciones (`.nota-literal`), el mismo de la
+                  // consulta de notas y del resumen del docente (27/09/2026). ?>
+            <span class="riesgo-leer__lit"><span class="nota-literal nota-literal--<?= e(strtolower($lit)) ?>"><?= e($lit) ?></span> <?= e($rango) ?> (<?= e(descripcion_literal($lit)) ?>)</span>
         <?php endforeach; ?>
-        &middot; En primaria aprueban <strong>AD</strong> y <strong>A</strong>; en secundaria, también
-        <strong>B</strong>. &middot; No confundir con <strong>«Promedio en C»</strong> de los cuadros
+        &middot; En primaria aprueban AD y A; en secundaria, también B. &middot; No confundir con <strong>«Promedio en C»</strong> de los cuadros
         estadísticos: cuenta a quien tiene el promedio general por debajo de <?= (int) NOTA_MIN_B ?>.
     </p>
 </div>
