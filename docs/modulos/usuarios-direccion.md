@@ -1433,6 +1433,12 @@ El **desglose** de cada estudiante lista sus competencias **no aprobatorias del 
 —esa se cuenta por área, y el **motivo** de la franja la resume—: es lo que el tutor tiene
 que remontar.
 
+El **motivo** va como **nota lateral** (27/09/2026; antes, cursiva gris que casi no se
+leía): rótulo «MOTIVO», borde izquierdo y fondo tenue en el color de la situación (rojo PER,
+ámbar RR) y el texto en color de lectura —el ámbar sobre claro no llega a AA en un
+párrafo—. En el A4 el borde conserva su color y el fondo queda blanco. El texto no cambió:
+sigue saliendo de `situacion_final_analisis()`.
+
 #### Retorno de grado en el informe
 
 **El riesgo se cuenta por la MATRÍCULA OFICIAL** (decisión del usuario: el retorno es un
