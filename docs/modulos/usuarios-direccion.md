@@ -1439,6 +1439,14 @@ leía): rótulo «MOTIVO», borde izquierdo y fondo tenue en el color de la situ
 párrafo—. En el A4 el borde conserva su color y el fondo queda blanco. El texto no cambió:
 sigue saliendo de `situacion_final_analisis()`.
 
+**En pantalla, una idea por línea** (27/09/2026): 1) el detalle del RR/PER; en un final de
+ciclo con las dos condiciones incumplidas, cada una en su línea; 2) la cercanía al PER
+(«Reúne N de las 4 áreas…»); 3) la proyección («Todavía puede alcanzar la promoción…»).
+Salen de `motivo_lineas`, que arma el MISMO helper (`situacion_final_motivo_condiciones()`
+es el punto único del texto); `motivo` es su unión y **el A4 lo sigue imprimiendo corrido,
+sin cambios** (`.riesgo-print` oculta las líneas y muestra el texto corrido). La tabla de
+críticos sigue con `motivo`.
+
 #### Retorno de grado en el informe
 
 **El riesgo se cuenta por la MATRÍCULA OFICIAL** (decisión del usuario: el retorno es un
