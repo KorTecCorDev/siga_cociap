@@ -166,8 +166,69 @@
     &--con_subareas { background: $color-info-bg;    color: $color-info;    }
     &--area_curso   { background: $color-success-bg;  color: $color-success; }
     &--transversal  { background: $color-warning-bg; color: $color-warning; }
+    &--taller       { background: $bg-secondary;     color: $text-secondary; }
 
     &--md { font-size: 11px; padding: 3px 9px; }
+}
+
+// ── Aprobacion de la UGEL de un taller (24/09/2026, migracion 064) ──
+.curr-aprobacion {
+    margin: $spacing-md $spacing-lg;
+    padding: $spacing-md;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    background: $bg-secondary;
+
+    &__cab {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-sm;
+    }
+
+    &__titulo { margin: 0; font-size: 1rem; }
+
+    &__anio { display: flex; align-items: center; gap: $spacing-xs; }
+
+    &__nota { margin: $spacing-sm 0; font-size: $font-size-sm; color: $text-secondary; }
+
+    &__grados {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+        margin-bottom: $spacing-sm;
+    }
+
+    &__grado {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+        padding: 4px 10px;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-sm;
+        background: $bg-white;
+        cursor: pointer;
+
+        // Un grado donde el taller no se dicta ese año: marcarlo no tiene efecto.
+        &--sin-carga { opacity: .6; }
+    }
+
+    &__secc { font-size: $font-size-sm; color: $text-secondary; }
+
+    &__pie {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: $spacing-sm;
+
+        .form-input { flex: 1 1 200px; }
+        .form-label { flex: 1 1 100%; margin: 0; }
+    }
+
+    &__fecha.form-input { flex: 0 1 170px; }
+
+    &__audit { margin: $spacing-sm 0 0; font-size: $font-size-sm; color: $text-muted; }
 }
 
 // ── Panel de detalle ─────────────────────────────────────────

@@ -184,6 +184,8 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | Orden de mérito, snapshot, desempates, rectificaciones | `docs/modulos/orden-merito.md` |
 | Usuarios, secciones/tutores, Director EBR, panel de bloqueos, conducta | `docs/modulos/admin.md` |
 | **Usuarios de Dirección** (los 3 directores, solo lectura, `ROLES_DIRECCION`) | `docs/modulos/usuarios-direccion.md` |
+| **Acompañamiento pedagógico: riesgo académico / situación final MINEDU + seguimiento** (PRO·RR·PER, `/admin/cuadros/acompanamiento`, A4) | `docs/modulos/usuarios-direccion.md` |
+| **Reglas de PROMOCIÓN DE GRADO** (situación final PRO·RR·PER por grado y ciclo, «la mitad», qué cuenta, SIAGIE) | `docs/modulos/promocion-de-grado.md` |
 | Exportación de notas al SIAGIE (llenado de Excel oficiales) | `docs/modulos/export-siagie.md` |
 | UI: wayfinding, dashboard docente, botón Cerrar, tablas sticky, **banners de aviso** | `docs/modulos/ui.md` |
 | Producción, seguridad, despliegue, secretos, setup SQL desde cero | `docs/infraestructura.md` |
@@ -340,6 +342,42 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   (versión no oficial, visible solo en `/admin/control`). PUNTO ÚNICO:
   `OrdenMeritoModel::registrarRanking` (lo usan `cerrar` y la rectificación);
   `generarSnapshot` directo NO honra el candado (solo backfill/reconstrucción).
+- **«Estudiante en riesgo» = SITUACIÓN FINAL del MINEDU** (24/09/2026): los que **no
+  serían promovidos**, es decir `RR` (requiere recuperación) o `PER` (permanece en el
+  grado). Norma: **RVM 00094-2020-MINEDU, modificada por la RVM 048-2024-MINEDU**.
+  **Deroga** la regla del 23/09 (primaria B+C ≥ 3 · secundaria C ≥ 3), que era un conteo
+  global inventado. 🔴 **SE CUENTA POR ÁREA, NO POR COMPETENCIAS SUELTAS**, y la exigencia
+  **depende del GRADO**: en los finales de ciclo (primaria 2.º/4.º/6.º, secundaria 2.º/5.º)
+  una sola «C» impide la promoción; en los intermedios basta la mitad o más en B o superior
+  **en cada área**. «La mitad» es `ceil(n/2)` por convención explícita de la norma (5 → 3,
+  3 → 2, 1 → esa única). **«Más de la mitad» es la mitad entera más una, `c > n/2`**
+  (3 de 5, 2 de 3, 1 de 1; decisión del usuario del 24/09/2026, punto único
+  `mas_de_la_mitad()`) — NO se deriva de `ceil(n/2)`. **1.º de primaria: promoción automática**, nunca en riesgo (se
+  lista aparte como seguimiento). Las **transversales NO cuentan** (numeral 5.1.3.9);
+  las **extraordinarias SÍ** (el mérito no: son filtros distintos a propósito).
+  **Competencias pendientes** (24/09/2026): la sigla sale de lo evaluado y
+  `situacion_final_proyectar()` la prueba contra el PLAN completo de cada área →
+  riesgo **seguro** o **proyectado**. Cada competencia usa su **último nivel registrado**
+  (como el SIAGIE), salvo en el periodo final, que usa solo sus notas. Los **talleres**
+  (`tipo='taller'`, migración 064) cuentan SOLO en los años y grados que la UGEL aprobó
+  (`talleres_aprobacion`, se marca en Currículo; 2026: ninguno); boleta y mérito, siempre.
+  En un retorno de grado, toda regla (también esta) usa el grado de la matrícula OFICIAL.
+  PUNTO ÚNICO: `situacion_final_analisis()` en `helpers.php` (función pura) y
+  `SituacionFinalModel` (los datos). ⚠️ **Su roster NO es `roster_evaluacion()` ni
+  `ROSTER_MERITO`**: es `matriculas_vigentes()` + el anclaje por bimestre del retorno —el
+  primero no ancla y dejaría sin notas a un retorno revertido; el segundo exige
+  `estado='aprobada'` y deja fuera a los `pendiente`, que sí se evalúan—. No es el
+  «Promedio en C» de `getResumenBimestre`. **El riesgo cuenta al retorno en su matrícula
+  OFICIAL**, que además fija el grado y con él la regla. **El tutor ve SU sección**
+  (`/docente/tutoria/acompanamiento` y su card): sale de `tutor_id` en servidor, nunca de la URL, y
+  solo en bimestres PUBLICADOS de su nivel (compuerta 044). El informe se llama
+  **«Acompañamiento pedagógico»** (24/09/2026; las rutas `riesgo` redirigen) y suma un bloque de
+  **SEGUIMIENTO** que NO es riesgo ni entra a sus cifras: PRO y 1.º de primaria con
+  prim ≥ 3 B o ≥ 3 C · sec ≥ 3 C (punto único `seguimiento_pedagogico()`). **Riesgo y
+  seguimiento son DISJUNTOS** (27/09/2026; deroga la del 25/09, que repetía a los RR/PER en
+  los dos): su suma es el **total de acompañamiento** (`riesgo_resumen()['acompanamiento']`),
+  pero el % de riesgo sale solo del riesgo. Ver
+  `docs/modulos/usuarios-direccion.md`.
 - **Los TRES directores son SOLO LECTURA y salen de `ROLES_DIRECCION`**
   (`helpers.php`; 24/08/2026). Nunca listar sus códigos a mano — eran 44 literales
   en 16 archivos. **DOS excepciones deliberadas, que NO se deben "arreglar":**

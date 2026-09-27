@@ -176,6 +176,10 @@ extraordinaria"). Lo que importa a ESTE módulo:
   usuario): `calificaciones.extraordinaria = 1` y las DOS agregaciones en vivo
   (`rankingGradoLive`, `rankingPorSeccionLive`) filtran
   `AND cal.extraordinaria = 0`. Va a boleta y SIAGIE, no mueve puestos.
+  ⚠️ **Es regla del MÉRITO, no de las notas en general**: la situación final
+  (riesgo académico, `SituacionFinalModel`) **sí cuenta las extraordinarias**
+  desde el 24/09/2026 —el SIAGIE calcula la promoción con ellas—. No
+  «unificar» los dos filtros: responden preguntas distintas.
 - Por eso el alta **NO regenera el snapshot** (el ranking no cambia); la
   rectificación normal sí sigue regenerándolo.
 - La auditoría distingue `tipo='extraordinaria'` (nota_anterior NULL) de
@@ -810,11 +814,18 @@ modelo (`rankingGradoLive` y `rankingPorSeccionLive`) llevan la misma copia.
 
 ## El tablero de Dirección consume el motor (04/09/2026)
 
-`OrdenMeritoModel::statsPorGrado($periodoId, $minC)` es un punto de entrada nuevo
+`OrdenMeritoModel::statsPorGrado($periodoId)` es un punto de entrada nuevo
 para pantallas que necesitan **indicadores por grado** y no el ranking completo:
-devuelve, por grado, `mejor` · `peores` · `total` · `en_riesgo` (los que acumulan
-`RIESGO_MIN_C` competencias en C o más). Recorre `gradosConRanking` +
+devuelve, por grado, `mejor` · `peores` · `total`. Recorre `gradosConRanking` +
 `rankingGrado` —ambos snapshot-aware— y **no añade ninguna consulta**.
+
+🔴 **YA NO DEVUELVE `en_riesgo` (24/09/2026).** Lo hizo mientras «estudiante en riesgo» fue
+un conteo de competencias en C, y de aquí heredaba dos cosas que no le tocaban: el ROSTER
+del mérito (`estado='aprobada'`, que deja fuera a las matrículas `pendiente`) y los
+agregados GLOBALES del ranking, incapaces de responder una regla que el MINEDU cuenta **por
+área**. Ahora es la situación final (`PRO`/`RR`/`PER`) y su dueño es `SituacionFinalModel`,
+con roster propio. Ver `docs/modulos/usuarios-direccion.md` § «Riesgo académico = situación
+final del MINEDU».
 
 De él cuelgan **tres pantallas**, vía la fachada
 `AnioAcademicoModel::getStatsCierre`: `/admin/cuadros`, su imprimible A4 y
@@ -829,12 +840,10 @@ está memoizado** (lo memoizado es `debeUsarSnapshot`). Quien necesite dos
 indicadores del mismo periodo debe sacarlos de una sola pasada, como hace
 `statsPorGrado`, y no llamar al ranking una vez por indicador.
 
-`RIESGO_MIN_C` (3) es un umbral de **presentación**, no de la escala: quién es
-«C» lo sigue decidiendo `num_c` en las dos queries del ranking. Y no tiene nada
-que ver con el «en riesgo» de `AnioAcademicoModel::getResumenBimestre`, que es el
-promedio general bajo `NOTA_MIN_B` por nivel — **dos preguntas distintas que
-compartían pantalla y rótulo**. Desde el 07/09/2026 ya no comparten el rótulo:
-aquélla se llama **«Promedio en C»**. Detalle en
+El «en riesgo» de `AnioAcademicoModel::getResumenBimestre` —promedio general bajo
+`NOTA_MIN_B` por nivel— **no es** el riesgo académico del informe de Dirección: son dos
+preguntas distintas que compartían pantalla y rótulo. Desde el 07/09/2026 ya no comparten el
+rótulo: aquélla se llama **«Promedio en C»**. Detalle en
 `docs/modulos/usuarios-direccion.md`.
 
 ### `num_a` se DERIVA, no se consulta (07/09/2026)

@@ -597,6 +597,12 @@ el que estos indicadores sirven para decidir algo.
 
 ### Estudiantes en riesgo (04/09/2026)
 
+> ⚠️ **HISTORIA.** Desde el 24/09/2026 «estudiante en riesgo» es la **situación final del
+> MINEDU** (`PRO`/`RR`/`PER`), con vista propia en `/admin/cuadros/riesgo` y modelo propio:
+> ver «Riesgo académico = situación final del MINEDU» más abajo. Los umbrales de conteo que
+> se describen aquí (3 competencias en C, y luego B+C por nivel) **ya no existen**. Lo que
+> sigue es la historia de la sección dentro del tablero.
+
 Sección propia debajo de Orden de mérito, en pantalla y en el A4. Lista **a todos
 los que acumulan 3 competencias en C o más** (`OrdenMeritoModel::RIESGO_MIN_C`),
 por grado, resaltando el número de C. **Sin tope por grado** (decisión del
@@ -900,6 +906,679 @@ y JS), así que el único sitio donde se puede arreglar es la propia vista.
 `avoid` se midió cuando un grado eran ~28 filas (~400 px de 1047); con el desglose un
 grado se pasa de hoja y el `avoid` lo empujaría entero, dejando media página en blanco.
 Las FILAS conservan su `avoid`.
+
+### Formato A4 de «Estudiantes en riesgo»: informe agrupado (22/09/2026)
+
+> ⚠️ **SUSTITUIDO el 23/09/2026, sin llegar a producción.** Nunca se validó en la vista
+> previa de impresión y, al validarlo, tenía el defecto que venía a corregir: el título y
+> el encabezado de un grado quedaban al pie de una hoja y sus estudiantes en la siguiente.
+> Los dos partials se borraron. Ver la sección siguiente.
+
+Estado: **en `dev`**, sin desplegar. **Solo papel**: la pantalla conserva su rejilla de nueve
+columnas con el desglose plegado.
+
+**Qué fallaba en el papel.** Debajo de cada fila de 9 columnas iba una sub-tabla con
+`<caption>` «Competencias en C · NOMBRE» (**el nombre dos veces**) y **su propio `thead`**,
+con el mismo gris y peso que el de la tabla: 118 encabezados en B1 al mismo nivel visual,
+apilados con el que se repite en cada hoja. Además, «Competencias» significaba tres cosas en
+la misma rejilla, «12 de 47» no decía qué contaba y el «cómo leer» llegaba al final.
+
+**Cómo queda.**
+- `_estudiantes-riesgo.php` conserva la banda, el filtrado de grados y `riesgo_resumen()`
+  (punto único de las dos superficies). Sin `$riesgoInteractivo` delega las tablas en
+  **`_estudiantes-riesgo-print.php`**.
+- **Una tabla por grado con UN encabezado**, el del desglose (Área · Curso · Competencia en C
+  · Nota · Docente), que se repite en cada hoja. **Cada estudiante es un `<tbody>`** cuya
+  primera fila es un `th scope="rowgroup"` con el nombre y dos líneas de datos: «Sección ·
+  Puesto N de T · Promedio» y «N competencias en C de M evaluadas (AD · A · B · C)».
+- `break-inside: avoid` en cada `<tbody>` (son 4-15 filas): un estudiante nunca se parte
+  entre hojas ni queda su franja huérfana al pie.
+- La jerarquía va por **peso y borde**, no por color: encabezado gris, franja sin relleno con
+  borde superior grueso. Resiste la fotocopia. La letra sube a 9px (el resto del A4 va a 8px).
+- «Cómo leer este listado» va **antes** de las tablas y añade la escala con
+  `escala_rangos()` + `descripcion_literal()`.
+- `cuadros-print__bloque--hoja-nueva` en **Estudiantes en riesgo y Conducta**: el listado
+  ocupa hojas propias y se puede entregar suelto.
+
+⚠️ El partial de papel **no** usa `cuadros-top--riesgo` (nueve anchos en % desarmarían sus
+cinco columnas) ni `cuadros-top__bloque--riesgo` (el verificador lo cuenta en pantalla).
+**Sí** lleva `data-riesgo-detalle`, uno por estudiante: es lo que prueba que el desglose
+sigue impreso. `verif_direccion_superficies.php` vigila además que no haya tablas anidadas ni
+el caption «Competencias en C ·», y los dos saltos de hoja.
+
+### Riesgo académico = situación final del MINEDU (24/09/2026)
+
+> **Las reglas de promoción, explicadas de principio a fin, viven en
+> `docs/modulos/promocion-de-grado.md`.** Esta sección es el diario de implementación del
+> informe: mediciones, pantallas y guardas.
+
+Estado: **en `dev`**, sin desplegar. Sin migración.
+
+**Rutas** (renombradas el 24/09/2026; las `…/riesgo…` anteriores redirigen con su query
+string vía `BaseController::redirigirRutaRenombrada()`): `GET /admin/cuadros/acompanamiento`
+(pantalla), `GET /admin/cuadros/acompanamiento/imprimir` (A4 vertical) y
+`GET /admin/cuadros/acompanamiento/tutores` (lote, una sección por hoja), las tres
+con `?periodo_id` y `?secciones[]`. Mismos roles que el tablero (admin, RA y los tres
+directores; Dirección solo bimestres cerrados, vía `elegirPeriodo()`). Tarjeta propia en el
+dashboard. En `/admin/cuadros` y en su A4 queda solo la **banda** (`_banda-riesgo.php`), con
+un enlace «Ver el informe completo» solo en pantalla.
+
+#### Qué es estar «en riesgo» (24/09/2026) — deroga la regla del 23/09
+
+«Estudiante en riesgo» ya **no** es un conteo de competencias no aprobatorias
+(primaria B+C ≥ 3 · secundaria C ≥ 3). Es la **situación final** que define el MINEDU: los
+estudiantes que, con las notas del bimestre, **no alcanzarían la promoción de grado**.
+
+| Sigla | Significado |
+|---|---|
+| `PRO` | Promovido de grado o edad |
+| `RR`  | Requiere recuperación |
+| `PER` | Permanece en el grado |
+
+**Riesgo = `RR` ∪ `PER`.** `PER` sustituye a «mayor atención»: ya no hay que elegir un
+número, la norma lo eligió.
+
+#### La norma, verificada el 23/09/2026
+
+Documento normativo **«Norma que regula la evaluación de las competencias de los estudiantes
+de la Educación Básica»**, aprobado por **RVM N° 00094-2020-MINEDU** y **modificado por la
+RVM N° 048-2024-MINEDU** (30/04/2024), que reescribió los sub numerales 5.1.1.3, 5.1.2.1,
+5.1.2.2, 5.1.3, 5.2.1, 5.2.2 y 7.1.3 y, en lo que aquí importa, **el cuadro completo de
+promoción, recuperación y permanencia del nivel Secundaria**.
+
+⚠️ **No existe norma posterior que la derogue.** La **RM N° 474-2022-MINEDU**, que se cita a
+veces como su reemplazo, es la *norma técnica del año escolar 2023*, no una norma de
+evaluación. El cuadro de **Primaria sigue siendo el original de 2020**.
+
+**Reglas generales (numeral 5.1.3):**
+
+- **9.** Las **competencias transversales NO se tienen en cuenta** para la situación final.
+- **10.** Las competencias adicionales sin área curricular tampoco.
+- **11.** Las organizadas en áreas curriculares **y los talleres SÍ** cuentan. ⚠️ **En este
+  colegio los talleres NO cuentan** (24/09/2026): la UGEL no los aprobó, no están en el plan del
+  SIAGIE y el SIAGIE calcula la situación final sin ellos. Ver «Talleres» más abajo.
+- **«La mitad» con número impar**, literal de la norma: área de 5 competencias → **3**; de
+  3 → **2**; de 1 competencia → **esa única**. Es `ceil(n/2)`.
+- El nivel de logro final de una competencia es **el último registrado** (numeral 5.1.2.2,
+  punto 3), **no el promedio anual**. Por eso proyectar con los literales de un bimestre es
+  normativamente correcto: es «si el año terminara hoy».
+
+**Cuadro de PRIMARIA** (RVM 094-2020, vigente sin modificar):
+
+| Grado | PRO — al término del periodo lectivo | PER — permanece |
+|---|---|---|
+| **1.º** | **Automática** | No aplica |
+| **2.º, 4.º, 6.º** *(final de ciclo)* | «A» o «AD» en la mitad o más de las competencias de **cuatro** áreas o talleres **y «B» en las demás** | «C» en **más de la mitad** de las competencias de **cuatro** áreas o talleres |
+| **3.º, 5.º** *(intermedios)* | «B» en la mitad o más de las competencias de **todas** las áreas, pudiendo alcanzar «AD», «A» **o «C»** en las demás | ídem |
+
+**Cuadro de SECUNDARIA** (texto vigente tras la RVM 048-2024):
+
+| Grado | PRO — al término del periodo lectivo | PER — permanece |
+|---|---|---|
+| **1.º, 3.º, 4.º** *(intermedios)* | **como mínimo «B»** en la mitad o más de las competencias de **cada una** de las áreas, pudiendo «AD», «A» **o «C»** en las demás | «C» en **más de la mitad** de las competencias de **cada una de cuatro o más** áreas |
+| **2.º, 5.º** *(final de ciclo)* | «A» o «AD» en la mitad o más de las competencias de **cada una de tres** áreas **y «B» en las demás** | «C» en **la mitad o más** de las competencias de **cada una de cuatro o más** áreas |
+
+**`RR`** = no cumple las condiciones de promoción **ni** las de permanencia.
+
+🔴 **La consecuencia dura.** En los **grados finales de ciclo** el texto exige «**y "B" en las
+demás competencias**»: leído literalmente, **una sola «C» en cualquier área impide la
+promoción**. En los intermedios sí se admite «C», siempre que cada área conserve la mitad o
+más en «B» o superior. Esa asimetría es la razón de fondo por la que el conteo global
+anterior **no podía** aproximar la norma: el mismo número de «C» significa cosas distintas
+según el grado y según en qué áreas caiga.
+
+#### Decisiones de lectura (no re-preguntar)
+
+| # | Decisión |
+|---|---|
+| L1 | **«Más de la mitad» = la mitad entera más una: `c > n/2`** (decisión del usuario, 24/09/2026; punto único `mas_de_la_mitad()`). Área de 1 → 1 C · de 3 → **2** · de 5 → **3** (Personal Social: 3 de 5) · con `n` par no cambia (2 → 2, 4 → 3). **Deroga la lectura del 23/09** (`c > ceil(n/2)`: 4 de 5, 3 de 3 y, en un área de 1 competencia, nunca). Ver «L1: por qué cambió» abajo. |
+| L2 | La condición de **PER de primaria** dice «"C" en más de la mitad … **y "B" en las demás»**. Al pie de la letra, un alumno con «C» de sobra quedaría FUERA de la permanencia —el absurdo contrario—. Es un artefacto de redacción: **se aplica solo la condición de «C»**, como el SIAGIE. |
+| L3 | **Competencias/áreas sin nota**: la SIGLA se calcula solo con lo evaluado (no se cuentan como no logradas: sería inventar un dato en contra). **Desde el 24/09/2026 lo pendiente SÍ se usa para la CERTEZA**: la sigla se prueba contra el plan completo del área (ver «Certeza: seguro o proyectado»). |
+| L4 | **1.º de primaria** no entra al riesgo ni a sus cifras. Desde el 24/09/2026 entra al bloque de **seguimiento** con el MISMO umbral que el resto de primaria (antes: cualquier B o C). Ver «Acompañamiento pedagógico». |
+| L5 | **Último nivel registrado, como el SIAGIE** (decisión del usuario, 24/09/2026; deroga «solo los literales del bimestre elegido»). En B1-B3 una competencia no evaluada en el bimestre toma su nivel del último bimestre anterior en que se registró (RVM 094-2020, 5.1.2.2 p. 3; RVM 048-2024, 5.1.1.3 p. 3). **En el periodo final no se arrastra**: manda solo ese bimestre, igual que el logro anual de la boleta. |
+| L6 | Un estudiante **sin ninguna** competencia evaluada es `ND` (no es sigla del SIAGIE, es el hueco de datos): no cuenta como evaluado ni como riesgo. |
+
+#### L1: por qué cambió «más de la mitad» (24/09/2026)
+
+- **La norma no lo define para los impares.** La RVM 094-2020 fija solo «la mitad» (5 → 3,
+  3 → 2, 1 → esa única). La RVM 048-2024, leída del PDF oficial, cambió el cuadro de secundaria
+  pero tampoco define «más de la mitad». El manual del SIAGIE no es público. No hay acta final
+  2026 con la que contrastar: el SIAGIE solo calcula la situación al cierre del IV bimestre.
+- **Decide el usuario:** la mitad entera más una.
+- **Coherencia:** con esta lectura, «C en más de la mitad» ⇔ «no llega a la mitad en B o
+  superior», para todo `n`. Es la misma frontera vista desde los dos lados. Con la anterior había
+  áreas que fallaban la promoción sin contar para la permanencia, y un área de UNA competencia
+  (EPT, Ética) al 100 % en C nunca contaba (`1 > 1`).
+- **Frontera que sigue existiendo:** solo con áreas **pares** «la mitad o más» (PER de sec
+  2.º/5.º) y «más de la mitad» (el resto) difieren. Con 4 áreas de 4 competencias con 2 C, sec
+  2.º → PER y sec 1.º → PRO. Lo prueba `verif_situacion_final.php` § 4.
+- **Impacto medido (BD local):** B1 13 → **20** PER; B2 y B3 4 → **7**. Son RR que pasan a PER; el
+  total en riesgo no cambia (136 · 100 · 100), así que el seguimiento tampoco.
+- **Cierra además la divergencia de Ética con el SIAGIE.** Ética (1 competencia) se exporta a
+  EREL, que tiene 2 columnas con la misma nota. Con la lectura anterior, en sec 1.º/3.º/4.º una
+  C contaba para PER en el SIAGIE (2 de 2) y no en el SIGA (1 de 1). Ahora las tres reglas dan
+  lo mismo con 1 de 1 que con 2 de 2.
+- ⚠️ **Divergencia con el SIAGIE aún abierta** (0 casos hoy; revisar al cierre del IV bimestre):
+  en 5.º de secundaria el acta de EPT (`032-ETRA`) se llena con **GAMA**, una transversal que el
+  SIGA no cuenta. Para el SIAGIE, 5.º tiene un área más, y una GAMA en C daría RR.
+
+#### Dónde vive la regla
+
+- **`helpers.php` (función PURA, punto único):** `situacion_final_analisis()` —devuelve
+  sigla, conteos y **motivo**—, y encima `situacion_final()`, `mitad_competencias()`,
+  `grado_final_de_ciclo()`, `grado_promocion_automatica()`, `situacion_es_riesgo()`,
+  `situacion_rotulo()`, `situacion_ordenar()`. Las constantes `SITUACION_PRO/RR/PER` y
+  `SITUACION_SIN_DATOS`. **Ningún umbral está escrito a mano en otro sitio.**
+- **`SituacionFinalModel` (los datos):** `porGrado()` y `deSeccion()`. Cuatro consultas
+  fijas, ninguna por alumno ni por grado.
+- **`helpers.php` (agregados puros):** `riesgo_resumen()`, `riesgo_estadisticas()`,
+  `riesgo_filtrar_secciones()`, `riesgo_por_seccion()`, `riesgo_alcance()`. Cero consultas.
+
+🔴 **`OrdenMeritoModel::statsPorGrado` ya NO calcula el riesgo**, y las constantes
+`RIESGO_MIN_C` / `RIESGO_CRITICO` y los helpers `riesgo_literales/conteo/rotulo/sin_b/ordenar`
+se eliminaron. Competir por el mérito y ser promovido de grado son preguntas distintas.
+
+#### El roster: ni el de evaluación ni el del mérito
+
+`SituacionFinalModel::ROSTER_SITUACION` son **dos** condiciones:
+
+1. `matriculas_vigentes()` — fuera trasladados y retirados. **No filtra por `estado`**:
+   `pendiente` y `desactivado` siguen asistiendo, se califican y serán promovidos o no.
+2. **Anclaje por bimestre del retorno de grado** — se excluye la matrícula OFICIAL en los
+   periodos que cubrió su OPERATIVA (siempre si el retorno está `activo`; solo en los
+   bimestres con notas si está `revertido`). Es el mismo anclaje del ranking en vivo.
+
+| No se usa | Por qué |
+|---|---|
+| `roster_evaluacion()` | Excluye la OPERATIVA de un retorno REVERTIDO **siempre**, porque describe el estado de HOY. Este informe mira un bimestre concreto: la oficial saldría sin una sola competencia y el alumno aparecería «sin datos» en un bimestre que sí cursó. |
+| `ROSTER_MERITO` | Exige `estado='aprobada'` porque el mérito es un documento que se firma. La promoción de grado no lo es. Medido en B2: dejaba fuera a **2 matrículas `pendiente`**. |
+
+Las tres se parecen y responden preguntas distintas; pegarle a una el filtro de otra es el
+«híbrido» que ya costó un defecto en `/matriculas/resumen`.
+
+#### Qué notas entran
+
+`FILTRO_NOTAS`: solo competencias **bloqueadas**, **extraordinarias incluidas** (desde el
+24/09/2026; ver abajo), sin `tipo IN ('transversal','tutoria')`
+salvo **Ética y Valores** (`AREA_ETICA_NOMBRE_BOLETA`), sin áreas ni subáreas exoneradas.
+Lo que cambia: entran **todos** los literales (los conteos por área necesitan los AD y los A)
+y **todas** las matrículas del roster.
+
+🔴 **Las extraordinarias CUENTAN** (decisión del usuario, 24/09/2026). Hasta ese día el filtro
+llevaba `extraordinaria = 0`, copiado del universo del mérito, donde sí es una regla (la
+extraordinaria no mueve puestos). Pero son notas oficiales de boleta y SIAGIE, y el SIAGIE
+calcula la situación final con ellas. El costo fue real: las **276 notas de Ética de B1 son
+extraordinarias** y la situación final las ignoraba. **El mérito conserva su filtro**: las dos
+preguntas ya no comparten universo de notas.
+
+⚠️ **Las transversales están duplicadas por alumno** —una fila por cada una de las 19 cargas
+que las registran (28 282 filas contra 13 308 pares en B2)—. El filtro de áreas ya las
+excluye; si se relaja, los conteos se inflan sin que se note.
+
+#### Cobertura: por qué se declara
+
+Las áreas todavía sin calificar **no entran** al cálculo, así que la proyección sale
+**optimista**. Callarlo convertiría un informe a medio llenar en una buena noticia. El
+modelo lleva `cobertura` por grado (`min`, `max`, `plan`, `parciales`) y el resumen lo
+agrega; la banda, el «Cómo leer» y el A4 lo declaran cuando `completa` es falso, y la franja
+de cada estudiante dice «N de M competencias evaluadas · P pendientes».
+
+🔴 **Desde el 24/09/2026 la cobertura se mide en COMPETENCIAS, no en áreas**: un área con 1 de 4
+evaluadas estaba «evaluada» y el aviso no la veía. `parciales` cuenta a quien tiene alguna
+competencia de su plan sin nivel de logro.
+
+🔴 **`parciales` se cuenta POR ESTUDIANTE**, no comparando el mínimo del grado con el plan
+máximo: cada alumno tiene su propio plan porque **las exoneraciones se lo recortan**
+(`planPorMatricula()` descuenta las exoneraciones por área). Cruzar el mínimo de uno con el
+plan de otro inventaba huecos donde solo había un exonerado.
+
+**Medido (corregido el 24/09/2026):** el «266 con cobertura parcial en B1» que se atribuía a que
+«Ética nunca se bloqueó» era **falso**: Ética SÍ se bloqueó (11 bloqueos, 276 notas), pero como
+**extraordinaria**, y el filtro las descartaba. Con cobertura por competencias y extraordinarias
+incluidas: B1 **518** estudiantes con pendientes, B2 **475**, B3 23 (y 500 sin datos).
+
+#### Certeza: seguro o proyectado (24/09/2026)
+
+En B1-B3 el docente **elige qué competencias evalúa** (regla del colegio del 10/08; ver
+`calificaciones.md`), y la norma formula «la mitad» sobre **todas** las competencias del área.
+La sigla calculada solo con lo evaluado usa un denominador encogido: un área de 4 con una sola
+«C» evaluada cuenta para PER en sec 2.º/5.º, y una sola «B» de 4 aprueba el área. Usar el plan
+como denominador tampoco sirve (B1: 192 PRO → RR, el sesgo contrario).
+
+**Solución** — `situacion_final_proyectar()` en `helpers.php` (PURA; aplica tres veces
+`situacion_final_analisis()`, que no cambió):
+
+- **Sigla** = con lo evaluado, como antes. El listado no cambió de composición.
+- **Cotas** contra el plan completo de cada área (`planPorMatricula()`, ahora POR COMPETENCIA,
+  área por `COALESCE(sa.area_id, comp.area_id)`, sin exoneraciones de área ni subárea):
+  mejor caso = pendientes en AD; peor caso = pendientes en C.
+- **Certeza** (`CERTEZA_SEGURA` / `CERTEZA_PROYECTADA`): un riesgo es **seguro** si ni el mejor
+  caso llega a PRO; **proyectado** si lo pendiente aún puede salvarlo (su motivo dice cuántas
+  competencias y de qué áreas). Un PRO es proyectado si el peor caso ya es riesgo: esos solo se
+  cuentan (`pro_proyectados`), no se listan.
+- 🔴 **Las cotas son MONÓTONAS** (sigla PRO ⇒ mejor caso PRO; sigla riesgo ⇒ peor caso riesgo),
+  y por eso la certeza tiene dos valores. Probado con 3 000 casos aleatorios en
+  `verif_situacion_final.php`.
+- **Periodo final** (mayor `numero` del año): no se proyecta. Con competencias pendientes, la
+  situación es `SITUACION_PENDIENTE` (no es riesgo; lista aparte en `_pendiente-final.php`); sin
+  pendientes, el resumen marca `definitiva` y el A4 deja de decir «proyectada». Es red de
+  seguridad: la regla del periodo final exige evaluar todas las competencias.
+
+| Medido (24/09, con arrastre y sin talleres) | B1 | B2 | B3 |
+|---|---|---|---|
+| En riesgo | 136 | 100 | 100 |
+| · seguros / proyectados | 135 / 1 | 100 / 0 | 100 / 0 |
+| PRO proyectados | 341 | 109 | 109 |
+| Con competencias pendientes | 518 | 279 | 279 |
+
+B3 da hoy la misma foto que B2 porque casi todo viene arrastrado de B2 (solo hay 23 notas
+bloqueadas de B3). Con el arrastre, «pendiente» significa **nunca registrada en el año**.
+
+⚠️ **«Seguro» no es definitivo.** Significa que lo pendiente ya no lo cambia; pero por la misma
+regla del último nivel registrado, las notas de los bimestres siguientes reemplazan a las de hoy.
+El «Cómo leer» lo dice.
+
+#### Certeza: se marca solo la excepción (24/09/2026, tarde)
+
+Decisión del usuario tras medir: **100/0 seguros/proyectados en B2-B3 y 135/1 en B1**. La marca
+«Seguro» salía en casi cada fila, tapaba el único caso que importa y sonaba a definitiva en un
+informe que es proyección. Ahora:
+
+- **Sin marca** para la certeza segura. Los riesgos proyectados llevan **«Depende de N
+  pendientes»** (`_listado.php`, `_criticos.php`).
+- La banda (`_resumen.php`, `_seccion.php`, `_banda-riesgo.php`) solo dice «M dependen de
+  competencias aún sin calificar» si M > 0.
+- La lógica (`situacion_final_proyectar()`, `CERTEZA_*`, claves `seguros`/`proyectados` del
+  resumen) **no cambió**.
+
+#### Colores de la situación (24/09/2026)
+
+PER rojo (`$color-error`) y RR ámbar (`$color-warning`), **también en el A4** (decisión del
+usuario; antes el A4 los forzaba a negro y solo los distinguía el texto). La marca PRO del
+seguimiento es **neutra** a propósito: un verde diría «todo bien» en una lista que existe porque
+hay algo que atender.
+
+#### Acompañamiento pedagógico: bloque de SEGUIMIENTO (24/09/2026)
+
+El informe se llama **«Acompañamiento pedagógico»** (títulos, cards, A4, lote y panel del tutor;
+rutas `acompanamiento`) y tiene dos bloques **DISJUNTOS** (un estudiante está en uno o en otro,
+nunca en ambos); su suma es el **total de acompañamiento pedagógico** (27/09/2026):
+
+1. **Estudiantes en riesgo académico** — RR/PER, sin cambios de regla.
+2. **Estudiantes en seguimiento** — `riesgo/_seguimiento.php` (antes `_automatica.php`, solo 1.º).
+
+**Regla** (decisión del usuario, 24/09/2026; punto único `seguimiento_pedagogico()` y
+`SEGUIMIENTO_MIN_B` / `SEGUIMIENTO_MIN_C` en `helpers.php`): estudiantes **PRO** o con
+**promoción automática** (1.º de primaria) con:
+
+- **primaria:** ≥ 3 B **o** ≥ 3 C, cada literal por separado (2 B + 1 C **no** entra, a propósito);
+- **secundaria:** ≥ 3 C.
+
+Son los umbrales de la primera versión del riesgo (23/09), derogados como regla de PROMOCIÓN y
+reciclados como señal pedagógica. Cuentan las mismas competencias que la situación final (último
+nivel registrado, sin transversales ni talleres no aprobados). `PEND` y sin datos nunca entran.
+
+> **27/09/2026 — riesgo y seguimiento vuelven a ser DISJUNTOS.** El 25/09 se había leído
+> «el seguimiento se aplica a todos» como un filtro transversal, y un RR o PER sobre el umbral
+> salía **en los dos bloques** (en B1, 107 de 182 del seguimiento estaban repetidos). No era la
+> regla del usuario: **riesgo + seguimiento = total de acompañamiento pedagógico**, y para
+> sumarse no pueden repetirse. Se volvió a la regla del 24/09 (solo PRO y 1.º de primaria) y se
+> añadió la cifra total al resumen (`riesgo_resumen()['acompanamiento']`, línea «Acompañamiento
+> pedagógico: N estudiantes — X en riesgo académico + Y en seguimiento», pantalla y A4). El
+> **% de riesgo** sigue saliendo solo del riesgo. El commit del 25/09 nunca llegó a producción.
+> Medido con primaria 4.º, 5.º B y 6.º del II Bimestre: 20 en riesgo + 32 en seguimiento = 52
+> (antes el seguimiento decía 52, con los 20 RR repetidos).
+
+**Datos:** `SituacionFinalModel::porGrado()` deja la lista en `seguimiento` (clave que reemplaza
+a `automatica`); `riesgo_resumen()` da la cifra `seguimiento`, **nunca sumada a `total` ni a
+`pct`**, y `acompanamiento` = `total` + `seguimiento`; `riesgo_filtrar_secciones()` la recorta como `en_riesgo`.
+
+| Medido (24/09) | B1 | B2 | B3 |
+|---|---|---|---|
+| En seguimiento | 75 | 75 | 75 |
+| · de ellos 1.º de primaria | 11 | 10 | 10 |
+
+(B1: primaria 68 con 1.º incluido, secundaria 7. B2: 67 y 8. Contados con la reubicación del
+retorno de grado: una medición que la omite da una fila más en 1.º.)
+
+**Guardas:** `verif_situacion_final.php` (bordes de las dos ramas), `verif_riesgo_situacion_bd.php`
+§ 6b (solo PRO/automática sobre el umbral y nunca a la vez en riesgo; restaurado el 27/09),
+`verif_riesgo_tutor.php` y `verif_direccion_superficies.php` (filas = riesgo + seguimiento).
+
+#### Chips de EFECTO por competencia (24/09/2026)
+
+El desglose lista todas las competencias NO APROBATORIAS, pero la norma decide POR ÁREA: en B2,
+en los grados intermedios, solo **134 de 250 filas (54 %)** eran de un área que causa el RR
+(5.° B prim: a un estudiante se le listaban 12 y su RR lo causaba solo Ciencia y Tecnología).
+Decisión del usuario: **no alterar las tablas** —ni reagrupar ni columnas nuevas—, solo un
+**chip** en la fila.
+
+🔴 **El chip responde a la SITUACIÓN DEL ESTUDIANTE** (decisión del usuario, 24/09/2026). En
+los grados intermedios **toda área que suma a PER también causa RR** (3 C de 3: no llega a 2 en
+B o superior y tiene C en más de 2). Con una precedencia fija «PER > RR», en B1 **88 de 123 RR**
+llevaban chips «Suma a PER» y **23 no tenían ni un «Causa RR»**: se leían como PER.
+
+| Situación | Chip | Grado intermedio | Grado final de ciclo |
+|---|---|---|---|
+| **PER** | **⚠ PER** (rojo; antes «Suma a PER») | fila en C de un área con `c > mitad` | prim `c > mitad` · sec `c ≥ mitad` |
+| **RR** | **⚠ RR** (ámbar; antes «Causa RR») | fila en C de un área con `ab + b < mitad` | toda fila en C; y si faltan áreas con la mitad en A/AD, las B de esas áreas |
+| **RR o PRO** | **En el límite** (gris, discontinuo) | área que cumple justo (`ab + b == mitad`) | no aplica |
+
+- Un PER solo lleva «Suma a PER». La cercanía de un RR a la permanencia va en **texto**, en su
+  motivo: «Reúne N de las 4 áreas que llevarían a la permanencia (PER)» (`areas_per`).
+- Guarda: todo RR lleva al menos un «Causa RR» (B1-B3: 0 sin él). Mutante que cae: volver a la
+  precedencia fija PER > RR.
+- **Punto único:** `situacion_efecto_competencia()` en `helpers.php`, que lee el veredicto
+  `por_area` que deja `situacion_final_analisis()` en el MISMO bucle que decide la sigla.
+  El modelo lo pone en `detalle[].efecto`. 1.º de primaria: sin chips.
+- También en el seguimiento (allí solo puede salir «En el límite»).
+- **Presentación (24/09/2026):** los chips de PER y RR dicen solo la sigla, precedida de un
+  **signo de alerta** SVG en `currentColor` (toma el rojo o el ámbar del chip, también en el A4):
+  «⚠ PER» · «⚠ RR». «En el límite» no lleva signo. Las reglas no cambian. Lo pinta **un solo
+  partial**, `admin/cuadros/riesgo/_efecto.php`, que usan el desglose, el seguimiento y la
+  leyenda «Cómo leer»; el rótulo sigue saliendo de `situacion_efecto_rotulo()`. Donde este doc
+  dice «Suma a PER» / «Causa RR», el chip hoy dice «PER» / «RR».
+- Cada estudiante lleva además **su fila de columnas** debajo del nombre
+  (`riesgo-alumno__cols`); el `<thead>` del grado no cambió.
+- Medido: **ningún RR/PER queda sin chip** en B1-B3.
+- **A4, medido con el estándar** (PDF con Chrome sin interfaz, análisis por hoja, A/B contra
+  `HEAD` en un worktree): **0 estudiantes partidos, 0 títulos de grado huérfanos, 0 franjas al
+  pie sin sus filas**. Hojas: informe B1 **43 → 52**, B2 **36 → 43**; lote por tutor B1
+  **71 → 79**, B2 **63 → 69**. Aislado en B1: los chips aportan +3 (la celda de la
+  competencia pasa a dos líneas) y la fila de columnas por estudiante +4. El usuario eligió
+  mantener **todo también en papel** (alternativa medida y descartada: chips cortos y
+  columnas solo en pantalla, B1 45 / B2 37).
+- Guardas: `verif_situacion_final.php` (ramas y cortes `>`/`≥`) y
+  `verif_riesgo_situacion_bd.php` § 6c (cada fila contra la regla escrita a mano). Mutante
+  que cae: corte de PER de sec final `≥` → `>` (2.° y 5.° sec).
+
+#### Fuera del cálculo: tres grupos que no se mezclan (24/09/2026)
+
+Pedido del usuario: «diferenciar en los contadores a los estudiantes que ya no pertenecen al
+colegio». Hasta entonces los trasladados y retirados se excluían del roster
+(`matriculas_vigentes()`) **sin nombrarse**, y quien se matriculó después del bimestre se
+contaba como «sin ninguna competencia evaluada». En 3.° A sec, B1 decía «21 evaluados · 1 sin
+datos» cuando la sección tuvo 24 en ese bimestre (3 se trasladaron después) y el «sin datos»
+era una alumna matriculada el 02/07.
+
+| Grupo | Criterio (se ancla en el DATO, no en fechas: los bimestres se solapan) | ¿Hace parcial la proyección? |
+|---|---|---|
+| **Sin ninguna competencia evaluada** | pertenece y no tiene notas que cuenten | Sí |
+| **Se incorporó después** | sin notas hasta este bimestre y con notas en uno posterior (`incorporadosDespues()`) | No |
+| **Ya no pertenece** | `tipo` trasladado/retirado (negación de `matriculas_vigentes()`) **con notas en este bimestre** (`fueraDelColegio()`, decisión del usuario) | No |
+
+- Ninguno entra al cálculo; los que ya no pertenecen **solo se cuentan**, sin nombre ni
+  situación final (decisión del usuario: la determina la nueva institución).
+- Viven en `cobertura` y `cobertura_seccion` (`incorporados`, `trasladados`, `retirados`), así
+  que el filtro por sección los recorta; `riesgo_resumen()` los suma.
+- **Texto único:** `riesgo_fuera_del_calculo()` en `helpers.php` — banda del informe, banda de
+  `/admin/cuadros`, bloque por sección y `_sin-casos.php`.
+- Medido: B1 10 trasladados · 3 retirados · 4 incorporados después; B2 1 · 2 · 1.
+- Guardas: `verif_riesgo_situacion_bd.php` (roster con incorporados escritos a mano con otra
+  forma —primer bimestre con notas posterior— y conteo manual de trasladados/retirados).
+
+#### Talleres (24/09/2026, migración 064)
+
+`areas.tipo` admite **`taller`**, y los dos talleres de secundaria (Taller de Razonamiento
+Matemático y Taller de Pre-Cálculo) pasaron a ese tipo, identificados por nombre.
+
+🔴 **Un taller cuenta para la situación final SOLO en los años y grados que la UGEL aprobó**
+(decisión del usuario, 24/09/2026). La norma cuenta los talleres del plan de estudios registrado
+en el SIAGIE (RVM 094-2020, 5.1.3 p. 11); en 2026 la UGEL no aprobó ninguno, pero puede
+aprobarlos otro año y solo para algunos grados.
+
+- **Dónde vive:** tabla `talleres_aprobacion` (taller, año, grado, `aprobado`, quién y
+  cuándo), en la misma migración 064. **No es una columna de `areas`** a propósito:
+  las áreas son un catálogo SIN año y la situación final se calcula EN VIVO; una marca en el
+  área, cambiada en 2027, reescribiría los informes de 2026.
+- **Sin fila, o con `aprobado = 0`, no cuenta.** Retirar una aprobación deja la fila en 0 con
+  quién y cuándo, no la borra. Nace vacía: 2026 sin talleres aprobados.
+- **Se marca en Currículo, en la ficha del taller** (solo admin), un año a la vez y grado por
+  grado. **Siempre editable**, también en años
+  cerrados (decisión del usuario); la pantalla avisa que recalcula los informes de ese año.
+  Muestra en cuántas secciones de cada grado se dicta el taller. No hay pantalla para CREAR
+  talleres (decisión del usuario): se crean en la BD.
+- **Resolución Directoral DEL COLEGIO** que crea el taller: tabla `talleres_resolucion`, **una
+  por taller y año** (número y fecha), en la misma 064 y en la misma ficha. Es el **sustento**
+  del colegio; lo que hace que el taller cuente es la casilla de la UGEL (decisión del usuario,
+  24/09/2026). El cuerpo de la resolución se trabajará después: por eso es una tabla propia y no
+  un texto repetido en cada grado.
+- **Punto único:** `SituacionFinalModel::areasQueCuentan()` (lo usan las notas y el plan). Mira
+  el año y el grado de la matrícula **OFICIAL**: en un retorno de grado (activo o revertido),
+  **jamás el de la operativa** (decisión del usuario, 24/09/2026), igual que las demás reglas.
+  El PLAN de competencias sí sale de donde cursa: es un dato, no una regla.
+- Guardas: `verif_riesgo_situacion_bd.php` § 7e simula con rollback la aprobación solo en 1.º
+  (18 filas de 1.º incorporan el taller, 0 de otros grados) y su retiro (vuelve a 136). Tres
+  mutantes caen: ignorar la aprobación, ignorar el grado, ignorar `aprobado = 0`. Además simula
+  un retorno de secundaria (operativa en 1.º, oficial en 2.º): aprobado en 2.º el plan pasa de 25
+  a 27; aprobado solo en 1.º se queda en 25. Cae el mutante que mira el grado de la operativa.
+
+**Siguen en la boleta y en el orden de mérito del colegio**
+(decisión del usuario): esos filtros excluyen en negativo (`tipo NOT IN ('transversal','tutoria')`)
+y no cambiaron. Efecto medido sin talleres aprobados: B1 145 → 136 en riesgo, y 9 de los 10
+«proyectados» de B1 dependían solo del Taller de Raz. Mat. (su competencia C55 casi no se evaluó).
+
+El listado anterior **no tenía falsos negativos**; lo que fallaba era presentar como igual de
+cierto lo que depende de competencias pendientes. Guardas: `verif_situacion_final.php` (asertos
+puros + monotonía) y `verif_riesgo_situacion_bd.php` § 7c (certeza contra la regla y el plan
+escritos a mano) y § 7d (talleres fuera; toda nota arrastrada viene de un bimestre anterior).
+La copia de control aplica también a mano el último nivel registrado. Mutantes que caen: cotas con
+el `n` encogido, `extraordinaria = 0`, sin arrastre, talleres dentro y arrastre en el periodo final.
+
+🔴 **La cobertura se recorta con el filtro por sección** (24/09/2026). El modelo guarda
+además `cobertura_seccion` (parciales y `sin_datos` por sección, dentro de cada grado) y
+`riesgo_filtrar_secciones()` recompone `cobertura` y `sin_datos` solo con las secciones
+elegidas. Antes quedaban los del grado entero: filtrar a 6.° B prim + 2.° A sec decía «52 sin
+su plan completo» con 47 evaluados (eran los 52 de todo 2.° de secundaria), y cada hoja del
+lote por tutor heredaba el aviso del grado. Guarda: `verif_riesgo_situacion_bd.php` § 7b
+(cada sección ≤ sus evaluados, y la suma de secciones = el grado).
+
+🔴 **Cero casos con la proyección parcial NO es «todos alcanzarían la promoción»**
+(24/09/2026). El aviso de cobertura vivía en `_resumen.php`, que con cero casos no se pinta,
+así que en B3 (23 evaluados, los 23 a medio calificar, 500 sin una sola nota) las cinco
+vistas daban la buena noticia sin aviso. **Punto único del texto de «nadie en riesgo»:
+`riesgo/_sin-casos.php`** —banda de `/admin/cuadros` y su A4, `/admin/cuadros/riesgo` y su
+A4, y `_seccion.php` (lote y panel del tutor)—: con cobertura parcial o estudiantes sin datos
+dice «Por ahora ninguno de los N … queda en riesgo, pero la proyección es parcial» con las
+cifras. La card del tutor muestra «Proyección parcial» en vez de «Todos serían promovidos».
+Guarda: `verif_direccion_superficies.php` («sin casos en …»). El texto del aviso es
+**neutro** a propósito (decisión del usuario): «se calculó sin las áreas que aún no tienen
+nota», válido para un bimestre abierto y para uno cerrado con áreas sin calificar.
+
+**Móvil:** la cabecera del grado y la franja del estudiante van dentro de un `div`
+(`riesgo-tabla__grado-cont`, `riesgo-alumno__franja-cont`) que, hasta 640 px, queda
+`sticky` a la izquierda con el ancho visible del wrapper (`container-type` + `100cqw`); las
+filas de competencias siguen desplazando. El A4 lo anula en `.riesgo-print`.
+
+#### Impacto medido (BD local, 23-24/09/2026)
+
+| Bimestre | Regla anterior | Regla MINEDU | de los cuales PER |
+|---|---|---|---|
+| I  | 199 | **144** | 15 |
+| II | 157 | **106** | 6 |
+
+No son subconjunto uno del otro: la norma **saca** a quien acumula «B» repartidas y **mete**
+a quien tiene una sola «C» en un grado final de ciclo. Por grado en B2: primaria 2.º 3,
+4.º 4, 5.º 5, 6.º 11; secundaria 1.º 21, 2.º 23, 3.º 6, 4.º 10, 5.º 23. Los grados
+intermedios de primaria (3.º, 5.º) salen casi limpios: su condición es muy permisiva.
+
+**Estructura curricular que la norma lee:** primaria 8 áreas / 25 competencias; secundaria
+10 / 26 (5.º: 9 / 24), más Ética. Áreas de **una sola competencia** —*Educación para el
+Trabajo*, *Taller de Pre-Cálculo* y *Ética y Valores*—: ahí «la mitad» es esa única y una
+«C» reprueba el área entera.
+
+#### Lo que se retiró (y por qué)
+
+- **La lente «primaria solo C»** (`?primaria=c`, `riesgo_sin_b()`, el flag `$contarB` que
+  recorría siete funciones, los radios del formulario y la línea del A4). Existió para mirar
+  primaria con el listón de secundaria mientras el riesgo era un conteo. La regla ya no se
+  cuenta por literales sueltos: no hay nada que recortar, y ofrecer media regla sería
+  ofrecer una cifra que no significa nada. **Los filtros por SECCIÓN se conservan.**
+- **El puesto y el promedio en la franja del estudiante.** Eran del mérito. La pregunta
+  ahora es si será promovido, no en qué puesto quedó, y con el roster nuevo las matrículas
+  `pendiente` habrían tenido que mostrar un puesto vacío. En su lugar van la **situación**,
+  el **motivo** y la **cobertura**.
+- **El «guard del descuadre»** entre fila y desglose: ambos salen ahora de la MISMA consulta
+  (`componerFila`), así que no pueden contradecirse. `sin_desglose` desapareció.
+
+#### Estadísticas (`riesgo_estadisticas()`, función pura, 0 consultas)
+
+Banda (total, % de evaluados, `PER`, `RR`, grados con casos, cobertura, sin datos y
+promoción automática; una línea por nivel) · distribución por grado y por sección (casos y %
+sobre sus evaluados) · por nivel: concentración **por área** y **por docente** (estudiantes
+distintos y notas no aprobatorias) y las **10 competencias** con más casos · tabla de
+**permanencias** · «Cómo leer». Las barras son CSS (`riesgo-barra__v--N`, generada con
+`@for`): no se permite `style` inline. Los filtros van **por URL**; el buscador es solo de
+pantalla y no toca cifras.
+
+**«Cómo leer este informe»** (`riesgo/_leer.php`; rehecho el 27/09/2026) es una **LEYENDA DE LO
+QUE SE VE**, no una explicación del cálculo: la leen los **tutores**. Cuatro grupos: *Situación
+final (RVM N.º 094-2020-MINEDU)* con las marcas RR · PER · PRO · Promoción automática; *Bloques del
+informe* (riesgo, seguimiento con su umbral, acompañamiento = la suma); *Distintivos de cada
+competencia* (PER · RR · EN EL LÍMITE · sin distintivo); *Ficha de cada estudiante* (qué significa
+cada dato de la franja, la marca «Depende de N pendientes», el MOTIVO, la tabla y «· I Bimestre»).
+Pie con la escala en el chip de calificaciones `.nota-literal` (el de la consulta de notas; la
+boleta tiene su propia paleta, con AD verde). Las marcas son las piezas REALES del informe (mismas
+clases). Dos columnas que fluyen (`columns`; `riesgo-leer__grupo--col2` abre la segunda), también
+en el A4.
+🔴 **Decisiones del usuario (27/09/2026):** 1) la sección dice **QUÉ significa lo que se ve**,
+nunca cómo se calculó: se quitaron «se cuenta por área / la mitad», «qué notas entran», la
+explicación de lo pendiente, la proyección parcial, la tabla de reglas por grado (la cabecera de
+cada grado ya la dice) y «Promedio en C»; 2) **sin causas ni motivos internos** en ningún texto
+visible del informe (se quitaron los de transversales, talleres y la referencia al SIAGIE).
+
+El **desglose** de cada estudiante lista sus competencias **no aprobatorias del nivel**
+(`nota_es_aprobatoria()`: primaria B y C, secundaria solo C). No es la regla de la promoción
+—esa se cuenta por área, y el **motivo** de la franja la resume—: es lo que el tutor tiene
+que remontar.
+
+El **motivo** va como **nota lateral** (27/09/2026; antes, cursiva gris que casi no se
+leía): rótulo «MOTIVO», borde izquierdo y fondo tenue en el color de la situación (rojo PER,
+ámbar RR) y el texto en color de lectura —el ámbar sobre claro no llega a AA en un
+párrafo—. En el A4 el borde conserva su color y el fondo queda blanco. El texto no cambió:
+sigue saliendo de `situacion_final_analisis()`.
+
+**En pantalla, una idea por línea** (27/09/2026): 1) el detalle del RR/PER; en un final de
+ciclo con las dos condiciones incumplidas, cada una en su línea; 2) la cercanía al PER
+(«Reúne N de las 4 áreas…»); 3) la proyección («Todavía puede alcanzar la promoción…»).
+Salen de `motivo_lineas`, que arma el MISMO helper (`situacion_final_motivo_condiciones()`
+es el punto único del texto); `motivo` es su unión y **el A4 lo sigue imprimiendo corrido,
+sin cambios** (`.riesgo-print` oculta las líneas y muestra el texto corrido). La tabla de
+críticos sigue con `motivo`.
+
+#### Retorno de grado en el informe
+
+**El riesgo se cuenta por la MATRÍCULA OFICIAL** (decisión del usuario: el retorno es un
+proceso interno del colegio), mientras que las **notas** salen de donde cursó el bimestre
+(el anclaje del roster). La fila se reubica en el grado y la sección oficiales con
+`ubicacionOficialRetornos()` —una consulta, **sin filtrar `estado`**— y conserva su origen en
+`retorno`, que la franja muestra: «Retorno de grado: cursó este bimestre en 1.º B de
+Primaria».
+
+🔴 **Ahora el grado oficial pesa el doble**: además de dónde se lista, decide **qué regla se
+le aplica**, porque de él depende si es final de ciclo.
+
+#### Filtros del informe
+
+Formulario GET con botón **Aplicar**, **varias SECCIONES de cualquier grado y nivel**
+(`secciones[]`). Casillas agrupadas por nivel con el número de casos de cada una; sin marcar
+= todas. El rótulo del grado y los atajos por nivel son **enlaces** (funcionan sin JS).
+Cambiar de bimestre **conserva** la selección; una sección que no sea de ese año se descarta.
+
+⚠️ **`secciones` se valida contra el `$_GET` crudo**: solo arreglo de cadenas de dígitos que
+existan en el año del bimestre. Un escalar o un arreglo anidado se descartan — `(int)` de un
+arreglo vale **1** y elegiría en silencio la sección id 1.
+
+#### Verificación
+
+| Archivo | Qué cubre |
+|---|---|
+| `verif_situacion_final.php` | La **regla pura**, con casos sintéticos escritos a mano: una rama de la norma por caso, el redondeo de «la mitad», el área de una competencia, la frontera «la mitad o más» vs «más de la mitad», el hueco de datos y los rótulos. **No toca la BD.** 27 asertos. |
+| `verif_riesgo_situacion_bd.php` | El **cuadre con los datos**: roster, selección, orden, perfil de literales, desglose, 1.º de primaria y retorno. La regla de control está **escrita a mano en el verificador**, no llamando al helper. Incluye la **simulación del retorno** (revertido, otra sección, otro grado) en transacción con rollback. |
+| `verif_cuadros_merito_motor.php` | Que el mérito **no vuelva a calcular el riesgo**. |
+| `verif_riesgo_tutor.php` · `verif_direccion_superficies.php` | Las superficies. |
+
+**Mutantes que caen** (medido el 24/09): umbral de permanencia 4 → 5; transversales coladas
+en el universo de notas; `ceil` → `floor` en «la mitad». **Batería completa: 47/47 en verde.**
+
+#### Maquetación A4 — elegida imprimiendo, no a ojo
+
+Se imprimieron a PDF con Chrome sin interfaz tres candidatas con los datos reales de B1
+(199 estudiantes) y se revisó **cada hoja** con un analizador de texto por página:
+
+| Candidata | Hojas | Problemas |
+|---|---|---|
+| A — título del grado como bloque suelto + `break-after: avoid` | 61 | 7 títulos huérfanos al pie |
+| **B — título del grado DENTRO del `<thead>`** | **39** | **0** |
+| C — cada grado en hoja nueva | 60 | 0 (más papel) |
+
+Se eligió **B**: el `<thead>` se repite arriba de cada hoja y Chrome no lo deja solo al pie.
+Cada estudiante es un `<tbody>` con `break-inside: avoid` (el más largo tiene 20 filas).
+**Área y curso comparten columna**: separadas, el docente se partía en dos líneas y el
+informe subía a 58 hojas. La tabla de mayor atención (60 filas en primaria) lleva el mismo
+truco y **sí** se parte entre filas; el listado arranca en hoja propia. El A4 real (resumen
+incluido) mide 42 hojas en B1, 34 en B2 y 23 solo primaria de B1 (43 en B1 desde la reubicación
+del retorno de grado, que mueve un estudiante de la tabla de 1.° a la de 2.°).
+
+⚠️ `break-inside: avoid` sobre `<tbody>` requiere que ningún estudiante pase de una hoja.
+Hoy el máximo es 20 filas; si algún día un plan curricular diera 40+ competencias de riesgo a
+un estudiante, habría que partirlo.
+
+**Verificación (histórica).** Estos asertos se reescribieron el 24/09/2026 al cambiar la
+regla: la lista, los críticos y el desglose se miden ahora en `verif_riesgo_situacion_bd.php`
+contra una regla escrita a mano, y `verif_cuadros_merito_motor.php` solo comprueba que el
+mérito **no vuelva a calcular el riesgo**. Ver § «Verificación» de la sección vigente.
+
+#### Riesgo por sección y panel del tutor (23/09/2026)
+
+El informe se lleva **a los tutores de cada sección**. No hay rol «tutor»: es un `docente`
+en `secciones.tutor_id` (23 secciones, 23 tutores, **solo el tutor ACTUAL**, sin historial).
+Decisiones del usuario:
+
+- **Dos canales.** (1) Dirección filtra por **sección** e imprime un **lote** (una sección por
+  hoja nueva, con cabecera y tutor). (2) El tutor ve **solo su sección** en su panel.
+- **La unidad de selección es la sección** (`secciones[]`, validadas contra
+  `SeccionModel::seccionesDelAnio()` del año del bimestre); el grado es la suma de sus
+  secciones (su rótulo es un enlace que las marca todas). Sustituye a `grados[]`, que solo
+  existió en `dev`. Alcance del A4: «Primaria: 5°, 6° A · Secundaria: 1° B»
+  (`riesgo_alcance()`).
+- **Contenido enfocado al tutor** (`_seccion.php`): resumen corto, los casos de
+  **permanencia**, concentración por área y docente (extraída a `_concentracion.php`),
+  «Cómo leer», listado y el bloque de 1.º de primaria. Sin casos → mensaje de buena noticia
+  en su hoja (el lote la entrega igual).
+- **Retorno de grado → tutor de la sección OFICIAL** (190/692 va a 2.° B).
+- **El tutor solo ve bimestres PUBLICADOS de su nivel** (compuerta 044). Ve todos los
+  publicados de su sección aunque sea tutor desde hace poco. La regla es **una**: la del
+  MINEDU; no hay variantes de lectura.
+- **Card propia en `/docente/inicio`** para tutores, con las cifras del último bimestre
+  publicado. Wayfinding: rosa oscuro `#be185d` + `warning.svg` (ver `docs/modulos/ui.md`).
+
+Implementación (puntos únicos):
+- `riesgo_filtrar_secciones()` — recorta `en_riesgo`, `automatica`, `por_seccion` y
+  **`evaluados`** (= suma de las secciones elegidas).
+- `riesgo_por_seccion()` — un bloque `{seccion, filtrado, stats}` por sección; lo usan el lote
+  y el tutor. `SituacionFinalModel::deSeccion()` lo envuelve para una sección: lo usan el
+  panel del tutor y su card, así que **la card no puede decir otra cifra que el informe**.
+- `Docente\RiesgoTutorController` (`/docente/tutoria/acompanamiento` y `/imprimir`, rutas literales
+  antes de `/docente/tutoria/{periodo_id}`). 🔴 **La sección NUNCA sale de la URL**
+  (`getSeccionDelTutor` del usuario en sesión) y la lista de bimestres sale de
+  `periodosPublicados()`; un bimestre sin publicar pedido por URL se rechaza (pantalla avisa,
+  papel 404).
+- Card: `PanelController` usa `ultimoPeriodoPublicadoPorNivel()` (el que ya usa el mérito del
+  panel). Cuesta ~65 ms al panel del tutor (medido), solo a tutores.
+
+**Verificación.** `verif_riesgo_tutor.php` (nuevo): sección desde `tutor_id` (un parámetro de
+URL no la cambia; docente sin tutoría sin sección), compuerta en sus dos ramas (publicado se
+acepta; sin publicar y **suspendido en transacción + rollback** se rechazan), informe = filas
+de su sección contadas a mano (retorno incluido), `?primaria=c` sin efecto, **card renderizada
+con el `index()` real** (cifras = informe; ausente para un docente sin tutoría), orden de rutas
+y CSS servido. `verif_direccion_superficies.php`: selección de secciones de dos niveles
+(evaluados y alcance a mano), URLs de Imprimir y del lote, basura descartada, lote con una hoja
+por sección, tutor y 0 filas ajenas; lote completo = 23 secciones y suma el total. Mutantes
+(6): filtro que ignora la selección, `evaluados` sin recortar, sección leída de la URL, sin
+compuerta, lote sin salto de hoja, card con otro bimestre — todos caen. PDF: lote B1 de 70
+hojas, las 23 secciones cada una en hoja nueva y ninguna hoja con dos; A4 del tutor de 2.° B
+en 3 hojas.
 
 ---
 

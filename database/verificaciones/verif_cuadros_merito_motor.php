@@ -33,18 +33,25 @@
  *      con `OrdenMeritoModel::rankingGrado` — mismos grados y en su orden, mismo
  *      `total`, misma matrícula en el primer puesto y mismo promedio.
  *   2. `peores` sale de la cola de ese mismo ranking y nunca incluye al 1.er puesto.
- *   3. `en_riesgo` = exactamente los que tienen `num_c >= RIESGO_MIN_C`, ordenados
- *      de más C a menos.
- *   4. NO HAY RANKING PROPIO: ninguna consulta de `AnioAcademicoModel` ordena
- *      estudiantes por promedio. Las tres de arriba miden datos; ésta impide que
+ *   3. NO HAY RANKING PROPIO: ninguna consulta de `AnioAcademicoModel` ordena
+ *      estudiantes por promedio. Las dos de arriba miden datos; ésta impide que
  *      la copia renazca.
  *
  *      ⚠️ Lo que se prohíbe es el RANKING, no el promedio. `getResumenBimestre`
  *      sigue promediando por estudiante a propósito, y debe seguir haciéndolo:
  *      su «en riesgo» es OTRA pregunta —promedio general por debajo de
  *      NOTA_MIN_B, contado por nivel— y alimenta el bloque de Calificaciones de
- *      la misma pantalla. Las dos cifras conviven y son legítimamente distintas;
- *      el paso 5 lo deja medido para que nadie las "unifique".
+ *      la misma pantalla.
+ *
+ * 🔴 EL RIESGO ACADÉMICO YA NO SE VERIFICA AQUÍ (23/09/2026). Vivió en
+ *   `statsPorGrado` mientras fue un conteo de competencias en C, y de ahí
+ *   heredaba el roster del mérito (`estado = 'aprobada'`) y sus agregados
+ *   globales. Ahora es la SITUACIÓN FINAL del MINEDU, que se cuenta POR ÁREA y
+ *   tiene modelo y roster propios. Sus asertos están en
+ *   `verif_situacion_final.php` (la regla, con casos sintéticos y sin tocar la
+ *   BD) y en `verif_riesgo_situacion_bd.php` (el cuadre con los datos reales,
+ *   incluida la simulación del retorno de grado). Los tres tienen que quedar en
+ *   verde.
  */
 
 define('ROOT_PATH', dirname(__DIR__, 2));
@@ -89,14 +96,8 @@ $periodos = $pdo->query("
     ORDER BY p.anio_id, p.numero
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// ── 1-3. Los datos, periodo a periodo ─────────────────────────────
+// ── 1-2. Los datos, periodo a periodo ─────────────────────────────
 $gradosMedidos = 0;
-$filasRiesgo   = 0;
-// Desglose de las C (07/09/2026). `$sinDetalle` cuenta las filas que el modelo
-// marcó como "no cuadra con el snapshot": no es un fallo, es una medición — si
-// un día se dispara, es que algo cambió las notas después de cerrar.
-$filasDetalle  = 0;
-$sinDetalle    = 0;
 
 foreach ($periodos as $p) {
     $pid = (int) $p['id'];
@@ -149,39 +150,18 @@ foreach ($periodos as $p) {
             "  $etq · peores = cola del ranking, sin el 1.er puesto",
             count($g['peores']) . ' fila(s)');
 
-        // 3. `en_riesgo` = umbral exacto + orden por número de C descendente.
-        $esperados = [];
-        foreach ($rank as $e) {
-            if ((int) $e['num_c'] >= OrdenMeritoModel::RIESGO_MIN_C) {
-                $esperados[] = (int) $e['matricula_id'];
-            }
-        }
-        sort($esperados);
-
-        $obtenidos = array_map('intval', array_column($g['en_riesgo'], 'matricula_id'));
-        $comparar  = $obtenidos;
-        sort($comparar);
-
-        $cs       = array_map('intval', array_column($g['en_riesgo'], 'num_c'));
-        $csOrden  = $cs;
-        rsort($csOrden);
-
-        $ok($comparar === $esperados && $cs === $csOrden,
-            "  $etq · en riesgo = num_c >= " . OrdenMeritoModel::RIESGO_MIN_C . ', de mayor a menor',
-            count($obtenidos) . ' de ' . count($rank));
-
-        // 3b. El perfil de literales CUADRA (07/09/2026). `num_a` es la única
-        // de las cuatro cifras que no sale de una consulta: se DERIVA por
-        // resta en `statsPorGrado`, porque AD/A/B/C son disjuntos y exhaustivos
-        // sobre 00-20. Si esa premisa dejara de ser cierta —una nota nula que
-        // COUNT() sí cuenta, un tramo de la escala que se solapa, un SUM() que
-        // cambia de condición— `num_a` saldría negativo o descuadrado y la
-        // tabla enseñaría un perfil plausible y falso, sin ningún error.
+        // 2b. El perfil de literales CUADRA (07/09/2026). `num_a` es la única de
+        // las cuatro cifras que no sale de una consulta: se DERIVA por resta en
+        // `statsPorGrado`, porque AD/A/B/C son disjuntos y exhaustivos sobre
+        // 00-20. Si esa premisa dejara de ser cierta —una nota nula que COUNT()
+        // sí cuenta, un tramo de la escala que se solapa, un SUM() que cambia de
+        // condición— `num_a` saldría negativo o descuadrado y la tabla enseñaría
+        // un perfil plausible y falso, sin ningún error.
         //
-        // Se mide en las DOS rutas de `rankingGrado`: B1/B3 en vivo, B2 desde
-        // el snapshot, que trae las mismas cuatro columnas de otra tabla.
+        // Se mide en las DOS rutas de `rankingGrado`: en vivo y desde el
+        // snapshot, que trae las mismas cuatro columnas de otra tabla.
         $descuadre = 0;
-        foreach ($g['en_riesgo'] as $al) {
+        foreach (array_merge([$g['mejor']], $g['peores']) as $al) {
             $suma = (int) $al['num_ad'] + (int) $al['num_a']
                   + (int) $al['num_b']  + (int) $al['num_c'];
             if ($suma !== (int) $al['num_competencias'] || (int) $al['num_a'] < 0) {
@@ -190,84 +170,17 @@ foreach ($periodos as $p) {
         }
         $ok($descuadre === 0,
             "  $etq · perfil AD+A+B+C = competencias, y A nunca es negativo",
-            $descuadre > 0 ? "$descuadre fila(s) descuadradas" : count($obtenidos) . ' fila(s)');
-
-        // 3c. EL DESGLOSE DE LAS C CUADRA CON LA FILA (07/09/2026).
-        //
-        // Es el aserto que sostiene la sección desplegable: `detalle_c` sale de
-        // `detalleCompetenciasC`, una consulta APARTE que replica a mano el
-        // universo del mérito (bloqueadas, sin extraordinarias, sin transversales
-        // salvo Ética, sin exoneradas). Si esa réplica se desvía en un solo
-        // filtro, el desglose deja de sumar `num_c` y la pantalla muestra dos
-        // cifras que se contradicen —exactamente el patrón de fallo que ya costó
-        // cuatro reglas divergentes en este repositorio— SIN ningún error.
-        //
-        // 🔴 UN `detalle_c === null` CUENTA COMO FALLO, Y ESO ES DELIBERADO.
-        //
-        // El modelo pone NULL cuando el desglose en vivo no coincide con `num_c`.
-        // La primera versión de este aserto trataba ese NULL como "legítimo" —un
-        // bimestre cerrado y luego rectificado lo produce— y con eso el aserto
-        // quedaba CIEGO: se probó con dos mutantes (quitar el filtro de
-        // extraordinarias y quitar el de transversales) y NO detectó ninguno,
-        // porque una réplica rota devuelve otro número de filas, el modelo lo
-        // convierte en NULL, y el verificador lo daba por bueno. El guard que
-        // protege la pantalla estaba enmascarando exactamente los bugs que este
-        // verificador existe para cazar.
-        //
-        // Por eso el umbral es CERO. Hoy cuadran los 195 alumnos de B1+B2. Si
-        // algún día falla, hay que mirar cuál de las dos cosas pasó:
-        //   · una rectificación legítima tras el cierre → el dato es correcto y
-        //     este aserto hay que ajustarlo a mano, dejando escrito el caso;
-        //   · `detalleCompetenciasC` dejó de replicar el universo del mérito →
-        //     es un bug, y es el motivo de que esto esté aquí.
-        // Lo que NO se debe hacer es relajar el umbral para que vuelva a verde.
-        $descuadre = $malaNota = $nulos = 0;
-        foreach ($g['en_riesgo'] as $al) {
-            if (!array_key_exists('detalle_c', $al)) {
-                $descuadre++;   // ni siquiera se pobló
-                continue;
-            }
-            if ($al['detalle_c'] === null) {
-                $nulos++;
-                $sinDetalle++;
-                continue;
-            }
-            if (count($al['detalle_c']) !== (int) $al['num_c']) {
-                $descuadre++;
-            }
-            foreach ($al['detalle_c'] as $d) {
-                if ((int) $d['nota'] > NOTA_MIN_B - 1) { $malaNota++; }
-            }
-            $filasDetalle += count($al['detalle_c']);
-        }
-
-        $ok($descuadre === 0 && $malaNota === 0 && $nulos === 0,
-            "  $etq · el desglose de C cuadra con num_c, y solo lista C",
-            $descuadre > 0
-                ? "$descuadre fila(s) descuadradas"
-                : ($malaNota > 0
-                    ? "$malaNota nota(s) que no son C"
-                    : ($nulos > 0
-                        ? "$nulos alumno(s) sin desglose: el vivo no cuadra con el cierre"
-                        : count($obtenidos) . ' alumno(s)')));
-
-        $filasRiesgo += count($obtenidos);
+            $descuadre > 0 ? "$descuadre fila(s) descuadradas" : 'cuadra');
     }
     echo "\n";
 }
 
 echo "== Cobertura de la medición ==\n";
-$ok($gradosMedidos > 0, 'la comparación midió grados de verdad', "$gradosMedidos grado(s)");
 // Un verificador que pasa en verde sin haber ejercitado la rama que vigila es
 // peor que uno roto: avisa en vez de dar luz verde sobre una premisa falsa.
-$ok($filasRiesgo > 0, 'la rama "en riesgo" es observable en estos datos', "$filasRiesgo fila(s)");
-// Un verificador que pasa en verde sin haber ejercitado la rama que vigila es
-// peor que uno roto: si el desglose no devolviera NADA, el aserto de arriba
-// seguiria verde (0 === 0) y nadie se enteraria.
-$ok($filasDetalle > 0, 'el desglose de C es observable en estos datos',
-    "$filasDetalle fila(s) de C" . ($sinDetalle > 0 ? " · $sinDetalle sin desglose (no cuadran)" : ' · todas cuadran'));
+$ok($gradosMedidos > 0, 'la comparación midió grados de verdad', "$gradosMedidos grado(s)");
 
-// ── 4. La copia no puede renacer ──────────────────────────────────
+// ── 3. La copia no puede renacer ──────────────────────────────────
 echo "\n== Estructura ==\n";
 $fuente = file_get_contents(APP_PATH . '/Models/AnioAcademicoModel.php');
 
@@ -293,27 +206,26 @@ $ok(!preg_match('~ORDER\s+BY\s+promedio~i', $cadenas),
 $ok(str_contains($fuente, 'statsPorGrado'),
     'getStatsCierre delega en OrdenMeritoModel::statsPorGrado');
 
-// ── 5. Las dos preguntas de "riesgo" siguen siendo dos ────────────
-// Se miden juntas a propósito: comparten pantalla y rótulo, y la tentación
-// recurrente de este repositorio es unificar dos reglas que solo se PARECEN.
-echo "\n== Los dos 'en riesgo' de /admin/cuadros ==\n";
+// ── 4. El mérito ya no calcula el riesgo ──────────────────────────
+// Es el aserto que impide que el riesgo vuelva a colarse aquí dentro. Si
+// alguien reintroduce `en_riesgo` en `statsPorGrado`, nacerían dos fuentes
+// para la misma pregunta y volverían a divergir.
+echo "\n== El riesgo tiene otro dueno ==\n";
+$fuenteMerito = file_get_contents(APP_PATH . '/Models/OrdenMeritoModel.php');
+$claves = [];
 foreach ($periodos as $p) {
-    $pid   = (int) $p['id'];
-    $anio  = new AnioAcademicoModel();
-    $porGr = $anio->getStatsCierre($pid)['por_grado'];
-    if (!$porGr) { continue; }
-
-    $porPromedio = 0;
-    foreach ($anio->getResumenBimestre($pid) as $nivel) {
-        $porPromedio += (int) ($nivel['en_riesgo'] ?? 0);
+    foreach ((new AnioAcademicoModel())->getStatsCierre((int) $p['id'])['por_grado'] as $g) {
+        $claves += $g;
     }
-    $porC = array_sum(array_map(static fn($g) => count($g['en_riesgo']), $porGr));
-
-    printf("  %-14s promedio<%d por nivel: %-4d · %d C o mas por grado: %-4d\n",
-        $p['nombre_display'], NOTA_MIN_B, $porPromedio, OrdenMeritoModel::RIESGO_MIN_C, $porC);
 }
-$ok(true, 'las dos cifras se miden por separado y no se unifican',
-    'universos distintos a proposito');
+$ok(!array_key_exists('en_riesgo', $claves) && !array_key_exists('evaluados', $claves),
+    'statsPorGrado ya no devuelve en_riesgo ni evaluados',
+    implode(', ', array_keys($claves)) ?: 'sin grados en estos datos');
+$ok(!str_contains($fuenteMerito, 'RIESGO_MIN_C') && !str_contains($fuenteMerito, 'riesgo_conteo'),
+    'OrdenMeritoModel no conserva umbrales de riesgo',
+    'la regla vive en SituacionFinalModel');
+$ok(is_file(APP_PATH . '/Models/SituacionFinalModel.php'),
+    'existe el modelo dueno de la situacion final');
 
 echo "\n";
 printf("%s — %d fallo(s)\n", $fallos === 0 ? 'TODO OK' : 'HAY FALLOS', $fallos);

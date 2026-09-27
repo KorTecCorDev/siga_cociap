@@ -5,16 +5,24 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    // Separación MÍNIMA entre la marca y el bloque del usuario: `space-between`
+    // la deja en 0 cuando el espacio se agota.
+    gap: $spacing-md;
     padding: 0 $spacing-xl;
     position: sticky;
     top: 0;
     z-index: 100;
     box-shadow: $shadow-sm;
 
+    // ⚠️ La marca, la campana y «Cerrar sesión» NO se encogen nunca; lo único
+    // flexible es el nombre del usuario (24/09/2026). Con el encogimiento por
+    // defecto de flex, entre 400 y 500 px la marca se comprimía por debajo de su
+    // contenido y «SIGACOCIAP» quedaba encima del nombre.
     &__brand {
         display: flex;
         align-items: center;
         gap: $spacing-sm;
+        flex-shrink: 0;
     }
 
     &__logo {
@@ -34,6 +42,10 @@
         display: flex;
         align-items: center;
         gap: $spacing-md;
+        min-width: 0;
+
+        > * { flex-shrink: 0; }
+        > .navbar__nombre-usuario { flex-shrink: 1; }
     }
 
     &__rol {
@@ -47,9 +59,16 @@
         letter-spacing: .5px;
     }
 
+    // Una sola línea: partido en dos medía más que la barra. Si aun así no cabe
+    // (nombres largos justo por encima de 500 px), se recorta con «…» en vez de
+    // montarse sobre la marca.
     &__nombre-usuario {
         font-size: 13px;
         color: rgba(255,255,255,.85);
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     // Icono del usuario (a la izquierda del nombre). SVG monocromo pintado con
@@ -164,9 +183,10 @@
         &__rol    { display: none; }
     }
 
-    // Pantallas muy angostas: oculta el nombre como último recurso para
-    // que la marca y el botón de salir no se desborden
-    @media (max-width: 400px) {
+    // Pantallas angostas: oculta el nombre para que la marca y el botón de
+    // salir no se desborden. Subió de 400 a 500 px (decisión del usuario,
+    // 24/09/2026): entre 400 y 500 no cabía.
+    @media (max-width: 500px) {
         &__nombre-usuario { display: none; }
     }
 }

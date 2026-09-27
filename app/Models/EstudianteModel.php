@@ -109,7 +109,16 @@ class EstudianteModel extends BaseModel
                 n.nombre          AS nivel_nombre,
                 tp.apellido_paterno AS tutor_apellido_paterno,
                 tp.apellido_materno AS tutor_apellido_materno,
-                tp.nombres          AS tutor_nombres
+                tp.nombres          AS tutor_nombres,
+                -- Rol de la fila dentro de un retorno de grado ACTIVO (misma
+                -- convención que MatriculaModel::listar):
+                --  ro presente → m es la matricula OFICIAL (su pareja operativa = ro.matricula_operativa_id)
+                --  rp presente → m es la matricula OPERATIVA (su pareja oficial = rp.matricula_oficial_id)
+                ro.matricula_operativa_id AS retorno_operativa_id,
+                rp.matricula_oficial_id   AS retorno_oficial_id,
+                go.id                     AS retorno_grado_id,
+                go.nombre_display         AS retorno_grado_nombre,
+                so.nombre                 AS retorno_seccion_nombre
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
@@ -118,6 +127,11 @@ class EstudianteModel extends BaseModel
             LEFT  JOIN niveles     n ON n.id = g.nivel_id
             LEFT  JOIN usuarios   tu ON tu.id = s.tutor_id
             LEFT  JOIN personas   tp ON tp.id = tu.persona_id
+            LEFT  JOIN retornos_grado ro ON ro.matricula_oficial_id  = m.id AND ro.estado = 'activo'
+            LEFT  JOIN retornos_grado rp ON rp.matricula_operativa_id = m.id AND rp.estado = 'activo'
+            LEFT  JOIN matriculas mo ON mo.id = ro.matricula_operativa_id
+            LEFT  JOIN secciones  so ON so.id = mo.seccion_id
+            LEFT  JOIN grados     go ON go.id = so.grado_id
             WHERE m.anio_id = ?
               AND ({$condicion})
             ORDER BY " . orden_alfabetico('p') . "

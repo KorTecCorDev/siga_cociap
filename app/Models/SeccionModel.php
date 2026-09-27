@@ -6,6 +6,54 @@ class SeccionModel extends BaseModel
 {
     protected string $table = 'secciones';
 
+    /**
+     * Secciones de un año con su grado, nivel y tutor ACTUAL (23/09/2026).
+     *
+     * Alimenta el filtro por sección del informe de estudiantes en riesgo y el
+     * bloque por tutor (lote de Dirección y panel del tutor). `secciones.tutor_id`
+     * es el tutor de HOY: no hay historial, así que un informe de un bimestre
+     * anterior nombra al tutor actual (los encabezados lo dicen).
+     *
+     * @return array<int, array{id:int, grado_id:int, nombre:string, grado_numero:int,
+     *         grado_nombre:string, nivel_id:int, nivel_nombre:string, nivel_codigo:string,
+     *         tutor_id:?int, tutor_nombre:?string}>
+     */
+    public function seccionesDelAnio(int $anioId): array
+    {
+        $filas = $this->query("
+            SELECT s.id, s.grado_id, s.nombre,
+                   g.numero         AS grado_numero,
+                   g.nombre_display AS grado_nombre,
+                   n.id             AS nivel_id,
+                   n.nombre         AS nivel_nombre,
+                   n.codigo         AS nivel_codigo,
+                   s.tutor_id,
+                   p.apellido_paterno, p.apellido_materno, p.nombres
+            FROM secciones s
+            INNER JOIN grados g   ON g.id = s.grado_id
+            INNER JOIN niveles n  ON n.id = g.nivel_id
+            LEFT  JOIN usuarios u ON u.id = s.tutor_id
+            LEFT  JOIN personas p ON p.id = u.persona_id
+            WHERE s.anio_id = ?
+            ORDER BY n.id, g.numero, s.nombre
+        ", [$anioId]);
+
+        return array_map(static fn(array $r): array => [
+            'id'           => (int) $r['id'],
+            'grado_id'     => (int) $r['grado_id'],
+            'nombre'       => (string) $r['nombre'],
+            'grado_numero' => (int) $r['grado_numero'],
+            'grado_nombre' => (string) $r['grado_nombre'],
+            'nivel_id'     => (int) $r['nivel_id'],
+            'nivel_nombre' => (string) $r['nivel_nombre'],
+            'nivel_codigo' => (string) $r['nivel_codigo'],
+            'tutor_id'     => $r['tutor_id'] !== null ? (int) $r['tutor_id'] : null,
+            'tutor_nombre' => !empty($r['apellido_paterno'])
+                ? trim($r['apellido_paterno'] . ' ' . $r['apellido_materno'] . ', ' . $r['nombres'])
+                : null,
+        ], $filas);
+    }
+
     public function listarConTutor(): array
     {
         return $this->query("

@@ -16,6 +16,7 @@
  * @var array $pendientes
  * @var array|null $tutoria
  * @var array|null $conducta
+ * @var array|null $riesgoTutor  {seccion, periodo, resumen} (solo tutores)
  * @var array $niveles
  * @var array $nominaResumen
  * @var int   $totalNomina
@@ -182,6 +183,43 @@ $saludo = match($auth_user['sexo'] ?? null) {
             </div>
             <p class="dpanel-card__sub">Revisa la nota de los auxiliares, agrega tu nota y cierra la conducta del bimestre.</p>
             <span class="badge badge--<?= $cBadge ?>"><?= e($cTexto) ?></span>
+        </a>
+    <?php endif; ?>
+
+    <!-- Card: Acompañamiento pedagógico (solo tutores; 23/09/2026). Cifras del
+         ULTIMO bimestre PUBLICADO de su nivel (compuerta 044). El badge es gris
+         a proposito: es informacion, no una accion pendiente del tutor, asi
+         que no entra en el semaforo ambar/verde de las demas cards. -->
+    <?php if (!empty($riesgoTutor)):
+        $rs = $riesgoTutor['resumen']; ?>
+        <a href="<?= url('docente/tutoria/acompanamiento') ?>" class="card dpanel-card dpanel-card--riesgo">
+            <div class="dpanel-card__head">
+                <h2 class="card__title">Acompañamiento pedagógico — <?= e($riesgoTutor['seccion']['grado_nombre']) ?> <?= e($riesgoTutor['seccion']['nombre']) ?></h2>
+            </div>
+            <?php if ($riesgoTutor['periodo'] === null): ?>
+                <p class="dpanel-card__sub">Estudiantes de tu sección que no alcanzarían la promoción de grado, con su desglose por área y docente.</p>
+                <span class="badge badge--espera">Aún no hay bimestre publicado</span>
+            <?php else: ?>
+                <p class="dpanel-card__sub">
+                    <?= e($riesgoTutor['periodo']['nombre_display']) ?> &middot;
+                    <?= (int) $rs['total'] ?> de <?= (int) $rs['evaluados'] ?> no alcanzaría<?= (int) $rs['total'] !== 1 ? 'n' : '' ?> la promoción
+                    &middot; <?= (int) $rs['permanencia'] ?> permanecería<?= (int) $rs['permanencia'] !== 1 ? 'n' : '' ?> en el grado
+                    <?php if ((int) $rs['seguimiento'] > 0): ?>
+                        &middot; <?= (int) $rs['seguimiento'] ?> en seguimiento
+                    <?php endif; ?>
+                </p>
+                <span class="badge badge--espera">
+                    <?php // Cero casos con la proyección parcial NO es «todos serían
+                          // promovidos»: ver `_sin-casos.php`. ?>
+                    <?php if ((int) $rs['total'] > 0): ?>
+                        Ver informe de tu sección
+                    <?php elseif ($rs['cobertura']['completa'] && (int) $rs['sin_datos'] === 0): ?>
+                        Todos serían promovidos
+                    <?php else: ?>
+                        Proyección parcial
+                    <?php endif; ?>
+                </span>
+            <?php endif; ?>
         </a>
     <?php endif; ?>
 

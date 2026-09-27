@@ -14,6 +14,15 @@
 | Asistencia | matrícula oficial | matrícula **operativa** |
 | Orden de mérito | grado **oficial** | grado **operativo** |
 | **Boleta y token público** | **SIEMPRE matrícula oficial** | **SIEMPRE matrícula oficial** |
+| **Estudiantes en riesgo** (informe, banda del tablero) | **SIEMPRE matrícula oficial** | **SIEMPRE matrícula oficial** |
+
+**Estudiantes en riesgo cuenta por la matrícula OFICIAL (23/09/2026, decisión del usuario:
+«el retorno es un proceso interno del colegio»).** No se recalcula nada: las cifras son las
+de la fila del mérito, que `statsPorGrado` **reubica** en el grado y la sección oficiales,
+con la regla por nivel del nivel **oficial** y para todo retorno, activo o revertido. El
+mérito (`mejor`, `peores`, `total`) sigue en el grado operativo, y la franja lo dice:
+«Retorno de grado: se evalúa en 1.° B, puesto 42 de 42». Detalle en
+`docs/modulos/usuarios-direccion.md` § «Retorno de grado en el informe».
 
 **Principio rector: el vínculo `retornos_grado` es el puntero; los datos NO se
 copian ni se mueven entre matrículas.** Cada bimestre queda donde se cursó, y la
@@ -70,6 +79,28 @@ usan legítimamente: son **listados operativos**, no el documento. El híbrido e
 específicamente pegarle ese `WHERE` a la línea que decide **quién recibe documento o se
 cuenta**.
 
+## Buscador de estudiantes (24/09/2026)
+
+`EstudianteModel::buscarEnAnioActivo` devuelve **una fila por matrícula**, así que un retorno
+**activo** trae las dos matrículas. Lleva el rol de cada una con la misma convención que
+`MatriculaModel::listar` (`retorno_operativa_id` → la fila es la oficial; `retorno_oficial_id`
+→ es la operativa). Quien pinta decide qué hacer con eso (`data-retornos` del contenedor,
+en `buscador-estudiante.js`):
+
+| Pantalla | Modo | Qué muestra |
+|---|---|---|
+| `/admin/buscar-estudiante` | `agrupar` (por defecto) | **Una tarjeta, la oficial**, con «Retorno de grado: cursa en 1.° "B"» y el puesto **del grado operativo** |
+| `/rectificaciones` | `separar` | **Las dos**, marcadas «Oficial» / «Operativa»: cada una guarda notas distintas (Regla A) |
+
+**Por qué no se agrupa también en Rectificación:** allí la tarjeta lleva a las notas de ESA
+matrícula. Si se quitara la operativa, las notas posteriores al retorno quedarían inalcanzables
+desde el buscador.
+
+**Por qué el puesto sale de la operativa:** el mérito rankea en el grado operativo, así que la
+oficial nunca tiene puesto propio. El controlador añade el grado operativo a `puestosPorGrado`
+aunque la fila operativa no haya entrado al `LIMIT`. Un retorno **revertido** no se marca, igual
+que en el listado `/matriculas`.
+
 ## Candado: NO se puede retornar a mitad de un bimestre ya evaluado
 
 `RetornoGradoController::evaluacionEnBimestreActivo()` bloquea el retorno si la
@@ -93,6 +124,19 @@ ventana de calendario.
 
 *El retorno real del 21/06/2026 pasa este candado* — la oficial no tenía nada en
 B2 ese día. Por eso salió limpio: por ausencia de datos, no por diseño.
+
+## Candado: un retorno NUNCA cruza de nivel (24/09/2026)
+
+Regla del usuario: **un estudiante de 1.º de secundaria jamás puede retornar a 6.º de primaria**.
+El retorno es a un grado **inferior**, del **mismo nivel** y del **mismo año**. Ya lo imponían
+`create()` (solo lista secciones con `g.nivel_id = ?` y `g.numero < ?`) y `store()` (valida lo
+mismo en servidor). Desde el 24/09 lo vigila `verif_retorno_grado.php` en el DATO (0 retornos
+que crucen de nivel, suban de grado o cambien de año) y en el CÓDIGO (los dos filtros siguen
+ahí; cae el mutante que quita el de `store()`).
+
+**Toda regla académica usa el grado de la matrícula OFICIAL**, jamás el de la operativa: la
+situación final (regla por grado) y, desde el 24/09, también la aprobación de la UGEL de los
+talleres. Ver `docs/modulos/usuarios-direccion.md` § «Talleres».
 
 ## Qué hace `store()` al crear el retorno
 

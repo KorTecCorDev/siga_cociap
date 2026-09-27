@@ -195,6 +195,16 @@ confirmarse en prod):
 | Taller de Razonamiento Matemático | 1° a 5° | 11 | 273 |
 | Taller de Pre-Cálculo | 5° | 2 (A, B) | 49 |
 
+🔴 **ACTUALIZACIÓN 24/09/2026 — la UGEL NO aprobó los talleres.** Contradice la expectativa de
+abajo sobre el Taller de Razonamiento Matemático: este año **ningún** taller está en el SIAGIE
+(no se pueden registrar sus notas). Consecuencias en SIGA: los dos talleres pasaron a
+`areas.tipo = 'taller'` (migración 064) y **solo cuentan para la situación final en los años y
+grados que la UGEL apruebe** (tabla `talleres_aprobacion`, se marca en Currículo; en 2026, ninguno);
+siguen en la boleta y en el mérito del colegio. El
+«sin destino» rojo de la pantalla de vínculos ya puede distinguirse por el tipo. **El vínculo
+de los talleres con las actas queda PENDIENTE por decisión del usuario (24/09/2026)**: todavía
+no hay un código de hoja de talleres en el Excel de actas del SIAGIE. Ver `docs/modulos/usuarios-direccion.md` § «Talleres».
+
 **CAUSA RAÍZ Y DECISIONES — confirmadas por el usuario el 29/07/2026:**
 
 - **Por qué no hay hoja:** existe una **aprobación de talleres PENDIENTE en la UGEL de

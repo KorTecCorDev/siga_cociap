@@ -63,20 +63,6 @@ class OrdenMeritoModel extends BaseModel
         )
     ";
 
-    /**
-     * Umbral de "estudiante en riesgo": cuántas competencias en C hacen que un
-     * estudiante entre en la lista de `statsPorGrado` (decisión del usuario,
-     * 04/09/2026). Es un umbral de PRESENTACIÓN, no de la escala: la escala vive
-     * en `helpers.php` y aquí solo se cuenta cuántas notas caen por debajo de
-     * ella. Quién es "C" lo decide `num_c` en las dos queries del ranking.
-     *
-     * ⚠️ NO confundir con el "en riesgo" de `AnioAcademicoModel::getResumenBimestre`,
-     * que es otra pregunta: allí es el PROMEDIO GENERAL por debajo de NOTA_MIN_B,
-     * contado por nivel. Las dos cifras conviven en `/admin/cuadros` y son
-     * legítimamente distintas; el pie de cada bloque lo explica.
-     */
-    public const RIESGO_MIN_C = 3;
-
     private DesempateMeritoModel $desempateModel;
     private PublicacionBoletaModel $publicacionModel;
 
@@ -523,33 +509,37 @@ class OrdenMeritoModel extends BaseModel
 
     /**
      * Indicadores por grado del bimestre, calculados SOBRE EL MOTOR OFICIAL:
-     * primer puesto, los de menor rendimiento, total de competidores y los
-     * estudiantes EN RIESGO (los que acumulan `$minC` competencias en C o más).
+     * primer puesto, los de menor rendimiento y total de competidores.
      *
-     * 🔴 NACIÓ PARA MATAR UNA COPIA (04/09/2026). Hasta hoy estos indicadores los
-     * calculaba `AnioAcademicoModel::getRankingGrado`, un ranking PARALELO que no
-     * exigía competencias bloqueadas, no excluía extraordinarias ni áreas
-     * exoneradas, metía la TOE entera en vez de solo Ética, y no aplicaba
-     * ROSTER_MERITO, el anclaje de retorno ni la cascada de desempate. Medido en
-     * la BD del 04/09: en el bimestre ABIERTO anunciaba un 1.er puesto de 1.º
-     * primaria con 22 competidores donde el orden de mérito tiene CERO (nada
-     * bloqueado todavía), y el último puesto de 1.º secundaria salía 12.50 cuando
-     * el real es 15.00. En bimestre cerrado las dos fuentes coincidían, así que
-     * el defecto no tenía síntoma para quien mirara un bimestre ya cerrado.
-     * Es el mismo patrón que ya costó los 130 bloqueos fantasma y la card de
-     * empates irresolubles: una regla copiada a mano que devuelve un número
-     * plausible y falso.
+     * 🔴 NACIÓ PARA MATAR UNA COPIA (04/09/2026). Hasta entonces estos
+     * indicadores los calculaba `AnioAcademicoModel::getRankingGrado`, un
+     * ranking PARALELO que no exigía competencias bloqueadas, no excluía
+     * extraordinarias ni áreas exoneradas, metía la TOE entera en vez de solo
+     * Ética, y no aplicaba ROSTER_MERITO, el anclaje de retorno ni la cascada de
+     * desempate. Medido en la BD del 04/09: en el bimestre ABIERTO anunciaba un
+     * 1.er puesto de 1.º primaria con 22 competidores donde el orden de mérito
+     * tiene CERO (nada bloqueado todavía), y el último puesto de 1.º secundaria
+     * salía 12.50 cuando el real es 15.00. En bimestre cerrado las dos fuentes
+     * coincidían, así que el defecto no tenía síntoma para quien mirara un
+     * bimestre ya cerrado. Es el mismo patrón que ya costó los 130 bloqueos
+     * fantasma y la card de empates irresolubles: una regla copiada a mano que
+     * devuelve un número plausible y falso.
      *
      * Vive AQUÍ, en el modelo dueño del ranking, y no en quien lo pinta.
      * `AnioAcademicoModel::getStatsCierre` es hoy una fachada sobre este método.
      *
-     * UN SOLO RECORRIDO de los grados: `rankingGrado` es snapshot-aware pero no
-     * está memoizado, y llamarlo dos veces por grado (una para el mérito, otra
-     * para el riesgo) duplicaría 11 consultas pesadas por render.
+     * 🔴 EL RIESGO ACADÉMICO YA NO SALE DE AQUÍ (23/09/2026). Vivió en este
+     * método mientras fue un conteo de competencias en C, y de paso heredaba
+     * dos cosas que no le tocaban: el ROSTER del mérito (`estado = 'aprobada'`,
+     * que deja fuera a las matrículas `pendiente`, evaluadas y con boleta) y los
+     * agregados GLOBALES del ranking, incapaces de responder una regla que el
+     * MINEDU cuenta POR ÁREA. Ahora es la situación final proyectada y su dueño
+     * es `SituacionFinalModel`. Competir por el mérito y ser promovido de grado
+     * son preguntas distintas, y tienen dos dueños distintos.
      *
-     * @return array<int, array{grado:array, mejor:array, peores:array, total:int, en_riesgo:array}>
+     * @return array<int, array{grado:array, mejor:array, peores:array, total:int}>
      */
-    public function statsPorGrado(int $periodoId, int $minC = self::RIESGO_MIN_C): array
+    public function statsPorGrado(int $periodoId): array
     {
         $porGrado = [];
 
@@ -574,8 +564,7 @@ class OrdenMeritoModel extends BaseModel
                 // Se hace AQUÍ, en el modelo dueño, y no en la vista, por dos
                 // motivos: es la regla de la escala (helpers.php), y así sale
                 // igual por las DOS rutas de `rankingGrado` —en vivo y snapshot—,
-                // que traen las mismas cuatro columnas. Cero consultas añadidas:
-                // esta clase promete un solo recorrido de los grados.
+                // que traen las mismas cuatro columnas.
                 //
                 // ⚠️ No usar `num_alto` para esto: (15,16) SOLAPA con A, es un
                 // desempate, no un tramo de la escala.
@@ -595,181 +584,15 @@ class OrdenMeritoModel extends BaseModel
                 static fn($e) => (int) $e['matricula_id'] !== (int) $mejor['matricula_id']
             ));
 
-            // EN RIESGO: todos los que llegan al umbral de C, sin tope por grado
-            // (decisión del usuario, 04/09/2026). `num_c` ya viene calculado por
-            // el ranking sobre el universo del mérito, así que esta lista NO
-            // cuesta ninguna consulta y no puede desincronizarse del promedio y
-            // del puesto que se muestran en su misma fila.
-            $enRiesgo = array_values(array_filter(
-                $ranking,
-                static fn($e) => (int) $e['num_c'] >= $minC
-            ));
-
-            // Manda el número de C; a igual número, primero el peor promedio.
-            usort($enRiesgo, static function ($a, $b) {
-                return [(int) $b['num_c'], (float) $a['promedio_exacto'], (int) $a['puesto']]
-                   <=> [(int) $a['num_c'], (float) $b['promedio_exacto'], (int) $b['puesto']];
-            });
-
-            $porGrado[] = [
-                'grado'     => $grado,
-                'mejor'     => $mejor,
-                'peores'    => $peores,
-                'total'     => count($ranking),
-                'en_riesgo' => $enRiesgo,
+            $porGrado[(int) $grado['id']] = [
+                'grado'  => $grado,
+                'mejor'  => $mejor,
+                'peores' => $peores,
+                'total'  => count($ranking),
             ];
         }
 
-        // ── Desglose de las C, en UNA sola consulta para todos los grados ──
-        // Va aquí y no dentro del bucle a propósito: una consulta por grado
-        // serían 11 más por render, y este método promete un solo recorrido.
-        //
-        // 🔴 EL GUARD DEL DESCUADRE. `detalleCompetenciasC` calcula EN VIVO y la
-        // fila puede venir del SNAPSHOT de un bimestre cerrado, que solo guarda
-        // agregados. Si las dos cifras no coinciden se deja `detalle_c` en NULL
-        // —que la vista lee como "no se puede mostrar"— en vez de pintar un
-        // desglose que contradice a su propia fila. NULL y [] significan cosas
-        // distintas y la vista las distingue: [] es "no tiene C que mostrar",
-        // NULL es "no cuadra con el dato oficial".
-        //
-        // Medido el 07/09/2026: cuadra en 194 de 195 alumnos (falla la matrícula
-        // 530 de B1, por un desbloqueo posterior al cierre).
-        $ids = [];
-        foreach ($porGrado as $g) {
-            foreach ($g['en_riesgo'] as $al) {
-                $ids[] = (int) $al['matricula_id'];
-            }
-        }
-
-        $detalle = $this->detalleCompetenciasC($ids, $periodoId);
-
-        foreach ($porGrado as &$g) {
-            foreach ($g['en_riesgo'] as &$al) {
-                $suyas = $detalle[(int) $al['matricula_id']] ?? [];
-                $al['detalle_c'] = count($suyas) === (int) $al['num_c'] ? $suyas : null;
-            }
-            unset($al);
-        }
-        unset($g);
-
-        return $porGrado;
-    }
-
-    /**
-     * Detalle de las competencias en C de un conjunto de matrículas (07/09/2026).
-     *
-     * Alimenta el desglose plegable de «Estudiantes en riesgo» en `/admin/cuadros`:
-     * la fila dice cuántas C tiene el estudiante, y esto dice CUÁLES y de qué
-     * docente dependen.
-     *
-     * 🔴 REPLICA EL UNIVERSO DEL MÉRITO, y esa es toda la razón de que viva en
-     * este modelo y no en `CalificacionModel`. Si el desglose se sacara de
-     * `getBoletaAlumno` —que incluye extraordinarias, tutoría entera y las
-     * transversales agregadas— listaría notas que la fila no cuenta y las dos
-     * cifras se contradirían en pantalla, sin ningún error. Es el patrón de
-     * fallo que ya costó cuatro reglas divergentes en este repositorio.
-     *
-     * ⚠️ REPLICA LOS FILTROS DE LA NOTA, **NO** LOS DEL ALUMNO. Van aquí:
-     * bloqueo, `extraordinaria = 0`, transversal/tutoría salvo Ética y
-     * exoneraciones. NO van `ROSTER_MERITO` ni el anclaje de retorno, y es
-     * deliberado: esos dos deciden QUIÉN compite, y a este método ya se le
-     * entrega la lista de matrículas resuelta por el ranking. Volver a
-     * aplicarlos solo podría QUITAR filas de una matrícula ya seleccionada
-     * —justo lo que pasaría con una fila que viene del SNAPSHOT de un bimestre
-     * cerrado y que hoy ya no pasaría el roster— y produciría un descuadre
-     * falso: la fila diría 5 C y el desglose no mostraría ninguna.
-     *
-     * ⚠️ NO HAY DETALLE CONGELADO. `orden_merito_snapshot` guarda solo los
-     * agregados, así que en un bimestre cerrado la fila viene del snapshot y
-     * esto se calcula EN VIVO. Medido el 07/09/2026: diverge 1 de 195 alumnos
-     * (B1, matrícula 530, por un desbloqueo posterior al cierre). Quien pinte
-     * esto DEBE comparar el número de filas con `num_c` y callar el desglose si
-     * no cuadran, en vez de enseñar dos cifras que se contradicen.
-     *
-     * UNA SOLA CONSULTA para todas las matrículas, con `IN`: `statsPorGrado`
-     * promete un solo recorrido de los grados, y una consulta por alumno serían
-     * 118 en el peor bimestre medido. Misma forma que
-     * `DesempateMeritoModel::getComparativoCompetencias`.
-     *
-     * El DOCENTE sale de `cal.carga_id`, un camino que el mérito no usa para
-     * calcular. Es seguro porque el INNER JOIN a `bloqueos_competencia` ya fijó
-     * la carga dueña: medido, dentro de este universo hay CERO competencias con
-     * dos cargas (fuera de él hay 1 072, y 1 052 notas en cargas inactivas).
-     *
-     * @param  int[] $matriculaIds
-     * @return array<int, array<int, array{area:string,curso:?string,competencia:string,codigo:?string,nota:int,docente:string}>>
-     */
-    public function detalleCompetenciasC(array $matriculaIds, int $periodoId): array
-    {
-        $ids = array_values(array_unique(array_map('intval', $matriculaIds)));
-        if (empty($ids)) {
-            return [];
-        }
-
-        $ph = implode(',', array_fill(0, count($ids), '?'));
-
-        $filas = $this->query("
-            SELECT
-                cal.matricula_id,
-                cal.nota_numerica,
-                a.nombre        AS area_nombre,
-                sa.nombre       AS subarea_nombre,
-                -- `nombre_corto` en una tabla de 778 filas (B1): el completo
-                -- promedia 64 caracteres contra 43 y aqui la columna compite
-                -- con area, curso y docente. Esta poblado en las 59
-                -- competencias, pero el COALESCE cubre el dia que nazca una sin
-                -- el, en vez de dejar la celda vacia.
-                COALESCE(NULLIF(comp.nombre_corto, ''), comp.nombre_completo) AS competencia_nombre,
-                comp.codigo_minedu,
-                p.apellido_paterno,
-                p.apellido_materno,
-                p.nombres
-            FROM calificaciones cal
-            INNER JOIN bloqueos_competencia bc
-                    ON bc.carga_id       = cal.carga_id
-                   AND bc.competencia_id = cal.competencia_id
-                   AND bc.periodo_id     = cal.periodo_id
-            INNER JOIN competencias comp ON comp.id = cal.competencia_id
-            LEFT  JOIN subareas sa       ON sa.id   = comp.subarea_id
-            INNER JOIN areas a           ON a.id    = COALESCE(sa.area_id, comp.area_id)
-            -- El docente de la carga DUEÑA del bloqueo. LEFT porque el nombre es
-            -- informativo: una carga sin usuario no puede borrar una nota en C.
-            LEFT  JOIN cargas_academicas ca ON ca.id = cal.carga_id
-            LEFT  JOIN usuarios u           ON u.id  = ca.docente_id
-            LEFT  JOIN personas p           ON p.id  = u.persona_id
-            WHERE cal.matricula_id IN ($ph)
-              AND cal.periodo_id     = ?
-              AND cal.nota_numerica <= " . (NOTA_MIN_B - 1) . "
-              AND cal.extraordinaria = 0
-              AND (a.tipo NOT IN ('transversal', 'tutoria')
-                   OR a.nombre_boleta = '" . AREA_ETICA_NOMBRE_BOLETA . "')
-              AND NOT EXISTS (
-                  SELECT 1 FROM exoneraciones ex
-                  WHERE ex.matricula_id = cal.matricula_id
-                    AND ex.revocado_en IS NULL
-                    AND (ex.area_id = a.id OR ex.subarea_id = comp.subarea_id)
-              )
-            ORDER BY a.orden, comp.orden, comp.id
-        ", array_merge($ids, [$periodoId]));
-
-        $porMatricula = [];
-        foreach ($filas as $f) {
-            $docente = trim($f['apellido_paterno'] . ' ' . $f['apellido_materno']
-                          . ($f['nombres'] !== null ? ', ' . $f['nombres'] : ''));
-
-            $porMatricula[(int) $f['matricula_id']][] = [
-                'area'        => (string) $f['area_nombre'],
-                // El "curso" es la subárea cuando existe (Álgebra, Física...);
-                // si no, el área ya ES el curso (área-curso).
-                'curso'       => $f['subarea_nombre'] !== null ? (string) $f['subarea_nombre'] : null,
-                'competencia' => (string) $f['competencia_nombre'],
-                'codigo'      => $f['codigo_minedu'] !== null ? (string) $f['codigo_minedu'] : null,
-                'nota'        => (int) $f['nota_numerica'],
-                'docente'     => $docente !== '' ? $docente : '—',
-            ];
-        }
-
-        return $porMatricula;
+        return array_values($porGrado);
     }
 
     /**

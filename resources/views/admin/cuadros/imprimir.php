@@ -164,15 +164,16 @@ $k = $bloques['matricula']['kpis'];
     </section>
 
     <?php // ── 3b. ESTUDIANTES EN RIESGO ───────────────────────────── ?>
-    <?php // `--tabla` porque el bloque es un listado, no un panel: son las
-          // tablas por grado las que deben poder cortar entre hojas sin partir
-          // un grado por la mitad. ?>
-    <section class="cuadros-print__bloque cuadros-print__bloque--tabla">
-        <h2 class="cuadros-print__h2">Estudiantes en riesgo</h2>
+    <?php // Desde el 23/09/2026 el A4 del tablero lleva solo la BANDA: el listado
+          // con su desglose es un informe propio (`/admin/cuadros/acompanamiento/imprimir`),
+          // y con él se fueron los saltos de hoja de esta sección y de Conducta,
+          // que existían para separar esas hojas del resto del informe. ?>
+    <section class="cuadros-print__bloque">
+        <h2 class="cuadros-print__h2">Estudiantes en riesgo académico</h2>
 
         <?php
         $hayRiesgo = (bool) array_filter(
-            $bloques['merito']['por_grado'] ?? [],
+            $bloques['situacion'] ?? [],
             static fn(array $g): bool => !empty($g['en_riesgo'])
         );
         ?>
@@ -181,23 +182,17 @@ $k = $bloques['matricula']['kpis'];
                   // archiva, y "no hay nadie en riesgo" y "todavia no se puede
                   // saber" son afirmaciones muy distintas para quien lo lea. ?>
             <p class="cuadros-print__vacio">
-                <?php if (empty($bloques['merito']['por_grado'])): ?>
+                <?php if (empty($bloques['situacion'])): ?>
                     Este bimestre todavía no tiene competencias bloqueadas: aún no puede
                     determinarse quién está en riesgo.
                 <?php else: ?>
-                    Ningún estudiante acumula
-                    <?= (int) ($bloques['merito']['riesgo_min_c'] ?? 3) ?> competencias en C
-                    o más en este bimestre.
+                    <?php $res = riesgo_resumen($bloques['situacion']); $sinCasosAlcance = ''; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/acompanamiento/_sin-casos.php'; ?>
                 <?php endif; ?>
             </p>
         <?php else: ?>
-            <?php // ⚠️ AQUI NO SE DEFINE `$riesgoInteractivo`, y es DELIBERADO: el
-                  // partial lo lee con `!empty()`, asi que en papel no salen ni el
-                  // buscador ni los chips ni el contador. No "arreglar" la variable
-                  // que falta — es el mismo idioma que `$abierta` en
-                  // `_tabla-grafico.php`, donde un <details> cerrado imprimia una
-                  // hoja en blanco. La banda de cifras SI sale: es dato, no control. ?>
-            <?php require VIEW_PATH . '/admin/cuadros/_estudiantes-riesgo.php'; ?>
+            <?php // Sin `$riesgoEnlace`: en papel el enlace sería un enlace muerto. ?>
+            <?php require VIEW_PATH . '/admin/cuadros/_banda-riesgo.php'; ?>
         <?php endif; ?>
     </section>
 

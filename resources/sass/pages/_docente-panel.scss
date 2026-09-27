@@ -121,6 +121,14 @@
         border-left: 4px solid $card-nomina-line;
         .card__title { color: $card-nomina-ink; }
     }
+    // Mismo glifo que «Estudiantes en riesgo» en el panel de Dirección: mismo
+    // concepto, mismo icono en todo el sistema. Ninguna otra card del docente
+    // lo usa (regla: dos cards nunca comparten icono).
+    &--riesgo {
+        --dpanel-icon: url("../assets/icons/warning.svg");
+        border-left: 4px solid $card-riesgo-line;
+        .card__title { color: $card-riesgo-ink; }
+    }
 
 }
 
@@ -151,6 +159,7 @@
 .page-title--tutoria  { --wf-icon: url("../assets/icons/users-group-rounded.svg"); --wf-ink: #{$card-tutoria-ink}; }
 .page-title--conducta { --wf-icon: url("../assets/icons/smile.svg");               --wf-ink: #{$card-conducta-ink}; }
 .page-title--nomina   { --wf-icon: url("../assets/icons/childs-students.svg");      --wf-ink: #{$card-nomina-ink}; }
+.page-title--riesgo   { --wf-icon: url("../assets/icons/warning.svg");              --wf-ink: #{$card-riesgo-ink}; }
 // Merito y ranking se acceden desde la card Nomina: heredan su tono naranja
 // (misma familia visual) y solo cambian de glifo para distinguir la herramienta.
 .page-title--merito   { --wf-icon: url("../assets/icons/medal-ribbon-star.svg");   --wf-ink: #{$card-nomina-ink}; }

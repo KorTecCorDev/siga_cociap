@@ -53,6 +53,7 @@
   | **Transversales / Tutoría** (`$card-tutoria-*`) | `#0d9488` teal | `#ecfbf8` | `#0f766e` |
   | **Conducta** (`$card-conducta-*`) | `#7c3aed` púrpura | `#f5f0fe` | `#6d28d9` |
   | **Nómina** (`$card-nomina-*`) | `#e07b1a` naranja | `#fef3e2` | `#b45309` |
+  | **Estudiantes en riesgo** (`$card-riesgo-*`, solo tutores; 23/09/2026) | `#be185d` rosa oscuro | `#fdf2f8` | `#9d174d` |
 - **REGLA:** rojo (`$color-error`) y ámbar (`$color-warning`) quedan RESERVADOS para los
   badges de estado (error/advertencia); NUNCA se usan como identidad de un acceso.
 - Combinación azul↔naranja + teal/púrpura: bien diferenciable con daltonismo.
@@ -175,6 +176,7 @@ los `trasladado` ya estaban fuera).
   | Tutoría | `page-title--tutoria` | `users-group-rounded` | teal |
   | Conducta | `page-title--conducta` | `smile` | púrpura |
   | Nómina | `page-title--nomina` | `childs-students` | naranja |
+  | Estudiantes en riesgo | `page-title--riesgo` | `warning` (el mismo que en el panel de Dirección) | rosa oscuro |
   | Orden de mérito | `page-title--merito` | `medal-ribbon-star` | naranja (familia Nómina) |
   | Ranking por sección | `page-title--ranking` | `ver-resumen` | naranja (familia Nómina) |
 - Aplicado en `mis-cargas`, `tutoria`, `conducta`, `nomina`, `orden-merito`
@@ -896,6 +898,21 @@ Sombra en los bordes que aparece y desaparece sola, sin JS: dos capas de gradien
 pinta en el wrapper y cualquier fondo de celda lo tapa. Hoy se ve porque solo el `thead` y
 la columna sticky tienen fondo. Si algún día se le da fondo a las últimas columnas, esta
 señal desaparece **en silencio**.
+
+### Navbar: nada se monta sobre nada (24/09/2026)
+
+Entre 400 y 500 px la marca se comprimía por debajo de su contenido (encogimiento por
+defecto de flex) y «SIGACOCIAP» quedaba **encima** del nombre del usuario, que además se
+partía en dos líneas más altas que la barra. Regla del usuario: **jamás un texto o imagen
+encima de otro**.
+
+- La marca, el rol, la campana y «Cerrar sesión» tienen `flex-shrink: 0`; **lo único flexible
+  es el nombre**, en una línea, que se recorta con «…» si aun así no cabe.
+- El nombre se **oculta por debajo de 500 px** (antes 400; decisión del usuario).
+- `gap` en `.navbar`: `space-between` dejaba en 0 la separación entre la marca y el usuario.
+- Medido con la sesión de admin («ADMINISTRADOR SISTEMA», el nombre corto más largo que hay):
+  cero solapes entre 360 y 800 px. El recorte con «…» aparece en dos franjas: justo por
+  encima de 500 px, y justo por encima de 640 px, donde vuelve a mostrarse el rol.
 
 ### Deuda anotada: los breakpoints no están unificados
 

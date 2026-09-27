@@ -20,6 +20,11 @@
     // (p. ej. Rectificación) lo redefinen con data-target-base en el contenedor.
     var TARGET_BASE = resultados.dataset.targetBase || '/matriculas/';
 
+    // Retorno de grado ACTIVO: 'agrupar' (por defecto) muestra solo la oficial,
+    // con el grado donde cursa y su puesto; 'separar' (Rectificación, donde cada
+    // matrícula guarda notas distintas) muestra las dos con su marca.
+    var MODO_RETORNOS = resultados.dataset.retornos === 'separar' ? 'separar' : 'agrupar';
+
     var MIN_CARACTERES = 2;
     var timer = null;
     var peticionActual = 0;
@@ -103,6 +108,14 @@
     function renderizar(filas, bimestre, tieneOrden) {
         resultados.innerHTML = '';
 
+        // La operativa es solo informativa: en modo agrupar no es una tarjeta
+        // aparte (llevaba a un error) y el contador cuenta estudiantes.
+        if (MODO_RETORNOS === 'agrupar') {
+            filas = filas.filter(function (f) {
+                return !(f.retorno && f.retorno.rol === 'operativa');
+            });
+        }
+
         if (filas.length === 0) {
             mostrarMensaje('Alumno no matriculado en el año académico.', 'info');
             return;
@@ -166,6 +179,16 @@
         tutor.textContent = 'Tutor: ' + (f.tutor || 'sin asignar');
         info.appendChild(tutor);
 
+        // Retorno de grado: en modo agrupar, dónde cursa realmente
+        var agrupaRetorno = MODO_RETORNOS === 'agrupar'
+            && f.retorno && f.retorno.rol === 'oficial';
+        if (agrupaRetorno) {
+            var cursa = document.createElement('div');
+            cursa.className = 'buscador-item__sub';
+            cursa.textContent = 'Retorno de grado: cursa en ' + f.retorno.cursa_en;
+            info.appendChild(cursa);
+        }
+
         body.appendChild(info);
 
         // Ubicación académica
@@ -195,7 +218,11 @@
         if (!tieneOrden) {
             puesto.className = 'buscador-item__puesto buscador-item__puesto--vacio';
             puesto.textContent = 'No hay orden de mérito vigente';
-        } else if (f.puesto) {
+        } else if (agrupaRetorno && f.retorno.puesto) {
+            // El mérito se calcula en el grado operativo del retorno
+            puesto.className = 'buscador-item__puesto';
+            puesto.textContent = 'Puesto ' + f.retorno.puesto + '.° en ' + f.retorno.cursa_en;
+        } else if (!agrupaRetorno && f.puesto) {
             puesto.className = 'buscador-item__puesto';
             puesto.textContent = 'Puesto ' + f.puesto + '.° del grado';
         } else {
@@ -210,6 +237,17 @@
         badge.className = 'buscador-badge buscador-badge--' + est.clase;
         badge.textContent = est.texto;
         ubicacion.appendChild(badge);
+
+        // Retorno de grado en modo separar: marca cuál es cuál
+        if (MODO_RETORNOS === 'separar' && f.retorno) {
+            var rol = document.createElement('span');
+            rol.className = 'buscador-badge buscador-badge--' + f.retorno.rol;
+            rol.textContent = f.retorno.rol === 'oficial' ? 'Oficial' : 'Operativa';
+            rol.title = f.retorno.rol === 'oficial'
+                ? 'Matrícula oficial de SIAGIE: notas de los bimestres previos al retorno.'
+                : 'Matrícula operativa del retorno: notas desde el retorno.';
+            ubicacion.appendChild(rol);
+        }
 
         body.appendChild(ubicacion);
         card.appendChild(body);

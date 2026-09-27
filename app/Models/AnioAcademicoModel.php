@@ -449,8 +449,8 @@ class AnioAcademicoModel extends BaseModel
 
     /**
      * Indicadores de cierre de un bimestre:
-     *  - por cada grado: primer puesto, los 2 de menor rendimiento, total de
-     *    competidores y los estudiantes en riesgo (3 o más competencias en C)
+     *  - por cada grado: primer puesto, los 2 de menor rendimiento y total de
+     *    competidores
      *  - top de docentes que bloquearon todas sus competencias más rápido
      *
      * 🔴 ES UNA FACHADA: el bloque por grado lo calcula
@@ -462,6 +462,11 @@ class AnioAcademicoModel extends BaseModel
      * consumidores: `/admin/cuadros`, `/director/periodos/{id}/stats` y el modal
      * de cierre.
      *
+     * El RIESGO ACADÉMICO ya no viaja aquí (23/09/2026): dejó de ser un conteo
+     * de competencias en C y pasó a ser la situación final que proyecta
+     * `SituacionFinalModel`, con su propio roster. Quien lo necesite lo pide a
+     * ese modelo.
+     *
      * NO escribir aquí ninguna consulta de ranking: sería reabrir la copia.
      */
     public function getStatsCierre(int $periodoId): array
@@ -469,10 +474,6 @@ class AnioAcademicoModel extends BaseModel
         return [
             'por_grado' => (new OrdenMeritoModel())->statsPorGrado($periodoId),
             'docentes'  => $this->getDocentesMasRapidos($periodoId),
-            // El umbral viaja CON los datos para que la vista pueda rotularlo
-            // sin importar el modelo ni hardcodear un 3 que quedaría mudo si la
-            // constante cambia.
-            'riesgo_min_c' => OrdenMeritoModel::RIESGO_MIN_C,
         ];
     }
 

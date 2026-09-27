@@ -254,7 +254,7 @@ class TransversalModel extends BaseModel
     public function getSeccionDelTutor(int $usuarioId): ?array
     {
         return $this->queryOne("
-            SELECT s.id, s.nombre, s.es_unidocente,
+            SELECT s.id, s.nombre, s.es_unidocente, s.grado_id, s.anio_id,
                    g.nombre_display AS grado_nombre,
                    n.id     AS nivel_id,
                    n.nombre AS nivel_nombre,

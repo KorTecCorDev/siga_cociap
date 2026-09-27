@@ -99,7 +99,7 @@ require VIEW_PATH . '/admin/cuadros/_chart-data.php';
       // Las entradas se ARMAN, no se escriben a mano en el HTML: Reaperturas es
       // condicional, y un ancla a un `id` que la página no emitió es un enlace
       // que no lleva a ninguna parte. El verificador comprueba justo eso.
-      $resRiesgo = riesgo_resumen($bloques['merito']['por_grado'] ?? []);
+      $resRiesgo = riesgo_resumen($bloques['situacion'] ?? []);
 
       $indice = [
           ['cuadros-g-matricula',     'Matrícula',             null],
@@ -279,7 +279,7 @@ require VIEW_PATH . '/admin/cuadros/_chart-data.php';
 // da el puesto y el promedio de la fila. Por eso NO hay una clave nueva en el
 // controlador ni una consulta mas.
 $hayRiesgo = (bool) array_filter(
-    $bloques['merito']['por_grado'] ?? [],
+    $bloques['situacion'] ?? [],
     static fn(array $g): bool => !empty($g['en_riesgo'])
 );
 ?>
@@ -292,22 +292,21 @@ $hayRiesgo = (bool) array_filter(
               // bloqueadas (todavia no se puede saber). ?>
         <div class="empty-state">
             <p>
-                <?php if (empty($bloques['merito']['por_grado'])): ?>
+                <?php if (empty($bloques['situacion'])): ?>
                     Este bimestre todavía no tiene competencias bloqueadas: hasta que los
                     docentes aprueben y bloqueen sus notas no se puede saber quién está en riesgo.
                 <?php else: ?>
-                    Ningún estudiante acumula
-                    <?= (int) ($bloques['merito']['riesgo_min_c'] ?? 3) ?> competencias en C
-                    o más en lo que va del bimestre.
+                    <?php $res = riesgo_resumen($bloques['situacion']); $sinCasosAlcance = ''; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/acompanamiento/_sin-casos.php'; ?>
                 <?php endif; ?>
             </p>
         </div>
     <?php else: ?>
-        <?php // La pantalla SI lleva buscador y chips; el A4 no define este flag
-              // a proposito. El partial es uno solo y la diferencia la pone el
-              // llamador, igual que `$abierta` en `_tabla-grafico.php`.
-              $riesgoInteractivo = true; ?>
-        <?php require VIEW_PATH . '/admin/cuadros/_estudiantes-riesgo.php'; ?>
+        <?php // Desde el 23/09/2026 aquí queda solo la BANDA: el listado, su
+              // desglose y las estadísticas viven en `/admin/cuadros/acompanamiento`.
+              // La pantalla pone el enlace; el A4 no define el flag. ?>
+        <?php $riesgoEnlace = true; ?>
+        <?php require VIEW_PATH . '/admin/cuadros/_banda-riesgo.php'; ?>
     <?php endif; ?>
 </section>
 
@@ -689,12 +688,6 @@ $pid = (int) $periodo['id'];
       // grafico; antes, porque cuadros.js se apoya en su evento `tabs:mostrado`
       // para dibujar los graficos que nacen dentro de un panel oculto. ?>
 <script src="<?= url('js/tabs.js') ?>"></script>
-<?php // Igual que tabs.js: FUERA del `if`. El filtrado de "Estudiantes en riesgo"
-      // tiene que funcionar en un bimestre sin ni un grafico, y ademas es el
-      // script que DESTAPA la barra de filtros —que nace `hidden` para que sin
-      // JS no queden controles muertos en pantalla—. Dentro del `if`, un
-      // bimestre sin datos de grafico dejaba la barra invisible para siempre. ?>
-<script src="<?= url('js/cuadros-riesgo.js') ?>"></script>
 <?php if ($chartData): ?>
     <script type="application/json" id="cuadros-data"><?= json_encode($chartData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
     <script src="<?= url('js/frappe-charts.min.js') ?>"></script>

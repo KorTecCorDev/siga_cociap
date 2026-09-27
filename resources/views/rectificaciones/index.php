@@ -44,9 +44,12 @@
     </div>
 </div>
 
-<!-- data-target-base redirige las tarjetas del buscador hacia este módulo -->
+<!-- data-target-base redirige las tarjetas del buscador hacia este módulo.
+     data-retornos="separar": en un retorno de grado cada matrícula guarda notas
+     distintas (Regla A), así que salen las dos tarjetas, marcadas. -->
 <div id="buscadorResultados" class="buscador-resultados" aria-live="polite"
-     data-target-base="/rectificaciones/matricula/"></div>
+     data-target-base="/rectificaciones/matricula/"
+     data-retornos="separar"></div>
 
 <?php
 // ── Estudiantes SIN NINGUNA nota en un bimestre cerrado (21/09/2026) ──

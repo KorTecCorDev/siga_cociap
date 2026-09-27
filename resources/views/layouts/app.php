@@ -100,7 +100,9 @@
             &copy; <?= date('Y') ?> SIGACOCIAP &mdash; Todos los derechos reservados.
         </span>
         <span class="app-footer__meta">
-            <span class="app-footer__version">v1.0.0</span>
+            <?php // PUNTO ÚNICO: la versión que sube cada release en config/app.php.
+                  // Escrita a mano se quedó en v1.0.0 durante tres releases. ?>
+            <span class="app-footer__version">v<?= e((string) config('version')) ?></span>
             <span class="app-footer__sep">&bull;</span>
             <span class="app-footer__author">Desarrollado por <strong>KorTecCorDev</strong></span>
         </span>

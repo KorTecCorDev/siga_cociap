@@ -39,6 +39,7 @@ $router->get( '/admin/curriculum',                                  'Admin\Curri
 $router->post('/admin/curriculum/areas/{id}/editar',               'Admin\CurriculumController@guardarArea');
 $router->post('/admin/curriculum/areas/{id}/toggle',               'Admin\CurriculumController@toggleActivaArea');
 $router->post('/admin/curriculum/areas/{id}/mover',                'Admin\CurriculumController@moverArea');
+$router->post('/admin/curriculum/areas/{id}/aprobacion',           'Admin\CurriculumController@guardarAprobacionTaller');
 $router->post('/admin/curriculum/subareas/{id}/editar',            'Admin\CurriculumController@guardarSubarea');
 $router->post('/admin/curriculum/competencias/{id}/editar',        'Admin\CurriculumController@guardarCompetencia');
 
@@ -46,6 +47,13 @@ $router->post('/admin/curriculum/competencias/{id}/editar',        'Admin\Curric
 // Solo lectura. COMPONE los indicadores que ya calculan otros modelos; no
 // tiene consultas propias ni reimplementa ninguna regla de negocio.
 // El imprimible va ANTES: el router ancla por orden de registro.
+// Acompañamiento pedagógico (24/09/2026): las rutas `riesgo` redirigen aquí.
+$router->get( '/admin/cuadros/acompanamiento/imprimir', 'Admin\CuadrosEstadisticosController@riesgoImprimir');
+$router->get( '/admin/cuadros/acompanamiento/tutores',  'Admin\CuadrosEstadisticosController@riesgoTutores');
+$router->get( '/admin/cuadros/acompanamiento',        'Admin\CuadrosEstadisticosController@riesgo');
+$router->get( '/admin/cuadros/riesgo/imprimir', 'Admin\CuadrosEstadisticosController@riesgoRutaAnterior');
+$router->get( '/admin/cuadros/riesgo/tutores',  'Admin\CuadrosEstadisticosController@riesgoRutaAnterior');
+$router->get( '/admin/cuadros/riesgo',        'Admin\CuadrosEstadisticosController@riesgoRutaAnterior');
 $router->get( '/admin/cuadros/imprimir',      'Admin\CuadrosEstadisticosController@imprimir');
 $router->get( '/admin/cuadros',               'Admin\CuadrosEstadisticosController@index');
 
@@ -391,6 +399,13 @@ $router->post(
 
 // ─── Tutoría — transversales y cierre del tutor ──────────────
 $router->get( '/docente/tutoria',                          'Docente\TutoriaController@index');
+// Acompañamiento pedagógico de SU sección (23/09/2026; `riesgo` hasta el
+// 24/09, cuyas rutas redirigen aquí). Literales ANTES del patrón
+// `/docente/tutoria/{periodo_id}`, que si no las capturaría como un id.
+$router->get( '/docente/tutoria/acompanamiento/imprimir', 'Docente\RiesgoTutorController@imprimir');
+$router->get( '/docente/tutoria/acompanamiento',          'Docente\RiesgoTutorController@index');
+$router->get( '/docente/tutoria/riesgo/imprimir',         'Docente\RiesgoTutorController@rutaAnterior');
+$router->get( '/docente/tutoria/riesgo',                  'Docente\RiesgoTutorController@rutaAnterior');
 $router->post('/docente/tutoria/{periodo_id}/conclusion',  'Docente\TutoriaController@guardarConclusion');
 $router->post('/docente/tutoria/{periodo_id}/cerrar',      'Docente\TutoriaController@cerrar');
 $router->get( '/docente/tutoria/{periodo_id}',             'Docente\TutoriaController@index');

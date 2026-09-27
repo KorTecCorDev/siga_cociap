@@ -10,6 +10,8 @@ use App\Models\ControlOperativoModel;
 use App\Models\DirectorEbrModel;
 use App\Models\MatriculaModel;
 use App\Models\OrdenMeritoModel;
+use App\Models\SeccionModel;
+use App\Models\SituacionFinalModel;
 use Core\View;
 
 /**
@@ -39,6 +41,8 @@ class CuadrosEstadisticosController extends BaseController
     private AsistenciaModel    $asistenciaModel;
     private OrdenMeritoModel   $meritoModel;
     private ControlOperativoModel $controlModel;
+    private SeccionModel       $seccionModel;
+    private SituacionFinalModel $situacionModel;
 
     public function __construct()
     {
@@ -50,6 +54,8 @@ class CuadrosEstadisticosController extends BaseController
         $this->asistenciaModel = new AsistenciaModel();
         $this->meritoModel     = new OrdenMeritoModel();
         $this->controlModel    = new ControlOperativoModel();
+        $this->seccionModel    = new SeccionModel();
+        $this->situacionModel  = new SituacionFinalModel();
     }
 
     /**
@@ -125,6 +131,187 @@ class CuadrosEstadisticosController extends BaseController
             'serieIds'    => $this->serieIds($periodos),
             'directorEbr' => (new DirectorEbrModel())->getVigenteEnFecha((int) $periodo['anio_id']),
         ]);
+    }
+
+    /**
+     * GET /admin/cuadros/riesgo[/imprimir|/tutores] — rutas anteriores al
+     * 24/09/2026: redirigen a `acompanamiento` con su query string.
+     */
+    public function riesgoRutaAnterior(): never
+    {
+        $this->redirigirRutaRenombrada('admin/cuadros/riesgo', 'admin/cuadros/acompanamiento');
+    }
+
+    /**
+     * GET /admin/cuadros/acompanamiento  (acepta ?periodo_id, ?secciones[], ?primaria=c)
+     *
+     * Informe de estudiantes en riesgo académico (23/09/2026). Nació como el
+     * bloque 3b del tablero y se sacó a su propia vista: con la regla de
+     * primaria (B+C) el listado pasa de ~120 a ~200 estudiantes y ~1 400 filas
+     * de desglose, que no caben en un tablero. En `/admin/cuadros` queda la
+     * banda con un enlace aquí.
+     *
+     * Mismos roles y misma regla de bimestres que el tablero (Dirección solo
+     * cerrados): los hereda del constructor y de `elegirPeriodo()`.
+     */
+    public function riesgo(): void
+    {
+        $periodos = $this->periodosVisibles();
+
+        [$periodo, $fueraDeAlcance] = $this->elegirPeriodo(
+            $periodos,
+            (int) ($this->query('periodo_id') ?? 0)
+        );
+
+        $this->view('admin/cuadros/riesgo/index', [
+            'titulo'         => 'Acompañamiento pedagógico',
+            'periodos'       => $periodos,
+            'periodo'        => $periodo,
+            'riesgo'         => $periodo ? $this->componerRiesgo($periodo) : null,
+            'avisoNoCerrado' => $fueraDeAlcance,
+        ]);
+    }
+
+    /**
+     * GET /admin/cuadros/acompanamiento/imprimir  (acepta ?periodo_id, ?secciones[])
+     *
+     * A4 vertical del informe. Imprime LO FILTRADO (decisión del usuario,
+     * 23/09/2026): sin filtro son ~40 hojas en B1, y el que prepara una reunión
+     * de un nivel o un tutor de un grado no necesita las demás.
+     *
+     * Documento de TRABAJO: sin sello del Director EBR (a diferencia del A4 del
+     * tablero). Como el tablero, niega el bimestre fuera de alcance en vez de
+     * caer a otro: un papel no puede decir un bimestre y mostrar otro.
+     */
+    public function riesgoImprimir(): void
+    {
+        $periodos = $this->periodosVisibles();
+
+        [$periodo, $fueraDeAlcance] = $this->elegirPeriodo(
+            $periodos,
+            (int) ($this->query('periodo_id') ?? 0)
+        );
+
+        if (!$periodo || $fueraDeAlcance) {
+            $this->notFound();
+        }
+
+        View::setLayout('print');
+        $this->view('admin/cuadros/riesgo/imprimir', [
+            'titulo'  => 'Acompañamiento pedagógico',
+            'periodo' => $periodo,
+            'riesgo'  => $this->componerRiesgo($periodo),
+        ]);
+    }
+
+    /**
+     * GET /admin/cuadros/acompanamiento/tutores  (acepta ?periodo_id, ?secciones[])
+     *
+     * LOTE para repartir a los tutores (23/09/2026): un bloque por sección,
+     * cada uno en hoja nueva y con su tutor ACTUAL en el encabezado, para que
+     * cada tutor se lleve solo sus hojas. Sin selección van las 23 secciones.
+     * Mismo recorte que la pantalla (`componerRiesgo()`), y el bloque es el
+     * mismo que ve el tutor en su panel (`riesgo_por_seccion()`).
+     *
+     * Documento de TRABAJO, sin sello; niega el bimestre fuera de alcance como
+     * `riesgoImprimir()`.
+     */
+    public function riesgoTutores(): void
+    {
+        $periodos = $this->periodosVisibles();
+
+        [$periodo, $fueraDeAlcance] = $this->elegirPeriodo(
+            $periodos,
+            (int) ($this->query('periodo_id') ?? 0)
+        );
+
+        if (!$periodo || $fueraDeAlcance) {
+            $this->notFound();
+        }
+
+        $riesgo = $this->componerRiesgo($periodo);
+
+        View::setLayout('print');
+        $this->view('admin/cuadros/riesgo/tutores', [
+            'titulo'  => 'Acompañamiento pedagógico por tutor',
+            'periodo' => $periodo,
+            'riesgo'  => $riesgo,
+            'bloques' => riesgo_por_seccion(
+                $riesgo['por_grado'],
+                $riesgo['elegidas'] ?: $riesgo['secciones']
+            ),
+        ]);
+    }
+
+    /**
+     * Datos del informe de riesgo. PUNTO ÚNICO de la pantalla y su A4, por el
+     * mismo motivo que `componerBloques()`: si cada uno armara los suyos, el
+     * papel podría decir otra cifra que la pantalla.
+     *
+     * Compone, no calcula: la lista sale de `SituacionFinalModel::porGrado()`
+     * (la regla del MINEDU incluida) y el filtro y las estadísticas de
+     * funciones puras de `helpers.php`. Aquí no hay ni un SELECT.
+     *
+     * 🔴 YA NO HAY LENTE «PRIMARIA SOLO C» (23/09/2026). Existió mientras el
+     * riesgo fue un conteo de competencias no aprobatorias y servía para mirar
+     * primaria con el listón de secundaria. La regla es ahora la situación
+     * final del MINEDU, que no se cuenta por literales sueltos sino por áreas y
+     * por grado: no hay nada que recortar, y ofrecer media regla sería ofrecer
+     * una cifra que no significa nada. Los filtros por SECCIÓN se conservan.
+     */
+    private function componerRiesgo(array $periodo): array
+    {
+        $porGrado  = $this->situacionModel->porGrado((int) $periodo['id']);
+        $secciones = $this->seccionModel->seccionesDelAnio((int) $periodo['anio_id']);
+
+        // ?secciones[] llega de la URL y se VALIDA contra las secciones del año
+        // del bimestre. `query()` entrega `$_GET` en crudo: un escalar o un
+        // arreglo anidado se descartan (ojo: `(int)` de un arreglo vale 1, y
+        // seleccionaría en silencio la sección id 1). Un id que no existe se
+        // descarta en vez de dejar la pantalla vacía sin explicación.
+        $porId = array_column($secciones, null, 'id');
+        $crudo = $this->query('secciones');
+        $ids   = [];
+        foreach (is_array($crudo) ? $crudo : [] as $v) {
+            if (is_string($v) && ctype_digit($v) && isset($porId[(int) $v])) {
+                $ids[(int) $v] = (int) $v;
+            }
+        }
+        $ids     = array_values($ids);
+        $elegida = array_map(static fn(int $id): array => $porId[$id], $ids);
+
+        $base     = $porGrado;
+        $filtrado = riesgo_filtrar_secciones($base, $elegida);
+
+        // Secciones agrupadas nivel → grado para el formulario, con los casos
+        // de cada una en el modo actual (el contador de su casilla).
+        $casos = [];
+        foreach ($base as $g) {
+            foreach ($g['en_riesgo'] as $al) {
+                $k = (int) $g['grado']['id'] . '|' . $al['seccion_nombre'];
+                $casos[$k] = ($casos[$k] ?? 0) + 1;
+            }
+        }
+        $niveles = [];
+        foreach ($secciones as $s) {
+            $nid = $s['nivel_id'];
+            $gid = $s['grado_id'];
+            $niveles[$nid] ??= ['nombre' => $s['nivel_nombre'], 'codigo' => $s['nivel_codigo'], 'grados' => []];
+            $niveles[$nid]['grados'][$gid] ??= ['nombre' => $s['grado_nombre'], 'secciones' => []];
+            $niveles[$nid]['grados'][$gid]['secciones'][] = $s + [
+                'casos' => $casos[$gid . '|' . $s['nombre']] ?? 0,
+            ];
+        }
+
+        return [
+            'por_grado'     => $base,
+            'filtrado'      => $filtrado,
+            'stats'         => riesgo_estadisticas($filtrado),
+            'niveles'       => $niveles,
+            'secciones'     => $secciones,
+            'secciones_ids' => $ids,
+            'elegidas'      => $elegida,
+        ];
     }
 
     /**
@@ -220,6 +407,12 @@ class CuadrosEstadisticosController extends BaseController
             // que ser la de aquel año.
             'evolucion'      => $this->anioModel->getEvolucionAnual($anioId),
             'merito'         => $this->anioModel->getStatsCierre($periodoId),
+            // El RIESGO ACADÉMICO es un bloque propio desde el 23/09/2026: ya
+            // no es un subproducto del ranking del mérito sino la situación
+            // final que proyecta `SituacionFinalModel`, con su propio roster.
+            // La banda lo lee de aquí; el informe completo lo recompone en
+            // `componerRiesgo()` porque además filtra por sección.
+            'situacion'      => $this->situacionModel->porGrado($periodoId),
             'empates'        => $this->meritoModel->gradosConEmpatesPendientes($periodoId),
             'reaperturas'    => $this->anioModel->getReaperturas($periodoId),
             'conducta'       => $this->resumirConducta($conducta),
