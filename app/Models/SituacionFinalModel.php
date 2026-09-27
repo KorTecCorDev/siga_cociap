@@ -459,6 +459,7 @@ class SituacionFinalModel extends BaseModel
             'seccion_nombre'  => (string) $m['seccion_nombre'],
             'situacion'       => $a['situacion'],
             'motivo'          => $a['motivo'],
+            'motivo_lineas'   => $a['motivo_lineas'],
             'automatica'      => $a['automatica'],
             'final_de_ciclo'  => $a['final_de_ciclo'],
             // Cobertura (decisión del 23/09/2026): las áreas SIN ninguna

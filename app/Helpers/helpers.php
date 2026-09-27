@@ -850,7 +850,8 @@ function grado_final_de_ciclo(string $nivelCodigo, int $gradoNumero): bool
  *                        donde `n_ab` son las competencias en AD o A.
  * @return array{situacion:string, areas:int, areas_ab:int, areas_b:int,
  *               areas_c_mas:int, areas_c_mitad:int, c_total:int,
- *               automatica:bool, final_de_ciclo:bool, fallan:array, motivo:string}
+ *               automatica:bool, final_de_ciclo:bool, fallan:array, motivo:string,
+ *               motivo_lineas:string[]}
  */
 function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoNumero): array
 {
@@ -872,6 +873,9 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
         // lo lee `situacion_efecto_competencia()` para el chip de cada fila.
         'por_area'       => [],
         'motivo'         => '',
+        // El mismo motivo, una idea por línea (27/09/2026): solo RR y PER; lo
+        // pinta la pantalla del acompañamiento. `motivo` es su unión.
+        'motivo_lineas'  => [],
     ];
 
     // Sin un área evaluada no hay situación que determinar. Ni PRO (inventaría
@@ -945,19 +949,20 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
             $areasC,
             (!$prim && $final) ? 'la mitad o más' : 'más de la mitad'
         );
+        $out['motivo_lineas'] = [$out['motivo']];
         return $out;
     }
 
     // ── REQUIERE RECUPERACIÓN ────────────────────────────────────────────────
-    $out['situacion'] = SITUACION_RR;
-    $out['motivo']    = situacion_final_motivo($out, $minAreasAb);
+    $out['situacion']     = SITUACION_RR;
+    $out['motivo']        = situacion_final_motivo($out, $minAreasAb);
+    $out['motivo_lineas'] = situacion_final_motivo_lineas($out, $minAreasAb);
     // Cuánto le falta para la permanencia (24/09/2026): el chip de sus filas
     // dice «Causa RR», así que la cercanía al PER se dice aquí, en texto.
     if ($areasC > 0) {
-        $out['motivo'] .= sprintf(
-            ' Reúne %d de las 4 áreas que llevarían a la permanencia (PER).',
-            $areasC
-        );
+        $linea = sprintf('Reúne %d de las 4 áreas que llevarían a la permanencia (PER).', $areasC);
+        $out['motivo']         .= ' ' . $linea;
+        $out['motivo_lineas'][] = $linea;
     }
 
     return $out;
@@ -972,18 +977,45 @@ function situacion_final_analisis(array $areas, string $nivelCodigo, int $gradoN
  */
 function situacion_final_motivo(array $a, int $minAreasAb): string
 {
+    return 'Requiere recuperación: ' . implode('; ', situacion_final_motivo_condiciones($a, $minAreasAb)) . '.';
+}
+
+/**
+ * El mismo motivo del RR, una CONDICIÓN por línea (27/09/2026): lo lee la
+ * pantalla del acompañamiento. El A4 sigue con `situacion_final_motivo()`, que
+ * las une con «;» como siempre.
+ *
+ * @return string[]
+ */
+function situacion_final_motivo_lineas(array $a, int $minAreasAb): array
+{
+    $lineas = [];
+    foreach (situacion_final_motivo_condiciones($a, $minAreasAb) as $i => $cond) {
+        $lineas[] = ($i === 0 ? 'Requiere recuperación: ' : '') . $cond . '.';
+    }
+    return $lineas;
+}
+
+/**
+ * Las condiciones de promoción que el RR no cumple, sin prefijo ni punto final.
+ * Punto único del texto para `situacion_final_motivo()` y `_lineas()`.
+ *
+ * @return string[]
+ */
+function situacion_final_motivo_condiciones(array $a, int $minAreasAb): array
+{
     if (!$a['final_de_ciclo']) {
         // Grados intermedios: se nombran las áreas que no llegan a la mitad en
         // B o superior. Son POCAS por definición (si fueran muchas sería PER).
         $faltan = array_slice($a['fallan'], 0, 4);
         $resto  = count($a['fallan']) - count($faltan);
 
-        return sprintf(
-            'Requiere recuperación: %d área(s) sin la mitad de sus competencias en B o superior (%s%s).',
+        return [sprintf(
+            '%d área(s) sin la mitad de sus competencias en B o superior (%s%s)',
             count($a['fallan']),
             implode(', ', $faltan),
             $resto > 0 ? sprintf(' y %d más', $resto) : ''
-        );
+        )];
     }
 
     // Grados FINALES de ciclo: la promoción pide dos cosas a la vez.
@@ -1002,7 +1034,7 @@ function situacion_final_motivo(array $a, int $minAreasAb): string
         );
     }
 
-    return 'Requiere recuperación: ' . implode('; ', $partes) . '.';
+    return $partes;
 }
 
 /**
@@ -1094,11 +1126,13 @@ function situacion_final_proyectar(array $areas, string $nivelCodigo, int $grado
         : (situacion_es_riesgo($out['peor'])  ? CERTEZA_PROYECTADA : CERTEZA_SEGURA);
 
     if (situacion_es_riesgo($out['situacion']) && $out['certeza'] === CERTEZA_PROYECTADA) {
-        $out['motivo'] .= sprintf(
-            ' Todavía puede alcanzar la promoción: depende de %d competencia(s) pendiente(s) (%s).',
+        $linea = sprintf(
+            'Todavía puede alcanzar la promoción: depende de %d competencia(s) pendiente(s) (%s).',
             $pendientes,
             implode(', ', $areasPend)
         );
+        $out['motivo']         .= ' ' . $linea;
+        $out['motivo_lineas'][] = $linea;
     }
 
     return $out;

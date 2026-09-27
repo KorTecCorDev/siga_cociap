@@ -440,6 +440,10 @@
         color: $text-secondary;
     }
 
+    // Pantalla: una idea por línea (27/09/2026). El texto corrido es del A4.
+    &__motivo-linea   { display: block; }
+    &__motivo-corrido { display: none; }
+
     &__aviso { font-style: italic; color: $text-secondary; }
 }
 
@@ -636,6 +640,9 @@
     // El borde conserva su color en papel; el fondo tenue, no.
     .riesgo-alumno__motivo { font-size: 7.5pt; color: #000; background: #fff; padding: 0.5mm 1.5mm; border-left-width: 1.5pt; }
     .riesgo-alumno__motivo-rotulo { font-size: 6pt; color: #444; }
+    // El A4 no cambia: texto corrido, no por líneas.
+    .riesgo-alumno__motivo-lineas  { display: none; }
+    .riesgo-alumno__motivo-corrido { display: inline; }
     .riesgo-alumno__certeza { font-size: 6.5pt; border-color: #000; color: #000; }
     .riesgo-efecto          { font-size: 5.5pt; padding: 0 2px; }
     .riesgo-efecto--limite  { border-color: #888; color: #333; }

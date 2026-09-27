@@ -120,10 +120,13 @@ $lista = array_values(array_filter($riesgo['filtrado'], static fn(array $g): boo
                                     <?php endif; ?>
                                 </span>
                                 <?php // Nota lateral (27/09/2026): borde y fondo tenue en el
-                                      // color de la situación; el texto, en color de lectura. ?>
+                                      // color de la situación; el texto, en color de lectura.
+                                      // En pantalla, una idea por línea (`motivo_lineas`); el
+                                      // A4 (`.riesgo-print`) conserva el texto corrido de siempre. ?>
                                 <span class="riesgo-alumno__motivo riesgo-alumno__motivo--<?= e(strtolower($al['situacion'])) ?>">
                                     <span class="riesgo-alumno__motivo-rotulo">Motivo</span>
-                                    <?= e($al['motivo']) ?>
+                                    <span class="riesgo-alumno__motivo-lineas"><?php foreach ($al['motivo_lineas'] ?: [$al['motivo']] as $linea): ?><span class="riesgo-alumno__motivo-linea"><?= e($linea) ?></span><?php endforeach; ?></span>
+                                    <span class="riesgo-alumno__motivo-corrido"><?= e($al['motivo']) ?></span>
                                 </span>
                             </div></th>
                         </tr>
