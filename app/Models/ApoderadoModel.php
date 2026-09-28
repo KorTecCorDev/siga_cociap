@@ -231,11 +231,18 @@ class ApoderadoModel extends BaseModel
      * Desactiva el usuario (login) del apoderado responsable del estudiante,
      * si tuviera cuenta. Usado al desactivar/trasladar una matrícula.
      * Retorna cuántas cuentas se desactivaron.
+     *
+     * 🔴 SOLO cuentas de rol `padre` (28/09/2026). Una misma persona puede ser
+     * apoderado Y personal del colegio (docente, auxiliar…): `personas.dni` es
+     * único y el login es por DNI, así que tiene UNA sola cuenta. Sin este filtro,
+     * desactivar por deuda o trasladar a su hijo le apagaba la cuenta de trabajo
+     * (había 3 docentes apoderados expuestos). Ver docs/modulos/matriculas.md.
      */
     public function desactivarUsuarioDeEstudiante(int $estudianteId): int
     {
         $this->execute("
             UPDATE usuarios u
+            INNER JOIN roles r            ON r.id = u.rol_id AND r.codigo = 'padre'
             INNER JOIN apoderados a       ON a.persona_id = u.persona_id
             INNER JOIN vinculo_familiar vf ON vf.apoderado_id = a.id
             SET u.estado = 'inactivo'
