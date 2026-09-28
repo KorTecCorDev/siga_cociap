@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\AsistenciaModel;
+use App\Models\AuxiliarSeccionModel;
 use Core\Session;
 use Core\View;
 
@@ -14,21 +15,31 @@ class AsistenciaController extends BaseController
 
     /**
      * Quien OPERA el registro de asistencia: ve el índice, la grilla editable,
-     * guarda y bloquea. Cuando se cree el rol auxiliar_academico, se añade aquí.
+     * guarda y bloquea. Desde el 28/09/2026 incluye al AUXILIAR ACADÉMICO, pero
+     * solo sobre SUS secciones del bimestre: ese alcance no lo da el rol, lo
+     * decide `AuxiliarSeccionModel::puedeRegistrar()` en cada método.
      *
      * Los directores NO entran aquí: solo al imprimible (ver `imprimir`). Por eso
      * el constructor admite el superconjunto y cada método se valida por separado
      * — mismo patrón que `ControlOperativoController::ROLES_PUBLICAN`. Esconder
      * el enlace no es control de acceso.
      */
-    private const ROLES_REGISTRAN = ['admin', 'registro_academico'];
+    private const ROLES_REGISTRAN = ['admin', 'registro_academico', ROL_AUXILIAR];
 
     private AsistenciaModel $model;
+    private AuxiliarSeccionModel $aux;
 
     public function __construct()
     {
         $this->requireRole([...self::ROLES_REGISTRAN, ...ROLES_DIRECCION]);
         $this->model = new AsistenciaModel();
+        $this->aux   = new AuxiliarSeccionModel();
+    }
+
+    /** ¿Puede el usuario de la sesión registrar esa sección en ese periodo? */
+    private function puede(int $seccionId, int $periodoId): bool
+    {
+        return $this->aux->puedeRegistrar(Session::user() ?? [], $seccionId, $periodoId);
     }
 
     // GET /admin/asistencia
@@ -51,6 +62,18 @@ class AsistenciaController extends BaseController
         $progreso = $periodoActivo
             ? $this->model->getProgresoPorSeccion((int) $periodoActivo['id'])
             : [];
+
+        // El auxiliar ve SOLO sus secciones del bimestre en curso; sin bimestre
+        // abierto no tiene ninguna. Admin y RA siguen viendo todas.
+        if (has_role(ROL_AUXILIAR)) {
+            $mias = $periodoActivo
+                ? $this->aux->seccionesDe((int) Session::user()['id'], (int) $periodoActivo['id'])
+                : [];
+            $secciones = array_values(array_filter(
+                $secciones,
+                fn($s) => in_array((int) $s['id'], $mias, true)
+            ));
+        }
 
         $porNivel = [];
         foreach ($secciones as $s) {
@@ -113,22 +136,36 @@ class AsistenciaController extends BaseController
         }
         $soloLectura = $periodoVer !== null && !((bool) $periodoVer['editable']);
 
+        // Auxiliar: solo una sección que tuvo a su cargo EN el bimestre mostrado.
+        // Sin bimestre que mostrar no hay nada suyo que ver.
+        $esAuxiliar = has_role(ROL_AUXILIAR);
+        if ($esAuxiliar && ($periodoVer === null || !$this->puede($seccionId, (int) $periodoVer['id']))) {
+            $this->forbidden();
+        }
+
         // Estado de cierre por periodo para las pestañas del historial.
         // Los bimestres 'pendiente' (futuros) no se listan: sin datos que ver.
+        // Al auxiliar solo se le listan los bimestres en que tuvo la sección.
         $periodosNav = [];
         foreach ($periodos as $p) {
             if ($p['estado'] === 'pendiente') {
+                continue;
+            }
+            if ($esAuxiliar && !$this->puede($seccionId, (int) $p['id'])) {
                 continue;
             }
             $p['cierre'] = $this->model->getCierreVigente($seccionId, (int) $p['id']);
             $periodosNav[] = $p;
         }
 
-        $estudiantes = $cierre = null;
+        $estudiantes = $cierre = $firmas = null;
         if ($periodoVer) {
             $pid         = (int) $periodoVer['id'];
             $estudiantes = $this->model->getEstudiantesConIncidencias($seccionId, $pid);
             $cierre      = $this->model->getCierreVigente($seccionId, $pid);
+            if ($cierre) {
+                $firmas = $this->aux->firmasDelRegistro($seccionId, $pid, (int) $cierre['ra_bloqueado_por']);
+            }
         }
 
         $seccion = $this->buscarSeccion($seccionId);
@@ -146,6 +183,7 @@ class AsistenciaController extends BaseController
             'periodosNav'  => $periodosNav,
             'soloLectura'  => $soloLectura,
             'cierre'       => $cierre,
+            'firmas'       => $firmas,
             'estudiantes'  => $estudiantes ?? [],
             // Los totales salen del MISMO roster que se pinta (punto unico en el
             // modelo), no de una consulta paralela que podria contar otras filas.
@@ -176,6 +214,9 @@ class AsistenciaController extends BaseController
         }
         if (!$periodoActivo) {
             $this->redirectWithError(url('admin/asistencia/' . $seccionId), 'No hay periodo abierto para edición.');
+        }
+        if (!$this->puede($seccionId, (int) $periodoActivo['id'])) {
+            $this->forbidden();
         }
 
         $res = $this->model->bloquearRA(
@@ -213,6 +254,11 @@ class AsistenciaController extends BaseController
         if (!$periodo) {
             $this->redirectWithError(url('admin/asistencia/' . $seccionId), 'Periodo no encontrado.');
         }
+        // Admin, RA y Dirección imprimen cualquier sección; el auxiliar, solo
+        // las que tuvo a su cargo en ESE bimestre.
+        if (has_role(ROL_AUXILIAR) && !$this->puede($seccionId, $periodoId)) {
+            $this->forbidden();
+        }
 
         $cierre = $this->model->getCierreDetalle($seccionId, $periodoId);
         if (!$cierre) {
@@ -232,6 +278,7 @@ class AsistenciaController extends BaseController
             'periodo'     => $periodo,
             'estudiantes' => $estudiantes,
             'cierre'      => $cierre,
+            'firmas'      => $this->aux->firmasDelRegistro($seccionId, $periodoId, (int) $cierre['ra_bloqueado_por']),
             'institucion' => config('institucion'),
         ]);
     }
@@ -258,6 +305,9 @@ class AsistenciaController extends BaseController
         $seccionId = $this->model->seccionDeMatricula($matriculaId);
         if ($seccionId === null) {
             $this->json(['success' => false, 'mensaje' => 'Matrícula no encontrada.'], 404);
+        }
+        if (!$this->puede($seccionId, $periodoId)) {
+            $this->json(['success' => false, 'mensaje' => 'Esta sección no está a tu cargo en este bimestre.'], 403);
         }
 
         // La matricula tiene que estar en el roster de la seccion (mismo que la

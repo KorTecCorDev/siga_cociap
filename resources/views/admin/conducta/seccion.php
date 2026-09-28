@@ -14,6 +14,7 @@
  * @var array       $legado       [{ matricula_id, nombre_completo, literal }] — solo
  *                                bimestre legado (literal directo) en solo lectura
  * @var array|null  $cierre       cierre vigente del periodo mostrado o null
+ * @var array|null  $firmas       AuxiliarSeccionModel::firmasDelRegistro() si hay cierre
  * @var array       $completitud  { esperados, completos }
  */
 
@@ -92,7 +93,8 @@ foreach ($estudiantes as $est) {
                 Conducta <strong>bloqueada y aprobada por el tutor(a)</strong>
                 el <?= e(fechaLima($cierre['tutor_cerrado_en'])) ?>.
             <?php else: ?>
-                Conducta <strong>bloqueada y aprobada por Registro Académico</strong>
+                Conducta <strong>bloqueada y aprobada por <?= e($firmas['bloqueo_nombre'] ?? '') ?></strong>
+                (<?= e($firmas['bloqueo_rol'] ?? '') ?>)
                 el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>. En espera del cierre del tutor.
             <?php endif; ?>
             Para corregir, solicita el desbloqueo a Dirección.

@@ -9,6 +9,8 @@
  * @var array  $periodo      { nombre_display, anio }
  * @var array  $estudiantes  [{ matricula_id, nombre_completo, incidencias{...} }]
  * @var array  $cierre       { ra_bloqueado_en, ra_nombre }
+ * @var array  $firmas       AuxiliarSeccionModel::firmasDelRegistro() — nombres de las
+ *                           dos líneas de firma y quién bloqueó con su rol real
  * @var string $institucion
  */
 
@@ -87,8 +89,8 @@ $campos = ['faltas', 'faltas_justificadas', 'tardanzas', 'tardanzas_justificadas
     </p>
 
     <p class="registro-doc__traza">
-        Registro bloqueado y aprobado por <strong><?= e($cierre['ra_nombre']) ?></strong>
-        (Registro Académico) el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>.
+        Registro bloqueado y aprobado por <strong><?= e($firmas['bloqueo_nombre']) ?></strong>
+        (<?= e($firmas['bloqueo_rol']) ?>) el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>.
     </p>
 
     <?php if ($hayExtraordinaria): ?>
@@ -102,11 +104,17 @@ $campos = ['faltas', 'faltas_justificadas', 'tardanzas', 'tardanzas_justificadas
         <div class="reporte-footer__bloque">
             <div class="reporte-footer__espacio-firma"></div>
             <div class="reporte-footer__linea"></div>
+            <?php if (!empty($firmas['auxiliar'])): ?>
+                <div class="reporte-footer__nombre"><?= e($firmas['auxiliar']) ?></div>
+            <?php endif; ?>
             <div class="reporte-footer__cargo">Auxiliar Responsable</div>
         </div>
         <div class="reporte-footer__bloque">
             <div class="reporte-footer__espacio-firma"></div>
             <div class="reporte-footer__linea"></div>
+            <?php if (!empty($firmas['ra'])): ?>
+                <div class="reporte-footer__nombre"><?= e($firmas['ra']) ?></div>
+            <?php endif; ?>
             <div class="reporte-footer__cargo">Personal de Registro Académico</div>
         </div>
     </footer>

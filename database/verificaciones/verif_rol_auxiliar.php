@@ -58,6 +58,28 @@ $chk('rutas GET /admin/auxiliares y POST .../asignar registradas',
 $chk('el CSS compilado trae el color del avatar del auxiliar',
     str_contains($src('public/css/app.css'), '.usuario-avatar--auxiliar_academico'));
 
+// ── 2b) Cada método que toca una sección pasa por puedeRegistrar ─
+// Guarda estructural: el rol del auxiliar está en la lista de los que operan,
+// así que un método SIN esta llamada le abriría TODAS las secciones.
+echo "2b) Guardas por sección en los controladores de registro\n";
+$cuerpoDe = function (string $src, string $metodo): string {
+    if (!preg_match('/function ' . $metodo . '\(.*?\n    \}\n/s', str_replace("\r\n", "\n", $src), $mm)) {
+        return '';
+    }
+    return $mm[0];
+};
+foreach (['Asistencia', 'Conducta'] as $mod) {
+    $s = $src("app/Controllers/Admin/{$mod}Controller.php");
+    foreach (['seccion', 'guardar', 'bloquear', 'imprimir'] as $met) {
+        $chk("{$mod}Controller::{$met} verifica la sección del auxiliar",
+            str_contains($cuerpoDe($s, $met), '$this->puede('));
+    }
+    $chk("{$mod}Controller::index filtra las secciones del auxiliar",
+        str_contains($cuerpoDe($s, 'index'), 'seccionesDe('));
+}
+$chk('ConductaController::guardar exige el roster (faltaba desde siempre)',
+    str_contains($cuerpoDe($src('app/Controllers/Admin/ConductaController.php'), 'guardar'), 'matriculaEnRoster('));
+
 // ── 3) Reglas de asignación (dentro de una transacción) ─────────
 echo "3) Asignación por bimestre (transacción + rollback)\n";
 $activo = $m->periodoActivo();
@@ -176,6 +198,28 @@ if ($activo === null) {
                 echo "  [SKIP] el alumno de prueba no tiene tipo de vínculo libre\n";
             }
         }
+
+        // Firmas del registro (regla D12), con A como auxiliar vigente de s1.
+        $m->asignar($s1, $a, $por);
+        $ra = $m->query("SELECT u.id FROM usuarios u JOIN roles r ON r.id = u.rol_id
+                         WHERE r.codigo = 'registro_academico' AND u.estado = 'activo'");
+        $fA = $m->firmasDelRegistro($s1, $pActivo, $a);
+        $chk('firmas: bloquea el auxiliar → la traza dice su rol real',
+            $fA['bloqueo_rol'] === 'Auxiliar académico' && str_contains($fA['bloqueo_nombre'], 'PRUEBA'));
+        $chk('firmas: «Auxiliar Responsable» = el auxiliar vigente de la sección',
+            str_contains((string) $fA['auxiliar'], 'Auxiliar A'));
+        $chk('firmas: línea de RA = el único RA activo, o en blanco si hay más de uno',
+            count($ra) === 1 ? $fA['ra'] !== null : $fA['ra'] === null);
+        if (count($ra) >= 1) {
+            $fR = $m->firmasDelRegistro($s1, $pActivo, (int) $ra[0]['id']);
+            $chk('firmas: bloquea RA (respaldo) → su nombre en la línea de RA y el auxiliar en la suya',
+                $fR['ra'] === $fR['bloqueo_nombre'] && str_contains((string) $fR['auxiliar'], 'Auxiliar A'));
+        }
+        // El escenario se FIJA aquí, no se supone: la base puede traer auxiliares
+        // reales en s2 (pasó el 28/09/2026, tras probar la pantalla en el navegador).
+        $m->asignar($s2, null, $por);
+        $fS = $m->firmasDelRegistro($s2, $pActivo, $a);
+        $chk('firmas: sección sin auxiliar → «Auxiliar Responsable» en blanco', $fS['auxiliar'] === null);
 
         // Validaciones.
         $falla = function (callable $fn): bool {

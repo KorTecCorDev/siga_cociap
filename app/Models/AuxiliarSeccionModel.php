@@ -322,6 +322,53 @@ class AuxiliarSeccionModel extends BaseModel
         return ($fila !== null && $fila['auxiliar_id'] !== null) ? (int) $fila['auxiliar_id'] : null;
     }
 
+    /**
+     * Quién figura en un registro bloqueado de conducta o asistencia (28/09/2026).
+     * PUNTO ÚNICO de la regla de firmas (decisión D12 del usuario):
+     *   - «Auxiliar Responsable»: el auxiliar vigente de la sección EN ESE
+     *     bimestre, aunque haya bloqueado RA como respaldo. NULL = línea en blanco.
+     *   - «Personal de Registro Académico»: quien bloqueó, si fue RA; si no, el
+     *     único usuario RA activo. Si hubiera más de uno, NULL (no se adivina).
+     *   - `bloqueo_*`: quién bloqueó y con qué rol REAL, para la traza del
+     *     documento y el aviso de la pantalla (antes decía siempre «Registro
+     *     Académico», aunque bloqueara otro rol).
+     *
+     * @return array{auxiliar:?string, ra:?string, bloqueo_nombre:string, bloqueo_rol:string}
+     */
+    public function firmasDelRegistro(int $seccionId, int $periodoId, int $bloqueadoPor): array
+    {
+        $quien = $this->queryOne("
+            SELECT r.codigo, r.nombre AS rol_nombre, p.apellido_paterno, p.apellido_materno, p.nombres
+            FROM usuarios u
+            INNER JOIN roles r    ON r.id = u.rol_id
+            INNER JOIN personas p ON p.id = u.persona_id
+            WHERE u.id = ?
+        ", [$bloqueadoPor]);
+
+        $bloqueoNombre = $quien ? self::nombreCompleto($quien) : '';
+
+        if ($quien !== null && $quien['codigo'] === 'registro_academico') {
+            $ra = $bloqueoNombre;
+        } else {
+            $ras = $this->query("
+                SELECT p.apellido_paterno, p.apellido_materno, p.nombres
+                FROM usuarios u
+                INNER JOIN roles r    ON r.id = u.rol_id AND r.codigo = 'registro_academico'
+                INNER JOIN personas p ON p.id = u.persona_id
+                WHERE u.estado = 'activo'
+                LIMIT 2
+            ");
+            $ra = count($ras) === 1 ? self::nombreCompleto($ras[0]) : null;
+        }
+
+        return [
+            'auxiliar'       => $this->vigente($seccionId, $periodoId)['nombre'] ?? null,
+            'ra'             => $ra,
+            'bloqueo_nombre' => $bloqueoNombre,
+            'bloqueo_rol'    => (string) ($quien['rol_nombre'] ?? ''),
+        ];
+    }
+
     /** «PATERNO MATERNO, Nombres» — el formato de los documentos del colegio. */
     private static function nombreCompleto(array $r): string
     {

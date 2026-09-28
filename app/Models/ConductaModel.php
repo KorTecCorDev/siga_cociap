@@ -129,6 +129,25 @@ class ConductaModel extends BaseModel
         ", [$matriculaId]);
     }
 
+    /**
+     * true si la matricula pertenece al ROSTER de conducta (mismo criterio que
+     * getEstudiantesParaRegistro: `roster_evaluacion()`). Guard del endpoint de
+     * guardado (28/09/2026): hasta entonces no existia y se podia escribir la
+     * conducta de un trasladado o retirado enviando su matricula_id a mano.
+     * Mismo patron que AsistenciaModel::matriculaEnRoster.
+     */
+    public function matriculaEnRoster(int $matriculaId): bool
+    {
+        $row = $this->queryOne("
+            SELECT 1 AS ok
+            FROM matriculas m
+            WHERE m.id = ?
+              " . roster_evaluacion('m') . "
+        ", [$matriculaId]);
+
+        return $row !== null;
+    }
+
     // ── Indice: progreso y estado de bloqueo por seccion ─────────
 
     /**

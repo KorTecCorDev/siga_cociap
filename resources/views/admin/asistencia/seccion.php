@@ -10,6 +10,7 @@
  * @var array       $periodosNav  periodos del año activo + ['cierre' => cierre vigente|null]
  * @var bool        $soloLectura  true = periodo no editable (historial)
  * @var array|null  $cierre       cierre vigente del periodo mostrado o null
+ * @var array|null  $firmas       AuxiliarSeccionModel::firmasDelRegistro() si hay cierre
  * @var array       $estudiantes  [{ matricula_id, nombre_completo, incidencias{...} }]
  * @var array       $totales      AsistenciaModel::totalesIncidencias($estudiantes)
  * @var int         $topeMax      valor máximo por contador (espejo del backend)
@@ -78,7 +79,8 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
     <div class="alert alert--info">
         <span class="btn-icon btn-icon--locked" aria-hidden="true"></span>
         <span>
-            Asistencia <strong>bloqueada y aprobada por Registro Académico</strong>
+            Asistencia <strong>bloqueada y aprobada por <?= e($firmas['bloqueo_nombre'] ?? '') ?></strong>
+            (<?= e($firmas['bloqueo_rol'] ?? '') ?>)
             el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>.
             Para corregir, solicita el desbloqueo a Dirección.
         </span>
