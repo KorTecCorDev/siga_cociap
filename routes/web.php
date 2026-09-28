@@ -84,6 +84,10 @@ $router->get( '/admin/actas-siagie/resultado/reporte',   'Admin\ActasSiagieContr
 $router->get( '/admin/secciones',             'Admin\SeccionController@index');
 $router->post('/admin/secciones/{id}/tutor',  'Admin\SeccionController@asignarTutor');
 
+// Auxiliares académicos: qué secciones tiene cada uno, por bimestre (migración 066).
+$router->get( '/admin/auxiliares',                        'Admin\AuxiliarController@index');
+$router->post('/admin/auxiliares/{seccion_id}/asignar',   'Admin\AuxiliarController@asignar');
+
 // ─── Admin — Buscador de estudiantes ────────────────────────
 $router->get( '/admin/buscar-estudiante',     'Admin\BuscadorEstudianteController@index');
 $router->get( '/admin/buscar-estudiante/api', 'Admin\BuscadorEstudianteController@buscar');
@@ -116,6 +120,7 @@ $router->post('/admin/director-ebr/{id}/imagenes',         'Admin\DirectorEbrCon
 // ─── Admin — Usuarios ───────────────────────────────────────
 $router->get( '/admin/usuarios',             'Admin\UsuarioController@index');
 $router->get( '/admin/usuarios/crear',       'Admin\UsuarioController@create');
+$router->get( '/admin/usuarios/persona',     'Admin\UsuarioController@buscarPersona');
 $router->post('/admin/usuarios/crear',       'Admin\UsuarioController@store');
 $router->get( '/admin/usuarios/{id}/editar', 'Admin\UsuarioController@edit');
 $router->post('/admin/usuarios/{id}/editar', 'Admin\UsuarioController@update');

@@ -37,7 +37,11 @@ if ($r) {
     $chk("descripcion = 'Supervisión académica en solo lectura'",
         $r['descripcion'] === 'Supervisión académica en solo lectura');
 }
-$chk('la tabla roles tiene 9 filas (sin duplicar al re-ejecutar)', count($roles) === 9);
+// Antes afirmaba «9 filas en roles»: un aserto que caduca con cada rol nuevo
+// (cayó con la 065, auxiliar académico). Lo que protegía es que re-ejecutar la
+// 055 no duplique el rol, y eso se mide sin depender del total.
+$chk('director_academico aparece una sola vez (sin duplicar al re-ejecutar)',
+    count(array_filter($roles, fn($r) => $r['codigo'] === 'director_academico')) === 1);
 
 echo "\n2) INTEGRACION — los 3 codigos de ROLES_DIRECCION existen en la BD\n";
 // Esta es la comprobacion que atrapa un typo en la constante: hasta ahora

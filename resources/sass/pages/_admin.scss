@@ -32,6 +32,10 @@
     &--registro_academico,
     &--secretaria                         { background: $color-info;     }
     &--docente                            { background: $brand-mid;      }
+    // Auxiliar académico (28/09/2026): el púrpura de CONDUCTA, que es su
+    // registro principal (wayfinding). Copia a mano de ROL_AUXILIAR: SASS no
+    // lee la constante de PHP.
+    &--auxiliar_academico                 { background: $card-conducta-line; }
     &--padre                              { background: $color-success;  }
 }
 

@@ -36,9 +36,12 @@ class DashboardController extends BaseController
         }
 
         // Los demás roles van directo a su módulo
+        // ⚠️ Un rol sin entrada aquí ni en $rolesConCards cae a /login, que con
+        // sesión abierta lo devuelve al dashboard: un bucle. Todo rol nuevo entra.
         $destinos = [
-            'docente' => url('docente/inicio'),
-            'padre'   => url('padre/inicio'),
+            'docente'    => url('docente/inicio'),
+            'padre'      => url('padre/inicio'),
+            ROL_AUXILIAR => url('auxiliar/inicio'),
         ];
 
         redirect($destinos[$rol] ?? url('login'));

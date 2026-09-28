@@ -20,6 +20,7 @@ $grupos = [
         ['roles' => ['admin', 'registro_academico', 'secretaria_academica', 'secretaria_administrativa', ...ROLES_DIRECCION], 'url' => 'matriculas',            'icon' => 'doc-add.svg',          'titulo' => 'Matrículas',           'desc' => 'Registro y seguimiento de matrículas'],
         ['roles' => ['admin', 'registro_academico', 'secretaria_academica', 'secretaria_administrativa', ...ROLES_DIRECCION], 'url' => 'admin/buscar-estudiante', 'icon' => 'lupa-look.svg', 'titulo' => 'Buscar estudiante',    'desc' => 'Consultar nivel, grado y sección por DNI o nombre'],
         ['roles' => ['admin'],                                                           'url' => 'admin/secciones',       'icon' => 'users-group-rounded.svg',     'titulo' => 'Secciones y Tutores',  'desc' => 'Asignar tutores por sección'],
+        ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/auxiliares',      'icon' => 'glasses-logo.svg',                 'titulo' => 'Auxiliares y secciones', 'desc' => 'Asignar a cada auxiliar las secciones que registra'],
         ['roles' => ['admin'],                                                           'url' => 'admin/curriculum',      'icon' => 'book-bookmark.svg',           'titulo' => 'Currículo Académico',  'desc' => 'Áreas, subáreas, competencias y talleres por nivel'],
     ],
     'Evaluación y reportes' => [

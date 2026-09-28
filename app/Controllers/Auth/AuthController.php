@@ -183,6 +183,8 @@ class AuthController extends BaseController
             'registro_academico'=> url('dashboard'),
             'docente'           => url('docente/inicio'),
             'padre'             => url('padre/inicio'),
+            // Panel propio, estilo del panel docente (28/09/2026).
+            ROL_AUXILIAR        => url('auxiliar/inicio'),
         ];
 
         redirect($destinos[$rol] ?? url('dashboard'));

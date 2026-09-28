@@ -171,6 +171,75 @@ class UsuarioModel extends BaseModel
         return $r !== null;
     }
 
+    /**
+     * Persona ya registrada con ese DNI, con lo que hace falta para decidir si
+     * se le puede crear una cuenta (28/09/2026). NULL si el DNI no existe.
+     *
+     * `personas.dni` es único y el login es por DNI: una persona tiene como
+     * máximo UNA cuenta. Una persona que ya existe (apoderado, estudiante…) y
+     * aún no tiene cuenta se REUTILIZA; nunca se duplica.
+     */
+    public function personaPorDni(string $dni): ?array
+    {
+        return $this->queryOne("
+            SELECT p.id, p.dni, p.apellido_paterno, p.apellido_materno, p.nombres,
+                   p.sexo, p.correo, p.telefono,
+                   u.id     AS usuario_id,
+                   r.nombre AS usuario_rol,
+                   EXISTS(SELECT 1 FROM apoderados  a WHERE a.persona_id = p.id) AS es_apoderado,
+                   EXISTS(SELECT 1 FROM estudiantes e WHERE e.persona_id = p.id) AS es_estudiante
+            FROM personas p
+            LEFT JOIN usuarios u ON u.persona_id = p.id
+            LEFT JOIN roles r    ON r.id = u.rol_id
+            WHERE p.dni = ?
+            LIMIT 1
+        ", [$dni]);
+    }
+
+    /**
+     * Crea la cuenta sobre una persona YA registrada (sin cuenta).
+     *
+     * Decisión del usuario (28/09/2026): valen los datos YA registrados. Solo se
+     * COMPLETAN los que la persona no tiene (sexo, correo, teléfono); nunca se
+     * sobrescribe lo que ya estaba — p. ej. el celular que la familia dio en la
+     * matrícula. El UNIQUE de `usuarios.persona_id` impide dos cuentas.
+     */
+    public function crearSobrePersona(int $personaId, array $completar, string $password, int $rolId): int
+    {
+        // Transacción propia solo si el llamador no abrió una (conexión compartida,
+        // PDO no anida): un verificador puede envolverla y revertir.
+        $propia = !$this->db->inTransaction();
+        if ($propia) {
+            $this->beginTransaction();
+        }
+        try {
+            $this->execute("
+                UPDATE personas
+                SET sexo     = COALESCE(sexo, ?),
+                    correo   = COALESCE(NULLIF(correo, ''), ?),
+                    telefono = COALESCE(NULLIF(telefono, ''), ?)
+                WHERE id = ?
+            ", [$completar['sexo'] ?? null, $completar['correo'] ?? null, $completar['telefono'] ?? null, $personaId]);
+
+            $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+            $this->execute(
+                "INSERT INTO usuarios (persona_id, rol_id, password_hash, estado) VALUES (?, ?, ?, 'activo')",
+                [$personaId, $rolId, $hash]
+            );
+            $usuarioId = (int) $this->db->lastInsertId();
+
+            if ($propia) {
+                $this->commit();
+            }
+            return $usuarioId;
+        } catch (\Exception $e) {
+            if ($propia) {
+                $this->rollback();
+            }
+            throw $e;
+        }
+    }
+
     public function crearConPersona(array $datosPersona, string $password, int $rolId): int
     {
         $this->beginTransaction();

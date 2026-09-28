@@ -29,8 +29,48 @@ class UsuarioController extends BaseController
     public function create(): void
     {
         $this->view('admin/usuarios/crear', [
-            'titulo' => 'Nuevo Usuario',
-            'roles'  => $this->model->listarRoles(),
+            'titulo'       => 'Nuevo Usuario',
+            'roles'        => $this->model->listarRoles(),
+            'page_scripts' => ['usuario-dni'],
+        ]);
+    }
+
+    // GET /admin/usuarios/persona?dni=XXXXXXXX  (JSON, solo admin)
+    // Al escribir el DNI en «Nuevo usuario», el formulario jala los datos de la
+    // persona si ya está registrada (p. ej. como apoderado) y dice si ya tiene cuenta.
+    public function buscarPersona(): void
+    {
+        $dni = trim((string) $this->query('dni', ''));
+        if (!ctype_digit($dni) || strlen($dni) !== 8) {
+            $this->json(['existe' => false]);
+            return;
+        }
+
+        $p = $this->model->personaPorDni($dni);
+        if ($p === null) {
+            $this->json(['existe' => false]);
+            return;
+        }
+
+        $origen = match (true) {
+            (bool) $p['es_apoderado']  => 'apoderado/a',
+            (bool) $p['es_estudiante'] => 'estudiante',
+            default                    => 'persona',
+        };
+
+        $this->json([
+            'existe'      => true,
+            'tieneCuenta' => $p['usuario_id'] !== null,
+            'rolCuenta'   => $p['usuario_rol'],
+            'origen'      => $origen,
+            'persona'     => [
+                'apellido_paterno' => $p['apellido_paterno'],
+                'apellido_materno' => $p['apellido_materno'],
+                'nombres'          => $p['nombres'],
+                'sexo'             => $p['sexo'],
+                'correo'           => $p['correo'],
+                'telefono'         => $p['telefono'],
+            ],
         ]);
     }
 
@@ -40,10 +80,24 @@ class UsuarioController extends BaseController
         $this->validateCsrf();
 
         $datos = $this->recogerInput();
+
+        // DNI ya registrado (apoderado, estudiante…): se REUTILIZA la persona y
+        // valen sus datos registrados (decisión del usuario, 28/09/2026). Lo que
+        // llegue del formulario solo completa lo que la persona no tenga.
+        $persona = ctype_digit($datos['dni']) ? $this->model->personaPorDni($datos['dni']) : null;
+        if ($persona !== null) {
+            $datos['apellido_paterno'] = (string) $persona['apellido_paterno'];
+            $datos['apellido_materno'] = (string) $persona['apellido_materno'];
+            $datos['nombres']          = (string) $persona['nombres'];
+            if (!empty($persona['sexo'])) {
+                $datos['sexo'] = $persona['sexo'];
+            }
+        }
+
         $error = $this->validar($datos);
 
-        if (!$error && $this->model->existeDni($datos['dni'])) {
-            $error = 'Ya existe un usuario registrado con ese DNI.';
+        if (!$error && $persona !== null && $persona['usuario_id'] !== null) {
+            $error = 'Este DNI ya tiene una cuenta de usuario. Búscala en la lista para editarla.';
         }
 
         if ($error) {
@@ -51,11 +105,24 @@ class UsuarioController extends BaseController
         }
 
         try {
-            $this->model->crearConPersona(
-                $this->datosPersona($datos),
-                $datos['password'],
-                (int) $datos['rol_id']
-            );
+            if ($persona !== null) {
+                $this->model->crearSobrePersona(
+                    (int) $persona['id'],
+                    [
+                        'sexo'     => $datos['sexo'],
+                        'correo'   => $datos['correo'] !== '' ? $datos['correo'] : null,
+                        'telefono' => $datos['telefono'] !== '' ? $datos['telefono'] : null,
+                    ],
+                    $datos['password'],
+                    (int) $datos['rol_id']
+                );
+            } else {
+                $this->model->crearConPersona(
+                    $this->datosPersona($datos),
+                    $datos['password'],
+                    (int) $datos['rol_id']
+                );
+            }
         } catch (\Exception $e) {
             log_error('Error creando usuario', ['msg' => $e->getMessage()]);
             $this->redirectWithError(url('admin/usuarios/crear'), 'Error al crear el usuario. Verifica que el DNI no esté duplicado.');
