@@ -113,6 +113,54 @@ class HorarioModel extends BaseModel
     }
 
     /**
+     * Todo lo que necesita el DOCUMENTO del horario de una sección
+     * (`director/horario-seccion.php`): la grilla, la cabecera de la sección, el
+     * año y el sello del Director EBR. NULL si la sección no existe.
+     *
+     * PUNTO ÚNICO desde el 28/09/2026: lo usan Dirección
+     * (`Director\CargaAcademicaController::horarioSeccion`) y el auxiliar
+     * académico para sus secciones (`Auxiliar\PanelController::horario`). Antes
+     * vivía en el controlador de Dirección, y darle el rol al auxiliar allí le
+     * habría abierto también el listado de cargas de todo el colegio.
+     */
+    public function documentoSeccion(int $seccionId): ?array
+    {
+        $seccion = (new CargaAcademicaModel())->findSeccion($seccionId);
+        if (!$seccion) {
+            return null;
+        }
+
+        $anio = $this->queryOne(
+            "SELECT id, anio FROM anios_academicos WHERE estado = 'activo' LIMIT 1"
+        );
+
+        $grilla = $this->armarGrilla(
+            $this->getSesionesSeccion($seccionId),
+            $this->duracionHoraAcademica($anio ? (int) $anio['id'] : null),
+            'docente'
+        );
+
+        return array_merge($grilla, [
+            'seccion' => [
+                'id'             => $seccionId,
+                'grado_nombre'   => $seccion['grado_nombre'],
+                'seccion_nombre' => $seccion['seccion_nombre'],
+                'nivel_nombre'   => $seccion['nivel_nombre'] ?? '',
+                // findSeccion devuelve el tutor en TRES columnas sueltas, no
+                // compuesto: se arma aqui (vacio si la seccion no tiene tutor).
+                'tutor_nombre'   => trim($seccion['tutor_id'] ?? null
+                    ? ($seccion['tutor_paterno'] ?? '') . ' ' . ($seccion['tutor_materno'] ?? '')
+                      . ', ' . ($seccion['tutor_nombres'] ?? '')
+                    : ''),
+            ],
+            'anio'        => $anio,
+            'directorEbr' => $anio
+                ? (new DirectorEbrModel())->getVigenteEnFecha((int) $anio['id'])
+                : null,
+        ]);
+    }
+
+    /**
      * Duración de la hora académica del año, en minutos. Nunca se hardcodea:
      * sale de `configuracion_horario`. Fallback 45 si falta o viene en 0/NULL.
      */
