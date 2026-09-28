@@ -45,7 +45,15 @@ $pidVer = $periodoVer ? (int) $periodoVer['id'] : 0;
 
 <?php if (empty($porNivel)): ?>
     <div class="empty-state">
-        <p>No hay secciones activas configuradas para el año académico en curso.</p>
+        <?php // Al auxiliar la lista vacía no significa que el colegio no tenga
+              // secciones, sino que ninguna estuvo a SU cargo en ese bimestre. ?>
+        <?php if (has_role(ROL_AUXILIAR) && $esHistorial): ?>
+            <p>No tuviste secciones a tu cargo en este bimestre.</p>
+        <?php elseif (has_role(ROL_AUXILIAR)): ?>
+            <p>Aún no tienes secciones asignadas en este bimestre. Comunícate con Registro Académico para que te las asignen.</p>
+        <?php else: ?>
+            <p>No hay secciones activas configuradas para el año académico en curso.</p>
+        <?php endif; ?>
     </div>
 <?php else: ?>
 

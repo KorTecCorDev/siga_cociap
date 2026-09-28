@@ -104,7 +104,10 @@ details.card {
     // (card Mis cargas), docente=neutro (especialista, sin concepto propio).
     &--ident-tutor      { background: $card-tutoria-bg; color: $card-tutoria-ink; }
     &--ident-unidocente { background: $card-cargas-bg;  color: $card-cargas-ink;  }
-    &--ident-docente    { background: #f1f5f9;          color: #64748b;           }
+    // El auxiliar académico (28/09/2026) tampoco tiene concepto propio: su chip
+    // es el mismo neutro.
+    &--ident-docente,
+    &--ident-auxiliar   { background: #f1f5f9;          color: #64748b;           }
 
     // Bimestre activo: verde "vivo" con punto indicador y resplandor exterior
     // pulsante, para dar sensacion de periodo en curso de un vistazo.

@@ -129,7 +129,59 @@
         border-left: 4px solid $card-riesgo-line;
         .card__title { color: $card-riesgo-ink; }
     }
+    // Panel del auxiliar (28/09/2026). Mismo glifo que la card «Asistencia» del
+    // panel de administración: mismo concepto, mismo icono.
+    &--asistencia {
+        --dpanel-icon: url("../assets/icons/calendar-add.svg");
+        border-left: 4px solid $card-asistencia-line;
+        .card__title { color: $card-asistencia-ink; }
+    }
 
+}
+
+// ── Panel del auxiliar: una fila por sección dentro de cada card ────────────
+// Cada fila es un enlace a la grilla de esa sección, con el badge del semáforo
+// (ámbar = le toca · verde = bloqueada · gris = no puede actuar). Filas de 44 px
+// como mínimo: el auxiliar trabaja desde el celular.
+.aux-secciones {
+    list-style: none;
+    margin: $spacing-md 0 0;
+    padding: 0;
+    border-top: 1px solid $border-color;
+}
+
+.aux-seccion {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    min-height: 44px;
+    padding: $spacing-sm $spacing-xs;
+    border-bottom: 1px solid $border-color;
+    color: $text-primary;
+    text-decoration: none;
+    transition: background-color .15s;
+
+    &:hover,
+    &:focus-visible {
+        background: $bg-secondary;
+        text-decoration: none;
+        color: $text-primary;
+    }
+
+    &__nombre {
+        flex: 1;
+        min-width: 0;
+        font-weight: 700;
+    }
+
+    &__nivel {
+        margin-left: $spacing-xs;
+        font-size: $font-size-sm;
+        font-weight: 400;
+        color: $text-muted;
+    }
+
+    &__ir { color: $text-muted; }
 }
 
 // ── Wayfinding en el h1 de la vista destino ──────────────────

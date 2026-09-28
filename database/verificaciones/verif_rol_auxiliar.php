@@ -58,6 +58,20 @@ $chk('rutas GET /admin/auxiliares y POST .../asignar registradas',
 $chk('el CSS compilado trae el color del avatar del auxiliar',
     str_contains($src('public/css/app.css'), '.usuario-avatar--auxiliar_academico'));
 
+// F3 — el aterrizaje EXISTE. Sin esta ruta, el auxiliar entraba a un 404 sin
+// salida al iniciar sesión (así estuvo entre la F1 y la F3).
+$chk('ruta GET /auxiliar/inicio registrada (aterrizaje del rol)',
+    str_contains($src('routes/web.php'), "'/auxiliar/inicio',") && str_contains($src('routes/web.php'), "'Auxiliar\\PanelController@inicio'"));
+$chk('el panel del auxiliar es SOLO para el auxiliar',
+    str_contains($src('app/Controllers/Auxiliar/PanelController.php'), '$this->requireRole([ROL_AUXILIAR]);'));
+// Wayfinding: Asistencia tiene color propio y ya no toma prestado el de Nómina
+// (en el panel del auxiliar las dos cards son vecinas).
+$css = $src('public/css/app.css');
+$chk('Asistencia tiene color propio en el panel y en /director/bloqueos (no el naranja de Nómina)',
+    str_contains($css, '.dpanel-card--asistencia') && str_contains($css, 'bloqueos-tabcard--asistencia{border-left-color:#4d7c0f}'));
+$chk('el icono de la card Asistencia existe en disco',
+    is_file(ROOT_PATH . '/public/assets/icons/calendar-add.svg'));
+
 // ── 2b) Cada método que toca una sección pasa por puedeRegistrar ─
 // Guarda estructural: el rol del auxiliar está en la lista de los que operan,
 // así que un método SIN esta llamada le abriría TODAS las secciones.

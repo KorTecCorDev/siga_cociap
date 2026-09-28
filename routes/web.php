@@ -87,6 +87,8 @@ $router->post('/admin/secciones/{id}/tutor',  'Admin\SeccionController@asignarTu
 // Auxiliares académicos: qué secciones tiene cada uno, por bimestre (migración 066).
 $router->get( '/admin/auxiliares',                        'Admin\AuxiliarController@index');
 $router->post('/admin/auxiliares/{seccion_id}/asignar',   'Admin\AuxiliarController@asignar');
+// Panel del auxiliar académico: su aterrizaje tras iniciar sesión (28/09/2026).
+$router->get( '/auxiliar/inicio',                         'Auxiliar\PanelController@inicio');
 
 // ─── Admin — Buscador de estudiantes ────────────────────────
 $router->get( '/admin/buscar-estudiante',     'Admin\BuscadorEstudianteController@index');
