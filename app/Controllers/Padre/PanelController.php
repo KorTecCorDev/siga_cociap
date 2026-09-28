@@ -395,7 +395,7 @@ class PanelController extends BaseController
               AND m.estado  = 'aprobada'
               -- Retorno de grado: el padre siempre ve la matrícula OFICIAL
               -- (grado/sección SIAGIE), nunca la operativa del grado inferior.
-              AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'activo')
+              " . matricula_documento('m') . "
             LIMIT 1
         ", [$usuarioId]);
     }

@@ -73,11 +73,21 @@ en el colegio» combinado con el ancla **DOCUMENTO**, no con la de evaluación.
 > retorno `revertido` con transacción + rollback y exige que el helper excluya una
 > matrícula mientras el híbrido escrito a mano no excluye ninguna.
 
-⚠️ **No toda mención a `matricula_operativa_id ... WHERE estado = 'activo'` es el
-híbrido.** `SiagieExportModel`, `Padre\PanelController` y `Docente\PanelController` la
-usan legítimamente: son **listados operativos**, no el documento. El híbrido es
-específicamente pegarle ese `WHERE` a la línea que decide **quién recibe documento o se
-cuenta**.
+**Las últimas 5 copias se retiraron el 28/09/2026.** Este doc decía que
+`SiagieExportModel` (×2), `Padre\PanelController` y `Docente\PanelController` (×2)
+usaban esa forma «legítimamente», como listados operativos. **No se sostenía:** sus
+propios comentarios describen semántica DOCUMENTO («muestra la matrícula OFICIAL y oculta
+la operativa», «figura en el archivo SIAGIE de su sección OFICIAL»). Daban el resultado
+correcto **solo** porque también filtran `estado = 'aprobada'`, y `revertir()` deja la
+operativa `desactivado`. La excepción era `Docente\PanelController::getMatriculados`
+con `$soloAprobadas = false` (estado amplio, hoy sin llamadores), que **sí** contaba dos
+veces al estudiante de un retorno revertido: medido, 2 filas contra 1.
+
+Ahora las cinco usan `matricula_documento()`. Un A/B con el código real dio salida
+idéntica en las 6 consultas, con el retorno activo y con el revertido simulado. La
+**sección 6 de `verif_matricula_documento.php`** barre `app/` y falla si reaparece la
+operativa filtrada por `estado = 'activo'`. Esa guarda **no** marca la exclusión con
+`'revertido'` de `roster_evaluacion()`, que es legítima; hay un aserto que lo comprueba.
 
 ## Buscador de estudiantes (24/09/2026)
 

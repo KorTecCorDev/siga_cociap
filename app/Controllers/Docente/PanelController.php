@@ -743,11 +743,7 @@ class PanelController extends BaseController
               -- Retorno de grado: la nomina (documento oficial SIAGIE) muestra
               -- la matricula OFICIAL y oculta la operativa interna. Mismo filtro
               -- que getMatriculados, para que la card y el detalle cuadren.
-              AND m.id NOT IN (
-                  SELECT matricula_operativa_id
-                  FROM retornos_grado
-                  WHERE estado = 'activo'
-              )
+              " . matricula_documento('m') . "
               AND n.id IN ($ph)
             GROUP BY s.id
             ORDER BY n.id, g.numero, s.nombre
@@ -840,11 +836,10 @@ class PanelController extends BaseController
               -- lo que muestra la matrícula ORIGINAL (grado/sección oficial) y
               -- oculta la operativa interna (grado inferior). Espejo de la regla
               -- de OrdenMeritoModel, que excluye la oficial para el ranking operativo.
-              AND m.id NOT IN (
-                  SELECT matricula_operativa_id
-                  FROM retornos_grado
-                  WHERE estado = 'activo'
-              )
+              -- Punto unico matricula_documento() (28/09/2026): la copia a mano
+              -- filtraba `estado = 'activo'` (el HIBRIDO) y con $soloAprobadas =
+              -- false contaba dos veces al estudiante de un retorno revertido.
+              " . matricula_documento('m') . "
               AND n.id IN ($ph)$filtroSeccion
             ORDER BY n.id, g.numero, s.nombre,
                      " . orden_alfabetico('p') . "

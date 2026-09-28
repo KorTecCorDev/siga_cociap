@@ -482,8 +482,12 @@ function matriculas_vigentes(string $alias = 'm'): string
  * está `activo`). Lo vigila `verif_matricula_documento.php`.
  *
  * Consumidores: el lote de boletas y el hub de tokens (`BoletaPublicaModel`),
- * la resolución del token público (`BoletaController`), y toda
- * `/matriculas/resumen` — chips, los 5 gráficos y el cuadro por grado.
+ * la resolución del token público (`BoletaController`), toda
+ * `/matriculas/resumen` — chips, los 5 gráficos y el cuadro por grado — y,
+ * desde el 28/09/2026, la nómina del docente (`Docente\PanelController` ×2),
+ * el hijo del panel del padre y el matching del export SIAGIE
+ * (`SiagieExportModel` ×2): eran cinco copias a mano del híbrido. La sección 6
+ * de `verif_matricula_documento.php` barre `app/` para que no vuelva.
  *
  * @param  string $alias alias de la tabla `matriculas` en la consulta
  * @return string la condición, ya con `AND` inicial, lista para interpolar
