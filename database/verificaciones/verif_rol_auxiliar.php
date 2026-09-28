@@ -71,6 +71,13 @@ $chk('Asistencia tiene color propio en el panel y en /director/bloqueos (no el n
     str_contains($css, '.dpanel-card--asistencia') && str_contains($css, 'bloqueos-tabcard--asistencia{border-left-color:#4d7c0f}'));
 $chk('el icono de la card Asistencia existe en disco',
     is_file(ROOT_PATH . '/public/assets/icons/calendar-add.svg'));
+// KPI «días para el cierre»: los umbrales viven SOLO en el parcial compartido.
+// Una vista que vuelva a calcular `$diasMod` es una copia que divergirá.
+foreach (['docente/inicio.php', 'auxiliar/inicio.php'] as $vista) {
+    $v = $src('resources/views/' . $vista);
+    $chk("{$vista} usa el parcial del KPI «días para el cierre», sin copia de umbrales",
+        str_contains($v, "/shared/_kpi-dias-cierre.php'") && !str_contains($v, '$diasMod ='));
+}
 
 // ── 2b) Cada método que toca una sección pasa por puedeRegistrar ─
 // Guarda estructural: el rol del auxiliar está en la lista de los que operan,

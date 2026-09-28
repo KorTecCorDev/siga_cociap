@@ -13,14 +13,6 @@
  * @var array      $auth_user
  */
 
-// Widget «días para el cierre»: MISMOS umbrales que `docente/inicio.php`
-// (≤ 3 rojo, ≤ 7 ámbar). Si se cambian allí, cambiarlos aquí.
-if ($diasCierre === null)  { $diasMod = 'muted'; $diasTxt = '—';             $diasSub = 'Sin fecha límite'; }
-elseif ($diasCierre < 0)   { $diasMod = 'muted'; $diasTxt = abs($diasCierre); $diasSub = 'días desde el cierre'; }
-elseif ($diasCierre <= 3)  { $diasMod = 'err';   $diasTxt = $diasCierre;      $diasSub = 'días para el cierre'; }
-elseif ($diasCierre <= 7)  { $diasMod = 'warn';  $diasTxt = $diasCierre;      $diasSub = 'días para el cierre'; }
-else                       { $diasMod = 'ok';    $diasTxt = $diasCierre;      $diasSub = 'días para el cierre'; }
-
 $nSec = count($secciones);
 // Avance de bloqueo: verde completo, ámbar a medias, gris sin empezar.
 $kpiBloq = static fn(int $n): string => $nSec > 0 && $n >= $nSec ? 'completo' : ($n > 0 ? 'parcial' : 'vacio');
@@ -98,10 +90,8 @@ $cards = [
             <span class="dpanel-kpi__num dpanel-kpi__num--<?= $kpiBloq($bloqAsistencia) ?>"><?= $bloqAsistencia ?>/<?= $nSec ?></span>
             <span class="dpanel-kpi__label">Asistencia bloqueada</span>
         </div>
-        <div class="dpanel-kpi">
-            <span class="dpanel-kpi__num dpanel-kpi__num--<?= $diasMod ?>"><?= $diasTxt ?></span>
-            <span class="dpanel-kpi__label"><?= $diasSub ?></span>
-        </div>
+        <?php // Umbrales en el punto único compartido con el panel docente. ?>
+        <?php require VIEW_PATH . '/shared/_kpi-dias-cierre.php'; ?>
     </div>
 
     <div class="dpanel-grid">
