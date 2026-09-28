@@ -184,6 +184,7 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | Orden de mérito, snapshot, desempates, rectificaciones | `docs/modulos/orden-merito.md` |
 | Usuarios, secciones/tutores, Director EBR, panel de bloqueos, conducta | `docs/modulos/admin.md` |
 | **Usuarios de Dirección** (los 3 directores, solo lectura, `ROLES_DIRECCION`) | `docs/modulos/usuarios-direccion.md` |
+| **Auxiliar académico** (rol, asignación de secciones por bimestre, `puedeRegistrar`, panel, entrada por estudiante, documentos) | `docs/modulos/auxiliares.md` |
 | **Acompañamiento pedagógico: riesgo académico / situación final MINEDU + seguimiento** (PRO·RR·PER, `/admin/cuadros/acompanamiento`, A4) | `docs/modulos/usuarios-direccion.md` |
 | **Reglas de PROMOCIÓN DE GRADO** (situación final PRO·RR·PER por grado y ciclo, «la mitad», qué cuenta, SIAGIE) | `docs/modulos/promocion-de-grado.md` |
 | Exportación de notas al SIAGIE (llenado de Excel oficiales) | `docs/modulos/export-siagie.md` |

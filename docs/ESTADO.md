@@ -1,8 +1,38 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **27/09/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **28/09/2026**.
 > **Versión desplegada: v1.0.4** (`config/app.php` + tag anotado `v1.0.4`, 27/09/2026).
+
+
+## 🆕 MÓDULO AUXILIAR ACADÉMICO — EN CONSTRUCCIÓN en `dev`, pusheado (28/09/2026)
+
+**Fuente de verdad: `docs/modulos/auxiliares.md`.** Allí están las 16 decisiones del
+usuario (cerradas), lo construido por fase con sus commits, las trampas y **todo lo que
+falta, en orden**. El plan original vivía fuera del repo (solo en la máquina de la
+oficina); se pasó entero al doc para retomarlo desde cualquier equipo.
+
+- **Hecho y probado** (F0, F1, F2a, F2b, F3, F4a + 3 refactors): rol y asignación de
+  secciones por bimestre, registro y bloqueo de conducta y asistencia de SUS secciones,
+  entrada por estudiante, panel `/auxiliar/inicio`, nómina y horario de sus secciones.
+- **Sigue:** F4b (nómina de docentes) → F4c (planilla Excel/PDF) → F5 (comunicados) →
+  F6 (criterios de conducta por año) → repaso final con todos los roles → cierre.
+  **Cada fase trae preguntas abiertas anotadas en el doc: hacerlas antes de codificar.**
+- 🔴 **Migraciones a mano en producción, ANTES del push a `main`: `065` y `066`**
+  (`database/migrations/`). Ya aplicadas en local (oficina).
+- **NO desplegar a medias:** hasta la F3 el auxiliar aterrizaba en un 404; hoy el panel
+  existe, pero faltan F4b–F6 y el repaso final. Merge a `main` solo cuando el usuario
+  lo pida.
+- Cambios fuera del módulo que viajan en el mismo lote (todos con A/B de salida idéntica):
+  - las 5 copias del «híbrido» de retorno de grado → `matricula_documento()`
+    (`docs/modulos/retorno-grado.md`);
+  - la nómina y el horario de sección pasan a modelos (`NominaModel`,
+    `HorarioModel::documentoSeccion`);
+  - el KPI «días para el cierre» es un parcial compartido;
+  - Asistencia tiene color de wayfinding propio, también en `/director/bloqueos`
+    (`docs/modulos/ui.md`);
+  - fix: desactivar o trasladar a un estudiante solo apaga las cuentas de padre
+    (`2d01a15`).
 
 
 ## 🟢 DESCRIPCIONES DE LAS CARDS DEL DASHBOARD + SITUACIÓN FINAL OFICIAL — DESPLEGADO el 27/09/2026 (sin cambio de versión: sigue v1.0.4)
@@ -1854,9 +1884,16 @@ En cuanto esto se mergee a `main`, HEAD traerá el código nuevo y el contraste
 dejará de probar nada. **Es un verificador de la migración, no permanente**:
 retirarlo o reescribirlo tras el merge.
 
-## 🔵 PLAN — FLUJO PROPIO PARA LOS AUXILIARES (planteado 25/08/2026, SIN implementar)
+## 🔵 PLAN — FLUJO PROPIO PARA LOS AUXILIARES (planteado 25/08/2026) → RETOMADO el 28/09/2026
 
-Requisitos del usuario, tal como los dio. **Nada de esto está construido.**
+> ⚠️ **Sección histórica.** Desde el 28/09/2026 este plan se está construyendo como el
+> módulo **auxiliar académico**: el rol ya existe (migración 065), la línea de firma se
+> rellena (D12) y la **entrada por estudiante** (punto 3 de abajo, que estaba «sin
+> decidir») se implementó como segunda entrada, junto a la grilla. **Estado real y
+> pendientes: `docs/modulos/auxiliares.md`.** Lo de abajo se conserva como contexto de
+> la decisión (sobre todo, por qué la grilla se mantiene).
+
+Requisitos del usuario, tal como los dio el 25/08.
 
 1. Los auxiliares **no tienen formación técnica** y se les complican los
    aplicativos web.
@@ -4533,6 +4570,12 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟡 **28/09/2026 — PUSH A `dev`, NO ES UN DEPLOY.** Módulo auxiliar académico en
+  construcción. `origin/dev` ya traía F0–F2a (`dcd2c9e`…`208b75e`, subidos antes); este
+  push suma F2b, F3, F4a, los 3 refactors y la documentación (`48f7731`…).
+  **`main` NO se movió.**
+  Migraciones nuevas `065` y `066`, que en producción se aplican a mano ANTES del
+  merge. Detalle y pendientes: `docs/modulos/auxiliares.md`. Batería 50/50.
 - 🟢 **22/09/2026 — DEPLOY v1.0.3.** `main` pasó de `0cf974d` a `2034f4b` (merge `--no-ff` de
   `dev` en `289e425`, 3 commits), tag anotado `v1.0.3`. Migración `063` aplicada a mano en
   producción ANTES del push. Producción sirve el JS nuevo del lote (comprobado con curl).
