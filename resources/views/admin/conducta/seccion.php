@@ -40,6 +40,12 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
             <?php endif; ?>
         </p>
     </div>
+    <?php // Segunda entrada del registro (un estudiante por pantalla). Solo
+          // cuando hay algo que registrar: la pantalla no muestra historial. ?>
+    <?php if ($periodoVer && !$soloLectura && !$bloqueada && !empty($estudiantes) && $total > 0): ?>
+        <a href="<?= url('admin/conducta/' . (int) $seccion['id'] . '/estudiante') ?>"
+           class="btn btn--primary btn--sm">Registrar por estudiante</a>
+    <?php endif; ?>
 </div>
 
 <?php if (!empty($periodosNav)): ?>

@@ -97,12 +97,14 @@ $router->get( '/admin/conducta',              'Admin\ConductaController@index');
 $router->post('/admin/conducta/guardar',      'Admin\ConductaController@guardar');
 $router->post('/admin/conducta/{id}/bloquear','Admin\ConductaController@bloquear');
 $router->get( '/admin/conducta/{id}/imprimir/{periodo_id}', 'Admin\ConductaController@imprimir');
+$router->get( '/admin/conducta/{id}/estudiante', 'Admin\ConductaController@estudiante');
 $router->get( '/admin/conducta/{id}',         'Admin\ConductaController@seccion');
 
 // ─── Admin — Asistencia (incidencias) ───────────────────────
 $router->get( '/admin/asistencia',            'Admin\AsistenciaController@index');
 $router->post('/admin/asistencia/{id}/bloquear','Admin\AsistenciaController@bloquear');
 $router->get( '/admin/asistencia/{id}/imprimir/{periodo_id}', 'Admin\AsistenciaController@imprimir');
+$router->get( '/admin/asistencia/{id}/estudiante', 'Admin\AsistenciaController@estudiante');
 $router->get( '/admin/asistencia/{id}',       'Admin\AsistenciaController@seccion');
 $router->post('/admin/asistencia/guardar',    'Admin\AsistenciaController@guardar');
 

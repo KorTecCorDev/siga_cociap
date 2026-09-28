@@ -70,13 +70,27 @@ $cuerpoDe = function (string $src, string $metodo): string {
 };
 foreach (['Asistencia', 'Conducta'] as $mod) {
     $s = $src("app/Controllers/Admin/{$mod}Controller.php");
-    foreach (['seccion', 'guardar', 'bloquear', 'imprimir'] as $met) {
+    foreach (['seccion', 'guardar', 'bloquear', 'imprimir', 'estudiante'] as $met) {
         $chk("{$mod}Controller::{$met} verifica la sección del auxiliar",
             str_contains($cuerpoDe($s, $met), '$this->puede('));
     }
     $chk("{$mod}Controller::index filtra las secciones del auxiliar",
         str_contains($cuerpoDe($s, 'index'), 'seccionesDe('));
+    // La entrada por estudiante (F2b) es solo para registrar: con la sección
+    // bloqueada devuelve a la grilla en vez de pintar controles que el
+    // servidor rechazaría.
+    $chk("{$mod}Controller::estudiante devuelve a la grilla si la sección está bloqueada",
+        str_contains($cuerpoDe($s, 'estudiante'), 'getCierreVigente('));
 }
+// Reuso sin copia: la pantalla por estudiante guarda con el guardarFila() de
+// conducta.js / asistencia.js. Si registro-estudiante.js hiciera su propio
+// fetch, habría dos puntos de escritura en el cliente que divergirían.
+$js = $src('resources/js/registro-estudiante.js');
+$chk('registro-estudiante.js guarda con el guardarFila() compartido, sin fetch propio',
+    str_contains($js, 'guardarFila(') && !str_contains($js, 'fetch('));
+$chk('asistencia.js::guardarFila informa si guardó (lo usa «Guardar y siguiente»)',
+    substr_count($src('resources/js/asistencia.js'), 'return true;') >= 1
+    && substr_count($src('resources/js/asistencia.js'), 'return false;') >= 2);
 $chk('ConductaController::guardar exige el roster (faltaba desde siempre)',
     str_contains($cuerpoDe($src('app/Controllers/Admin/ConductaController.php'), 'guardar'), 'matriculaEnRoster('));
 

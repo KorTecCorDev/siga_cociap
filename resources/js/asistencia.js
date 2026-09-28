@@ -64,6 +64,8 @@ function sanearInput(input) {
     input.value = String(n);
 }
 
+// Devuelve true si guardó. La grilla lo ignora; la entrada por estudiante
+// (registro-estudiante.js) lo usa para avanzar solo si el guardado salió bien.
 async function guardarFila(fila) {
     const matriculaId = fila.dataset.matriculaId;
     const periodoId   = fila.dataset.periodoId;
@@ -103,18 +105,21 @@ async function guardarFila(fila) {
             recalcularCambiosFila(fila);
             mostrarStatusFila(fila, 'success', '✓ Guardado');
             mostrarFeedback('ok', '✓ Guardado');
+            return true;
         } else {
             // Rollback: restaurar los inputs y mantener el estado anterior.
             inputs.forEach(i => { i.value = valoresPrevios[i.name]; });
             recalcularCambiosFila(fila);
             mostrarStatusFila(fila, 'error', '⚠ ' + (data.mensaje ?? 'Error.'), true);
             mostrarFeedback('error', '⚠ ' + (data.mensaje ?? 'Error al guardar.'));
+            return false;
         }
     } catch (err) {
         inputs.forEach(i => { i.value = valoresPrevios[i.name]; });
         recalcularCambiosFila(fila);
         mostrarStatusFila(fila, 'error', '⚠ Error de conexión.', true);
         mostrarFeedback('error', '⚠ Error de conexión.');
+        return false;
     } finally {
         btn.disabled = false;
     }

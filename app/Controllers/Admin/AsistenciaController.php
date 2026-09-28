@@ -193,6 +193,78 @@ class AsistenciaController extends BaseController
         ]);
     }
 
+    // GET /admin/asistencia/{seccion_id}/estudiante   (?m={matricula_id})
+    // Segunda entrada del registro (28/09/2026): UN estudiante por pantalla, con
+    // los 4 contadores grandes y botones −/+, pensada para el celular del
+    // auxiliar. Convive con la grilla y guarda por el MISMO endpoint (`guardar`),
+    // así que no añade ninguna regla de escritura. Es solo para REGISTRAR: sin
+    // bimestre editable, o con la sección ya bloqueada, devuelve a la grilla.
+    public function estudiante(string $seccionId): void
+    {
+        $this->requireRole(self::ROLES_REGISTRAN);
+        $seccionId = (int) $seccionId;
+        $seccion   = $this->buscarSeccion($seccionId);
+        if (!$seccion) {
+            $this->redirectWithError(url('admin/asistencia'), 'Sección no encontrada.');
+        }
+
+        $grilla  = url('admin/asistencia/' . $seccionId);
+        $periodo = null;
+        foreach ($this->model->listarPeriodosActivos() as $p) {
+            if ((bool) $p['editable']) {
+                $periodo = $p;
+                break;
+            }
+        }
+        // Mismo corte que la grilla: al auxiliar, sin bimestre en curso no le
+        // queda ninguna sección suya.
+        if ($periodo === null && has_role(ROL_AUXILIAR)) {
+            $this->forbidden();
+        }
+        if ($periodo === null) {
+            $this->redirectWithError($grilla, 'No hay periodo abierto para edición.');
+        }
+        $pid = (int) $periodo['id'];
+        if (!$this->puede($seccionId, $pid)) {
+            $this->forbidden();
+        }
+        if ($this->model->getCierreVigente($seccionId, $pid)) {
+            $this->redirectWithError($grilla, 'La asistencia de esta sección ya fue bloqueada; no se puede editar.');
+        }
+
+        $estudiantes = $this->model->getEstudiantesConIncidencias($seccionId, $pid);
+        if (empty($estudiantes)) {
+            redirect($grilla);
+        }
+
+        $pos = 0;
+        $m   = (int) ($this->query('m') ?? 0);
+        if ($m) {
+            $pos = array_search($m, array_map('intval', array_column($estudiantes, 'matricula_id')), true);
+            if ($pos === false) {
+                $this->redirectWithError(
+                    url('admin/asistencia/' . $seccionId . '/estudiante'),
+                    'Ese estudiante no forma parte del registro de asistencia de la sección.'
+                );
+            }
+        }
+
+        $siguiente = $estudiantes[$pos + 1] ?? null;
+
+        $this->view('admin/asistencia/estudiante', [
+            'titulo'       => 'Asistencia — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
+            'seccion'      => $seccion,
+            'periodo'      => $periodo,
+            'estudiantes'  => $estudiantes,
+            'pos'          => $pos,
+            'siguienteUrl' => $siguiente
+                ? url('admin/asistencia/' . $seccionId . '/estudiante?m=' . (int) $siguiente['matricula_id'])
+                : $grilla,
+            'topeMax'      => self::TOPE_MAX,
+            'page_scripts' => ['asistencia', 'registro-estudiante'],
+        ]);
+    }
+
     // POST /admin/asistencia/{seccion_id}/bloquear  (RA bloquea/aprueba la seccion)
     public function bloquear(string $seccionId): void
     {

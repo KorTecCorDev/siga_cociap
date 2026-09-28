@@ -39,6 +39,12 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
             <?php endif; ?>
         </p>
     </div>
+    <?php // Segunda entrada del registro (un estudiante por pantalla). Solo
+          // cuando hay algo que registrar: la pantalla no muestra historial. ?>
+    <?php if ($periodoVer && $editable && !empty($estudiantes)): ?>
+        <a href="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/estudiante') ?>"
+           class="btn btn--primary btn--sm">Registrar por estudiante</a>
+    <?php endif; ?>
 </div>
 
 <?php if (!empty($periodosNav)): ?>

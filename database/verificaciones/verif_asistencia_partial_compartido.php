@@ -160,7 +160,8 @@ $ctl = file_get_contents(ROOT_PATH . '/app/Controllers/Admin/AsistenciaControlle
 $chk('el constructor admite Direccion',
     (bool) preg_match('/__construct.*?requireRole\(\[\.\.\.self::ROLES_REGISTRAN, \.\.\.ROLES_DIRECCION\]\)/s', $ctl));
 // Cada metodo publico enrutado, salvo `imprimir`, debe re-restringir.
-foreach (['index', 'seccion', 'bloquear', 'guardar'] as $metodo) {
+// `estudiante` (entrada por estudiante, 28/09/2026) es de REGISTRO: Direccion no.
+foreach (['index', 'seccion', 'bloquear', 'guardar', 'estudiante'] as $metodo) {
     $chk("{$metodo}() sigue restringido a quien registra",
         (bool) preg_match(
             '/public function ' . $metodo . '\([^)]*\): void\s*\{\s*\$this->requireRole\(self::ROLES_REGISTRAN\);/s',
@@ -174,7 +175,7 @@ $chk('imprimir() NO se re-restringe (es la que ve Direccion)',
 preg_match_all('/public function (\w+)\(/', $ctl, $m);
 $publicos = array_values(array_diff($m[1], ['__construct']));
 sort($publicos);
-$esperados = ['bloquear', 'guardar', 'imprimir', 'index', 'seccion'];
+$esperados = ['bloquear', 'estudiante', 'guardar', 'imprimir', 'index', 'seccion'];
 $chk('no nacio ningun metodo publico sin decidir su rol: ' . implode(', ', $publicos),
     $publicos === $esperados);
 
