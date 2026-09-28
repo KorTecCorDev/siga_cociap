@@ -48,6 +48,13 @@ $chk('existe la tabla auxiliar_secciones',
 // ── 2) Superficies que no pueden leer la constante ───────────────
 echo "2) Aterrizaje, dashboard, rutas y CSS\n";
 $src = fn(string $f): string => (string) file_get_contents(ROOT_PATH . '/' . $f);
+// Cuerpo de un método (de `function x(` a su llave de cierre con 4 espacios).
+$cuerpoDe = function (string $src, string $metodo): string {
+    if (!preg_match('/function ' . $metodo . '\(.*?\n    \}\n/s', str_replace("\r\n", "\n", $src), $mm)) {
+        return '';
+    }
+    return $mm[0];
+};
 $chk('AuthController::redirigirPorRol tiene destino para ROL_AUXILIAR',
     str_contains($src('app/Controllers/Auth/AuthController.php'), "ROL_AUXILIAR        => url('auxiliar/inicio')"));
 $chk('DashboardController no lo deja caer a /login (bucle)',
@@ -71,6 +78,27 @@ $chk('Asistencia tiene color propio en el panel y en /director/bloqueos (no el n
     str_contains($css, '.dpanel-card--asistencia') && str_contains($css, 'bloqueos-tabcard--asistencia{border-left-color:#4d7c0f}'));
 $chk('el icono de la card Asistencia existe en disco',
     is_file(ROOT_PATH . '/public/assets/icons/calendar-add.svg'));
+// F4a — nómina y horario de SUS secciones. Cada documento pasa por la guarda de
+// sección (sin ella, cualquier auxiliar imprimiría la nómina —con celulares de
+// apoderados— de todo el colegio cambiando el id en la URL).
+$panel = $src('app/Controllers/Auxiliar/PanelController.php');
+foreach (['nominaImprimir', 'horario'] as $met) {
+    $chk("Auxiliar\\PanelController::{$met} exige que la sección sea suya",
+        str_contains($cuerpoDe($panel, $met), '$this->exigirSeccionPropia('));
+}
+$chk('rutas de nómina y horario del auxiliar registradas',
+    str_contains($src('routes/web.php'), "'/auxiliar/nomina/{seccion_id}/imprimir'")
+    && str_contains($src('routes/web.php'), "'/auxiliar/horario/{seccion_id}'"));
+// Reuso sin copia: la nómina y el horario salen de UN modelo cada uno, que usan
+// también el docente y Dirección. Si un controlador vuelve a escribir su SQL, las
+// dos nóminas (o los dos horarios) divergirán.
+$chk('el panel docente delega la nómina en NominaModel (sin SQL propio)',
+    !str_contains($cuerpoDe($src('app/Controllers/Docente/PanelController.php'), 'getMatriculados'), 'FROM matriculas'));
+$chk('Dirección arma el horario de sección con HorarioModel::documentoSeccion',
+    str_contains($src('app/Controllers/Director/CargaAcademicaController.php'), '->documentoSeccion('));
+$chk('el panel del auxiliar no identifica niveles por id escrito a mano',
+    !preg_match('/resumenPorSeccion\(\s*\[\s*\d/', $panel));
+
 // KPI «días para el cierre»: los umbrales viven SOLO en el parcial compartido.
 // Una vista que vuelva a calcular `$diasMod` es una copia que divergirá.
 foreach (['docente/inicio.php', 'auxiliar/inicio.php'] as $vista) {
@@ -83,12 +111,6 @@ foreach (['docente/inicio.php', 'auxiliar/inicio.php'] as $vista) {
 // Guarda estructural: el rol del auxiliar está en la lista de los que operan,
 // así que un método SIN esta llamada le abriría TODAS las secciones.
 echo "2b) Guardas por sección en los controladores de registro\n";
-$cuerpoDe = function (string $src, string $metodo): string {
-    if (!preg_match('/function ' . $metodo . '\(.*?\n    \}\n/s', str_replace("\r\n", "\n", $src), $mm)) {
-        return '';
-    }
-    return $mm[0];
-};
 foreach (['Asistencia', 'Conducta'] as $mod) {
     $s = $src("app/Controllers/Admin/{$mod}Controller.php");
     foreach (['seccion', 'guardar', 'bloquear', 'imprimir', 'estudiante'] as $met) {

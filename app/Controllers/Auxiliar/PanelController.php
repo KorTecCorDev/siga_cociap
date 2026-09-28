@@ -6,7 +6,11 @@ use App\Controllers\BaseController;
 use App\Models\AsistenciaModel;
 use App\Models\AuxiliarSeccionModel;
 use App\Models\ConductaModel;
+use App\Models\DirectorEbrModel;
+use App\Models\HorarioModel;
+use App\Models\NominaModel;
 use Core\Session;
+use Core\View;
 
 /**
  * Panel del AUXILIAR ACADÉMICO (28/09/2026): `/auxiliar/inicio`, a donde llega
@@ -49,25 +53,36 @@ class PanelController extends BaseController
             $mias     = (new AuxiliarSeccionModel())->seccionesDe((int) Session::user()['id'], $pid);
             $progC    = $conducta->getProgresoConductaPorSeccion($pid);
             $progA    = $asistencia->getProgresoPorSeccion($pid);
+            $todas    = array_values(array_filter(
+                $conducta->listarSeccionesActivas(),
+                static fn($s) => in_array((int) $s['id'], $mias, true)
+            ));
+            // Matriculados de la NÓMINA (documento: solo 'aprobada'), del mismo
+            // modelo que la imprime, para que la card y el documento cuadren. No
+            // es el roster de evaluación de los KPIs: ahí también van los
+            // 'pendiente', que se registran pero aún no figuran en la nómina.
+            // Los niveles salen de las propias secciones: nunca ids a mano.
+            $nomina   = array_column(
+                (new NominaModel())->resumenPorSeccion(array_unique(array_column($todas, 'nivel_id'))),
+                'n', 'seccion_id'
+            );
 
-            foreach ($conducta->listarSeccionesActivas() as $s) {
+            foreach ($todas as $s) {
                 $sid = (int) $s['id'];
-                if (!in_array($sid, $mias, true)) {
-                    continue;
-                }
                 $c = $progC[$sid] ?? ['esperados' => 0, 'calificados' => 0];
                 $a = $progA[$sid] ?? ['esperados' => 0, 'registrados' => 0];
 
                 $secciones[] = [
-                    'id'         => $sid,
-                    'etiqueta'   => trim($s['grado_nombre'] . ' ' . $s['seccion_nombre']),
-                    'nivel'      => $s['nivel_nombre'],
-                    'estudiantes' => $a['esperados'],
-                    'conducta'   => self::estado(
+                    'id'           => $sid,
+                    'etiqueta'     => trim($s['grado_nombre'] . ' ' . $s['seccion_nombre']),
+                    'nivel'        => $s['nivel_nombre'],
+                    'estudiantes'  => $a['esperados'],
+                    'matriculados' => (int) ($nomina[$sid] ?? 0),
+                    'conducta'     => self::estado(
                         $conducta->getCierreVigente($sid, $pid), $editable,
                         $c['calificados'], $c['esperados'], true
                     ),
-                    'asistencia' => self::estado(
+                    'asistencia'   => self::estado(
                         $asistencia->getCierreVigente($sid, $pid), $editable,
                         $a['registrados'], $a['esperados'], false
                     ),
@@ -91,6 +106,66 @@ class PanelController extends BaseController
             'bloqAsistencia' => count(array_filter($secciones, static fn($s) => $s['asistencia']['bloqueada'])),
             'diasCierre'     => $diasCierre,
         ]);
+    }
+
+    // GET /auxiliar/nomina/{seccion_id}/imprimir
+    // La MISMA nómina A4 del docente (`docente/nomina-imprimir.php`, decisión
+    // D5), con los datos de `NominaModel`, pero solo de una sección a su cargo.
+    public function nominaImprimir(string $seccionId): void
+    {
+        $seccionId = (int) $seccionId;
+        $this->exigirSeccionPropia($seccionId);
+
+        $nomina  = new NominaModel();
+        $seccion = $nomina->seccion($seccionId);
+        if (!$seccion) {
+            $this->notFound();
+        }
+
+        $anio = (new AuxiliarSeccionModel())->periodoActivo();
+        $anio = $anio ? ['id' => (int) $anio['anio_id'], 'anio' => $anio['anio']] : null;
+
+        View::setLayout('print');
+        $this->view('docente/nomina-imprimir', [
+            'titulo'      => 'Nómina ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
+            'seccion'     => $seccion,
+            'alumnos'     => $nomina->matriculados([(int) $seccion['nivel_id']], $seccionId),
+            'directorEbr' => $anio ? (new DirectorEbrModel())->getVigenteEnFecha($anio['id']) : null,
+            'anio'        => $anio,
+        ]);
+    }
+
+    // GET /auxiliar/horario/{seccion_id}
+    // El MISMO documento que ve Dirección (`director/horario-seccion.php`,
+    // decisión D16), armado por `HorarioModel::documentoSeccion`.
+    public function horario(string $seccionId): void
+    {
+        $seccionId = (int) $seccionId;
+        $this->exigirSeccionPropia($seccionId);
+
+        $datos = (new HorarioModel())->documentoSeccion($seccionId);
+        if ($datos === null) {
+            $this->notFound();
+        }
+
+        View::setLayout('print');
+        $this->view('director/horario-seccion', array_merge($datos, [
+            'titulo' => 'Horario — ' . $datos['seccion']['grado_nombre'] . ' ' . $datos['seccion']['seccion_nombre'],
+        ]));
+    }
+
+    /**
+     * Corta con 403 si la sección no está a cargo del auxiliar en el bimestre
+     * EN CURSO. Documentos del día a día: no hay historial por bimestre.
+     * El permiso sale del punto único `AuxiliarSeccionModel::puedeRegistrar()`.
+     */
+    private function exigirSeccionPropia(int $seccionId): void
+    {
+        $aux     = new AuxiliarSeccionModel();
+        $periodo = $aux->periodoActivo();
+        if ($periodo === null || !$aux->puedeRegistrar(Session::user() ?? [], $seccionId, (int) $periodo['id'])) {
+            $this->forbidden();
+        }
     }
 
     /**

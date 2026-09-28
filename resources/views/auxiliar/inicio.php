@@ -124,6 +124,42 @@ $cards = [
                 </ul>
             </div>
         <?php endforeach; ?>
+
+        <?php // Nómina y horario de cada sección (F4a). Las cifras son las de la
+              // NÓMINA (solo 'aprobada'), del mismo modelo que la imprime; por eso
+              // se rotulan «matriculados» y no «estudiantes» (ese es el roster de
+              // los KPIs, que suma a los 'pendiente'). El Horario cuelga de esta
+              // card, como Mérito y Ranking en la card Nómina del docente. ?>
+        <div class="card dpanel-card dpanel-card--nomina dpanel-card--acciones">
+            <div class="dpanel-card__head">
+                <h2 class="card__title">Nómina de matriculados</h2>
+                <span class="badge badge--activo"><?= array_sum(array_column($secciones, 'matriculados')) ?> matriculados</span>
+            </div>
+            <p class="dpanel-card__sub">La nómina y el horario de cada sección a tu cargo, listos para imprimir.</p>
+
+            <ul class="aux-secciones">
+                <?php foreach ($secciones as $s): ?>
+                    <li class="aux-seccion aux-seccion--acciones">
+                        <span class="aux-seccion__nombre">
+                            <?= e($s['etiqueta']) ?>
+                            <span class="aux-seccion__nivel"><?= e($s['nivel']) ?> · <?= (int) $s['matriculados'] ?> matriculados</span>
+                        </span>
+                        <span class="aux-seccion__acciones">
+                            <a href="<?= url('auxiliar/nomina/' . $s['id'] . '/imprimir') ?>" target="_blank" rel="noopener"
+                               class="dpanel-card__accion dpanel-card__accion--nomina">
+                                <span class="dpanel-card__accion-ico" aria-hidden="true"></span>
+                                Nómina
+                            </a>
+                            <a href="<?= url('auxiliar/horario/' . $s['id']) ?>" target="_blank" rel="noopener"
+                               class="dpanel-card__accion dpanel-card__accion--horario">
+                                <span class="dpanel-card__accion-ico" aria-hidden="true"></span>
+                                Horario
+                            </a>
+                        </span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
     </div>
 
 <?php endif; ?>

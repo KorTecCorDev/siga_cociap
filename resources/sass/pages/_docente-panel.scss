@@ -120,6 +120,8 @@
         --dpanel-icon: url("../assets/icons/childs-students.svg");
         border-left: 4px solid $card-nomina-line;
         .card__title { color: $card-nomina-ink; }
+        // La cifra del badge no se parte en dos renglones («78 / matriculados»).
+        .dpanel-card__head .badge { white-space: nowrap; }
     }
     // Mismo glifo que «Estudiantes en riesgo» en el panel de Dirección: mismo
     // concepto, mismo icono en todo el sistema. Ninguna otra card del docente
@@ -182,6 +184,27 @@
     }
 
     &__ir { color: $text-muted; }
+
+    // Fila con varias acciones (card Nómina): la fila no es un enlace, lo son
+    // sus botones. Sin fondo al pasar el ratón; en el celular los botones bajan
+    // bajo el nombre en vez de apretarlo.
+    // Los botones van DEBAJO del nombre: junto a él, en una columna de 280 px,
+    // «Primaria · 22 matriculados» no cabía y se partía a mitad de frase.
+    &--acciones {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: $spacing-xs;
+
+        &:hover { background: none; }
+    }
+
+    &__acciones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+
+        .dpanel-card__accion { min-height: 40px; }
+    }
 }
 
 // ── Wayfinding en el h1 de la vista destino ──────────────────
@@ -787,6 +810,8 @@
     &--nomina  { --accion-icon: url("../assets/icons/childs-students.svg"); }
     &--merito  { --accion-icon: url("../assets/icons/medal-ribbon-star.svg"); }
     &--seccion { --accion-icon: url("../assets/icons/ver-resumen.svg"); }
+    // Mismo glifo que el panel «Mi horario» del docente: mismo concepto.
+    &--horario { --accion-icon: url("../assets/icons/calendar.svg"); }
 }
 
 .dpanel-card__accion-ico {

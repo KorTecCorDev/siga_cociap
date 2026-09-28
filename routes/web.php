@@ -89,6 +89,8 @@ $router->get( '/admin/auxiliares',                        'Admin\AuxiliarControl
 $router->post('/admin/auxiliares/{seccion_id}/asignar',   'Admin\AuxiliarController@asignar');
 // Panel del auxiliar académico: su aterrizaje tras iniciar sesión (28/09/2026).
 $router->get( '/auxiliar/inicio',                         'Auxiliar\PanelController@inicio');
+$router->get( '/auxiliar/nomina/{seccion_id}/imprimir',   'Auxiliar\PanelController@nominaImprimir');
+$router->get( '/auxiliar/horario/{seccion_id}',           'Auxiliar\PanelController@horario');
 
 // ─── Admin — Buscador de estudiantes ────────────────────────
 $router->get( '/admin/buscar-estudiante',     'Admin\BuscadorEstudianteController@index');
