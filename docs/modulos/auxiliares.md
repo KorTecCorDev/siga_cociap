@@ -3,11 +3,11 @@
 > **ESTADO (28/09/2026, fin del turno tarde): EN CONSTRUCCIÓN en `dev` — NO desplegado.**
 > Hechas y probadas: F0, F1, F2a, F2b, F3, F4a, F4b y F4c (+ 3 refactors previos a
 > la F4; F4b y F4c aprobadas por el usuario, la F4c tras su rediseño).
-> **Sigue la F5 (comunicados).** Pendientes: F5, F6, el repaso final con todos los
-> roles y el cierre (todo en §7). Merge a `main`: solo cuando el
-> usuario lo pida.
-> 🔴 **Al desplegar: aplicar A MANO en producción las migraciones `065` y `066`
-> ANTES del push a `main`** (ya aplicadas en local).
+> F5 (comunicados) y F6 (criterios de conducta por año) hechas y aprobadas por el usuario
+> en el navegador (29/09/2026). **Sigue: el repaso final con todos los roles y el cierre**
+> (todo en §7). Merge a `main`: solo cuando el usuario lo pida.
+> 🔴 **Al desplegar: aplicar A MANO en producción las migraciones `065`, `066` y `067`
+> ANTES del push a `main`** (ya aplicadas en local; la 067 es idempotente).
 >
 > Este doc sustituye al plan que vivía fuera del repo
 > (`~/.claude/plans/buen-d-a-en-el-floofy-minsky.md`, solo en la máquina de la
@@ -317,13 +317,43 @@ dónde van N°/nombres/tutor/auxiliar/pie) y **preguntar** lo que no esté decid
 `modo=blanco`, ¿las filas 10–11 van vacías?; ¿qué meses se ofrecen (los del bimestre)?;
 el nombre del archivo; el diseño del PDF. Luego, la card «Planilla» en el panel.
 
-### F5 — Comunicados (D13) (SIGUIENTE)
+### F5 — Comunicados (D13) (HECHA 28/09/2026)
+Hecho tal como se planeó abajo; `verif_notificaciones` crea un auxiliar de prueba en su
+transacción y prueba el destino en sus dos ramas (activo recibe, inactivo no) y que
+«Todos los docentes» no lo incluye.
 `NotificacionModel`: añadir `ROL_AUXILIAR` a `ROLES_RECEPTORES` (con eso aparece la
 campana en su navbar); `DESTINO_AUXILIARES = 'auxiliares'` en `DESTINOS` y su rama en
 `destinatariosDeComunicado`. `comunicados.destinos` es `varchar(100)` → sin migración.
 Leer antes `docs/modulos/notificaciones.md`.
 
-### F6 — Criterios de conducta por año (D14)
+### F6 — Criterios de conducta por año (D14) — HECHA (28/09/2026)
+Construido: migración **067** (`anio_id` sembrado por el año de las respuestas,
+`modificado_en/_por`), punto único `ConductaModel::criteriosDelAnio()` (las 4 subconsultas
+de completitud toman el año de la SECCIÓN; `getCriterios`/`totalCriterios` aceptan un año,
+por defecto el activo; la consulta de notas pasa el año DEL PERIODO porque abre años
+cerrados), `CriterioConductaModel` (todas las reglas en `validarEdicion`),
+`Admin\CriterioConductaController` (guardas por método), `/admin/conducta/criterios`
+(rutas ANTES de `/admin/conducta/{id}`), botón «Criterios» en `/admin/conducta`, card de
+Dirección, aviso en conducta si el año no tiene criterios. Verificador
+`verif_criterios_conducta_anio.php` (35 comprobaciones). A/B de `ConductaModel` antes y
+después: 249 consultas idénticas.
+**Observación preexistente (no es de la F6):** `_auth.scss` deja a `.form-input` un
+`padding-left: 40px` GLOBAL (el hueco del icono del login); en esta pantalla se corrige de
+forma local. Probablemente afecta a otros formularios (p. ej. el mensaje de comunicados).
+
+**Decisiones cerradas (28/09/2026):**
+- **Alcance:** versionado de datos (`anio_id`) + **pantalla de gestión**.
+- **Editan admin y RA**; **Dirección los ve en solo lectura**.
+- **Con respuestas registradas en ese año, solo se corrige la redacción**: no se
+  agregan, retiran, reordenan ni cambian de nivel. Sin respuestas, edición completa.
+- **Se registra quién y cuándo corrigió** (`modificado_en`, `modificado_por`), visible.
+- **Entrada:** botón «Criterios» en la cabecera de `/admin/conducta` (admin/RA) y card
+  propia «Criterios de conducta» en el dashboard de Dirección.
+- **Año nuevo:** botón «Copiar del año anterior» en un año sin criterios; mientras no
+  tenga, la pantalla de conducta lo avisa.
+- **Nivel por criterio:** Ambos / Primaria / Secundaria (la columna `nivel_id` ya existe).
+
+Lo que sigue es el análisis previo:
 Hoy `criterios_conducta` no tiene año, y el «vigente» (`eliminado_en IS NULL`) está
 copiado en ~6 consultas de `ConductaModel`: borrar un criterio alteraría la completitud
 de bimestres pasados. Diseño previsto: `anio_id` en `criterios_conducta` (backfill 2026)
@@ -359,7 +389,9 @@ la grilla desde antes.
    asistencia ahora también las registra el auxiliar), `docs/ESTADO.md` (registro del
    deploy en la sección Git) y `docs/decisiones-diferidas.md` (asistencia por QR 2027,
    §8).
-2. **Producción: migraciones 065 y 066 a mano ANTES del push a `main`.**
+2. **Producción: migraciones 065, 066 y 067 a mano ANTES del push a `main`.** La 067
+   cambia consultas de conducta de uso diario (completitud, boleta): sin ella, el código
+   nuevo falla al no encontrar `criterios_conducta.anio_id`.
 3. Crear los usuarios reales de los auxiliares. Datos necesarios: **DNI, apellidos,
    nombres, sexo** (obligatorios), **celular y correo** (recomendados), y la asignación
    de secciones de primaria y secundaria (según el modelo, primaria = 3 auxiliares con 4

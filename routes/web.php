@@ -103,6 +103,14 @@ $router->get( '/admin/buscar-estudiante',     'Admin\BuscadorEstudianteControlle
 $router->get( '/admin/buscar-estudiante/api', 'Admin\BuscadorEstudianteController@buscar');
 
 // ─── Admin — Conducta ───────────────────────────────────────
+// Criterios de conducta por año (F6, 28/09/2026). ANTES que /admin/conducta/{id}:
+// el router ancla por orden de registro y 'criterios' encajaría como {id}.
+$router->get( '/admin/conducta/criterios',              'Admin\CriterioConductaController@index');
+$router->post('/admin/conducta/criterios/crear',        'Admin\CriterioConductaController@crear');
+$router->post('/admin/conducta/criterios/copiar',       'Admin\CriterioConductaController@copiar');
+$router->post('/admin/conducta/criterios/{id}/editar',  'Admin\CriterioConductaController@actualizar');
+$router->post('/admin/conducta/criterios/{id}/retirar', 'Admin\CriterioConductaController@retirar');
+$router->post('/admin/conducta/criterios/{id}/mover',   'Admin\CriterioConductaController@mover');
 $router->get( '/admin/conducta',              'Admin\ConductaController@index');
 $router->post('/admin/conducta/guardar',      'Admin\ConductaController@guardar');
 $router->post('/admin/conducta/{id}/bloquear','Admin\ConductaController@bloquear');

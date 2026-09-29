@@ -12,17 +12,17 @@ usuario (cerradas), lo construido por fase con sus commits, las trampas y **todo
 falta, en orden**. El plan original vivía fuera del repo (solo en la máquina de la
 oficina); se pasó entero al doc para retomarlo desde cualquier equipo.
 
-- **Hecho y probado** (F0, F1, F2a, F2b, F3, F4a + 3 refactors): rol y asignación de
-  secciones por bimestre, registro y bloqueo de conducta y asistencia de SUS secciones,
-  entrada por estudiante, panel `/auxiliar/inicio`, nómina y horario de sus secciones.
-- **Sigue:** F4b (nómina de docentes) → F4c (planilla Excel/PDF) → F5 (comunicados) →
-  F6 (criterios de conducta por año) → repaso final con todos los roles → cierre.
-  **Cada fase trae preguntas abiertas anotadas en el doc: hacerlas antes de codificar.**
-- 🔴 **Migraciones a mano en producción, ANTES del push a `main`: `065` y `066`**
-  (`database/migrations/`). Ya aplicadas en local (oficina).
-- **NO desplegar a medias:** hasta la F3 el auxiliar aterrizaba en un 404; hoy el panel
-  existe, pero faltan F4b–F6 y el repaso final. Merge a `main` solo cuando el usuario
-  lo pida.
+- **Hecho** (F0–F6 + 3 refactors, 28/09/2026): rol y asignación de secciones por
+  bimestre, registro y bloqueo de conducta y asistencia de SUS secciones, entrada por
+  estudiante, panel `/auxiliar/inicio`, nómina y horario de sus secciones, nómina de
+  docentes, planilla de asistencia (solo admin/RA/Dirección), comunicados al auxiliar y
+  criterios de conducta por año con su pantalla. Todas las fases aprobadas por el
+  usuario en el navegador (F5 y F6 el 29/09/2026).
+- **Sigue:** repaso final con todos los roles → cierre (ver `docs/modulos/auxiliares.md` §7).
+- 🔴 **Migraciones a mano en producción, ANTES del push a `main`: `065`, `066` y `067`**
+  (`database/migrations/`). Ya aplicadas en local.
+- **NO desplegar a medias:** falta el repaso final. Merge a `main` solo cuando el
+  usuario lo pida.
 - Cambios fuera del módulo que viajan en el mismo lote (todos con A/B de salida idéntica):
   - las 5 copias del «híbrido» de retorno de grado → `matricula_documento()`
     (`docs/modulos/retorno-grado.md`);

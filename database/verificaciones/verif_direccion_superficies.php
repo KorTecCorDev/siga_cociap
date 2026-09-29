@@ -76,6 +76,8 @@ $esperadasDirector = [
     'documentos/nomina-docentes',
     // Planilla de asistencia manual (F4c, 28/09/2026): lectura, genera un documento.
     'documentos/planilla-asistencia',
+    // Criterios de conducta por año (F6, 28/09/2026): solo lectura para Dirección.
+    'admin/conducta/criterios',
 ];
 foreach (ROLES_DIRECCION as $rol) {
     $suyas = array_keys(array_filter($cards, fn($r) => in_array($rol, $r, true)));

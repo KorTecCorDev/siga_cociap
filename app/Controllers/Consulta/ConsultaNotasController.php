@@ -70,12 +70,14 @@ class ConsultaNotasController extends BaseController
      * como nacieron los bugs de asistencia del 04/08/2026. Los campos de conducta
      * que trae de propina los usa F3; F2 solo necesita id y nombre.
      */
-    private function rosterSeccion(int $seccionId, int $periodoId, int $nivelId): array
+    private function rosterSeccion(int $seccionId, int $periodoId, int $nivelId, int $anioId): array
     {
+        // Criterios del año DEL PERIODO (F6, 28/09/2026): esta consulta también
+        // abre bimestres de años cerrados, que tienen sus propios criterios.
         return $this->conductaModel->getEstudiantesParaTutor(
             $seccionId,
             $periodoId,
-            $this->conductaModel->totalCriterios($nivelId)
+            $this->conductaModel->totalCriterios($nivelId, $anioId)
         );
     }
 
@@ -383,7 +385,7 @@ class ConsultaNotasController extends BaseController
             'seccion'      => $seccion,
             'cierre'       => $cierre,
             'competencias' => $this->transModel->getCompetencias($nivelId),
-            'alumnos'      => $this->rosterSeccion($seccionId, $periodoId, $nivelId),
+            'alumnos'      => $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']),
             'promedios'    => $this->transModel->getPromediosSeccion($seccionId, $periodoId),
             'conclusiones' => $this->transModel->getConclusionesSeccion($seccionId, $periodoId),
         ]);
@@ -428,7 +430,7 @@ class ConsultaNotasController extends BaseController
         $primera = $filas[0];
         $nivelId = (int) $primera['nivel_id'];
 
-        $alumnos  = $this->rosterSeccion($seccionId, $periodoId, $nivelId);
+        $alumnos  = $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']);
         $esLegado = !empty($alumnos) && !empty($alumnos[0]['es_legado']);
 
         $this->view('consulta-notas/conducta', [
@@ -442,7 +444,7 @@ class ConsultaNotasController extends BaseController
             ],
             'cierre'    => $cierre,
             'alumnos'   => $alumnos,
-            'criterios' => $esLegado ? [] : $this->conductaModel->getCriterios($nivelId),
+            'criterios' => $esLegado ? [] : $this->conductaModel->getCriterios($nivelId, (int) $periodo['anio_id']),
             'esLegado'  => $esLegado,
         ]);
     }
@@ -509,7 +511,7 @@ class ConsultaNotasController extends BaseController
             ],
             'periodo'       => $periodo,
             'cierre'        => $cierre,
-            'criterios'     => $this->conductaModel->getCriterios($nivelId),
+            'criterios'     => $this->conductaModel->getCriterios($nivelId, (int) $periodo['anio_id']),
             'estudiantes'   => $estudiantes,
             'hayRespuestas' => $hayRespuestas,
             // El chrome de ESTA entrada: se vuelve a la conducta de la seccion, y

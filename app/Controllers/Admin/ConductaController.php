@@ -117,6 +117,8 @@ class ConductaController extends BaseController
             'periodosNav'   => $periodosNav,
             'esHistorial'   => $esHistorial,
             'progreso'      => $progreso,
+            // Año activo sin criterios (F6): se avisa en vez de dejar grillas vacías.
+            'sinCriterios'  => $this->model->getCriterios() === [],
         ]);
     }
 

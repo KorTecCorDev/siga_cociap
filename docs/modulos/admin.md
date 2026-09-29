@@ -541,6 +541,15 @@ tabla desplazada a la derecha, **saltar de fila** es un error caro.
 - En la vista de Dirección **no se activa nunca**: en solo lectura el partial no
   pinta inputs, y sin nada enfocable no hay `:focus-within`.
 
+## Conducta: criterios POR AÑO (28/09/2026, migración 067)
+
+- Cada año académico tiene SUS criterios (`criterios_conducta.anio_id`). La condición
+  «criterio vigente de un año y un nivel» vive SOLO en `ConductaModel::criteriosDelAnio()`;
+  las subconsultas de completitud toman el año de la SECCIÓN. Se gestionan en
+  `/admin/conducta/criterios` (admin y RA; Dirección en solo lectura). Con respuestas en
+  el año, solo se corrige la redacción y los códigos no se tocan. Detalle y reglas:
+  `docs/modulos/auxiliares.md` §7 F6.
+
 ## Conducta: código de criterio y grilla Sí/No compartida (25/08/2026)
 
 - **`criterios_conducta.codigo`** (migración **056**). Las grillas rotulan sus

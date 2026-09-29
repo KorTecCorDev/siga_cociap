@@ -66,25 +66,45 @@ class ConductaModel extends BaseModel
         ", [date('Y-m-d H:i:s')]);
     }
 
-    /** Criterios vigentes; si se pasa $nivelId, incluye los de ambos (nivel_id NULL). */
-    public function getCriterios(?int $nivelId = null): array
+    /** Año académico activo como expresión SQL (el año por defecto de los criterios). */
+    private const ANIO_ACTIVO_SQL = "(SELECT id FROM anios_academicos WHERE estado = 'activo' ORDER BY anio LIMIT 1)";
+
+    /**
+     * 🔴 PUNTO ÚNICO de «criterio VIGENTE de un año y un nivel» (F6, 28/09/2026,
+     * migración 067). Los criterios son POR AÑO: sin el `anio_id`, retirar o
+     * agregar un criterio para el año siguiente cambiaría la completitud de todos
+     * los bimestres pasados. Antes esta condición estaba copiada a mano en seis
+     * consultas; ninguna la vuelve a escribir.
+     *
+     * $k = alias de criterios_conducta; $anio y $nivel = expresión SQL (una
+     * columna como 's.anio_id' o un '?'). Constantes del código, nunca entrada.
+     */
+    public static function criteriosDelAnio(string $k, string $anio, string $nivel): string
     {
+        return "{$k}.eliminado_en IS NULL AND {$k}.anio_id = {$anio}"
+             . " AND ({$k}.nivel_id IS NULL OR {$k}.nivel_id = {$nivel})";
+    }
+
+    /**
+     * Criterios vigentes de un año (por defecto, el activo) para un nivel: los de
+     * ese nivel y los de ambos (nivel_id NULL). Sin $nivelId, todos los del año.
+     */
+    public function getCriterios(?int $nivelId = null, ?int $anioId = null): array
+    {
+        $anio   = $anioId !== null ? '?' : self::ANIO_ACTIVO_SQL;
+        $params = $anioId !== null ? [$anioId] : [];
         if ($nivelId === null) {
-            $filas = $this->query("
-                SELECT id, codigo, texto, orden, nivel_id
-                FROM criterios_conducta
-                WHERE eliminado_en IS NULL
-                ORDER BY orden, id
-            ");
+            $filtro = "k.eliminado_en IS NULL AND k.anio_id = {$anio}";
         } else {
-            $filas = $this->query("
-                SELECT id, codigo, texto, orden, nivel_id
-                FROM criterios_conducta
-                WHERE eliminado_en IS NULL
-                  AND (nivel_id IS NULL OR nivel_id = ?)
-                ORDER BY orden, id
-            ", [$nivelId]);
+            $filtro   = self::criteriosDelAnio('k', $anio, '?');
+            $params[] = $nivelId;
         }
+        $filas = $this->query("
+            SELECT k.id, k.codigo, k.texto, k.orden, k.nivel_id
+            FROM criterios_conducta k
+            WHERE {$filtro}
+            ORDER BY k.orden, k.id
+        ", $params);
 
         // 🔴 EL CODIGO SALE DE AQUI, NO DE LAS VISTAS. Se rotulaba a mano como
         // `C{$i + 1}` en el imprimible y en la grilla del tutor: dos copias de la
@@ -105,15 +125,19 @@ class ConductaModel extends BaseModel
         return $filas;
     }
 
-    /** Total de criterios vigentes que aplican a un nivel (para la formula y completitud). */
-    public function totalCriterios(int $nivelId): int
+    /**
+     * Total de criterios vigentes que aplican a un nivel en un año (por defecto,
+     * el activo), para la fórmula y la completitud.
+     */
+    public function totalCriterios(int $nivelId, ?int $anioId = null): int
     {
+        $anio   = $anioId !== null ? '?' : self::ANIO_ACTIVO_SQL;
+        $params = $anioId !== null ? [$anioId, $nivelId] : [$nivelId];
         $row = $this->queryOne("
             SELECT COUNT(*) AS total
-            FROM criterios_conducta
-            WHERE eliminado_en IS NULL
-              AND (nivel_id IS NULL OR nivel_id = ?)
-        ", [$nivelId]);
+            FROM criterios_conducta k
+            WHERE " . self::criteriosDelAnio('k', $anio, '?') . "
+        ", $params);
         return (int) ($row['total'] ?? 0);
     }
 
@@ -163,8 +187,7 @@ class ConductaModel extends BaseModel
                 COUNT(DISTINCT CASE
                     WHEN sub.respondidos > 0 AND sub.respondidos >= (
                         SELECT COUNT(*) FROM criterios_conducta k
-                        WHERE k.eliminado_en IS NULL
-                          AND (k.nivel_id IS NULL OR k.nivel_id = g.nivel_id)
+                        WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'g.nivel_id') . "
                     ) THEN m.id END) AS calificados,
                 MAX(z.id IS NOT NULL)              AS bloqueada,
                 MAX(z.tutor_cerrado_en IS NOT NULL) AS cerrada_tutor
@@ -757,8 +780,7 @@ class ConductaModel extends BaseModel
                 (SELECT COUNT(*) FROM conducta_respuestas r
                   WHERE r.matricula_id = m.id AND r.periodo_id = p.id) AS respondidos,
                 (SELECT COUNT(*) FROM criterios_conducta k
-                  WHERE k.eliminado_en IS NULL
-                    AND (k.nivel_id IS NULL OR k.nivel_id = g.nivel_id)) AS total_criterios,
+                  WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'g.nivel_id') . ") AS total_criterios,
                 EXISTS(SELECT 1 FROM cierres_conducta z
                   WHERE z.seccion_id = m.seccion_id AND z.periodo_id = p.id
                     AND z.anulado_en IS NULL) AS visible
@@ -822,8 +844,7 @@ class ConductaModel extends BaseModel
                 (SELECT COUNT(*) FROM conducta_respuestas r
                   WHERE r.matricula_id = m.id AND r.periodo_id = ?) AS respondidos,
                 (SELECT COUNT(*) FROM criterios_conducta k
-                  WHERE k.eliminado_en IS NULL
-                    AND (k.nivel_id IS NULL OR k.nivel_id = g.nivel_id)) AS total_criterios,
+                  WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'g.nivel_id') . ") AS total_criterios,
                 EXISTS(SELECT 1 FROM cierres_conducta z
                   WHERE z.seccion_id = m.seccion_id AND z.periodo_id = ?
                     AND z.anulado_en IS NULL) AS visible
@@ -902,8 +923,7 @@ class ConductaModel extends BaseModel
                 COALESCE(r.si, 0)          AS si,
                 COALESCE(r.respondidos, 0) AS respondidos,
                 (SELECT COUNT(*) FROM criterios_conducta k
-                  WHERE k.eliminado_en IS NULL
-                    AND (k.nivel_id IS NULL OR k.nivel_id = n.id)) AS total_criterios
+                  WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'n.id') . ") AS total_criterios
             FROM periodos p
             INNER JOIN secciones  s ON s.anio_id = p.anio_id AND s.estado_nomina = 'aprobada'
             INNER JOIN grados     g ON g.id = s.grado_id
