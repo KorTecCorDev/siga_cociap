@@ -121,16 +121,18 @@ class ConductaTutorController extends BaseController
         }
 
         $sid    = (int) $seccion['id'];
-        $cierre = $this->model->getCierreVigente($sid, $pid);
+        // Detalle: el mismo cierre vigente, con el nombre de quien bloqueó.
+        $cierre = $this->model->getCierreDetalle($sid, $pid);
         if (!$cierre) {
             $this->redirectWithError(
                 url('docente/conducta/' . $pid),
-                'Los criterios se pueden consultar cuando Registro Académico bloquee y apruebe la conducta de tu sección.'
+                'Los criterios se pueden consultar cuando se bloquee y apruebe la conducta de tu sección.'
             );
         }
 
         $criterios   = $this->model->getCriterios((int) $seccion['nivel_id']);
-        $estudiantes = $this->model->getEstudiantesParaRegistro($sid, $pid);
+        // Solo lectura: el tutor ve lo OFICIAL (confirmado), nunca un borrador.
+        $estudiantes = $this->model->getEstudiantesParaRegistro($sid, $pid, true);
 
         // B1 legado (literal directo): no existe matriz de respuestas.
         $hayRespuestas = false;
@@ -184,7 +186,7 @@ class ConductaTutorController extends BaseController
         if (!$cierre) {
             $this->json(['success' => false, 'mensaje' =>
                 'Todavía los auxiliares académicos no han registrado sus calificaciones de conducta. ' .
-                'Consulte con Registro Académico para más información.'], 403);
+                'Consulta con Registro Académico para más información.'], 403);
         }
         if (!empty($cierre['tutor_cerrado_en'])) {
             $this->json(['success' => false, 'mensaje' => 'La conducta de esta sección ya fue cerrada.'], 403);

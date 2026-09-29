@@ -65,6 +65,9 @@ $hayExtraordinaria = false;
                     <th class="tr-crit"><?= e($c['codigo']) ?></th>
                 <?php endforeach; ?>
                 <th class="tr-nota">Nota</th>
+                <?php // N° REPETIDO al final (decisión del usuario, 29/09/2026): guía la
+                      // lectura de una fila larga en el listado impreso. ?>
+                <th class="tr-num">N&deg;</th>
             </tr>
         </thead>
         <tbody>
@@ -98,6 +101,7 @@ $hayExtraordinaria = false;
                             &mdash;
                         <?php endif; ?>
                     </td>
+                    <td class="tr-num"><?= $idx + 1 ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

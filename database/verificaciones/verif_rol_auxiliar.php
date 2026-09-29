@@ -139,9 +139,23 @@ foreach (['docente/inicio.php', 'auxiliar/inicio.php'] as $vista) {
 echo "2b) Guardas por sección en los controladores de registro\n";
 foreach (['Asistencia', 'Conducta'] as $mod) {
     $s = $src("app/Controllers/Admin/{$mod}Controller.php");
+    // Conducta (29/09/2026): sus dos escrituras (`guardar` = borrador y
+    // `confirmar`) pasan por UN guardián común, `escrituraValidada`; la guarda
+    // vive ahí y cada escritura tiene que llamarlo.
+    $escrituras = $mod === 'Conducta' ? ['guardar', 'confirmar'] : ['guardar'];
     foreach (['seccion', 'guardar', 'bloquear', 'imprimir', 'estudiante'] as $met) {
+        $cuerpo = $cuerpoDe($s, $met);
+        if ($mod === 'Conducta' && in_array($met, $escrituras, true)) {
+            $cuerpo .= $cuerpoDe($s, 'escrituraValidada');
+        }
         $chk("{$mod}Controller::{$met} verifica la sección del auxiliar",
-            str_contains($cuerpoDe($s, $met), '$this->puede('));
+            str_contains($cuerpo, '$this->puede('));
+    }
+    if ($mod === 'Conducta') {
+        foreach ($escrituras as $met) {
+            $chk("ConductaController::{$met} pasa por el guardián común escrituraValidada()",
+                str_contains($cuerpoDe($s, $met), '$this->escrituraValidada()'));
+        }
     }
     $chk("{$mod}Controller::index filtra las secciones del auxiliar",
         str_contains($cuerpoDe($s, 'index'), 'seccionesDe('));
@@ -155,13 +169,14 @@ foreach (['Asistencia', 'Conducta'] as $mod) {
 // conducta.js / asistencia.js. Si registro-estudiante.js hiciera su propio
 // fetch, habría dos puntos de escritura en el cliente que divergirían.
 $js = $src('resources/js/registro-estudiante.js');
-$chk('registro-estudiante.js guarda con el guardarFila() compartido, sin fetch propio',
-    str_contains($js, 'guardarFila(') && !str_contains($js, 'fetch('));
+$chk('registro-estudiante.js escribe con las funciones compartidas (confirmarFila / confirmarAsistencia / guardarFila), sin fetch propio',
+    str_contains($js, 'confirmarFila(') && str_contains($js, 'confirmarAsistencia(')
+    && str_contains($js, 'guardarFila(') && !str_contains($js, 'fetch('));
 $chk('asistencia.js::guardarFila informa si guardó (lo usa «Guardar y siguiente»)',
     substr_count($src('resources/js/asistencia.js'), 'return true;') >= 1
     && substr_count($src('resources/js/asistencia.js'), 'return false;') >= 2);
-$chk('ConductaController::guardar exige el roster (faltaba desde siempre)',
-    str_contains($cuerpoDe($src('app/Controllers/Admin/ConductaController.php'), 'guardar'), 'matriculaEnRoster('));
+$chk('las escrituras de conducta exigen el roster (en su guardián común)',
+    str_contains($cuerpoDe($src('app/Controllers/Admin/ConductaController.php'), 'escrituraValidada'), 'matriculaEnRoster('));
 
 // ── 2c) Nómina de docentes: datos (solo lectura) ─────────────────
 echo "2c) Nómina de docentes: alcance del auxiliar y qué cuenta como carga\n";
@@ -177,7 +192,7 @@ $porNombre = function (array $doc): array {
 $todos = $porNombre($todo);
 $chk('el documento del colegio trae docentes', count($todos) > 0);
 $lineas = [];
-foreach ($todos as $d) { foreach ($d['cargas'] as $c) { $lineas[] = $c['areas']; } }
+foreach ($todos as $d) { foreach ($d['cargas'] as $c) { $lineas[] = implode('; ', $c['areas']); } }
 $chk('ninguna carga de Tutoría (TOE) ni transversal se lista como área',
     !preg_grep('/Tutor[íi]a \(TOE\)|Transversal/i', $lineas));
 // La carga TOE se omite porque la cubre la columna Tutoría: solo es cierto si

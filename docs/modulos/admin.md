@@ -7,6 +7,11 @@
 - **Rutas:** `GET/POST /admin/usuarios`, `/admin/usuarios/crear`, `/{id}/editar`, `/{id}/estado`
 - **Rol requerido:** solo `admin`
 - **Controlador:** `app/Controllers/Admin/UsuarioController.php`
+- **Registro Académico NO gestiona usuarios** (decisión del usuario, 29/09/2026). La card
+  del dashboard se le mostraba desde el origen del módulo, aunque el controlador siempre le
+  negó el acceso. Se le quitó la card y el enlace de `admin/director-ebr`. No abrirlo a RA,
+  ni siquiera parcialmente: la edición cambia el rol y la contraseña de cualquier cuenta, así
+  que RA podría tomar la del administrador.
 - **Vistas:** `resources/views/admin/usuarios/` (index.php, crear.php, editar.php)
 - **SASS:** `resources/sass/pages/_admin.scss`
 
@@ -207,10 +212,12 @@ tanto el dato desaparece de la boleta:
 | Reabrir transversal (sección) | **Sí** | `getTransversalesAgregadas` corta si no hay cierre vigente |
 | Liberar transversal (carga) | **Sí** | la competencia sale del promedio agregado, y además anula el cierre |
 | Reabrir conducta | **Sí** | `ConductaModel::getParaPeriodo` devuelve `null` (campo `visible`) |
-| Reabrir asistencia | **No** | `getDelBimestre` lee `inasistencias` sin mirar el cierre |
+| Reabrir asistencia | **Sí** (desde el 29/09/2026; antes **No**) | `AsistenciaModel::sqlVisible` exige confirmación **y** cierre vigente |
 
-⚠️ **Cada llamada pasa SU mensaje**: el efecto no es idéntico y el aviso de asistencia no
-debe prometer una pérdida de datos que no ocurre. En la vista los botones quedan
+⚠️ **Cada llamada pasa SU mensaje**: el efecto no es idéntico. (Hasta el 29/09/2026 la
+asistencia era la excepción y su aviso no prometía pérdida; desde la confirmación y la
+asistencia por fechas, sale de la boleta como la conducta. Ver
+`docs/modulos/confirmacion-y-asistencia-por-fechas.md`.) En la vista los botones quedan
 **inertes con el motivo en el `title`** (no desaparecen: se ve POR QUÉ no se puede),
 reusando `.btn:disabled` de `components/_buttons.scss` — sin SASS nuevo.
 

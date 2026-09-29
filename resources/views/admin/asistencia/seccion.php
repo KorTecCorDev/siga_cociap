@@ -14,6 +14,8 @@
  * @var array       $estudiantes  [{ matricula_id, nombre_completo, incidencias{...} }]
  * @var array       $totales      AsistenciaModel::totalesIncidencias($estudiantes)
  * @var int         $topeMax      valor máximo por contador (espejo del backend)
+ * @var bool        $porFechas    bimestre por fechas (migración 069): grilla mensual
+ * @var array       $fechas       datos de la grilla por fechas (ver _grilla-fechas.php)
  *
  * La TABLA vive en `_tabla-incidencias.php`, compartida con la consulta de
  * Direccion. Las variables de arriba son el contrato que ese partial espera.
@@ -97,11 +99,35 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
     </div>
 <?php endif; ?>
 
-<?php // La tabla es un PARTIAL COMPARTIDO con la consulta de Direccion: el mismo
-      // dato se pintaba en dos plantillas distintas. Ver _tabla-incidencias.php.
-      require VIEW_PATH . '/admin/asistencia/_tabla-incidencias.php'; ?>
+<?php if ($porFechas): ?>
+    <?php // Bimestre POR FECHAS (29/09/2026): grilla mensual día × estudiante. ?>
+    <?php require VIEW_PATH . '/admin/asistencia/_grilla-fechas.php'; ?>
+<?php else: ?>
+    <?php // La tabla es un PARTIAL COMPARTIDO con la consulta de Direccion: el mismo
+          // dato se pintaba en dos plantillas distintas. Ver _tabla-incidencias.php.
+          require VIEW_PATH . '/admin/asistencia/_tabla-incidencias.php'; ?>
+<?php endif; ?>
 
-<?php if ($editable): ?>
+<?php if ($editable && $porFechas):
+    $prog     = $fechas['progreso'];
+    $completo = $prog['esperados'] > 0 && $prog['registrados'] >= $prog['esperados']; ?>
+    <?php // Exige a TODOS confirmados (decisión b, 29/09/2026); el servidor lo
+          // vuelve a comprobar en `AsistenciaModel::bloquearRA`. ?>
+    <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/bloquear') ?>"
+          class="conducta-bloqueo-form"
+          onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Después solo Dirección podrá desbloquearla.');">
+        <?= csrf_field() ?>
+        <div class="conducta-bloqueo-info">
+            Confirmados: <strong><?= (int) $prog['registrados'] ?>/<?= (int) $prog['esperados'] ?></strong>
+            <?php if (!$completo): ?>
+                <span class="text-muted">— faltan estudiantes por confirmar</span>
+            <?php endif; ?>
+        </div>
+        <button type="submit" class="btn btn--success" <?= $completo ? '' : 'disabled' ?>>
+            <span class="btn-icon btn-icon--upload" aria-hidden="true"></span>Bloquear y aprobar
+        </button>
+    </form>
+<?php elseif ($editable): ?>
     <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/bloquear') ?>"
           class="conducta-bloqueo-form"
           onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Las filas sin registro cuentan como 0 incidencias. Después solo Dirección podrá desbloquearla.');">

@@ -327,6 +327,71 @@ if ($lblJust && (array_sum($vSin) > 0 || array_sum($vJust) > 0)) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// J1–J5 — JUSTIFICACIONES (29/09/2026). Todo lo calcula
+// `AsistenciaEstadisticaModel`; aquí solo se le da la forma de Frappe. Null en
+// los bimestres que no son por fechas: entonces no hay ningún gráfico J.
+// ─────────────────────────────────────────────────────────────────────
+$just = $bloques['justificaciones'] ?? null;
+
+if ($just) {
+    // J1 — Usos por motivo, FJ y TJ apiladas.
+    if (!empty($just['motivos'])) {
+        $chartData['justMotivos'] = [
+            'labels'   => array_column($just['motivos'], 'motivo'),
+            'datasets' => [
+                ['name' => 'Faltas justificadas',    'values' => array_column($just['motivos'], 'FJ')],
+                ['name' => 'Tardanzas justificadas', 'values' => array_column($just['motivos'], 'TJ')],
+            ],
+        ];
+    }
+
+    // J2 — Secciones, POR ESTUDIANTE, los cuatro tipos apilados.
+    $jSecc = array_values(array_filter($just['secciones'] ?? [], static fn(array $s): bool => $s['total'] > 0));
+    if ($jSecc) {
+        $chartData['justSecciones'] = [
+            'labels'   => array_column($jSecc, 'etq'),
+            'datasets' => [
+                ['name' => 'F',  'values' => array_column($jSecc, 'F')],
+                ['name' => 'FJ', 'values' => array_column($jSecc, 'FJ')],
+                ['name' => 'T',  'values' => array_column($jSecc, 'T')],
+                ['name' => 'TJ', 'values' => array_column($jSecc, 'TJ')],
+            ],
+        ];
+    }
+
+    // J3 — Tendencia semanal (promedio diario). Con una sola semana no hay tendencia.
+    if (count($just['semanas'] ?? []) >= 2) {
+        $chartData['justSemanas'] = [
+            'labels'   => array_column($just['semanas'], 'etq'),
+            'datasets' => [
+                ['name' => 'Faltas',    'values' => array_column($just['semanas'], 'faltas')],
+                ['name' => 'Tardanzas', 'values' => array_column($just['semanas'], 'tardanzas')],
+            ],
+        ];
+    }
+
+    // J4 — Patrón por día de la semana.
+    $jDias = $just['dias_semana'] ?? [];
+    if ($jDias && array_sum(array_column($jDias, 'faltas')) + array_sum(array_column($jDias, 'tardanzas')) > 0) {
+        $chartData['justDias'] = [
+            'labels'   => array_column($jDias, 'dia'),
+            'datasets' => [
+                ['name' => 'Faltas',    'values' => array_column($jDias, 'faltas')],
+                ['name' => 'Tardanzas', 'values' => array_column($jDias, 'tardanzas')],
+            ],
+        ];
+    }
+
+    // J5 — Oportunidad del registro por sección.
+    if (!empty($just['oportunidad'])) {
+        $chartData['justOportunidad'] = [
+            'labels' => array_column($just['oportunidad'], 'etq'),
+            'values' => array_column($just['oportunidad'], 'promedio_dias'),
+        ];
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // TABLAS DE VALORES — que el papel no dependa del cursor (04/09/2026)
 //
 // 🔴 EL PROBLEMA QUE RESUELVE: Frappe Charts escribe los valores SOLO en el
@@ -449,6 +514,37 @@ $metaGraficos = [
         'unidad' => '',
         'nota'   => 'Cuánto se justifica en cada nivel. Son contadores independientes: '
                   . 'una falta justificada no se descuenta de las faltas.',
+    ],
+    // ── Justificaciones (29/09/2026) ─────────────────────────────
+    'justMotivos' => [
+        'col'    => 'Motivo',
+        'unidad' => '',
+        'nota'   => 'Cuántas faltas y tardanzas se justificaron con cada motivo, de más a menos usado.',
+    ],
+    'justSecciones' => [
+        'col'    => 'Sección',
+        'unidad' => ' por estudiante',
+        'nota'   => 'Promedio por estudiante de cada tipo de incidencia, para comparar secciones de '
+                  . 'distinto tamaño. De mayor a menor. (P) primaria, (S) secundaria.',
+    ],
+    'justSemanas' => [
+        'col'    => 'Semana del',
+        'unidad' => ' por día',
+        'nota'   => 'Promedio diario de faltas y de tardanzas en el colegio, por semana '
+                  . '(F + FJ y T + TJ).',
+    ],
+    'justDias' => [
+        'col'    => 'Día',
+        'unidad' => ' en promedio',
+        'nota'   => 'Promedio de faltas y de tardanzas en el colegio por cada día de la semana '
+                  . 'transcurrido. Un lunes o un viernes que destaque señala un patrón.',
+    ],
+    'justOportunidad' => [
+        'col'    => 'Sección',
+        'serie'  => 'Días de demora',
+        'unidad' => ' días',
+        'nota'   => 'Días que pasan, en promedio, entre la fecha de la incidencia y su registro en '
+                  . 'el sistema. De mayor a menor.',
     ],
 ];
 

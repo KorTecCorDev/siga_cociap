@@ -193,24 +193,43 @@
     &__ir { color: $text-muted; }
 
     // Fila con varias acciones (card Nómina): la fila no es un enlace, lo son
-    // sus botones. Sin fondo al pasar el ratón; en el celular los botones bajan
-    // bajo el nombre en vez de apretarlo.
-    // Los botones van DEBAJO del nombre: junto a él, en una columna de 280 px,
-    // «Primaria · 22 matriculados» no cabía y se partía a mitad de frase.
+    // sus botones. Sin fondo al pasar el ratón.
+    // 🔴 UNA LÍNEA POR SECCIÓN, como Conducta y Asistencia (29/09/2026, pedido
+    // del usuario): con los botones DEBAJO del nombre cada fila medía el doble y
+    // la card no se alineaba con sus vecinas. Los botones van a la derecha y NO
+    // cambian su distribución (siempre lado a lado, `nowrap`); lo que se acomoda
+    // en una card angosta es el texto del nombre, que parte en dos renglones.
     &--acciones {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: $spacing-xs;
-
         &:hover { background: none; }
     }
 
+    // Botones de 27 px en escritorio: con 40 la fila medía 59 px contra los 44
+    // de Conducta y Asistencia (medido el 29/09/2026). 27 + 16 de relleno + 1 de
+    // borde = 44 exactos. En el celular las cards se apilan —la alineación no
+    // importa— y vuelven a 40 px para el dedo.
     &__acciones {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        flex-shrink: 0;
         gap: $spacing-xs;
 
-        .dpanel-card__accion { min-height: 40px; }
+        .dpanel-card__accion {
+            min-height: 27px;
+            padding-top: 0;
+            padding-bottom: 0;
+
+            @media (max-width: 640px) { min-height: 40px; }
+        }
+    }
+
+    // Texto solo para lector de pantalla («matriculados» tras la cifra).
+    &__oculto {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
     }
 }
 
@@ -600,9 +619,15 @@
     }
 }
 
-// ── Nómina de docentes (impresión A4 horizontal, 28/09/2026) ─
+// ── Nómina de docentes (impresión A4 vertical desde el 29/09/2026) ─
 // Reusa .nomina-print; añade el filtro por nivel (solo pantalla), un bloque
 // por nivel y las líneas «áreas · secciones» de cada docente.
+
+// Naranja institucional oscurecido: el `$brand-accent` puro salía en blanco y
+// negro como un gris MÁS CLARO que el azul de las secciones, justo al revés de
+// lo que debe destacar (medido con escala de grises el 29/09/2026).
+$nomina-tono-tutoria: darken($brand-accent, 18%);
+
 .nomina-docentes {
     &__filtro {
         display: flex;
@@ -645,10 +670,86 @@
     }
 
     &__nombre { font-weight: 600; }
-    &__correo { word-break: break-all; }
-    &__carga + &__carga { margin-top: 2px; }
-    &__secciones { color: #444; }
+    // El correo no se parte (se partía en «EDU.↵PE»): el más largo mide 29
+    // caracteres y cabe en la hoja vertical; lo que se acomoda es el nombre.
+    &__correo { white-space: nowrap; }
     &__vacio { font-size: 12px; }
+
+    // ── Ficha de dos filas (A4 vertical, 29/09/2026) ──────────
+    // Un `<tbody>` por docente: contacto arriba, tutoría y cargas abajo a todo
+    // el ancho. La ficha no se parte entre dos hojas.
+    //
+    // 🔴 BLANCO Y NEGRO: el color es SOLO un refuerzo. Cada distinción tiene
+    // además forma y texto (rótulo «TUTORÍA» + barra gruesa; recuadro en cada
+    // sección). Bordes y texto, nunca fondos: Chrome imprime sin «gráficos de
+    // fondo» por defecto y un fondo desaparecería. Dos tonos: naranja oscuro
+    // (`$nomina-tono-tutoria`) para la tutoría y `$brand-mid` para las
+    // secciones que dicta; en gris, la tutoría queda al menos tan oscura.
+    &__ficha { break-inside: avoid; page-break-inside: avoid; }
+
+    &__tabla thead th { white-space: nowrap; }
+    &__dato { white-space: nowrap; }
+
+    &__detalle { padding: 5px 6px 6px; }
+
+    &__tutoria {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 6px;
+        padding-left: 6px;
+        margin-bottom: 4px;
+        border-left: 4px solid $nomina-tono-tutoria;
+    }
+
+    &__rotulo {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: $nomina-tono-tutoria;
+    }
+
+    // Línea de carga: etiquetas de sección a la izquierda, áreas a la derecha.
+    &__carga {
+        display: grid;
+        grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
+        gap: 6px;
+        align-items: start;
+
+        & + & {
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 0.5px dashed #999;
+        }
+    }
+
+    &__secs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+    }
+
+    // Cada sección en su recuadro, nombrada entera («1° A», nunca «1° A-B»).
+    &__sec {
+        display: inline-block;
+        padding: 0 5px;
+        border: 1px solid $brand-mid;
+        border-radius: 3px;
+        color: $brand-mid;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.5;
+        white-space: nowrap;
+
+        &--tutoria {
+            border-width: 1.5px;
+            border-color: $nomina-tono-tutoria;
+            color: $nomina-tono-tutoria;
+        }
+    }
+
+    &__areas { line-height: 1.4; }
 }
 
 // Cabecera de panel con accion a la derecha (ej. "Mi horario" + Imprimir).

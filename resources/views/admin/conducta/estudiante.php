@@ -7,17 +7,19 @@
  * 🔴 NO TIENE JS DE GUARDADO PROPIO. El bloque `.conducta-fila` respeta el
  * MISMO contrato de DOM que la grilla (`data-matricula`, `data-periodo`,
  * `data-csrf`, `data-total`, `.cc-toggle[data-criterio][data-valor]`,
- * `.cc-btn[data-v]`, `.cc-nota`, `.conducta-status`), así que `conducta.js`
- * lo maneja tal cual: nota en vivo, Sí/No, «Marcar Sí» y guardado por el mismo
- * endpoint. `registro-estudiante.js` solo añade la navegación. Cambiar esos
- * nombres rompe las DOS entradas.
+ * `.cc-btn[data-v]`, `.cc-nota`, `.conducta-status`, `data-confirmada`), así
+ * que `conducta.js` lo maneja tal cual: nota en vivo, Sí/No con AUTOGUARDADO,
+ * «Marcar Sí» y `confirmarFila`. `registro-estudiante.js` solo añade la
+ * navegación («← Anterior» / «Confirmar y siguiente →», 29/09/2026). Cambiar
+ * esos nombres rompe las DOS entradas.
  *
- * @var array  $seccion      { id, grado_nombre, seccion_nombre, nivel_nombre, nivel_id }
- * @var array  $periodo      periodo editable en curso
- * @var array  $criterios    [{ id, codigo, texto, orden }]
- * @var array  $estudiantes  [{ matricula_id, nombre_completo, respuestas[criterio_id] }]
- * @var int    $pos          índice del estudiante mostrado en $estudiantes
- * @var string $siguienteUrl URL del siguiente estudiante, o la grilla tras el último
+ * @var array       $seccion      { id, grado_nombre, seccion_nombre, nivel_nombre, nivel_id }
+ * @var array       $periodo      periodo editable en curso
+ * @var array       $criterios    [{ id, codigo, texto, orden }]
+ * @var array       $estudiantes  [{ matricula_id, nombre_completo, respuestas[criterio_id], confirmado }]
+ * @var int         $pos          índice del estudiante mostrado en $estudiantes
+ * @var string      $siguienteUrl URL del siguiente estudiante, o la grilla tras el último
+ * @var string|null $anteriorUrl  URL del estudiante anterior (null en el primero)
  */
 
 $csrfToken = \Core\Session::csrfToken();
@@ -43,15 +45,14 @@ $sid       = (int) $seccion['id'];
 </div>
 
 <?php // Selector de estudiante: funciona sin JS (botón «Ir»); con JS cambia solo
-      // al elegir y avisa si hay marcas sin guardar. ✓ = registro completo. ?>
+      // al elegir y avisa si hay marcas sin guardar. ✓ = registro CONFIRMADO. ?>
 <form method="get" action="<?= url('admin/conducta/' . $sid . '/estudiante') ?>"
       class="registro-estudiante-selector" data-selector-estudiante>
     <label class="form-label" for="selector-estudiante">Estudiante</label>
     <select id="selector-estudiante" name="m" class="form-select">
-        <?php foreach ($estudiantes as $i => $alumno):
-            $completo = count($alumno['respuestas']) >= $total; ?>
+        <?php foreach ($estudiantes as $i => $alumno): ?>
             <option value="<?= (int) $alumno['matricula_id'] ?>" <?= $i === $pos ? 'selected' : '' ?>>
-                <?= $i + 1 ?>. <?= e($alumno['nombre_completo']) ?><?= $completo ? ' ✓' : '' ?>
+                <?= $i + 1 ?>. <?= e($alumno['nombre_completo']) ?><?= !empty($alumno['confirmado']) ? ' ✓' : '' ?>
             </option>
         <?php endforeach; ?>
     </select>
@@ -60,19 +61,27 @@ $sid       = (int) $seccion['id'];
 
 <div id="conducta-feedback" class="conducta-feedback" hidden role="status" aria-live="polite"></div>
 
-<section class="conducta-fila registro-estudiante <?= count($resp) >= $total ? 'conducta-fila--guardada' : 'conducta-fila--pendiente' ?>"
+<section class="conducta-fila registro-estudiante <?= !empty($est['confirmado']) ? 'conducta-fila--guardada' : 'conducta-fila--pendiente' ?>"
          data-matricula="<?= (int) $est['matricula_id'] ?>"
          data-periodo="<?= (int) $periodo['id'] ?>"
          data-csrf="<?= e($csrfToken) ?>"
          data-total="<?= $total ?>"
+         data-confirmada="<?= !empty($est['confirmado']) ? '1' : '0' ?>"
          data-siguiente="<?= e($siguienteUrl) ?>">
 
+    <?php // N.° de lista = el mismo N° de la grilla. `.cc-nota` y `.conducta-status`
+          // los reescribe conducta.js con su className completo: no añadirles
+          // clases aquí (se perderían); el SASS los alcanza por la cabecera. ?>
     <header class="registro-estudiante__cabecera">
+        <span class="registro-estudiante__numero" title="N.° de lista">N.° <?= $pos + 1 ?></span>
         <h2 class="registro-estudiante__nombre"><?= e($est['nombre_completo']) ?></h2>
         <div class="registro-estudiante__nota">
-            Nota: <span class="cc-nota">—</span>
-            <span class="conducta-status" aria-live="polite"></span>
+            <span class="registro-estudiante__nota-etiqueta">Nota</span>
+            <span class="cc-nota">—</span>
         </div>
+        <?php // Confirmado / Sin confirmar / Incompleto: lo pinta conducta.js. ?>
+        <span class="conducta-estado"></span>
+        <span class="conducta-status" aria-live="polite"></span>
     </header>
 
     <ol class="registro-estudiante__criterios">
@@ -101,11 +110,13 @@ $sid       = (int) $seccion['id'];
                 title="Marcar Sí en los criterios sin responder (no cambia los ya marcados)">
             <span class="btn-icon btn-icon--saveall" aria-hidden="true"></span> Marcar Sí
         </button>
-        <button type="button" class="btn btn--secondary conducta-guardar" data-accion="guardar">
-            <span class="btn-icon btn-icon--save" aria-hidden="true"></span> Guardar
-        </button>
+        <?php // Cada marca ya se autoguarda: no hay botón «Guardar». Dos botones
+              // de navegación (decisión del usuario, 29/09/2026). ?>
+        <?php if ($anteriorUrl !== null): ?>
+            <a href="<?= e($anteriorUrl) ?>" class="btn btn--secondary" data-accion="anterior">← Anterior</a>
+        <?php endif; ?>
         <button type="button" class="btn btn--primary" data-accion="siguiente">
-            <?= $ultimo ? 'Guardar y volver a la grilla' : 'Guardar y siguiente →' ?>
+            <?= $ultimo ? 'Confirmar y volver a la grilla' : 'Confirmar y siguiente →' ?>
         </button>
     </div>
 </section>

@@ -113,6 +113,7 @@ $router->post('/admin/conducta/criterios/{id}/retirar', 'Admin\CriterioConductaC
 $router->post('/admin/conducta/criterios/{id}/mover',   'Admin\CriterioConductaController@mover');
 $router->get( '/admin/conducta',              'Admin\ConductaController@index');
 $router->post('/admin/conducta/guardar',      'Admin\ConductaController@guardar');
+$router->post('/admin/conducta/confirmar',    'Admin\ConductaController@confirmar');
 $router->post('/admin/conducta/{id}/bloquear','Admin\ConductaController@bloquear');
 $router->get( '/admin/conducta/{id}/imprimir/{periodo_id}', 'Admin\ConductaController@imprimir');
 $router->get( '/admin/conducta/{id}/estudiante', 'Admin\ConductaController@estudiante');
@@ -120,6 +121,16 @@ $router->get( '/admin/conducta/{id}',         'Admin\ConductaController@seccion'
 
 // ─── Admin — Asistencia (incidencias) ───────────────────────
 $router->get( '/admin/asistencia',            'Admin\AsistenciaController@index');
+// Asistencia por fechas (29/09/2026): literales ANTES de los patrones {id}.
+// Motivos de justificación: `/motivos` chocaría con GET `/admin/asistencia/{id}`.
+$router->get( '/admin/asistencia/motivos',              'Admin\AsistenciaMotivoController@index');
+$router->post('/admin/asistencia/motivos/crear',        'Admin\AsistenciaMotivoController@crear');
+$router->post('/admin/asistencia/motivos/{id}/editar',  'Admin\AsistenciaMotivoController@actualizar');
+$router->post('/admin/asistencia/motivos/{id}/retirar', 'Admin\AsistenciaMotivoController@retirar');
+$router->post('/admin/asistencia/motivos/{id}/mover',   'Admin\AsistenciaMotivoController@mover');
+$router->post('/admin/asistencia/dia',        'Admin\AsistenciaController@dia');
+$router->post('/admin/asistencia/confirmar',  'Admin\AsistenciaController@confirmar');
+$router->post('/admin/asistencia/{id}/confirmar-todo', 'Admin\AsistenciaController@confirmarTodo');
 $router->post('/admin/asistencia/{id}/bloquear','Admin\AsistenciaController@bloquear');
 $router->get( '/admin/asistencia/{id}/imprimir/{periodo_id}', 'Admin\AsistenciaController@imprimir');
 $router->get( '/admin/asistencia/{id}/estudiante', 'Admin\AsistenciaController@estudiante');

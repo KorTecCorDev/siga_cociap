@@ -105,6 +105,18 @@
     th.conducta-th-crit,
     td.conducta-td-crit { border-left: 1px solid $border-color; }
 
+    // Sin resaltado de fila al pasar el cursor (decisión del usuario, 29/09/2026):
+    // en esta grilla el estado de la fila ya lo dicen el fondo ámbar (sin guardar)
+    // y la barra de la columna N°, y el gris del hover competía con ellos. Se anula
+    // el `tr:hover` GLOBAL de `.tabla-notas` (`_tables.scss`) solo aquí, devolviendo
+    // a cada celda su fondo normal. Va por especificidad: (0,4,2) le gana al
+    // (0,3,2) de `tr:hover td.col-resultado` y al (0,3,1) de las sticky.
+    &.tabla-notas tr:hover {
+        td                           { background: transparent; }
+        td.col-num, td.col-nombre    { background: $bg-white; }
+        td.col-resultado             { background: #f8fafc; }
+    }
+
     // ⚠️ El borde que cierra los criterios contra la zona calculada YA NO se
     // dibuja aqui: lo pone `.col-resultado--inicio`, el separador del sistema que
     // usan todas las grillas. Mantener los dos daria doble linea, y el manual era
@@ -134,7 +146,15 @@
 
     & + .cc-btn { border-left: 1px solid $border-color; }
 
-    &:hover:not(:disabled) { background: $bg-secondary; }
+    // 🔴 EL HOVER NO TOCA AL BOTÓN SELECCIONADO. `:hover:not(:disabled)` es
+    // (0,3,0) y le ganaba a `--si/--no.cc-btn--activo` (0,2,0): el fondo pasaba
+    // a gris y el texto seguía blanco, así que la opción elegida DESAPARECÍA.
+    // En el celular el «hover» se queda pegado tras tocar, hasta tocar otra cosa
+    // (lo reportó el usuario el 29/09/2026). Por eso además va solo en
+    // dispositivos con puntero real.
+    @media (hover: hover) {
+        &:hover:not(:disabled):not(.cc-btn--activo) { background: $bg-secondary; }
+    }
     &:disabled { cursor: default; opacity: .55; }
 
     &--si.cc-btn--activo { background: $color-success; color: $text-white; }
@@ -151,20 +171,41 @@
     &--c  { color: $color-error; }
 }
 
-// ── Estado de guardado por fila (sin texto: barra izquierda + color de fila) ─
-// El fondo se aplica tambien a las celdas sticky (col-num/col-nombre) con
-// !important para ganarle a su fondo propio, igual que .fila-pendiente.
+// ── Estado de guardado por fila (sin texto: franja en el N° + color de fila) ─
+// El fondo se aplica tambien a la celda sticky del nombre con !important para
+// ganarle a su fondo propio, igual que .fila-pendiente. Las dos columnas N° quedan
+// BLANCAS (decisión del usuario, 29/09/2026; ver `$num-borde` en _asistencia.scss).
 .conducta-fila--pendiente {
-    td,
-    td.col-num,
-    td.col-nombre { background: $color-warning-bg !important; }
-
-    // barra de estado en la celda N° (no pelea con el fondo sticky)
-    td.col-num { box-shadow: inset 3px 0 0 $color-warning; }
+    td:not(.col-num):not(.col-num-fin) { background: $color-warning-bg !important; }
 }
 
-.conducta-fila--guardada {
-    td.col-num { box-shadow: inset 3px 0 0 $color-success; }
+// Separador + franja de estado en la MISMA sombra (`--franja`), para que el
+// estado no borre el separador.
+.conducta-grilla td.col-num {
+    background: $bg-white;
+    box-shadow: inset 4px 0 0 var(--franja, transparent), inset -2px 0 0 $text-secondary;
+}
+.conducta-fila--pendiente td.col-num { --franja: #{$color-warning}; }
+.conducta-fila--guardada  td.col-num { --franja: #{$color-success}; }
+// Un autoguardado que falló (conducta.js): rojo, gana a los otros dos.
+.conducta-fila--error     td.col-num { --franja: #{$color-error}; }
+
+// ── Estado de confirmación (29/09/2026) ─────────────────────────────────────
+// Verde = CONFIRMADO (el visto bueno de quien registra; cuenta en boleta al
+// bloquear). Ámbar = borrador o incompleto: autoguardado, pero «al aire».
+// El texto lo pinta conducta.js (`marcarEstado`) en la vista por estudiante; la
+// grilla no tiene columna «Estado» y lo dice solo con la franja del N°.
+
+// 🔴 `.btn` fija su propio `display` y le gana al atributo `hidden` del
+// navegador: sin esto, «Confirmar» seguía visible en una fila ya confirmada.
+.conducta-confirmar[hidden] { display: none; }
+
+.conducta-estado {
+    font-size: $font-size-sm;
+    font-weight: 600;
+
+    &--ok        { color: $color-success; }
+    &--pendiente { color: $color-warning; }
 }
 
 // ── Bloqueo de seccion ──────────────────────────────────────────────────────

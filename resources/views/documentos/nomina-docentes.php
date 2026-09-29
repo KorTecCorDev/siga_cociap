@@ -1,16 +1,30 @@
 <?php
 /**
- * Nómina de docentes (A4 horizontal) — `Documentos\DocumentoController::nominaDocentes`.
- * Layout: print. Un bloque por nivel, docentes en orden alfabético.
- * El DNI solo sale para admin, RA y Dirección (decisión del 28/09/2026).
+ * Nómina de docentes (A4 VERTICAL desde el 29/09/2026) —
+ * `Documentos\DocumentoController::nominaDocentes`. Layout: print. Un bloque
+ * por nivel, docentes en orden alfabético. El DNI solo sale para admin, RA y
+ * Dirección (decisión del 28/09/2026).
+ *
+ * Cada docente es una FICHA de dos filas (un `<tbody>` que no se parte entre
+ * hojas): arriba el contacto; abajo, a todo el ancho, la TUTORÍA primero y
+ * luego las cargas, cada línea con sus secciones como etiquetas y sus áreas.
+ * Las secciones se nombran enteras, nunca «1.° A-B» (decisión del usuario).
+ *
+ * 🔴 BLANCO Y NEGRO: el color nunca es la única señal. La tutoría se reconoce
+ * por su rótulo «TUTORÍA» y su barra gruesa; las secciones, por su recuadro.
+ * Se usan bordes y texto de color, no fondos (el diálogo de impresión suele
+ * quitar los fondos).
  *
  * @var array<int, array{nombre:string, docentes:array}> $niveles  bloques a imprimir
  * @var array<int, string> $filtro   niveles que trae el documento (id => nombre)
  * @var int                $nivelId  nivel filtrado (0 = todos)
  * @var bool               $conDni
+ * @var bool               $deSusSecciones  el auxiliar: solo los docentes de sus secciones
  * @var string|null        $anio
  */
-$total = array_sum(array_map(static fn($n) => count($n['docentes']), $niveles));
+$total    = array_sum(array_map(static fn($n) => count($n['docentes']), $niveles));
+$columnas = $conDni ? 4 : 3;   // columnas de la fila de contacto, sin contar N°
+$alcance  = $nivelId ? $filtro[$nivelId] : ($deSusSecciones ? 'Docentes de tus secciones' : 'Todos los niveles');
 ?>
 <div class="nomina-print nomina-docentes">
 
@@ -20,7 +34,7 @@ $total = array_sum(array_map(static fn($n) => count($n['docentes']), $niveles));
             <h1><?= e(config('institucion')) ?></h1>
             <p>Nómina de docentes<?= !empty($anio) ? ' &middot; ' . e($anio) : '' ?></p>
             <p class="nomina-print__sec">
-                <?= $nivelId ? e($filtro[$nivelId]) : 'Todos los niveles' ?>
+                <?= e($alcance) ?>
                 &middot; <?= $total ?> <?= $total === 1 ? 'docente' : 'docentes' ?>
             </p>
         </div>
@@ -50,7 +64,7 @@ $total = array_sum(array_map(static fn($n) => count($n['docentes']), $niveles));
     <?php foreach ($niveles as $nivel): ?>
         <section class="nomina-docentes__nivel">
             <h2 class="nomina-docentes__nivel-titulo"><?= e($nivel['nombre']) ?></h2>
-            <table class="nomina-print__tabla">
+            <table class="nomina-print__tabla nomina-docentes__tabla">
                 <thead>
                     <tr>
                         <th class="nomina-print__num">N°</th>
@@ -58,31 +72,42 @@ $total = array_sum(array_map(static fn($n) => count($n['docentes']), $niveles));
                         <?php if ($conDni): ?><th>DNI</th><?php endif; ?>
                         <th>Celular</th>
                         <th>Correo</th>
-                        <th>Áreas y secciones</th>
-                        <th>Tutoría</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php foreach ($nivel['docentes'] as $i => $d): ?>
+                <?php foreach ($nivel['docentes'] as $i => $d): ?>
+                    <tbody class="nomina-docentes__ficha">
                         <tr>
-                            <td class="nomina-print__num"><?= $i + 1 ?></td>
+                            <td class="nomina-print__num" rowspan="2"><?= $i + 1 ?></td>
                             <td class="nomina-docentes__nombre"><?= e($d['nombre']) ?></td>
-                            <?php if ($conDni): ?><td><?= $d['dni'] !== '' ? e($d['dni']) : '—' ?></td><?php endif; ?>
-                            <td><?= $d['telefono'] !== '' ? e($d['telefono']) : '—' ?></td>
+                            <?php if ($conDni): ?><td class="nomina-docentes__dato"><?= $d['dni'] !== '' ? e($d['dni']) : '—' ?></td><?php endif; ?>
+                            <td class="nomina-docentes__dato"><?= $d['telefono'] !== '' ? e($d['telefono']) : '—' ?></td>
                             <td class="nomina-docentes__correo"><?= $d['correo'] !== '' ? e($d['correo']) : '—' ?></td>
-                            <td>
-                                <?php if ($d['cargas'] === []): ?>—<?php endif; ?>
+                        </tr>
+                        <tr>
+                            <td class="nomina-docentes__detalle" colspan="<?= $columnas ?>">
+                                <?php if ($d['tutoria'] !== []): ?>
+                                    <div class="nomina-docentes__tutoria">
+                                        <span class="nomina-docentes__rotulo">Tutoría</span>
+                                        <?php foreach ($d['tutoria'] as $sec): ?>
+                                            <span class="nomina-docentes__sec nomina-docentes__sec--tutoria"><?= e($sec) ?></span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
                                 <?php foreach ($d['cargas'] as $c): ?>
                                     <div class="nomina-docentes__carga">
-                                        <?= e($c['areas']) ?>
-                                        <span class="nomina-docentes__secciones">&middot; <?= e($c['secciones']) ?></span>
+                                        <div class="nomina-docentes__secs">
+                                            <?php foreach ($c['secciones'] as $sec): ?>
+                                                <span class="nomina-docentes__sec"><?= e($sec) ?></span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <div class="nomina-docentes__areas"><?= e(implode(' · ', $c['areas'])) ?></div>
                                     </div>
                                 <?php endforeach; ?>
+                                <?php if ($d['cargas'] === [] && $d['tutoria'] === []): ?>—<?php endif; ?>
                             </td>
-                            <td><?= $d['tutoria'] !== '' ? e($d['tutoria']) : '—' ?></td>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
+                    </tbody>
+                <?php endforeach; ?>
             </table>
         </section>
     <?php endforeach; ?>

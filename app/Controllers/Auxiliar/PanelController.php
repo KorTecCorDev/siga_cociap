@@ -82,9 +82,11 @@ class PanelController extends BaseController
                         $conducta->getCierreVigente($sid, $pid), $editable,
                         $c['calificados'], $c['esperados'], true
                     ),
+                    // Desde el 29/09/2026 la asistencia también exige confirmar a
+                    // todos antes de bloquear: tiene su «Listo para bloquear».
                     'asistencia'   => self::estado(
                         $asistencia->getCierreVigente($sid, $pid), $editable,
-                        $a['registrados'], $a['esperados'], false
+                        $a['registrados'], $a['esperados'], true
                     ),
                 ];
             }
@@ -173,9 +175,9 @@ class PanelController extends BaseController
      * docs/modulos/ui.md: el color dice DE QUIÉN depende la acción).
      *   - verde  = bloqueada: ya no le pide nada al auxiliar;
      *   - gris   = no puede actuar (fuera de plazo, o sección sin estudiantes);
-     *   - ámbar  = le toca: «Registrados X de N», o «Listo para bloquear» cuando
-     *              la conducta está completa. En asistencia no existe ese paso:
-     *              un estudiante sin registro cuenta como 0 incidencias.
+     *   - ámbar  = le toca: «Confirmados X de N», o «Listo para bloquear» cuando
+     *              todos están confirmados (29/09/2026: conducta y asistencia
+     *              cuentan solo lo CONFIRMADO; un borrador no avanza el contador).
      *
      * @return array{bloqueada:bool, badge:string, texto:string}
      */
@@ -194,6 +196,6 @@ class PanelController extends BaseController
         if ($conCompletitud && $hechos >= $esperados) {
             return ['bloqueada' => false, 'badge' => 'warning', 'texto' => 'Listo para bloquear'];
         }
-        return ['bloqueada' => false, 'badge' => 'warning', 'texto' => "Registrados {$hechos} de {$esperados}"];
+        return ['bloqueada' => false, 'badge' => 'warning', 'texto' => "Confirmados {$hechos} de {$esperados}"];
     }
 }

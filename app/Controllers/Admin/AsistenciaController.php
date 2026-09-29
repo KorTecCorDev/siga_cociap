@@ -160,9 +160,11 @@ class AsistenciaController extends BaseController
 
         $estudiantes = $cierre = $firmas = null;
         if ($periodoVer) {
-            $pid         = (int) $periodoVer['id'];
-            $estudiantes = $this->model->getEstudiantesConIncidencias($seccionId, $pid);
-            $cierre      = $this->model->getCierreVigente($seccionId, $pid);
+            $pid    = (int) $periodoVer['id'];
+            $cierre = $this->model->getCierreVigente($seccionId, $pid);
+            // Editable: el BORRADOR del auxiliar. Historial o sección bloqueada:
+            // solo lo OFICIAL (confirmado), que es lo que cuenta.
+            $estudiantes = $this->model->getEstudiantesConIncidencias($seccionId, $pid, $soloLectura || $cierre !== null);
             if ($cierre) {
                 $firmas = $this->aux->firmasDelRegistro($seccionId, $pid, (int) $cierre['ra_bloqueado_por']);
             }
@@ -175,6 +177,39 @@ class AsistenciaController extends BaseController
 
         // La grilla se bloquea con el cierre de la seccion (ademas del periodo).
         $bloqueada = $cierre !== null;
+        $editable  = !$soloLectura && !$bloqueada;
+
+        // ASISTENCIA POR FECHAS (29/09/2026): grilla mensual día × estudiante.
+        // I y II Bimestre siguen con la tabla de 4 números (histórico).
+        $porFechas = $periodoVer !== null && (int) ($periodoVer['asistencia_por_fechas'] ?? 0) === 1;
+        $fechas    = [];
+        if ($porFechas) {
+            $calendario = AsistenciaModel::calendario($periodoVer);
+            $mesVer     = (string) ($this->query('mes') ?? '');
+            if (!isset($calendario[$mesVer])) {
+                // Por defecto: el mes de HOY si cae en el bimestre; si no (historial),
+                // el último mes con algún día ya transcurrido; si no, el primero.
+                $mesVer = (string) array_key_first($calendario);
+                foreach ($calendario as $clave => $mes) {
+                    if ($mes['dias'][0]['marcable']) {
+                        $mesVer = $clave;
+                    }
+                }
+                if (isset($calendario[date('Y-m')])) {
+                    $mesVer = date('Y-m');
+                }
+            }
+            $fechas = [
+                'calendario' => $calendario,
+                'mesVer'     => $mesVer,
+                'incidencias'=> $this->model->incidenciasDe(
+                    array_column($estudiantes ?? [], 'matricula_id'), (int) $periodoVer['id'], !$editable
+                ),
+                'motivos'    => (new \App\Models\AsistenciaMotivoModel())->vigentes(),
+                'progreso'   => $this->model->getProgresoPorSeccion((int) $periodoVer['id'])[$seccionId]
+                                ?? ['esperados' => 0, 'registrados' => 0],
+            ];
+        }
 
         $this->view('admin/asistencia/seccion', [
             'titulo'       => 'Asistencia — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
@@ -189,7 +224,9 @@ class AsistenciaController extends BaseController
             // modelo), no de una consulta paralela que podria contar otras filas.
             'totales'      => AsistenciaModel::totalesIncidencias($estudiantes ?? []),
             'topeMax'      => self::TOPE_MAX,
-            'page_scripts' => ($soloLectura || $bloqueada) ? [] : ['asistencia'],
+            'porFechas'    => $porFechas,
+            'fechas'       => $fechas,
+            'page_scripts' => $editable ? [$porFechas ? 'asistencia-fechas' : 'asistencia'] : [],
         ]);
     }
 
@@ -250,6 +287,12 @@ class AsistenciaController extends BaseController
         }
 
         $siguiente = $estudiantes[$pos + 1] ?? null;
+        $anterior  = $pos > 0 ? $estudiantes[$pos - 1] : null;
+        $urlDe     = fn(array $e): string => url('admin/asistencia/' . $seccionId . '/estudiante?m=' . (int) $e['matricula_id']);
+
+        // Por fechas (29/09/2026): calendario del bimestre entero y sus fechas.
+        $porFechas = (int) ($periodo['asistencia_por_fechas'] ?? 0) === 1;
+        $mid       = (int) $estudiantes[$pos]['matricula_id'];
 
         $this->view('admin/asistencia/estudiante', [
             'titulo'       => 'Asistencia — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
@@ -257,11 +300,15 @@ class AsistenciaController extends BaseController
             'periodo'      => $periodo,
             'estudiantes'  => $estudiantes,
             'pos'          => $pos,
-            'siguienteUrl' => $siguiente
-                ? url('admin/asistencia/' . $seccionId . '/estudiante?m=' . (int) $siguiente['matricula_id'])
-                : $grilla,
+            'siguienteUrl' => $siguiente ? $urlDe($siguiente) : $grilla,
+            // «← Anterior» (29/09/2026): sin anterior (el primero) no se pinta.
+            'anteriorUrl'  => $anterior ? $urlDe($anterior) : null,
             'topeMax'      => self::TOPE_MAX,
-            'page_scripts' => ['asistencia', 'registro-estudiante'],
+            'porFechas'    => $porFechas,
+            'calendario'   => $porFechas ? AsistenciaModel::calendario($periodo) : [],
+            'dias'         => $porFechas ? ($this->model->incidenciasDe([$mid], (int) $periodo['id'])[$mid] ?? []) : [],
+            'motivos'      => $porFechas ? (new \App\Models\AsistenciaMotivoModel())->vigentes() : [],
+            'page_scripts' => [$porFechas ? 'asistencia-fechas' : 'asistencia', 'registro-estudiante'],
         ]);
     }
 
@@ -340,7 +387,18 @@ class AsistenciaController extends BaseController
             );
         }
 
-        $estudiantes = $this->model->getEstudiantesConIncidencias($seccionId, $periodoId);
+        // El registro impreso es el OFICIAL: solo lo confirmado (29/09/2026).
+        $estudiantes = $this->model->getEstudiantesConIncidencias($seccionId, $periodoId, true);
+
+        // Por fechas: anexo «Detalle de incidencias» en hoja aparte, con TODAS las
+        // fechas (F, FJ, T, TJ) y el motivo de cada justificación. Reemplaza a la
+        // columna «Fechas» de la tabla (decisión del usuario, 29/09/2026).
+        $porFechas = (int) ($periodo['asistencia_por_fechas'] ?? 0) === 1;
+        $detalle   = [];
+        if ($porFechas) {
+            $incidencias = $this->model->incidenciasDe(array_column($estudiantes, 'matricula_id'), $periodoId, true);
+            $detalle     = AsistenciaModel::detalleIncidencias($estudiantes, $incidencias);
+        }
 
         View::setLayout('print');
         $this->view('admin/asistencia/imprimir', [
@@ -352,6 +410,8 @@ class AsistenciaController extends BaseController
             'cierre'      => $cierre,
             'firmas'      => $this->aux->firmasDelRegistro($seccionId, $periodoId, (int) $cierre['ra_bloqueado_por']),
             'institucion' => config('institucion'),
+            'porFechas'   => $porFechas,
+            'detalle'     => $detalle,
         ]);
     }
 
@@ -392,6 +452,14 @@ class AsistenciaController extends BaseController
         }
         if ($this->model->getCierreVigente($seccionId, $periodoId)) {
             $this->json(['success' => false, 'mensaje' => 'La asistencia de esta sección ya fue bloqueada; no se puede editar.'], 403);
+        }
+        // En un bimestre POR FECHAS los 4 números se calculan de las fechas
+        // (migración 069): este guardado de números sueltos ya no aplica.
+        if ($this->model->periodoPorFechas($periodoId)) {
+            $this->json([
+                'success' => false,
+                'mensaje' => 'Este bimestre se registra por fechas. Recarga la página.',
+            ], 409);
         }
 
         // Saneamiento y validación de los 4 contadores. Cualquier valor
@@ -436,5 +504,127 @@ class AsistenciaController extends BaseController
             'success' => $ok,
             'mensaje' => $ok ? 'Guardado.' : 'Error al guardar.',
         ], $ok ? 200 : 500);
+    }
+
+    // ── ASISTENCIA POR FECHAS (29/09/2026, migración 069) ─────────
+
+    /**
+     * GUARDIÁN COMÚN de las escrituras de UN estudiante por fechas (`dia` y
+     * `confirmar`): CSRF, periodo editable y por fechas, sección a cargo
+     * (`puede`), roster y sección no bloqueada. Responde el JSON de error y
+     * corta si algo falla.
+     *
+     * @return array{matricula:int, periodo:int, usuario:int}
+     */
+    private function escrituraFechasValidada(): array
+    {
+        $this->requireRole(self::ROLES_REGISTRAN);
+        $this->validateCsrf();
+
+        $matriculaId = (int) $this->input('matricula_id');
+        $periodoId   = (int) $this->input('periodo_id');
+
+        if (!$matriculaId || !$periodoId) {
+            $this->json(['success' => false, 'mensaje' => 'Datos incompletos.'], 400);
+        }
+        if (!$this->model->periodoEditable($periodoId)) {
+            $this->json(['success' => false, 'mensaje' => 'El periodo no está disponible para edición.'], 403);
+        }
+        if (!$this->model->periodoPorFechas($periodoId)) {
+            $this->json(['success' => false, 'mensaje' => 'Este bimestre no se registra por fechas.'], 409);
+        }
+        $seccionId = $this->model->seccionDeMatricula($matriculaId);
+        if ($seccionId === null) {
+            $this->json(['success' => false, 'mensaje' => 'Matrícula no encontrada.'], 404);
+        }
+        if (!$this->puede($seccionId, $periodoId)) {
+            $this->json(['success' => false, 'mensaje' => 'Esta sección no está a tu cargo en este bimestre.'], 403);
+        }
+        if (!$this->model->matriculaEnRoster($matriculaId)) {
+            $this->json([
+                'success' => false,
+                'mensaje' => 'Esta matrícula no forma parte del registro de asistencia de la sección.',
+            ], 403);
+        }
+        if ($this->model->getCierreVigente($seccionId, $periodoId)) {
+            $this->json(['success' => false, 'mensaje' => 'La asistencia de esta sección ya fue bloqueada; no se puede editar.'], 403);
+        }
+
+        return ['matricula' => $matriculaId, 'periodo' => $periodoId, 'usuario' => (int) Session::user()['id']];
+    }
+
+    // POST /admin/asistencia/dia  (AJAX — AUTOGUARDADO de un día, BORRADOR)
+    // fecha=AAAA-MM-DD · tipo=F|FJ|T|TJ o vacío (desmarcar) · motivo_id opcional (FJ/TJ).
+    public function dia(): void
+    {
+        $w = $this->escrituraFechasValidada();
+
+        $fecha = trim((string) $this->input('fecha'));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            $this->json(['success' => false, 'mensaje' => 'Fecha no válida.'], 400);
+        }
+        $tipo = trim((string) $this->input('tipo'));
+        $tipo = $tipo === '' ? null : $tipo;
+        if ($tipo !== null && !in_array($tipo, AsistenciaModel::TIPOS, true)) {
+            $this->json(['success' => false, 'mensaje' => 'Tipo de incidencia no válido.'], 400);
+        }
+        $motivo = (int) $this->input('motivo_id');
+
+        $res = $this->model->marcarDia($w['matricula'], $w['periodo'], $fecha, $tipo, $motivo ?: null, $w['usuario']);
+        $this->json([
+            'success'    => $res['ok'],
+            'mensaje'    => $res['mensaje'],
+            'contadores' => $res['contadores'] ?? null,
+        ], $res['ok'] ? 200 : 400);
+    }
+
+    // POST /admin/asistencia/confirmar  (AJAX — visto bueno de UN estudiante)
+    public function confirmar(): void
+    {
+        $w   = $this->escrituraFechasValidada();
+        $res = $this->model->confirmar($w['matricula'], $w['periodo'], $w['usuario']);
+        $this->json([
+            'success'    => $res['ok'],
+            'mensaje'    => $res['mensaje'],
+            'contadores' => $res['ok'] ? $this->model->contadoresDe($w['matricula'], $w['periodo']) : null,
+        ], $res['ok'] ? 200 : 400);
+    }
+
+    // POST /admin/asistencia/{seccion_id}/confirmar-todo  («Confirmar todo»)
+    public function confirmarTodo(string $seccionId): void
+    {
+        $this->requireRole(self::ROLES_REGISTRAN);
+        $this->validateCsrf();
+        $seccionId = (int) $seccionId;
+        $grilla    = url('admin/asistencia/' . $seccionId);
+
+        $periodo = null;
+        foreach ($this->model->listarPeriodosActivos() as $p) {
+            if ((bool) $p['editable']) {
+                $periodo = $p;
+                break;
+            }
+        }
+        if ($periodo === null) {
+            $this->redirectWithError($grilla, 'No hay periodo abierto para edición.');
+        }
+        $pid = (int) $periodo['id'];
+        if (!$this->puede($seccionId, $pid)) {
+            $this->forbidden();
+        }
+        if ((int) $periodo['asistencia_por_fechas'] !== 1) {
+            $this->redirectWithError($grilla, 'Este bimestre no se registra por fechas.');
+        }
+        if ($this->model->getCierreVigente($seccionId, $pid)) {
+            $this->redirectWithError($grilla, 'La asistencia de esta sección ya fue bloqueada; no se puede editar.');
+        }
+
+        $res = $this->model->confirmarSeccion($seccionId, $pid, (int) Session::user()['id']);
+        $msg = "{$res['confirmados']} estudiante(s) confirmado(s).";
+        if ($res['sin_motivo'] !== []) {
+            $this->redirectWithError($grilla, $msg . ' Falta el motivo de alguna justificación en: '
+                . implode(', ', $res['sin_motivo']) . '.');
+        }
+        $this->redirectWithSuccess($grilla, $msg);
     }
 }

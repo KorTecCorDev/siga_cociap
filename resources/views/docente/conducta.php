@@ -47,7 +47,7 @@ $pid       = (int) $periodoSel['id'];
         <p class="conducta-espera__texto">
             Todavía los auxiliares académicos no han registrado sus calificaciones de conducta
             de esta sección para el <strong><?= e($periodoSel['nombre_display']) ?></strong>.
-            Consulte con Registro Académico para más información.
+            Consulta con Registro Académico para más información.
         </p>
     </div>
 
@@ -108,7 +108,7 @@ $pid       = (int) $periodoSel['id'];
                     <tr>
                         <th class="col-num">N°</th>
                         <th class="col-nombre">Apellidos y nombres</th>
-                        <th class="col-numeral text-center" title="Nota de Registro Académico">Nota del Auxiliar</th>
+                        <th class="col-numeral text-center" title="Nota del auxiliar">Nota del Auxiliar</th>
                         <th class="col-numeral text-center" title="Tu nota (opcional, 00–20)">Tu nota</th>
                         <th class="col-numeral col-resultado col-resultado--inicio text-center" title="Promedio final entre la nota del auxiliar y la tuya (.5 a favor, calculado)">Promedio numeral</th>
                         <th class="col-literal col-resultado text-center">Literal</th>
@@ -130,7 +130,7 @@ $pid       = (int) $periodoSel['id'];
                             <td class="col-num"><?= $i + 1 ?></td>
                             <td class="col-nombre"><?= e($est['nombre_completo']) ?></td>
 
-                            <!-- Nota de Registro Académico (Auxiliar) -->
+                            <!-- Nota del auxiliar -->
                             <td class="col-numeral text-center">
                                 <?php if ($notaRa !== null): ?>
                                     <span class="nota-numeral nota-numeral--<?= strtolower($litRa) ?>">

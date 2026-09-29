@@ -152,9 +152,13 @@ talleres. Ver `docs/modulos/usuarios-direccion.md` § «Talleres».
 
 1. Crea la matrícula operativa en el grado destino (`estado='aprobada'`).
 2. Inserta el vínculo en `retornos_grado`.
-3. **Mueve** (`UPDATE matricula_id`) `inasistencias`, `conducta_respuestas` y
-   `calificaciones_conducta` **de los bimestres ACTIVOS** a la operativa. Son
-   contadores por bimestre, no datos por criterio: no hay nada que convalidar.
+3. **Mueve** (`UPDATE matricula_id`) `inasistencias`, `asistencia_incidencias`,
+   `conducta_respuestas`, `conducta_confirmaciones` y `calificaciones_conducta` **de los
+   bimestres ACTIVOS** a la operativa. Son contadores por bimestre, no datos por
+   criterio: no hay nada que convalidar. Desde el 29/09/2026 (migraciones 068 y 069)
+   viajan también las **fechas** de asistencia —los contadores son su conteo y deben
+   vivir en la misma matrícula— y la **confirmación** de conducta —sin ella, lo
+   confirmado llegaría como borrador y saldría de la boleta—.
    Los bimestres **cerrados no se tocan**.
 
 **Mover, no copiar, es deliberado:** la unión de asistencia SUMA campo a campo,

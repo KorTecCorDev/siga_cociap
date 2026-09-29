@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\AnioAcademicoModel;
+use App\Models\AsistenciaEstadisticaModel;
 use App\Models\AsistenciaModel;
 use App\Models\ConductaModel;
 use App\Models\ControlOperativoModel;
@@ -436,6 +437,11 @@ class CuadrosEstadisticosController extends BaseController
             'asistencia_secciones' => $this->asistenciaModel->getIncidenciasPorSeccion($periodoId),
             'asistencia_top'       => $this->asistenciaModel->getTopIncidenciasPorSeccion($periodoId),
             'asistencia_evolucion' => $this->asistenciaModel->getEvolucionIncidenciasAnual($anioId),
+
+            // ── Justificaciones (29/09/2026) ─────────────────────────
+            // Solo bimestres POR FECHAS (desde el III): en los demás es null y el
+            // bloque no se pinta. Todo lo calcula su modelo dueño.
+            'justificaciones'      => (new AsistenciaEstadisticaModel())->justificaciones($periodoId),
         ];
     }
 

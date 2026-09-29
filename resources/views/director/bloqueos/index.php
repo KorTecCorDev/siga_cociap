@@ -22,20 +22,20 @@ $acPct   = $acTotal > 0 ? round($acBloq / $acTotal * 100) : 0;
 
 // Las CUATRO reaperturas del panel (competencia, transversal, conducta,
 // asistencia) exigen el bimestre reabierto. Con el bimestre cerrado nadie puede
-// corregir —`periodoEditable` corta por `estado`— y en tres de ellas el dato
+// corregir —`periodoEditable` corta por `estado`— y en las cuatro el dato
 // ademas DESAPARECE del documento mientras tanto. Los botones quedan inertes
 // con el motivo a la vista; el guard real vive en el controlador
 // (`BloqueoController::abortarSiPeriodoCerrado`).
 $periodoActivo = ($periodo['estado'] ?? '') === 'activo';
 
-// La asistencia es la excepcion: NO sale de la boleta (`getDelBimestre` lee
-// `inasistencias` sin mirar el cierre). Su aviso no debe prometer un dano que
-// no ocurre.
+// Desde el 29/09/2026 la asistencia tampoco es excepcion: sin cierre vigente
+// sale de la boleta (`AsistenciaModel::sqlVisible`), igual que la conducta.
 $avisoConductaCerrada   = 'Con el bimestre cerrado no se puede reabrir: la conducta '
     . 'desapareceria de la boleta de la seccion y nadie podria corregirla. '
     . 'Reabre el bimestre primero.';
-$avisoAsistenciaCerrada = 'Con el bimestre cerrado no se puede reabrir: nadie podria '
-    . 'registrar ni corregir asistencia hasta reabrirlo. Reabre el bimestre primero.';
+$avisoAsistenciaCerrada = 'Con el bimestre cerrado no se puede reabrir: la asistencia '
+    . 'desapareceria de la boleta de la seccion y nadie podria corregirla. '
+    . 'Reabre el bimestre primero.';
 
 $trTotal = (int) ($transStats['total'] ?? 0);
 $trCerr  = (int) ($transStats['cerradas'] ?? 0);
@@ -774,15 +774,15 @@ $_oS  = round(25 - $_pB - $_pP, 2);
             <p class="text-sm text-muted mb-sm">
                 La conducta cierra en dos etapas: el <strong>auxiliar académico</strong> registra y
                 bloquea, luego el <strong>tutor</strong> aprueba. El director puede forzar cualquier
-                etapa o <em>reabrir</em> para correcciones. Forzar la etapa del auxiliar exige que
-                todos los estudiantes estén calificados.
+                etapa o <em>reabrir</em> para correcciones. Si fuerzas la etapa del auxiliar con
+                estudiantes sin confirmar, su conducta queda fuera de la boleta (guion).
             </p>
             <table class="tabla-ranking tabla-bloqueos">
                 <thead>
                     <tr>
                         <th>Secci&oacute;n</th>
                         <th>Tutor(a)</th>
-                        <th>Calificados</th>
+                        <th>Confirmados</th>
                         <th>Estado</th>
                         <th>Cerrado el</th>
                         <th>Acciones</th>
@@ -821,13 +821,19 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                         <td class="td-acciones-conducta">
                             <?php if ($cc['estado'] === 'pendiente_auxiliar'): ?>
                                 <?php if ($puedeEscribir): ?>
+                                <?php // Decisión b (29/09/2026): el director SÍ puede forzar con
+                                      // pendientes; el aviso dice cuántos quedan fuera. ?>
+                                <?php $sinConfirmar = max(0, (int) $cc['esperados'] - (int) $cc['calificados']); ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/conducta/' . $cc['seccion_id'] . '/bloquear') ?>"
-                                      onsubmit="return confirm('Forzar el bloqueo del auxiliar académico para esta sección?')">
+                                      onsubmit="return confirm(<?= e(json_encode($sinConfirmar > 0
+                                          ? '¿Forzar el bloqueo del auxiliar académico? ' . $sinConfirmar
+                                            . ' estudiante(s) sin confirmar quedarán sin conducta en la boleta.'
+                                          : '¿Forzar el bloqueo del auxiliar académico para esta sección?',
+                                          JSON_UNESCAPED_UNICODE)) ?>)">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="periodo_id" value="<?= $periodoId ?>">
-                                    <button type="submit" class="btn btn--secondary btn--sm"
-                                        <?= $completa ? '' : 'disabled title="Faltan estudiantes por calificar"' ?>>
+                                    <button type="submit" class="btn btn--secondary btn--sm">
                                         Bloquear (etapa 1)
                                     </button>
                                 </form>
@@ -892,20 +898,20 @@ $_oS  = round(25 - $_pB - $_pP, 2);
          role="tabpanel" aria-labelledby="tabcard-asistencia" hidden>
 
 <?php if (!empty($asistencia)): ?>
-    <p class="bloqueos-nivel-titulo">Asistencia &mdash; una etapa: Registro Acad&eacute;mico</p>
+    <p class="bloqueos-nivel-titulo">Asistencia &mdash; una etapa: auxiliar acad&eacute;mico</p>
     <div class="card mb-md">
         <div class="card__body">
             <p class="text-sm text-muted mb-sm">
-                <strong>Registro Acad&eacute;mico</strong> registra las incidencias y bloquea la
-                secci&oacute;n. El director puede forzar el bloqueo o <em>reabrir</em> para
-                correcciones. Las filas sin registro cuentan como 0 incidencias, por lo que
-                el bloqueo no exige completitud.
+                El <strong>auxiliar acad&eacute;mico</strong> registra las incidencias por fecha,
+                confirma a cada estudiante y bloquea la secci&oacute;n. El director puede forzar el
+                bloqueo o <em>reabrir</em> para correcciones. Si fuerzas el bloqueo con
+                estudiantes sin confirmar, su asistencia queda fuera de la boleta (guion).
             </p>
             <table class="tabla-ranking tabla-bloqueos">
                 <thead>
                     <tr>
                         <th>Secci&oacute;n</th>
-                        <th>Registrados</th>
+                        <th>Confirmados</th>
                         <th>Estado</th>
                         <th>Bloqueado el</th>
                         <th>Acciones</th>
@@ -938,9 +944,14 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                         <td class="td-acciones-conducta">
                             <?php if (!$sa['bloqueada']): ?>
                                 <?php if ($puedeEscribir): ?>
+                                <?php $sinConfirmarA = max(0, (int) $sa['esperados'] - (int) $sa['registrados']); ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/asistencia/' . $sa['seccion_id'] . '/bloquear') ?>"
-                                      onsubmit="return confirm('Forzar el bloqueo de la asistencia de esta sección? Las filas sin registro cuentan como 0 incidencias.')">
+                                      onsubmit="return confirm(<?= e(json_encode($sinConfirmarA > 0
+                                          ? '¿Forzar el bloqueo de la asistencia? ' . $sinConfirmarA
+                                            . ' estudiante(s) sin confirmar quedarán sin asistencia en la boleta.'
+                                          : '¿Forzar el bloqueo de la asistencia de esta sección?',
+                                          JSON_UNESCAPED_UNICODE)) ?>)">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="periodo_id" value="<?= $periodoId ?>">
                                     <button type="submit" class="btn btn--secondary btn--sm">Bloquear</button>

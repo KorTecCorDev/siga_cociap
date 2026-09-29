@@ -28,9 +28,13 @@ class NominaDocenteModel extends BaseModel
      *                       (decisión del usuario, 28/09/2026).
      *
      * Cada docente: nombre, dni, telefono, correo,
-     *   cargas  = [['areas' => 'Matemática (Álgebra, Aritmética)', 'secciones' => '1.° A, 1.° B'], …]
-     *             (las secciones con exactamente las mismas áreas van en una línea),
-     *   tutoria = '2.° A' o ''.
+     *   cargas  = [['areas' => ['Matemática (Álgebra, Aritmética)', …], 'secciones' => ['1.° A', '1.° B']], …]
+     *             (las secciones con exactamente las mismas áreas van en una línea;
+     *             cada sección se nombra ENTERA, nunca «1.° A-B»: decisión del
+     *             usuario del 29/09/2026, para que nadie confunda la sección),
+     *   tutoria = ['2.° A'] o [].
+     * Listas y no texto unido (29/09/2026): la vista A4 vertical pinta cada
+     * sección como etiqueta y separa la tutoría de las cargas.
      *
      * @return array<int, array{nombre:string, docentes:array}> clave = nivel_id
      */
@@ -83,8 +87,7 @@ class NominaDocenteModel extends BaseModel
 
         foreach ($niveles as &$nivel) {
             foreach ($nivel['docentes'] as &$d) {
-                $d['cargas']  = self::agruparCargas($d['secciones']);
-                $d['tutoria'] = implode(', ', $d['tutoria']);
+                $d['cargas'] = self::agruparCargas($d['secciones']);
                 unset($d['secciones']);
             }
             unset($d);
@@ -110,13 +113,10 @@ class NominaDocenteModel extends BaseModel
                 $areas[] = $subs ? $area . ' (' . implode(', ', $subs) . ')' : $area;
             }
             $clave = implode('; ', $areas);
-            $lineas[$clave] ??= ['areas' => $clave, 'secciones' => []];
+            $lineas[$clave] ??= ['areas' => $areas, 'secciones' => []];
             $lineas[$clave]['secciones'][] = $s['etiqueta'];
         }
-        return array_map(
-            static fn($l) => ['areas' => $l['areas'], 'secciones' => implode(', ', $l['secciones'])],
-            array_values($lineas)
-        );
+        return array_values($lineas);
     }
 
     /**

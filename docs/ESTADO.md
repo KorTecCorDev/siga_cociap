@@ -5,21 +5,52 @@
 > **Versión desplegada: v1.0.4** (`config/app.php` + tag anotado `v1.0.4`, 27/09/2026).
 
 
+## ⏸ DIFERIDO (29/09/2026) — Reapertura ESCALONADA de conducta y transversales
+
+Decisión del usuario: hoy «Reabrir» en `/director/bloqueos` anula el cierre ENTERO de
+conducta (las dos etapas caen y la conducta sale de la boleta). Debe ser ESCALONADO:
+reabrir una sección cerrada deshace solo la etapa del **tutor** (queda «Pendiente tutor»,
+lo del auxiliar intacto); reabrir de nuevo deshace la del **auxiliar**. El alcance incluye
+también los bloqueos y aprobaciones de los **promedios de competencias transversales**.
+Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motivo) en una
+migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
+nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
+
 ## 🆕 MÓDULO AUXILIAR ACADÉMICO — F0–F6 HECHAS en `dev` (28-29/09/2026; lo de hasta el 28 pusheado, `bae54d3`…`726f516` SIN push)
 
 ### 🔜 RETOMAR AQUÍ (30/09/2026) — PENDIENTE INMEDIATO: repaso final y cierre del módulo
 
-El usuario lo dejó para el día siguiente (29/09/2026). Es lo ÚNICO que falta para terminar
-la implementación de manera correcta. Detalle completo en `docs/modulos/auxiliares.md` §7.
+Detalle completo en `docs/modulos/auxiliares.md` §7 y, para lo del 29/09, en
+`docs/modulos/confirmacion-y-asistencia-por-fechas.md` (cabeceras de ronda y «AVANCE»).
 
-**0. Antes de probar — decidir con el usuario** (pueden cambiar lo que se prueba):
-- [ ] Textos que aún dicen «Registro Académico bloquea…» donde ahora también bloquea el
-      auxiliar: `Docente\ConductaTutorController` (≈128 y 187), `Director\BloqueoController`
-      (≈886), `ConductaModel` (≈497). Acordar el texto neutro.
-- [ ] `asistencia.js`: si un guardado FALLA (403 / sin conexión) devuelve los números al
-      último valor guardado y se pierde lo tecleado. Preexistente; ¿se corrige?
-- [ ] `_auth.scss` deja a `.form-input` un `padding-left: 40px` GLOBAL (hueco del icono del
-      login); se corrigió solo en la pantalla de criterios. ¿Se corrige en todo el sistema?
+**Fin del turno del 29/09/2026 (oficina): TODO COMMITEADO Y PUSHEADO a `dev`.** Ese día
+se hicieron el repaso con auxiliar, RA, tutor y Dirección (todo conforme, confirmado por
+el usuario) y tres rondas de ajustes: confirmar y autoguardar conducta y asistencia,
+asistencia POR FECHAS con motivos, estadísticas de justificaciones en Cuadros, textos
+impersonales, Usuarios solo para admin, grillas sin columna Estado, imprimible con
+«Detalle de incidencias» y `.form-input`.
+
+**Al retomar EN CASA, antes de probar nada:**
+- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 069**: aplicarlas a
+      mano en orden. Sin la 068 y la 069 el código nuevo falla (`conducta_confirmaciones`,
+      `inasistencias.confirmado_en`, `asistencia_incidencias`,
+      `periodos.asistencia_por_fechas`). Tampoco tiene auxiliares de prueba (ver punto 1).
+
+**0. Decisiones previas — ✅ TODAS RESUELTAS el 29/09/2026:** textos neutros (forma
+impersonal + nombre real), `asistencia.js` conserva lo tecleado y marca la celda en error,
+`.form-input` con 40 px solo en el login (opción A).
+
+**0b. Lo que quedó sin probar el 29/09 (hacerlo en casa, con Chrome):**
+- [ ] Grillas SIN columna Estado: marcar un día en asistencia y un criterio en conducta
+      (autoguardado real), ver la franja del N° pasar a ámbar, «Confirmar todo» → verde.
+      Los colores se revisaron solo simulando las clases.
+- [ ] Imprimible de asistencia: **vista previa de impresión** para confirmar que el
+      «Detalle de incidencias» sale en hoja aparte con las firmas al final.
+- [ ] Bloque «Justificaciones» de Cuadros con el DIRECTOR: solo se verá cuando el III
+      Bimestre esté cerrado (Dirección ve solo bimestres cerrados; admin/RA sí lo ven en
+      vivo con el selector en «III Bimestre (activo)»).
+- [ ] Consulta de asistencia de Dirección con fechas: solo abre secciones con competencias
+      bloqueadas en el bimestre; hace falta asistencia registrada en una de ellas.
 
 **1. Preparar el entorno:** en la máquina de casa NO hay auxiliares ni asignaciones.
 - [ ] Crear un auxiliar de prueba (`/admin/usuarios/crear`) y otro SIN secciones.
@@ -43,8 +74,22 @@ la implementación de manera correcta. Detalle completo en `docs/modulos/auxilia
 - [ ] Docs finales: cabecera de `auxiliares.md` (= desplegado), `admin.md` (conducta y
       asistencia también las registra el auxiliar), registro del deploy aquí (sección Git),
       `decisiones-diferidas.md` (asistencia por QR 2027, §8 de `auxiliares.md`).
-- [ ] 🔴 **Producción: migraciones `065`, `066` y `067` a mano ANTES del push a `main`**
-      (la 067 es imprescindible: sin ella fallan las consultas de conducta).
+- [ ] 🔴 **Producción: migraciones `065`, `066`, `067`, `068` y `069` a mano ANTES del push a
+      `main`** (la 067 es imprescindible: sin ella fallan las consultas de conducta; la 068 y
+      la 069, sin ellas el código nuevo no encuentra `conducta_confirmaciones`,
+      `inasistencias.confirmado_en`, `asistencia_incidencias` ni
+      `periodos.asistencia_por_fechas`). Antes de la 069, correr su PREVIEW: lista las filas
+      de asistencia del III guardadas como números > 0, que quedarán desconfirmadas y hay
+      que volver a registrar por fecha. Tras la 068, «sin confirmar» de conducta debe ser 0.
+- [ ] 🔴 **Antes del merge, en PRODUCCIÓN:** comprobar que cada sección del I y II Bimestre
+      tiene cierre de asistencia vigente. Desde el 29/09/2026 la boleta solo muestra
+      asistencia con cierre (`AsistenciaModel::sqlVisible`): una sección sin cierre perdería
+      su asistencia en la boleta ya publicada. En local: 23/23 en los dos bimestres.
+      Consulta: `SELECT periodo_id, COUNT(DISTINCT seccion_id) FROM cierres_asistencia
+      WHERE anulado_en IS NULL GROUP BY periodo_id;`
+- [x] **Confirmar + autoguardado (B2) y asistencia POR FECHAS** implementados y probados en
+      local el 29/09/2026 (sin commit). Detalle y avance por fases en
+      `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 - [ ] Usuarios reales de los auxiliares: DNI, apellidos, nombres, sexo, celular, correo y
       sus secciones (pedírselos al usuario).
 - [ ] Merge `dev` → `main` (con `--no-ff`) **solo cuando el usuario lo pida**.

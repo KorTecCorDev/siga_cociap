@@ -202,9 +202,12 @@ body.auth-body {
     }
 }
 
+// ⚠️ Este bloque pisa a `components/_forms.scss` en TODO el sistema (va después).
+// El hueco de 40 px del icono es SOLO del login (29/09/2026, opción A): antes se
+// aplicaba a todos los campos y cada pantalla lo corregía a mano.
 .form-input {
     width: 100%;
-    padding: 11px 12px 11px 40px;
+    padding: 11px 12px;
     border: 1.5px solid $border-color;
     border-radius: $border-radius;
     font-size: $font-size-base;
@@ -224,6 +227,8 @@ body.auth-body {
         &:focus { box-shadow: 0 0 0 3px rgba($color-error, .1); }
     }
 }
+
+.login-form .form-input { padding-left: 40px; }
 
 .input-toggle-pass {
     position: absolute;

@@ -39,6 +39,9 @@ $grupos = [
         ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/asistencia',      'icon' => 'calendar-add.svg',      'titulo' => 'Asistencia',           'desc' => 'Registro de faltas y tardanzas por sección'],
         // Dirección no entra a /admin/conducta: ve los criterios por su card (F6, solo lectura).
         ['roles' => ROLES_DIRECCION,                                                     'url' => 'admin/conducta/criterios', 'icon' => 'slider-vertical.svg', 'titulo' => 'Criterios de conducta', 'desc' => 'Criterios con que se califica la conducta cada año'],
+        // Dirección tampoco entra a /admin/asistencia: ve el catálogo de motivos
+        // por su card, en solo lectura (29/09/2026).
+        ['roles' => ROLES_DIRECCION,                                                     'url' => 'admin/asistencia/motivos', 'icon' => 'check-circle.svg', 'titulo' => 'Motivos de justificación', 'desc' => 'Motivos con que se justifican las faltas y tardanzas'],
         ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/bloqueos',     'icon' => 'key-unblocked.svg',      'titulo' => 'Bloqueos del bimestre','desc' => 'Gestionar permisos de edición de notas'],
         ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/orden-merito', 'icon' => 'medal-ribbon-star.svg', 'titulo' => 'Orden de mérito',      'desc' => 'Ranking bimestral por grado'],
         ['roles' => ['admin', 'registro_academico', ...ROLES_DIRECCION], 'url' => 'director/ranking-seccion','icon' => 'users-group-rounded.svg','titulo' => 'Ranking por sección',  'desc' => 'Ranking interno de cada sección'],
@@ -46,7 +49,9 @@ $grupos = [
         ['roles' => ['admin', 'registro_academico'],                                     'url' => 'rectificaciones',       'icon' => 'edit-pen.svg',      'titulo' => 'Rectificación de notas','desc' => 'Corregir notas aprobadas y bloqueadas'],
     ],
     'Administración' => [
-        ['roles' => ['admin', 'registro_academico'],                                     'url' => 'admin/usuarios',        'icon' => 'user-plus.svg',         'titulo' => 'Usuarios',             'desc' => 'Gestionar cuentas del sistema'],
+        // Solo admin (29/09/2026): la edición deja cambiar rol y contraseña de
+        // cualquier cuenta, así que abrirla a RA lo volvería administrador de hecho.
+        ['roles' => ['admin'],                                                           'url' => 'admin/usuarios',        'icon' => 'user-plus.svg',         'titulo' => 'Usuarios',             'desc' => 'Gestionar cuentas del sistema'],
         ['roles' => ['admin'],                                                           'url' => 'admin/director-ebr',    'icon' => 'maletin-elegante.svg',         'titulo' => 'Director EBR',         'desc' => 'Historial y asignación del Director EBR'],
     ],
 ];

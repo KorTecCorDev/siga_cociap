@@ -428,6 +428,37 @@ $k = $bloques['matricula']['kpis'];
     </section>
     <?php endif; ?>
 
+    <?php // ── 6. JUSTIFICACIONES (29/09/2026) — mismas piezas que la pantalla ── ?>
+    <?php $just = $bloques['justificaciones'] ?? null; ?>
+    <?php if ($just): ?>
+    <section class="cuadros-print__bloque">
+        <h2 class="cuadros-print__h2">Justificaciones</h2>
+        <?php require VIEW_PATH . '/admin/cuadros/_just-kpis.php'; ?>
+        <?php foreach ([
+            'justMotivos'     => ['chart-just-motivos',     'Usos por motivo'],
+            'justSecciones'   => ['chart-just-secciones',   'Incidencias por estudiante, por sección'],
+            'justSemanas'     => ['chart-just-semanas',     'Tendencia semanal'],
+            'justDias'        => ['chart-just-dias',        'Por día de la semana'],
+            'justOportunidad' => ['chart-just-oportunidad', 'Oportunidad del registro'],
+        ] as $clave => [$idGrafico, $tituloGrafico]): ?>
+            <?php if (isset($chartData[$clave])): ?>
+                <div class="cuadros-print__chart">
+                    <h3 class="cuadros-print__h3"><?= e($tituloGrafico) ?></h3>
+                    <div id="<?= e($idGrafico) ?>"></div>
+                    <?php $t = $chartTablas[$clave] ?? null; ?>
+                    <p class="cuadros-print__nota"><?= $t['nota'] ?></p>
+                </div>
+                <?php $abierta = true; require VIEW_PATH . '/admin/cuadros/_tabla-grafico.php'; ?>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </section>
+    <section class="cuadros-print__bloque cuadros-print__bloque--tabla">
+        <h2 class="cuadros-print__h2">Días críticos y estudiantes</h2>
+        <?php require VIEW_PATH . '/admin/cuadros/_just-criticos.php'; ?>
+        <?php require VIEW_PATH . '/admin/cuadros/_just-estudiantes.php'; ?>
+    </section>
+    <?php endif; ?>
+
     <?php if (!empty($bloques['reaperturas'])): ?>
         <section class="cuadros-print__bloque">
             <h2 class="cuadros-print__h2">Reaperturas del bimestre</h2>

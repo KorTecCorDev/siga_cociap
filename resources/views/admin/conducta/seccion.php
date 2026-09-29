@@ -10,7 +10,7 @@
  * @var array       $periodosNav  periodos del año activo + ['cierre' => cierre vigente|null]
  * @var bool        $soloLectura  true = periodo no editable (historial)
  * @var array       $criterios    [{ id, texto, orden }]
- * @var array       $estudiantes  [{ matricula_id, nombre_completo, respuestas[criterio_id] }]
+ * @var array       $estudiantes  [{ matricula_id, nombre_completo, respuestas[criterio_id], confirmado }]
  * @var array       $legado       [{ matricula_id, nombre_completo, literal }] — solo
  *                                bimestre legado (literal directo) en solo lectura
  * @var array|null  $cierre       cierre vigente del periodo mostrado o null
@@ -24,6 +24,9 @@ $bloqueada = $cierre !== null;
 $cerradaT  = $bloqueada && !empty($cierre['tutor_cerrado_en']);
 $completo  = $completitud['esperados'] > 0 && $completitud['completos'] >= $completitud['esperados'];
 $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
+// Grilla EDITABLE: autoguardado + «Confirmar». Nombre propio: `$editable` lo
+// reusa el bucle de pestañas de abajo con otro significado.
+$grillaEditable = !$bloqueada && !$soloLectura;
 ?>
 
 <div class="page-header">
@@ -182,12 +185,14 @@ foreach ($estudiantes as $est) {
                 title="Marcar Sí en los criterios sin responder (no cambia las excepciones)">
             <span class="btn-icon btn-icon--saveall" aria-hidden="true"></span> Marcar Sí
         </button>
-        <button type="button" id="conducta-guardar-todos" class="btn btn--primary btn--sm"
-                title="Guardar todas las filas pendientes">
-            <span class="btn-icon btn-icon--save" aria-hidden="true"></span> Guardar todo
+        <button type="button" id="conducta-confirmar-todos" class="btn btn--primary btn--sm"
+                title="Confirmar a todos los estudiantes con sus criterios completos">
+            <span class="btn-icon btn-icon--save" aria-hidden="true"></span> Confirmar todo
         </button>
         <span class="conducta-toolbar__hint text-muted">
-            “Marcar Sí” rellena solo lo que falte.
+            Cada marca se guarda sola como borrador. Solo lo confirmado cuenta. Franja del N°:
+            verde confirmado, ámbar sin confirmar. Para confirmar a uno solo, usa
+            <em>Registrar por estudiante</em>.
         </span>
     </div>
 <?php endif; ?>
@@ -204,13 +209,19 @@ foreach ($estudiantes as $est) {
                 <?php foreach ($criterios as $c): ?>
                     <th class="conducta-th-crit" title="<?= e($c['texto']) ?>"><?= e($c['codigo']) ?></th>
                 <?php endforeach; ?>
-                <th class="conducta-th-nota" title="Nota de Registro Académico (Sí ÷ <?= $total ?> × 20)">Nota</th>
+                <th class="conducta-th-nota" title="Nota del auxiliar (Sí ÷ <?= $total ?> × 20)">Nota</th>
+                <?php // N° REPETIDO al final, PEGADO a la nota (decisión del usuario,
+                      // 29/09/2026). Sin columna «Estado»: lo dice la franja del N°
+                      // inicial, y a uno solo se le confirma en su vista individual. ?>
+                <th class="col-num-fin">N°</th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($estudiantes as $idx => $est):
                 $resp     = $est['respuestas'];
-                $guardado = count($resp) >= $total;
+                // Editable: verde = CONFIRMADO (29/09/2026); un borrador completo
+                // sigue en ámbar. Solo lectura: lo que se muestra ya es oficial.
+                $guardado = $grillaEditable ? !empty($est['confirmado']) : count($resp) >= $total;
                 // En solo lectura la nota RA se calcula en el servidor (sin JS).
                 $notaRa = $litRa = null;
                 if ($soloLectura && $total > 0 && count($resp) >= $total) {
@@ -223,7 +234,8 @@ foreach ($estudiantes as $est) {
                     data-matricula="<?= (int) $est['matricula_id'] ?>"
                     data-periodo="<?= $pidVer ?>"
                     data-csrf="<?= e($csrfToken) ?>"
-                    data-total="<?= $total ?>">
+                    data-total="<?= $total ?>"
+                    data-confirmada="<?= !empty($est['confirmado']) ? '1' : '0' ?>">
                     <td class="col-num"><?= $idx + 1 ?></td>
                     <td class="col-nombre">
                         <?= e($est['nombre_completo']) ?>
@@ -268,6 +280,7 @@ foreach ($estudiantes as $est) {
                             <span class="cc-nota">—</span>
                         <?php endif; ?>
                     </td>
+                    <td class="col-num-fin"><?= $idx + 1 ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
@@ -280,9 +293,9 @@ foreach ($estudiantes as $est) {
           onsubmit="return confirm('¿Bloquear y aprobar la conducta de toda la sección? Después solo Dirección podrá desbloquearla.');">
         <?= csrf_field() ?>
         <div class="conducta-bloqueo-info">
-            Completos: <strong><?= $completitud['completos'] ?>/<?= $completitud['esperados'] ?></strong>
+            Confirmados: <strong><?= $completitud['completos'] ?>/<?= $completitud['esperados'] ?></strong>
             <?php if (!$completo): ?>
-                <span class="text-muted">— faltan estudiantes por calificar</span>
+                <span class="text-muted">— faltan estudiantes por confirmar</span>
             <?php endif; ?>
         </div>
         <button type="submit" class="btn btn--success" <?= $completo ? '' : 'disabled' ?>>

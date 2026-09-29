@@ -250,11 +250,112 @@
         });
     });
 
+    // ── Justificaciones (29/09/2026) ─────────────────────────────────
+    // Colores: faltas ROJO y tardanzas ÁMBAR (orden de gravedad, como la
+    // evolución anual); justificadas AZUL (FJ) y TEAL (TJ).
+
+    // J1 — Usos por motivo, apilados FJ + TJ.
+    registrar('chart-just-motivos', 'justMotivos', function (d, id) {
+        new frappe.Chart('#' + id, {
+            type: 'bar',
+            height: 260,
+            colors: [AZUL, TEAL],
+            axisOptions: { xAxisMode: 'tick' },
+            barOptions: { stacked: 1, spaceRatio: 0.5 },
+            data: { labels: d.labels, datasets: d.datasets }
+        });
+    });
+
+    // J2 — Secciones por estudiante, los cuatro tipos apilados.
+    registrar('chart-just-secciones', 'justSecciones', function (d, id) {
+        new frappe.Chart('#' + id, {
+            type: 'bar',
+            height: 300,
+            colors: [ROJO, AZUL, AMBAR, TEAL],
+            axisOptions: { xAxisMode: 'tick' },
+            barOptions: { stacked: 1, spaceRatio: 0.3 },
+            tooltipOptions: { formatTooltipY: unidad(d) },
+            data: { labels: d.labels, datasets: d.datasets }
+        });
+    });
+
+    // J3 — Tendencia semanal (promedio diario).
+    registrar('chart-just-semanas', 'justSemanas', function (d, id) {
+        new frappe.Chart('#' + id, {
+            type: 'line',
+            height: 260,
+            colors: [ROJO, AMBAR],
+            axisOptions: { xAxisMode: 'tick' },
+            lineOptions: { hideDots: 0, regionFill: 0 },
+            tooltipOptions: { formatTooltipY: unidad(d) },
+            data: { labels: d.labels, datasets: d.datasets }
+        });
+    });
+
+    // J4 — Patrón por día de la semana.
+    registrar('chart-just-dias', 'justDias', function (d, id) {
+        new frappe.Chart('#' + id, {
+            type: 'bar',
+            height: 260,
+            colors: [ROJO, AMBAR],
+            axisOptions: { xAxisMode: 'tick' },
+            barOptions: { spaceRatio: 0.4 },
+            tooltipOptions: { formatTooltipY: unidad(d) },
+            data: { labels: d.labels, datasets: d.datasets }
+        });
+    });
+
+    // J5 — Oportunidad del registro por sección.
+    registrar('chart-just-oportunidad', 'justOportunidad', function (d, id) {
+        new frappe.Chart('#' + id, {
+            type: 'bar',
+            height: 280,
+            colors: [AZUL],
+            axisOptions: { xAxisMode: 'tick' },
+            barOptions: { spaceRatio: 0.3 },
+            tooltipOptions: { formatTooltipY: unidad(d) },
+            data: { labels: d.labels, datasets: [{ name: 'Días de demora', values: d.values }] }
+        });
+    });
+
     // ── Dibujado ─────────────────────────────────────────────────────
     // `offsetParent === null` cubre el caso que importa: el contenedor, o
     // cualquiera de sus padres, está oculto (`hidden`, `display:none`).
     var visible = function (el) {
         return el.offsetParent !== null;
+    };
+
+    // ── Eje Y con decimales (29/09/2026) ─────────────────────────────
+    // Frappe calcula los ticks sumando pasos decimales y escribe el error de
+    // coma flotante tal cual: «0.30000000000000004», que además se corta contra
+    // el borde («)0000004»). Pasa con valores menores que 1, justo los
+    // promedios diarios de las estadísticas de justificaciones. Frappe no tiene
+    // formateador para el eje Y, así que se redondean sus etiquetas después de
+    // dibujar, y OTRA VEZ cada vez que Frappe redibuja (lo hace al cambiar el
+    // tamaño, desde su ResizeObserver): de ahí el MutationObserver.
+    var redondear = function (texto) {
+        var n = Number(texto);
+        if (texto === '' || !isFinite(n) || Math.round(n) === n) {
+            return texto;
+        }
+        return String(Math.round(n * 100) / 100);
+    };
+
+    var sanearEjeY = function (el) {
+        el.querySelectorAll('g.y.axis text').forEach(function (t) {
+            var limpio = redondear(t.textContent);
+            if (limpio !== t.textContent) {
+                t.textContent = limpio;
+            }
+        });
+    };
+
+    var vigilarEjeY = function (el) {
+        sanearEjeY(el);
+        if (typeof MutationObserver === 'function') {
+            new MutationObserver(function () { sanearEjeY(el); })
+                .observe(el, { childList: true, subtree: true, characterData: true });
+        }
     };
 
     var barrer = function () {
@@ -265,6 +366,7 @@
             }
             el.setAttribute('data-dibujado', '1');
             registro[id]();
+            vigilarEjeY(el);
         });
     };
 

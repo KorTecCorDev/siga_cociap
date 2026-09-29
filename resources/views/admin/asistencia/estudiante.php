@@ -17,6 +17,7 @@
  * @var int    $pos          índice del estudiante mostrado en $estudiantes
  * @var string $siguienteUrl URL del siguiente estudiante, o la grilla tras el último
  * @var int    $topeMax      valor máximo por contador (espejo del backend)
+ * @var bool   $porFechas    bimestre por fechas → `_estudiante-fechas.php` (29/09/2026)
  */
 
 use App\Models\AsistenciaModel;
@@ -51,14 +52,16 @@ $etiquetas = [
 </div>
 
 <?php // Selector de estudiante: funciona sin JS (botón «Ir»); con JS cambia solo
-      // al elegir y avisa si hay cambios sin guardar. ✓ = tiene registro guardado. ?>
+      // al elegir y avisa si hay cambios sin guardar. ✓ = registro guardado; en
+      // un bimestre por fechas, CONFIRMADO (29/09/2026). ?>
 <form method="get" action="<?= url('admin/asistencia/' . $sid . '/estudiante') ?>"
       class="registro-estudiante-selector" data-selector-estudiante>
     <label class="form-label" for="selector-estudiante">Estudiante</label>
     <select id="selector-estudiante" name="m" class="form-select">
-        <?php foreach ($estudiantes as $i => $alumno): ?>
+        <?php foreach ($estudiantes as $i => $alumno):
+            $hecho = !empty($alumno['incidencias'][$porFechas ? 'confirmado' : 'registrado']); ?>
             <option value="<?= (int) $alumno['matricula_id'] ?>" <?= $i === $pos ? 'selected' : '' ?>>
-                <?= $i + 1 ?>. <?= e($alumno['nombre_completo']) ?><?= !empty($alumno['incidencias']['registrado']) ? ' ✓' : '' ?>
+                <?= $i + 1 ?>. <?= e($alumno['nombre_completo']) ?><?= $hecho ? ' ✓' : '' ?>
             </option>
         <?php endforeach; ?>
     </select>
@@ -67,13 +70,22 @@ $etiquetas = [
 
 <div id="asistencia-feedback" class="asistencia-feedback" hidden role="status" aria-live="polite"></div>
 
+<?php // Bimestre POR FECHAS: calendario del estudiante (29/09/2026). El resto de
+      // este archivo es la entrada de 4 números de los bimestres históricos.
+if ($porFechas) {
+    require VIEW_PATH . '/admin/asistencia/_estudiante-fechas.php';
+    return;
+} ?>
+
 <section class="asistencia-fila registro-estudiante<?= !empty($inc['registrado']) ? ' asistencia-fila--registrada' : '' ?>"
          data-matricula-id="<?= (int) $est['matricula_id'] ?>"
          data-periodo-id="<?= (int) $periodo['id'] ?>"
          data-csrf="<?= e($csrfToken) ?>"
          data-siguiente="<?= e($siguienteUrl) ?>">
 
+    <?php // N.° de lista = el mismo N° de la grilla (misma cabecera que conducta). ?>
     <header class="registro-estudiante__cabecera">
+        <span class="registro-estudiante__numero" title="N.° de lista">N.° <?= $pos + 1 ?></span>
         <h2 class="registro-estudiante__nombre"><?= e($est['nombre_completo']) ?></h2>
         <span class="asistencia-status" aria-live="polite"></span>
     </header>

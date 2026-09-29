@@ -39,25 +39,77 @@
     &.conducta-fila--guardada,
     &.asistencia-fila--registrada:not(.asistencia-fila--con-cambios) { border-left-color: $color-success; }
 
+    // Cabecera: N.° de lista · nombre · nota (29/09/2026, pedido del usuario:
+    // el número y el nivel alcanzado, visibles y de buen tamaño). En el celular
+    // el nombre baja a su propia fila y el número y la nota quedan en la de
+    // arriba, a los dos extremos (`order`).
     &__cabecera {
         display: flex;
-        align-items: baseline;
-        justify-content: space-between;
+        align-items: center;
         flex-wrap: wrap;
         gap: $spacing-xs $spacing-md;
         padding-bottom: $spacing-sm;
         margin-bottom: $spacing-sm;
         border-bottom: 1px solid $border-color;
+
+        // Mensaje de guardado: fila propia, debajo, para no empujar la nota.
+        .conducta-status,
+        .asistencia-status {
+            flex: 1 0 100%;
+            order: 4;
+            text-align: left;
+            &:empty { display: none; }
+        }
+    }
+
+    &__numero {
+        flex-shrink: 0;
+        padding: 2px $spacing-sm;
+        border-radius: $border-radius-sm;
+        background: $brand-mid;
+        color: $text-white;
+        font-size: $font-size-lg;
+        font-weight: 700;
+        line-height: 1.4;
+        white-space: nowrap;
     }
 
     &__nombre {
+        flex: 1 1 240px;
         margin: 0;
         font-size: $font-size-lg;
         font-weight: 700;
         color: $text-primary;
     }
 
-    &__nota { font-weight: 600; color: $text-secondary; }
+    &__nota {
+        display: flex;
+        align-items: baseline;
+        gap: $spacing-xs;
+        margin-left: auto;
+        white-space: nowrap;
+
+        // `.cc-nota` trae el color por literal (_conducta.scss); aquí solo tamaño.
+        .cc-nota {
+            font-size: $font-size-2xl;
+            font-weight: 800;
+            line-height: 1;
+        }
+    }
+
+    &__nota-etiqueta {
+        font-size: $font-size-sm;
+        font-weight: 600;
+        color: $text-secondary;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    @media (max-width: 520px) {
+        &__numero { order: 1; }
+        &__nota   { order: 2; }
+        &__nombre { order: 3; flex-basis: 100%; }
+    }
 
     // ── Conducta: un criterio por renglón ───────────────────────────────────
     &__criterios {
@@ -132,6 +184,13 @@
     }
 
     &.asistencia-fila--con-cambios .asistencia-input { border-color: $color-warning; }
+
+    // Guardado FALLIDO: mismo rojo que en la grilla (`_asistencia.scss`); va
+    // después del ámbar, con su misma especificidad, para ganarle.
+    .asistencia-input.asistencia-input--error {
+        border-color: $color-error;
+        box-shadow: 0 0 0 2px rgba($color-error, .15);
+    }
 
     // ── Acciones ────────────────────────────────────────────────────────────
     &__acciones {

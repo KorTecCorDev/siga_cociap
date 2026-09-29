@@ -24,14 +24,18 @@
  * @var int    $pidVer      periodo mostrado (viaja al JS como data-periodo-id)
  * @var string $csrfToken   solo se usa si $editable
  * @var int    $topeMax     solo se usa si $editable
+ * @var array  $fechasDetalle opcional, SOLO LECTURA (29/09/2026): [matricula_id =>
+ *                          «F: 03/09 · FJ: 10/09 (motivo)»]. Con él sale la columna
+ *                          «Fechas» (Dirección, bimestre por fechas).
  */
 
 use App\Models\AsistenciaModel;
 
-$campos    = AsistenciaModel::CAMPOS;
-$editable  = $editable ?? false;
-$csrfToken = $csrfToken ?? '';
-$topeMax   = $topeMax ?? 99;
+$campos        = AsistenciaModel::CAMPOS;
+$editable      = $editable ?? false;
+$csrfToken     = $csrfToken ?? '';
+$topeMax       = $topeMax ?? 99;
+$fechasDetalle = $editable ? null : ($fechasDetalle ?? null);
 
 // Abreviaturas de las columnas. El `title` se conserva, pero NO es la
 // explicacion: un tooltip no existe en movil ni con teclado. La leyenda de
@@ -57,6 +61,9 @@ $abreviaturas = [
                 <?php endforeach; ?>
                 <?php if ($editable): ?>
                     <th class="asistencia-th-acciones">Acción</th>
+                <?php endif; ?>
+                <?php if ($fechasDetalle !== null): ?>
+                    <th class="asistencia-th-fechas">Fechas</th>
                 <?php endif; ?>
             </tr>
         </thead>
@@ -107,6 +114,9 @@ $abreviaturas = [
                             <span class="asistencia-status" aria-live="polite"></span>
                         </td>
                     <?php endif; ?>
+                    <?php if ($fechasDetalle !== null): ?>
+                        <td class="asistencia-td-fechas"><?= e($fechasDetalle[(int) $est['matricula_id']] ?? '') ?></td>
+                    <?php endif; ?>
                 </tr>
             <?php endforeach; ?>
         </tbody>
@@ -119,6 +129,9 @@ $abreviaturas = [
                     <td class="asistencia-td-valor"><?= (int) ($totales[$campo] ?? 0) ?></td>
                 <?php endforeach; ?>
                 <?php if ($editable): ?>
+                    <td></td>
+                <?php endif; ?>
+                <?php if ($fechasDetalle !== null): ?>
                     <td></td>
                 <?php endif; ?>
             </tr>

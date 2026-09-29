@@ -231,6 +231,14 @@
         }
     }
 
+    // Celda cuyo guardado FALLÓ (asistencia.js::marcarErrorFila). Va DESPUÉS y
+    // con la misma especificidad (0,4,0) que el ámbar de --con-cambios, para
+    // ganarle: la fila sigue ámbar (dato sin guardar) y la celda, roja.
+    .asistencia-fila .asistencia-input.asistencia-input--error {
+        border-color: $color-error;
+        box-shadow: 0 0 0 2px rgba($color-error, .15);
+    }
+
     // ── Fila enfocada ───────────────────────────────────────
     // La barra vive en la columna N°, que es STICKY: sigue en pantalla aunque
     // se esté escribiendo en TJ, en el extremo derecho. Es justo el caso del
@@ -280,3 +288,336 @@
 // en _boleta.scss (.boleta-asistencia, unidades pt/mm) y en _boleta-digital.scss
 // (.bd-asistencia, unidades responsive + @media print). No comparten estilos
 // porque viven en sistemas visuales distintos.
+
+// ============================================================================
+// ASISTENCIA POR FECHAS (29/09/2026, migración 069) — prefijo `af-`.
+// Grilla mensual día × estudiante (`_grilla-fechas.php`) y calendario por
+// estudiante (`_estudiante-fechas.php`). Un COLOR por tipo, pero el tipo va
+// siempre ESCRITO en la celda (F, FJ, T, TJ): el color solo refuerza.
+// ============================================================================
+
+$af-f:  $color-error;     // falta
+$af-fj: $brand-mid;       // falta justificada
+$af-t:  $color-warning;   // tardanza
+$af-tj: $color-info;      // tardanza justificada
+
+// Columna «Fechas» de la tabla de solo lectura (Dirección, bimestre por fechas).
+.asistencia-tabla {
+    th.asistencia-th-fechas { min-width: 220px; text-align: left; }
+    td.asistencia-td-fechas { font-size: $font-size-sm; color: $text-secondary; }
+}
+
+// Anexo «Detalle de justificaciones» en pantalla (Dirección), debajo de la tabla.
+.asistencia-anexo-titulo {
+    margin: $spacing-lg 0 $spacing-sm;
+    font-size: $font-size-lg;
+    font-weight: 700;
+}
+.tabla-anexo {
+    .tr-num          { width: 48px; text-align: center; }
+    .tr-anexo-fecha  { width: 110px; text-align: center; }
+    .tr-anexo-tipo   { width: 64px; text-align: center; font-weight: 700; }
+}
+
+// Selector de mes (mismo patrón que el de años de los criterios de conducta).
+.af-meses {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-sm;
+
+    &__opcion {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 4px 14px;
+        border: 1.5px solid $border-color;
+        border-radius: $border-radius;
+        color: $text-primary;
+        font-weight: 600;
+        text-decoration: none;
+
+        &:hover, &:focus-visible { border-color: $brand-mid; text-decoration: none; }
+        &.is-activa { border-color: $brand-mid; background: rgba($brand-mid, .08); color: $brand-mid; }
+    }
+}
+
+// ── Grilla mensual ─────────────────────────────────────────────
+// Encabezado FIJO al bajar (29/09/2026): el contenedor tiene alto propio y el
+// thead se engancha arriba, como `.conducta-scroll`. Sin alto propio, un sticky
+// dentro de un contenedor con desplazamiento horizontal no se engancha a nada.
+.af-scroll {
+    max-height: calc(100vh - 220px);
+    overflow: auto;
+
+    .af-grilla thead th {
+        position: sticky;
+        top: 0;
+        z-index: 4;                               // sobre las celdas fijas del cuerpo
+        box-shadow: inset 0 -1px 0 $border-color; // el borde inferior se va con el scroll
+    }
+    // La esquina (N° y nombre) es fija en los dos ejes: la más alta.
+    .af-grilla thead .col-num,
+    .af-grilla thead .col-nombre { z-index: 5; }
+}
+
+// Mes en la esquina fija: siempre se ve qué mes se está marcando.
+.af-th-mes {
+    display: block;
+    color: $brand-mid;
+    font-size: $font-size-sm;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+// N° REPETIDO al final de la fila (decisión del usuario, 29/09/2026). Lo usan
+// la grilla de asistencia por fechas y la de conducta.
+.col-num-fin {
+    min-width: 40px;
+    text-align: center;
+    color: $text-secondary;
+    border-left: 1px solid $border-color;
+}
+
+// ── Las DOS columnas N° de las grillas del auxiliar (29/09/2026) ────────
+// Decisión del usuario: fondo BLANCO, número en NEGRITA y borde separador GRUESO
+// oscuro, IGUAL en el N° inicial y en el final. El gris de la zona de totales
+// (`.col-resultado`, #f8fafc) es el mismo del hover y de la cabecera: sin esto el
+// N° final se leía como un total más.
+//
+// El N° inicial es STICKY: un `border` no viaja con él al desplazar a lo ancho,
+// así que su separador va en `box-shadow`. La FRANJA de estado de la fila
+// (verde confirmado · ámbar sin confirmar · rojo no se guardó) va en la MISMA
+// sombra por `--franja`, para que ninguna regla de estado borre el separador.
+// Cada grilla fija `--franja` según sus clases de fila.
+$num-borde: $text-secondary;
+
+.af-grilla,
+.conducta-grilla {
+    th.col-num,
+    th.col-num-fin { font-weight: 800; color: $text-primary; }
+
+    // 🔴 El N° inicial mide EXACTAMENTE 40 px: el nombre (sticky) se engancha en
+    // `left: 40px` (_tables.scss). Con el relleno lateral la celda medía 47 px y
+    // el nombre tapaba sus últimos 7 px, justo donde va el separador.
+    th.col-num,
+    td.col-num { padding-left: 0; padding-right: 0; }
+
+    td.col-num,
+    td.col-num-fin {
+        font-weight: 700;
+        color: $text-primary;
+        text-align: center;
+    }
+
+    th.col-num-fin,
+    td.col-num-fin {
+        background: $bg-white;
+        border-left: 2px solid $num-borde;
+    }
+}
+
+// Cabecera del N° inicial: el mismo separador, sumado al borde inferior que las
+// cabeceras fijas emulan con sombra (`.af-scroll` / `.conducta-scroll`).
+.af-scroll .af-grilla thead th.col-num,
+.conducta-scroll .conducta-grilla thead th.col-num {
+    box-shadow: inset -2px 0 0 $num-borde, inset 0 -1px 0 $border-color;
+}
+
+.af-grilla {
+    th.af-th-dia {
+        min-width: 34px;
+        padding: 4px 2px;
+        text-align: center;
+        line-height: 1.1;
+
+        &--futuro { opacity: .45; }
+    }
+    .af-th-dia__abrev { display: block; font-size: 10px; text-transform: uppercase; }
+    .af-th-dia__num   { display: block; font-weight: 700; color: $text-primary; }
+
+    td.af-td-dia { padding: 3px 2px; text-align: center; }
+
+
+    // 🔴 Las columnas FIJAS (N°, nombre) necesitan fondo OPACO: esta grilla sí
+    // se desplaza a lo ancho (hasta 23 días) y los días pasan por debajo. El
+    // verde/ámbar de las filas es `rgba` translúcido y los dejaba ver a través.
+    // Mismo tono, mezclado con blanco. Especificidad (0,4,1): le gana a las
+    // reglas de estado de fila de arriba, que son (0,4,1) pero van antes.
+    .asistencia-fila.asistencia-fila--registrada td.col-nombre {
+        background: mix($color-success, $bg-white, 6%);
+    }
+    .asistencia-fila.asistencia-fila--con-cambios td.col-nombre {
+        background: mix($color-warning, $bg-white, 10%);
+    }
+
+    // N° inicial: blanco con separador y franja de estado (ver `$num-borde`).
+    // (0,4,1) y después: le gana al fondo de estado y a la barra azul del foco
+    // (`:focus-within`), que en esta grilla taparía la franja al tocar un día.
+    .asistencia-fila.af-fila td.col-num {
+        background: $bg-white;
+        box-shadow: inset 4px 0 0 var(--franja, transparent), inset -2px 0 0 $num-borde;
+    }
+    .asistencia-fila--registrada td.col-num { --franja: #{$color-success}; }
+    .asistencia-fila--con-cambios td.col-num { --franja: #{$color-warning}; }
+    .asistencia-fila--error td.col-num      { --franja: #{$color-error}; }
+}
+
+// Celda de un día: botón en modo edición, texto en solo lectura.
+.af-celda {
+    // Margen para que el teclado virtual o el borde no la tapen al enfocarla.
+    scroll-margin-block: 96px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 30px;
+    padding: 0;
+    border: 1.5px solid $border-color;
+    border-radius: $border-radius-sm;
+    background: $bg-white;
+    color: $text-muted;
+    font-family: $font-family;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+
+    &:focus-visible { outline: 2px solid $brand-mid; outline-offset: 1px; }
+
+    &--f  { border-color: $af-f;  background: rgba($af-f,  .10); color: $af-f; }
+    &--fj { border-color: $af-fj; background: rgba($af-fj, .10); color: $af-fj; }
+    &--t  { border-color: $af-t;  background: rgba($af-t,  .12); color: darken($af-t, 12%); }
+    &--tj { border-color: $af-tj; background: rgba($af-tj, .10); color: $af-tj; }
+
+    // Justificada SIN motivo: borde discontinuo (no se puede confirmar así).
+    &--sin-motivo { border-style: dashed; }
+
+    // Justificada CON motivo: icono de documento en la esquina (29/09/2026).
+    // Máscara sobre `currentColor`: toma el color del tipo (FJ azul, TJ celeste).
+    &--con-motivo {
+        position: relative;
+
+        &::after {
+            content: '';
+            position: absolute;
+            top: 1px;
+            right: 1px;
+            width: 9px;
+            height: 9px;
+            background-color: currentColor;
+            -webkit-mask: url('../assets/icons/doc-add.svg') center / contain no-repeat;
+                    mask: url('../assets/icons/doc-add.svg') center / contain no-repeat;
+        }
+    }
+    // El autoguardado de ese día falló.
+    &--error { box-shadow: 0 0 0 2px rgba($color-error, .35); }
+
+    // Solo lectura y días que aún no transcurren.
+    &--solo   { cursor: default; }
+    &--futuro { background: $bg-secondary; border-style: dotted; opacity: .6; }
+}
+
+.af-estado {
+    font-size: $font-size-sm;
+    font-weight: 600;
+
+    &--ok        { color: $color-success; }
+    &--pendiente { color: $color-warning; }
+}
+
+// `.btn` fija su `display` y le ganaría al atributo `hidden` (mismo caso que
+// «Confirmar» en conducta).
+.af-confirmar[hidden] { display: none; }
+
+// Select del motivo, anclado a la celda por el JS.
+.af-motivo {
+    position: absolute;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    width: 260px;
+    padding: $spacing-sm;
+    background: $bg-white;
+    border: 1px solid $border-color;
+    border-radius: $border-radius;
+    box-shadow: $shadow-md;
+
+    &[hidden] { display: none; }
+    .form-label { margin: 0; }
+    .btn { align-self: flex-end; }
+}
+
+// ── Calendario por estudiante (celular) ──────────────────────────
+.af-totales {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: $spacing-sm;
+    margin: 0 0 $spacing-md;
+
+    &__item {
+        padding: $spacing-xs;
+        text-align: center;
+        border: 1px solid $border-color;
+        border-radius: $border-radius-sm;
+
+        dt { font-size: $font-size-sm; font-weight: 700; color: $text-secondary; }
+        dd { margin: 0; font-size: $font-size-xl; font-weight: 800; color: $text-primary; }
+    }
+}
+
+.af-mes__titulo {
+    margin: $spacing-md 0 $spacing-xs;
+    font-size: $font-size-base;
+    font-weight: 700;
+}
+
+.af-mes {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: $spacing-xs;
+
+    &__cab {
+        text-align: center;
+        font-size: $font-size-sm;
+        font-weight: 700;
+        color: $text-secondary;
+    }
+}
+
+// Columna = día de la semana (sin CSS inline en la vista). Cada celda lleva la
+// suya: con la colocación automática de la grilla, un lunes después de un
+// viernes baja solo a la fila siguiente, y un mes o bimestre que empieza a
+// mitad de semana deja su hueco sin elementos de relleno.
+@for $i from 1 through 5 {
+    .af-col-#{$i} { grid-column: $i; }
+}
+
+.af-celda--grande {
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    min-height: 52px;
+    gap: 2px;
+    font-size: $font-size-lg;
+
+    .af-celda__num { font-size: 11px; font-weight: 600; color: $text-muted; }
+    .af-celda__tipo { min-height: 1.2em; }
+
+    // En la celda grande el icono de motivo también es más grande.
+    &.af-celda--con-motivo::after { top: 4px; right: 4px; width: 14px; height: 14px; }
+}
+
+.af-justificaciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin: $spacing-md 0 0;
+    padding: 0;
+    list-style: none;
+
+    &[hidden] { display: none; }
+    &__falta { border-style: dashed; color: $color-warning; }
+}

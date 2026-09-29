@@ -367,10 +367,114 @@ Revisarlos en el repaso final (medido el 28/09, sin tocar):
 bloquee…»), `Director\BloqueoController` (≈ 886: «Registro Académico puede corregir y
 volver a bloquear»), `ConductaModel` (≈ 497). Decidir con el usuario el texto neutro.
 
-### Observación preexistente (decidir con el usuario, no es del módulo)
-Si un guardado de asistencia FALLA (403 o sin conexión), `asistencia.js` devuelve los
-números al último valor guardado y **se pierde lo que se había tecleado**. Pasa igual en
-la grilla desde antes.
+### Observación preexistente — RESUELTA el 29/09/2026 (sin commit aún)
+Si un guardado de asistencia FALLABA (403 o sin conexión), `asistencia.js` devolvía los
+números al último valor guardado y se perdía lo tecleado. **Decisión del usuario:
+mantener lo tecleado y marcar la celda en error.** Hecho: `marcarErrorFila()` marca en
+rojo (`.asistencia-input--error`) las celdas que no se guardaron; la fila sigue ámbar;
+teclear de nuevo quita el rojo y el aviso de la fila. Probado en grilla y por estudiante
+(sin conexión simulada, rechazo simulado y guardado real).
+
+### Repaso del 29/09/2026 — ajustes pedidos por el usuario (sin commit aún)
+Hecho y probado en el navegador:
+- **Conducta, botón Sí/No (4.2):** la opción elegida se «camuflaba» (el `:hover` (0,3,0)
+  le ganaba al `--activo` (0,2,0): fondo gris con texto blanco), y en el celular el hover
+  queda pegado tras tocar. Ahora el hover no toca al activo y solo existe con
+  `@media (hover: hover)`.
+- **Grilla de conducta (3.2):** sin resaltado de fila al pasar el cursor (anulado SOLO en
+  `.conducta-grilla`; el `tr:hover` global de `.tabla-notas` sigue en las demás grillas).
+- **Vista por estudiante, conducta y asistencia (4.1):** chip «N.° n» (= N° de la grilla)
+  junto al nombre y, en conducta, la nota con su literal en grande y con color.
+- **Nómina de docentes (6):** **A4 VERTICAL** (solo este documento; horario y planilla
+  siguen horizontales, decisión del usuario). Cada docente es una ficha de dos filas:
+  contacto arriba; abajo la **TUTORÍA primero** (rótulo + barra, naranja oscuro) y luego
+  las cargas con **cada sección en su recuadro, nombrada entera** (nunca «1.° A-B»: el
+  usuario no quiere que se confunda la sección). Regla de blanco y negro: el color nunca
+  es la única señal; bordes y texto, no fondos. El auxiliar ve en la cabecera «Docentes de
+  tus secciones» en vez de «Todos los niveles». `NominaDocenteModel` devuelve listas
+  (`areas`, `secciones`, `tutoria`) en vez de texto unido.
+
+Hecho, **falta verlo con sesión** (la sesión de Chrome se cerró):
+- **Panel del auxiliar (5):** la card «Nómina de matriculados» pasa a UNA línea por
+  sección, como Conducta y Asistencia; los botones Nómina/Horario quedan lado a lado
+  (`nowrap`) y lo que se acomoda en una card angosta es el texto del nombre. El usuario
+  rechazó el scrollbar.
+
+### 🔴 DECIDIDO, SIN IMPLEMENTAR — Conducta con autoguardado + «Confirmar» (B2, 29/09/2026)
+El usuario eligió **B2**: el mismo flujo de los docentes (autoguardado de cada ✓/✗ como
+BORRADOR + botón **Confirmar** por estudiante; editar desconfirma; «Bloquear y aprobar»
+exige todos confirmados). Motivo del usuario: poder cambiar este módulo a futuro sin
+problemas, con foco en el uso y procesamiento correcto de los datos.
+
+**Por qué no es solo de botones:** hoy ninguna marca dice qué es oficial; todas las
+lecturas asumen «si hay alguna respuesta, la nota es Sí ÷ total × 20», cierto solo porque
+el guardado exige los 10 criterios. Con borradores, 4 «Sí» darían 8 (C) en boleta.
+Medido: II Bimestre 524/524 completos, III 42/42, 0 a medias, 0 a criterios retirados.
+
+**Diseño propuesto (esperando 4 respuestas del usuario antes de codificar):**
+- Migración 068: tabla `conducta_confirmaciones` (matricula_id, periodo_id,
+  confirmado_en, confirmado_por; UNIQUE por estudiante y bimestre). Backfill: se
+  confirma todo estudiante-bimestre con exactamente sus N respuestas vigentes; los
+  incompletos NO se confirman y se informan. En prod, ANTES del merge.
+- Punto único de lectura «confirmadas» en `ConductaModel` para: `getParaBoleta(Union)`,
+  `getParaPeriodo`, `getEstudiantesParaTutor`, `completitudSeccion`,
+  `getProgresoConductaPorSeccion`, `getDistribucionLiteralesAnual`,
+  `getIncumplimientoCriterios`, `sqlAdmiteExtraordinaria`,
+  `registrarLiteralExtraordinario`, y `getEstudiantesParaRegistro` cuando lo usan las
+  grillas de SOLO LECTURA (tutor `ConductaTutorController:133`, Dirección
+  `ConsultaNotasController:492`). Existencia (cualquier fila): `tieneRespuestas`,
+  `getRegistroLegado`.
+- `RetornoGradoController:188` debe mover también `conducta_confirmaciones`.
+- Escritura: tocar ✓/✗ = upsert de UNA respuesta + borrar confirmación (misma
+  transacción); Confirmar = las 10 respuestas + confirmación en una transacción; Marcar
+  Sí = guarda borrador. Mismas guardas de hoy (puedeRegistrar, periodo editable, no
+  bloqueada, roster, criterio vigente del año y nivel).
+- Verificador nuevo con las dos ramas (borrador NO aparece en boleta/cuadros/tutor/
+  completitud; confirmado SÍ). Invariante nuevo en CLAUDE.md.
+
+**Respuestas del usuario (29/09/2026, CERRADAS):**
+1. Lo no confirmado queda «al aire» aunque esté autoguardado: no cuenta en nada. Lo
+   confirmado se guarda y, al bloquear y aprobar (también si se FUERZA el bloqueo), se
+   vuelve oficial y visible. La vía extraordinaria mira solo lo confirmado. **Confirmar es
+   el visto bueno de quien registra, no el visto final**: el final sigue siendo aprobar y
+   bloquear.
+2. Las confirmaciones se mantienen (también al reabrir el director) hasta que se detecta
+   un cambio: editar desconfirma.
+3. Vista por estudiante: DOS botones, «← Anterior» y «Confirmar y siguiente →» (el
+   usuario descartó la variante de tres). En la grilla: «Confirmar todo».
+4. **ASISTENCIA TAMBIÉN** lleva autoguardado + «Confirmar», con el mismo flujo.
+5. **Bloqueo con pendientes (opción b):** el auxiliar (y RA) necesita el 100 %
+   confirmado para «Bloquear y aprobar»; el **director puede forzar** el bloqueo y los
+   no confirmados quedan fuera (guion en boleta).
+6. **Asistencia en la boleta pasa a exigir el bloqueo**, como conducta: sin cierre
+   vigente, guion. (Hoy `getDelBimestre` no mira `cierres_asistencia`: CAMBIA.)
+7. Migración **068** escrita y aplicada en la BD local por el usuario (29/09/2026).
+
+Inventario de ASISTENCIA (29/09): `AsistenciaModel` es el único lector de
+`inasistencias` (más el traslado de `RetornoGradoController:188`). Oficiales:
+`getDelBimestre(Union)`, `getAcumuladoAnual(Union)`, `tieneRegistroUnion` (guion en
+boleta), `sqlSinRegistro` + `admiteExtraordinaria` (vía extraordinaria),
+`getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`,
+`getEvolucionIncidenciasAnual`. Editor: `getEstudiantesConIncidencias`. ⚠️ Diferencias
+con conducta: hoy la asistencia sale en la boleta **sin** exigir el bloqueo
+(`getDelBimestre` no mira `cierres_asistencia`), y su bloqueo **no** exige completitud
+(sin fila = sin registro = guion).
+
+### Otras decisiones abiertas del repaso del 29/09
+- **Textos «Registro Académico»** (punto 2) — ✅ RESUELTO el 29/09/2026. Decisión del
+  usuario: los textos que dicen QUIÉN registra o bloquea van en forma **impersonal**
+  («cuando se bloquee y apruebe…», «Ya se puede corregir y volver a bloquear»). Si el
+  hecho ya ocurrió, se muestra el **nombre real** de quien lo hizo (`ra_nombre`; la vista
+  del tutor pasó a `getCierreDetalle`). Así no quedan desactualizados y no se equivocan
+  cuando RA bloquea como respaldo o fuerza el bloqueo. SE MANTIENEN los que siguen siendo
+  ciertos: asignación de secciones, desbloqueo, correcciones y vía extraordinaria (solo
+  RA/admin). Además: la columna Nota dice «Nota del auxiliar», y se pasaron a tuteo, con
+  tildes, «Consulte…» (controlador, vista y la copia de `ConductaModel::cerrarTutor`).
+- **`.form-input` con 40 px a la izquierda en todo el sistema** — ✅ RESUELTO el
+  29/09/2026 con la opción A: el hueco del icono se aplica solo en `.login-form .form-input`.
+  El resto del bloque de `_auth.scss` sigue siendo global, así que ningún campo cambia de
+  alto. Los parches locales que ya compensaban ese hueco (`_criterios-conducta.scss`)
+  quedan redundantes pero no hacen daño.
 
 > 🔜 **PENDIENTE INMEDIATO (desde el 29/09/2026):** el repaso final y el cierre, en forma de
 > lista de chequeo, están en `docs/ESTADO.md` → «RETOMAR AQUÍ (30/09/2026)». Empezar por

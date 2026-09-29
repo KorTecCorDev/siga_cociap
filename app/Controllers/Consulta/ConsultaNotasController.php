@@ -489,7 +489,8 @@ class ConsultaNotasController extends BaseController
         $primera = $filas[0];
         $nivelId = (int) $primera['nivel_id'];
 
-        $estudiantes = $this->conductaModel->getEstudiantesParaRegistro($seccionId, $periodoId);
+        // Solo lectura: Dirección ve lo OFICIAL (confirmado), nunca un borrador.
+        $estudiantes = $this->conductaModel->getEstudiantesParaRegistro($seccionId, $periodoId, true);
 
         // B1 legado (literal directo): no existe matriz de respuestas que mostrar.
         $hayRespuestas = false;
@@ -667,7 +668,23 @@ class ConsultaNotasController extends BaseController
         }
         $primera = $filas[0];
 
-        $alumnos = $this->asistenciaModel->getEstudiantesConIncidencias($seccionId, $periodoId);
+        // EN VIVO pero solo lo CONFIRMADO (29/09/2026): un borrador del auxiliar
+        // queda «al aire» y no es un dato para Dirección. Sigue sin exigir el
+        // cierre, como decidió el usuario el 24/08.
+        $alumnos = $this->asistenciaModel->getEstudiantesConIncidencias($seccionId, $periodoId, true);
+
+        // Bimestre por fechas: las fechas de cada estudiante y, debajo de la tabla,
+        // el anexo «Detalle de justificaciones» con sus motivos (solo lo confirmado).
+        $fechasDetalle   = null;
+        $justificaciones = [];
+        if ($this->asistenciaModel->periodoPorFechas($periodoId)) {
+            $fechasDetalle = [];
+            $incidencias   = $this->asistenciaModel->incidenciasDe(array_column($alumnos, 'matricula_id'), $periodoId, true);
+            foreach ($incidencias as $mid => $dias) {
+                $fechasDetalle[$mid] = AsistenciaModel::resumenFechas($dias);
+            }
+            $justificaciones = AsistenciaModel::justificaciones($alumnos, $incidencias);
+        }
 
         // Totales de la seccion. PUNTO UNICO en el modelo: los calculaba a mano
         // aqui, y la vista de Registro Academico no los tenia. Ahora las dos
@@ -686,6 +703,8 @@ class ConsultaNotasController extends BaseController
             'alumnos' => $alumnos,
             'totales' => $totales,
             'cierre'  => $this->asistenciaModel->getCierreDetalle($seccionId, $periodoId),
+            'fechasDetalle'   => $fechasDetalle,
+            'justificaciones' => $justificaciones,
         ]);
     }
 

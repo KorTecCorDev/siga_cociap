@@ -50,15 +50,19 @@ class DocumentoController extends BaseController
 
         $anio = (new AuxiliarSeccionModel())->periodoActivo();
 
+        // A4 VERTICAL (29/09/2026, decisión del usuario, solo para este
+        // documento): sin `bodyClass` hereda la página portrait del layout print.
         View::setLayout('print');
         $this->view('documentos/nomina-docentes', [
             'titulo'    => 'Nómina de docentes',
-            'bodyClass' => 'doc-landscape',
             'niveles'   => $visibles,
             'filtro'    => array_map(static fn($n) => $n['nombre'], $niveles),
             'nivelId'   => isset($niveles[$nivelId]) ? $nivelId : 0,
             'conDni'    => !$esAuxiliar,
             'anio'      => $anio['anio'] ?? null,
+            // El auxiliar solo recibe a los docentes de SUS secciones: la
+            // cabecera lo dice en vez de «Todos los niveles».
+            'deSusSecciones' => $esAuxiliar,
         ]);
     }
 

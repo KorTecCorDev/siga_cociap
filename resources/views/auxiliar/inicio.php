@@ -133,7 +133,10 @@ $cards = [
         <div class="card dpanel-card dpanel-card--nomina dpanel-card--acciones">
             <div class="dpanel-card__head">
                 <h2 class="card__title">Nómina de matriculados</h2>
-                <span class="badge badge--activo"><?= array_sum(array_column($secciones, 'matriculados')) ?> matriculados</span>
+                <?php // «78 est.» (29/09/2026, pedido del usuario): con «matriculados»
+                      // completo, título y etiqueta no cabían en una línea y la lista
+                      // bajaba respecto de sus vecinas. ?>
+                <span class="badge badge--activo"><?= array_sum(array_column($secciones, 'matriculados')) ?> est.</span>
             </div>
             <p class="dpanel-card__sub">La nómina y el horario de cada sección a tu cargo, listos para imprimir.</p>
 
@@ -142,7 +145,7 @@ $cards = [
                     <li class="aux-seccion aux-seccion--acciones">
                         <span class="aux-seccion__nombre">
                             <?= e($s['etiqueta']) ?>
-                            <span class="aux-seccion__nivel"><?= e($s['nivel']) ?> · <?= (int) $s['matriculados'] ?> matriculados</span>
+                            <span class="aux-seccion__nivel"><?= e($s['nivel']) ?> · <?= (int) $s['matriculados'] ?><span class="aux-seccion__oculto"> matriculados</span></span>
                         </span>
                         <span class="aux-seccion__acciones">
                             <a href="<?= url('auxiliar/nomina/' . $s['id'] . '/imprimir') ?>" target="_blank" rel="noopener"
