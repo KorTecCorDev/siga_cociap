@@ -54,6 +54,10 @@ $card-riesgo-line:   #be185d;  $card-riesgo-bg:   #fdf2f8;  $card-riesgo-ink:   
 // auxiliar las dos cards quedaban iguales. Lejos del púrpura de Conducta, del
 // naranja de Nómina y del verde de «terminado» (#16a34a, reservado al badge).
 $card-asistencia-line: #4d7c0f; $card-asistencia-bg: #f4f8ec; $card-asistencia-ink: #3f6212;
+// Nómina de docentes (28/09/2026, panel del auxiliar): índigo (~245°). En el
+// panel es vecina de Conducta (púrpura), Asistencia (oliva) y Nómina de
+// matriculados (naranja); el índigo tira a azul y se separa del púrpura.
+$card-docentes-line: #4338ca;  $card-docentes-bg: #eef2ff;  $card-docentes-ink: #3730a3;
 
 // ── Tipografía ───────────────────────────────────────────────
 $font-family:     'Inter', system-ui, -apple-system, sans-serif;

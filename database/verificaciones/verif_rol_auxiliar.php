@@ -99,6 +99,32 @@ $chk('Dirección arma el horario de sección con HorarioModel::documentoSeccion'
 $chk('el panel del auxiliar no identifica niveles por id escrito a mano',
     !preg_match('/resumenPorSeccion\(\s*\[\s*\d/', $panel));
 
+// F4b — nómina de docentes. Un solo método para todos los roles: el auxiliar
+// entra, pero acotado a SUS secciones y sin DNI (decisiones del 28/09/2026).
+$docs = $src('app/Controllers/Documentos/DocumentoController.php');
+$nd   = $cuerpoDe($docs, 'nominaDocentes');
+$chk('ruta GET /documentos/nomina-docentes registrada',
+    str_contains($src('routes/web.php'), "'/documentos/nomina-docentes',"));
+$chk('nominaDocentes guarda el rol en el método (admin, RA, Dirección y auxiliar)',
+    str_contains($nd, '$this->requireRole([...self::ROLES_COLEGIO, ROL_AUXILIAR]);')
+    && str_contains($docs, "ROLES_COLEGIO = ['admin', 'registro_academico', ...ROLES_DIRECCION]"));
+$chk('nominaDocentes acota al auxiliar a sus secciones (403 si no tiene ninguna)',
+    str_contains($nd, '$this->seccionesDelAuxiliar()') && str_contains($nd, '$this->forbidden()')
+    && str_contains($cuerpoDe($docs, 'seccionesDelAuxiliar'), '->seccionesDe('));
+$chk('el DNI no sale para el auxiliar', str_contains($nd, "'conDni'    => !\$esAuxiliar"));
+$vistaNd = $src('resources/views/documentos/nomina-docentes.php');
+$lineasDni = preg_grep('/\[\'dni\'\]|>DNI</', explode("\n", $vistaNd));
+$chk('la vista pinta la columna DNI solo con $conDni (cabecera y celda)',
+    count($lineasDni) === 2
+    && count(array_filter($lineasDni, fn($l) => str_contains($l, '<?php if ($conDni): ?>'))) === 2);
+$chk('card «Nómina de docentes» en el panel del auxiliar y en el dashboard',
+    str_contains($src('resources/views/auxiliar/inicio.php'), "url('documentos/nomina-docentes')")
+    && str_contains($src('resources/views/dashboard/index.php'), "'url' => 'documentos/nomina-docentes'"));
+$chk('el CSS compilado trae la card y el filtro de la nómina de docentes',
+    str_contains($css, '.dpanel-card--docentes') && str_contains($css, '.nomina-docentes__filtro'));
+$chk('el icono de la nómina de docentes existe en disco',
+    is_file(ROOT_PATH . '/public/assets/icons/folder-2.svg'));
+
 // KPI «días para el cierre»: los umbrales viven SOLO en el parcial compartido.
 // Una vista que vuelva a calcular `$diasMod` es una copia que divergirá.
 foreach (['docente/inicio.php', 'auxiliar/inicio.php'] as $vista) {
@@ -136,6 +162,51 @@ $chk('asistencia.js::guardarFila informa si guardó (lo usa «Guardar y siguient
     && substr_count($src('resources/js/asistencia.js'), 'return false;') >= 2);
 $chk('ConductaController::guardar exige el roster (faltaba desde siempre)',
     str_contains($cuerpoDe($src('app/Controllers/Admin/ConductaController.php'), 'guardar'), 'matriculaEnRoster('));
+
+// ── 2c) Nómina de docentes: datos (solo lectura) ─────────────────
+echo "2c) Nómina de docentes: alcance del auxiliar y qué cuenta como carga\n";
+$nomDoc = new App\Models\NominaDocenteModel();
+$todo   = $nomDoc->documento();
+$porNombre = function (array $doc): array {
+    $out = [];
+    foreach ($doc as $nid => $nivel) {
+        foreach ($nivel['docentes'] as $d) { $out[$nid . '|' . $d['nombre']] = $d; }
+    }
+    return $out;
+};
+$todos = $porNombre($todo);
+$chk('el documento del colegio trae docentes', count($todos) > 0);
+$lineas = [];
+foreach ($todos as $d) { foreach ($d['cargas'] as $c) { $lineas[] = $c['areas']; } }
+$chk('ninguna carga de Tutoría (TOE) ni transversal se lista como área',
+    !preg_grep('/Tutor[íi]a \(TOE\)|Transversal/i', $lineas));
+// La carga TOE se omite porque la cubre la columna Tutoría: solo es cierto si
+// cada carga TOE activa es del propio tutor de la sección.
+$toe = $m->queryOne("SELECT COUNT(*) AS n FROM cargas_academicas ca
+                     INNER JOIN areas a ON a.id = ca.area_id AND a.tipo = 'tutoria'
+                     INNER JOIN secciones s ON s.id = ca.seccion_id
+                     INNER JOIN anios_academicos an ON an.id = ca.anio_id AND an.estado = 'activo'
+                     WHERE ca.estado = 'activa' AND NOT (ca.docente_id <=> s.tutor_id)");
+$chk('toda carga TOE activa es del tutor de su sección (la columna Tutoría la cubre)', (int) $toe['n'] === 0);
+
+$una = $m->queryOne("SELECT s.id FROM secciones s
+                     INNER JOIN anios_academicos an ON an.id = s.anio_id AND an.estado = 'activo'
+                     WHERE s.tutor_id IS NOT NULL ORDER BY s.id LIMIT 1");
+if ($una) {
+    $sid     = (int) $una['id'];
+    $acotado = $porNombre($nomDoc->documento([$sid]));
+    $enSec   = $m->query("SELECT DISTINCT docente_id AS id FROM cargas_academicas WHERE seccion_id = ? AND estado = 'activa'
+                          UNION SELECT tutor_id FROM secciones WHERE id = ? AND tutor_id IS NOT NULL", [$sid, $sid]);
+    $chk('auxiliar: solo docentes con carga o tutoría en su sección (subconjunto del colegio)',
+        count($acotado) > 0 && count($acotado) < count($todos)
+        && array_diff_key($acotado, $todos) === []);
+    $iguales = true;
+    foreach ($acotado as $k => $d) { $iguales = $iguales && $d === $todos[$k]; }
+    $chk('auxiliar: cada docente sale con TODAS sus cargas (idéntico al del colegio)', $iguales);
+    $chk('auxiliar: sin secciones propias no sale nadie', $nomDoc->documento([]) === []);
+    $chk('auxiliar: los docentes acotados son a lo sumo los de la sección',
+        count(array_unique(array_map(fn($k) => explode('|', $k, 2)[1], array_keys($acotado)))) <= count($enSec));
+}
 
 // ── 3) Reglas de asignación (dentro de una transacción) ─────────
 echo "3) Asignación por bimestre (transacción + rollback)\n";

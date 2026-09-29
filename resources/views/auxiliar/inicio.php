@@ -2,7 +2,7 @@
 /**
  * Panel del auxiliar académico (28/09/2026) — `Auxiliar\PanelController::inicio`.
  * Estilo del panel docente (`dpanel-*`): saludo, KPIs y una card por módulo.
- * Las cards de documentos y horarios llegan en la F4, cada una con su ruta.
+ * Documentos: Nómina de matriculados + Horario (F4a) y Nómina de docentes (F4b).
  *
  * @var array|null $periodo        bimestre activo {id, nombre_display, anio, editable, limite_notas}
  * @var array      $secciones      [{id, etiqueta, nivel, estudiantes, conducta{bloqueada,badge,texto}, asistencia{…}}]
@@ -159,6 +159,22 @@ $cards = [
                     </li>
                 <?php endforeach; ?>
             </ul>
+        </div>
+
+        <?php // Nómina de docentes (F4b): UN documento con los docentes de todas sus
+              // secciones (sin DNI para el auxiliar). No es por sección: un solo botón. ?>
+        <div class="card dpanel-card dpanel-card--docentes dpanel-card--acciones">
+            <div class="dpanel-card__head">
+                <h2 class="card__title">Nómina de docentes</h2>
+            </div>
+            <p class="dpanel-card__sub">Contacto, áreas y tutoría de los docentes de tus secciones.</p>
+            <div class="dpanel-card__acciones">
+                <a href="<?= url('documentos/nomina-docentes') ?>" target="_blank" rel="noopener"
+                   class="dpanel-card__accion dpanel-card__accion--docentes">
+                    <span class="dpanel-card__accion-ico" aria-hidden="true"></span>
+                    Imprimir
+                </a>
+            </div>
         </div>
     </div>
 

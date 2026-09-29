@@ -1,9 +1,10 @@
 # Módulo AUXILIAR ACADÉMICO
 
 > **ESTADO (28/09/2026, fin del turno tarde): EN CONSTRUCCIÓN en `dev` — NO desplegado.**
-> Hechas y probadas: F0, F1, F2a, F2b, F3 y F4a (+ 3 refactors previos a la F4).
-> **Sigue la F4b (nómina de docentes).** Pendientes: F4b, F4c, F5, F6, el repaso
-> final con todos los roles y el cierre (todo en §7). Merge a `main`: solo cuando el
+> Hechas y probadas: F0, F1, F2a, F2b, F3, F4a y F4b (+ 3 refactors previos a la F4;
+> la F4b la aprobó el usuario en el navegador).
+> **Sigue la F4c (planilla).** Pendientes: F4c, F5, F6, el repaso final con todos
+> los roles y el cierre (todo en §7). Merge a `main`: solo cuando el
 > usuario lo pida.
 > 🔴 **Al desplegar: aplicar A MANO en producción las migraciones `065` y `066`
 > ANTES del push a `main`** (ya aplicadas en local).
@@ -93,6 +94,16 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
   en **N6** (negrita). **C4** (título + año) y **C6** (nivel) están VACÍAS en la
   plantilla porque `XlsxQuirurgico` no sobrescribe celdas con valor. Algoritmo en §7.
 - **Acceso de padres (v1.1):** fuera de este plan; anotado aparte.
+- **F4b (nómina de docentes), 28/09/2026:** admin, RA y Dirección entran por una
+  **card propia** del dashboard («Nómina de docentes», icono `folder-2.svg`); el
+  documento va **por nivel** (bloques Primaria/Secundaria, alfabético dentro de cada
+  uno, filtro Todos/nivel; un docente de los dos niveles sale en ambos bloques con las
+  cargas de cada uno). El **DNI solo para admin, RA y Dirección**. El auxiliar tiene
+  **card propia** (índigo `$card-docentes-*`, mismo icono) y ve a los docentes que
+  dictan o son tutores en sus secciones, **con TODAS sus cargas**. Áreas con subárea
+  se imprimen **«Área (subárea, subárea)»**; las secciones con las mismas áreas se
+  juntan en una línea. La carga **TOE no se lista** como área (la cubre la columna
+  Tutoría: toda carga TOE es del tutor, lo vigila `verif_rol_auxiliar`).
 
 ## 4. Qué está construido (por fase, con commits en `dev`)
 
@@ -175,7 +186,10 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
 
 ## 7. PENDIENTE — lo que falta, en orden
 
-### F4b — Nómina de docentes (SIGUIENTE)
+### F4b — Nómina de docentes (HECHA 28/09/2026; decisiones en §3)
+Construida: `NominaDocenteModel`, `Documentos\DocumentoController::nominaDocentes`,
+`GET /documentos/nomina-docentes[?nivel=]`, `documentos/nomina-docentes.php`, cards en el
+dashboard y en el panel del auxiliar. Lo de abajo es el plan original, ya resuelto.
 **Qué pide el plan (D8, D9):** `/documentos/nomina-docentes` (PDF, layout `print`) con
 docente, DNI, celular, correo, áreas × secciones (desde `cargas_academicas` activas) y
 tutoría (`secciones.tutor_id`). Auxiliar: solo los docentes con carga o tutoría en SUS
@@ -198,7 +212,7 @@ completos**.
 5. En el panel del auxiliar: ¿card propia «Nómina de docentes» (icono y color nuevos) o
    acción dentro de otra card?
 
-### F4c — Planilla de asistencia manual (Excel + PDF)
+### F4c — Planilla de asistencia manual (Excel + PDF) (SIGUIENTE)
 **Qué pide el plan (D6, D7, D9):**
 `/documentos/planilla-asistencia/{seccion}?modo=blanco|mes&mes=N&formato=pdf|xlsx`.
 Cabecera del modelo (UNASAM, colegio, nivel, grado, sección, bimestre, tutor, auxiliar

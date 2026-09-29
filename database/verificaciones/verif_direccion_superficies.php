@@ -72,6 +72,8 @@ $esperadasDirector = [
     'admin/control', 'consulta-notas', 'consulta-notas/criterios', 'admin/cuadros',
     'admin/cuadros/acompanamiento',
     'director/bloqueos', 'director/orden-merito', 'director/ranking-seccion',
+    // Nómina de docentes (28/09/2026, decisión D9 del módulo auxiliares): lectura.
+    'documentos/nomina-docentes',
 ];
 foreach (ROLES_DIRECCION as $rol) {
     $suyas = array_keys(array_filter($cards, fn($r) => in_array($rol, $r, true)));

@@ -138,6 +138,13 @@
         border-left: 4px solid $card-asistencia-line;
         .card__title { color: $card-asistencia-ink; }
     }
+    // Nómina de docentes (panel del auxiliar, 28/09/2026). Mismo glifo que su
+    // card del dashboard de administración: mismo concepto, mismo icono.
+    &--docentes {
+        --dpanel-icon: url("../assets/icons/folder-2.svg");
+        border-left: 4px solid $card-docentes-line;
+        .card__title { color: $card-docentes-ink; }
+    }
 
 }
 
@@ -593,6 +600,57 @@
     }
 }
 
+// ── Nómina de docentes (impresión A4 horizontal, 28/09/2026) ─
+// Reusa .nomina-print; añade el filtro por nivel (solo pantalla), un bloque
+// por nivel y las líneas «áreas · secciones» de cada docente.
+.nomina-docentes {
+    &__filtro {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+        margin-bottom: $spacing-sm;
+
+        @media print { display: none; }
+    }
+
+    &__opcion {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 4px 12px;
+        border: 1.5px solid $border-color;
+        border-radius: $border-radius;
+        color: $text-primary;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+
+        &:hover,
+        &:focus-visible { border-color: $card-docentes-line; text-decoration: none; }
+
+        &.is-activa {
+            border-color: $card-docentes-line;
+            background: $card-docentes-bg;
+            color: $card-docentes-ink;
+        }
+    }
+
+    &__nivel { margin-bottom: $spacing-md; }
+
+    // El título del nivel no queda huérfano al pie de una hoja.
+    &__nivel-titulo {
+        font-size: 13px;
+        margin: $spacing-sm 0 4px;
+        page-break-after: avoid;
+    }
+
+    &__nombre { font-weight: 600; }
+    &__correo { word-break: break-all; }
+    &__carga + &__carga { margin-top: 2px; }
+    &__secciones { color: #444; }
+    &__vacio { font-size: 12px; }
+}
+
 // Cabecera de panel con accion a la derecha (ej. "Mi horario" + Imprimir).
 .dpanel-panel__head {
     display: flex;
@@ -812,6 +870,18 @@
     &--seccion { --accion-icon: url("../assets/icons/ver-resumen.svg"); }
     // Mismo glifo que el panel «Mi horario» del docente: mismo concepto.
     &--horario { --accion-icon: url("../assets/icons/calendar.svg"); }
+    // Card «Nómina de docentes» del auxiliar: el botón toma el índigo de su card.
+    &--docentes {
+        --accion-icon: url("../assets/icons/printer.svg");
+        color: $card-docentes-ink;
+
+        &:hover,
+        &:focus-visible {
+            border-color: $card-docentes-line;
+            background: $card-docentes-bg;
+            color: $card-docentes-ink;
+        }
+    }
 }
 
 .dpanel-card__accion-ico {
