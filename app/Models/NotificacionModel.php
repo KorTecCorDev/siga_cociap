@@ -36,8 +36,10 @@ class NotificacionModel extends BaseModel
      * COMUNICADOS y tienen campana, pero no avisos automáticos: no tienen
      * cargas. Siguen siendo de solo lectura; la única escritura que hacen es
      * marcar leídas las de SU bandeja (estado personal, no dato académico).
+     * El AUXILIAR académico (28/09/2026, decisión D13) recibe comunicados por
+     * su destino propio; tampoco recibe avisos automáticos.
      */
-    public const ROLES_RECEPTORES = ['docente', 'registro_academico', 'admin', ...ROLES_DIRECCION];
+    public const ROLES_RECEPTORES = ['docente', 'registro_academico', 'admin', ...ROLES_DIRECCION, ROL_AUXILIAR];
 
     /**
      * Roles que pueden REDACTAR comunicados. Deliberadamente NO incluye a los
@@ -54,12 +56,14 @@ class NotificacionModel extends BaseModel
     public const DESTINO_SECCION        = 'seccion';
     public const DESTINO_DIRECCION      = 'direccion';
     public const DESTINO_ADMINISTRATIVO = 'administrativo';
+    public const DESTINO_AUXILIARES     = 'auxiliares';
 
     public const DESTINOS = [
         self::DESTINO_DOCENTES       => 'Todos los docentes',
         self::DESTINO_SECCION        => 'Docentes de una sección',
         self::DESTINO_DIRECCION      => 'Dirección',
         self::DESTINO_ADMINISTRATIVO => 'Personal administrativo',
+        self::DESTINO_AUXILIARES     => 'Auxiliares académicos',
     ];
 
     /** Roles del destino «Personal administrativo». */
@@ -230,6 +234,9 @@ class NotificacionModel extends BaseModel
         }
         if (in_array(self::DESTINO_ADMINISTRATIVO, $destinos, true)) {
             array_push($filas, ...$this->usuariosDeRoles(self::ROLES_ADMINISTRATIVOS));
+        }
+        if (in_array(self::DESTINO_AUXILIARES, $destinos, true)) {
+            array_push($filas, ...$this->usuariosDeRol(ROL_AUXILIAR));
         }
 
         $ids = [];

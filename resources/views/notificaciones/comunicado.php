@@ -19,6 +19,7 @@ $ayudaDestino = [
     NotificacionModel::DESTINO_SECCION        => 'Solo quienes tienen carga activa en esa sección.',
     NotificacionModel::DESTINO_DIRECCION      => 'Los tres directores. Lo leen, no responden.',
     NotificacionModel::DESTINO_ADMINISTRATIVO => 'Registro Académico y administración.',
+    NotificacionModel::DESTINO_AUXILIARES     => 'Cada auxiliar académico activo.',
 ];
 ?>
 
