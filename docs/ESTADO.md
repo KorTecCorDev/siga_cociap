@@ -5,7 +5,50 @@
 > **Versión desplegada: v1.0.4** (`config/app.php` + tag anotado `v1.0.4`, 27/09/2026).
 
 
-## 🆕 MÓDULO AUXILIAR ACADÉMICO — EN CONSTRUCCIÓN en `dev`, pusheado (28/09/2026)
+## 🆕 MÓDULO AUXILIAR ACADÉMICO — F0–F6 HECHAS en `dev` (28-29/09/2026; lo de hasta el 28 pusheado, `bae54d3`…`726f516` SIN push)
+
+### 🔜 RETOMAR AQUÍ (30/09/2026) — PENDIENTE INMEDIATO: repaso final y cierre del módulo
+
+El usuario lo dejó para el día siguiente (29/09/2026). Es lo ÚNICO que falta para terminar
+la implementación de manera correcta. Detalle completo en `docs/modulos/auxiliares.md` §7.
+
+**0. Antes de probar — decidir con el usuario** (pueden cambiar lo que se prueba):
+- [ ] Textos que aún dicen «Registro Académico bloquea…» donde ahora también bloquea el
+      auxiliar: `Docente\ConductaTutorController` (≈128 y 187), `Director\BloqueoController`
+      (≈886), `ConductaModel` (≈497). Acordar el texto neutro.
+- [ ] `asistencia.js`: si un guardado FALLA (403 / sin conexión) devuelve los números al
+      último valor guardado y se pierde lo tecleado. Preexistente; ¿se corrige?
+- [ ] `_auth.scss` deja a `.form-input` un `padding-left: 40px` GLOBAL (hueco del icono del
+      login); se corrigió solo en la pantalla de criterios. ¿Se corrige en todo el sistema?
+
+**1. Preparar el entorno:** en la máquina de casa NO hay auxiliares ni asignaciones.
+- [ ] Crear un auxiliar de prueba (`/admin/usuarios/crear`) y otro SIN secciones.
+- [ ] Asignarle secciones en `/admin/auxiliares` (primaria y secundaria).
+
+**2. Repaso con todos los roles** (en el navegador; el celular para el auxiliar):
+- [ ] **Auxiliar:** panel; registrar por grilla y por estudiante; **bloquear de verdad**;
+      imprimible con **firmas** (Auxiliar Responsable + RA, D12); nómina de matriculados,
+      horario y nómina de docentes (sin DNI); campana y comunicado recibido; **sección
+      ajena por URL → 403** (registro, documentos, horario); **sin acceso a la planilla**
+      (`/documentos/planilla-asistencia` → 403); auxiliar sin secciones → aviso.
+- [ ] **RA y admin:** siguen pudiendo todo; asignan en `/admin/auxiliares`; entrada por
+      estudiante; planilla PDF/Excel; nómina de docentes con DNI; criterios de conducta.
+- [ ] **Director:** nómina de docentes y planilla (lectura); hub de `/director/bloqueos`
+      con Asistencia en oliva; **puede desbloquear lo que bloqueó un auxiliar**; criterios
+      en solo lectura.
+- [ ] **Tutor:** la etapa 2 de conducta sigue intacta tras un bloqueo del auxiliar.
+- [ ] **Docente:** su panel, su nómina y su horario, sin cambios.
+
+**3. Cierre:**
+- [ ] Docs finales: cabecera de `auxiliares.md` (= desplegado), `admin.md` (conducta y
+      asistencia también las registra el auxiliar), registro del deploy aquí (sección Git),
+      `decisiones-diferidas.md` (asistencia por QR 2027, §8 de `auxiliares.md`).
+- [ ] 🔴 **Producción: migraciones `065`, `066` y `067` a mano ANTES del push a `main`**
+      (la 067 es imprescindible: sin ella fallan las consultas de conducta).
+- [ ] Usuarios reales de los auxiliares: DNI, apellidos, nombres, sexo, celular, correo y
+      sus secciones (pedírselos al usuario).
+- [ ] Merge `dev` → `main` (con `--no-ff`) **solo cuando el usuario lo pida**.
+
 
 **Fuente de verdad: `docs/modulos/auxiliares.md`.** Allí están las 16 decisiones del
 usuario (cerradas), lo construido por fase con sus commits, las trampas y **todo lo que

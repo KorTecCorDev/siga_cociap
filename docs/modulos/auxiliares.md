@@ -372,6 +372,10 @@ Si un guardado de asistencia FALLA (403 o sin conexión), `asistencia.js` devuel
 números al último valor guardado y **se pierde lo que se había tecleado**. Pasa igual en
 la grilla desde antes.
 
+> 🔜 **PENDIENTE INMEDIATO (desde el 29/09/2026):** el repaso final y el cierre, en forma de
+> lista de chequeo, están en `docs/ESTADO.md` → «RETOMAR AQUÍ (30/09/2026)». Empezar por
+> ahí; lo de abajo es el detalle.
+
 ### Repaso final con todos los roles (antes del merge)
 - **Auxiliar:** panel; registrar por grilla y por estudiante en el celular; **bloquear de
   verdad** en pantalla; **imprimible con firmas** (Auxiliar Responsable + RA, D12); los 4
