@@ -91,8 +91,12 @@ $router->post('/admin/auxiliares/{seccion_id}/asignar',   'Admin\AuxiliarControl
 $router->get( '/auxiliar/inicio',                         'Auxiliar\PanelController@inicio');
 $router->get( '/auxiliar/nomina/{seccion_id}/imprimir',   'Auxiliar\PanelController@nominaImprimir');
 $router->get( '/auxiliar/horario/{seccion_id}',           'Auxiliar\PanelController@horario');
-// Documentos compartidos (admin, RA, Dirección y auxiliar; guarda por método).
+// Documentos compartidos (admin, RA y Dirección; el auxiliar solo la nómina de
+// docentes). Guarda por método.
 $router->get( '/documentos/nomina-docentes',              'Documentos\DocumentoController@nominaDocentes');
+// Planilla de asistencia manual: SOLO admin, RA y Dirección (no el auxiliar).
+$router->get( '/documentos/planilla-asistencia',          'Documentos\DocumentoController@planillaAsistencia');
+$router->get( '/documentos/planilla-asistencia/generar',  'Documentos\DocumentoController@planillaGenerar');
 
 // ─── Admin — Buscador de estudiantes ────────────────────────
 $router->get( '/admin/buscar-estudiante',     'Admin\BuscadorEstudianteController@index');

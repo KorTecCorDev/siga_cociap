@@ -1,10 +1,10 @@
 # Módulo AUXILIAR ACADÉMICO
 
 > **ESTADO (28/09/2026, fin del turno tarde): EN CONSTRUCCIÓN en `dev` — NO desplegado.**
-> Hechas y probadas: F0, F1, F2a, F2b, F3, F4a y F4b (+ 3 refactors previos a la F4;
-> la F4b la aprobó el usuario en el navegador).
-> **Sigue la F4c (planilla).** Pendientes: F4c, F5, F6, el repaso final con todos
-> los roles y el cierre (todo en §7). Merge a `main`: solo cuando el
+> Hechas y probadas: F0, F1, F2a, F2b, F3, F4a, F4b y F4c (+ 3 refactors previos a
+> la F4; F4b y F4c aprobadas por el usuario, la F4c tras su rediseño).
+> **Sigue la F5 (comunicados).** Pendientes: F5, F6, el repaso final con todos los
+> roles y el cierre (todo en §7). Merge a `main`: solo cuando el
 > usuario lo pida.
 > 🔴 **Al desplegar: aplicar A MANO en producción las migraciones `065` y `066`
 > ANTES del push a `main`** (ya aplicadas en local).
@@ -94,6 +94,32 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
   en **N6** (negrita). **C4** (título + año) y **C6** (nivel) están VACÍAS en la
   plantilla porque `XlsxQuirurgico` no sobrescribe celdas con valor. Algoritmo en §7.
 - **Acceso de padres (v1.1):** fuera de este plan; anotado aparte.
+- **F4c (planilla de asistencia manual), 28/09/2026 — MODIFICA D6 y D9:** la planilla
+  (Excel y PDF) es **SOLO para admin, RA y Dirección**. El auxiliar **NO** la tiene
+  (ni card en su panel ni por URL → 403): se busca que registre en el sistema y deje
+  poco a poco el papel; si la necesita, la pide a los directivos. Además: tutor y
+  auxiliar vigente van **bajo BIMESTRE** (AD5–AD6 + valor al lado, celdas nuevas); en
+  modo «en blanco» las filas 10–11 y «MES:» quedan **vacías**; los meses que se ofrecen
+  son **los del bimestre activo**; se elige en una **página de selección**
+  `/documentos/planilla-asistencia` (sección, modo, mes, PDF/Excel) con card en el
+  dashboard.
+- **F4c — REDISEÑO de la planilla (28/09/2026, tras ver la primera versión).** Objetivo
+  del usuario: máxima calidad de presentación en PDF y Excel y **comodidad para
+  escribir a mano** (letra no pequeña). PDF y Excel con el MISMO diseño:
+  - **Encabezado:** recuadro institucional (escudo + UNASAM, lema, colegio) a la
+    izquierda y título + nivel centrados; debajo, una **franja de casillas a lo ancho**:
+    GRADO Y SECCIÓN · BIMESTRE · MES · TUTOR(A) · AUXILIAR (rótulo pequeño, valor
+    11 pt en negrita; casilla vacía = se escribe a mano; en blanco, MES vacío).
+  - **Filas según la sección:** estudiantes + hasta 3 libres, y el alto se ajusta para
+    llenar la hoja (tope 9 mm); siempre UNA hoja.
+  - **Totales con la leyenda del SIAGIE: F · J · T · U** (F = falta, J = falta
+    justificada, T = tardanza, U = tardanza justificada; coinciden con los 4 contadores
+    independientes). **Asistió = casilla en blanco.** Leyenda impresa bajo la grilla.
+    (La leyenda la confirmó el usuario; no se halló fuente oficial abierta.)
+  - **Días que no son del mes** (modo con fechas): sombreados en gris claro.
+  - **Sin marca de agua.** Pie: código CAVVG/HZ/año · lema · fecha de impresión.
+  - **Excel:** se REDISEÑA la plantilla (con Excel, por automatización) con 35 filas; el
+    generador fija el alto de fila y oculta las sobrantes.
 - **F4b (nómina de docentes), 28/09/2026:** admin, RA y Dirección entran por una
   **card propia** del dashboard («Nómina de docentes», icono `folder-2.svg`); el
   documento va **por nivel** (bloques Primaria/Secundaria, alfabético dentro de cada
@@ -119,6 +145,8 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
 | refactor | `04be180` | Las 5 copias a mano del filtro de retorno (híbrido) → `matricula_documento()` + sección 6 de `verif_matricula_documento`. |
 | refactor | `27871c9` | `NominaModel` (nómina de matriculados) y `HorarioModel::documentoSeccion` (horario de sección), extraídos de los controladores docente y de Dirección. A/B: 72 documentos idénticos. |
 | F4a | `d11ccc1` | `/auxiliar/nomina/{seccion}/imprimir` y `/auxiliar/horario/{seccion}` + card «Nómina de matriculados» en el panel. |
+| F4b | `bae54d3` | `NominaDocenteModel` + `Documentos\DocumentoController::nominaDocentes` + cards (dashboard y panel del auxiliar). |
+| F4c | (2 commits tras `bae54d3`) | `XlsxQuirurgico` (alto/ocultar filas, pie, lectura de filas autocerradas) y la planilla: `PlanillaAsistenciaModel`, plantilla rediseñada, selección + PDF + Excel, card del dashboard (solo admin/RA/Dirección). |
 
 **Mapa de archivos del módulo:**
 - BD: `database/migrations/065_rol_auxiliar_academico.sql`, `066_auxiliar_secciones.sql`.
@@ -180,6 +208,37 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
     EBR sale roto (404) en TODO documento y para todos los roles. Es del entorno.
   - **Muchos archivos son CRLF**: `Edit` los respeta; con scripts, revisar antes.
   - `$this->input()` es solo POST; para GET, `$this->query()`.
+  - **XAMPP trae `;extension=zip` COMENTADO** en `C:\xampp\php\php.ini` (el mismo que
+    usa Apache): sin él no se genera ningún xlsx en local (planilla ni Actas SIAGIE).
+    `verif_rol_auxiliar` marca SKIP; para probar el Excel por consola:
+    `php -d extension=zip database/verificaciones/verif_rol_auxiliar.php`.
+  - `XlsxQuirurgico` guarda su copia junto al archivo que abre (`ruta.tmp_siagie`):
+    **nunca abrir la plantilla directamente**, siempre una copia única en temporales.
+- **Plantilla de la planilla (rediseño 28/09/2026) — trampas al construirla con Excel:**
+  - Columnas: A = N° · B:C = nombres (combinadas por fila) · **D..AB = 25 días** ·
+    AC..AF = F J T U · AG = N°. Filas: 1-3 encabezado · 5-6 franja (valores en A6, C6,
+    D6, K6, Y6) · 8-10 cabecera · **11-45 estudiantes** · 46 leyenda. Título en L1,
+    nivel en L3. (El algoritmo de días de §7 sigue valiendo; cambian las columnas.)
+  - **Excel imprime las columnas estrechas más anchas de lo que miden en pantalla**:
+    sin calibrar, la hoja salía al 86 % (letra pequeña). Los anchos se construyeron
+    con un factor 0,84 y se comprobó que imprime al **100 %** (zoom máximo que cabe
+    en 1 página, medido por COM). Si se cambian anchos, volver a medir.
+  - **Por COM, un Excel en español interpreta los códigos del pie en su idioma**:
+    `&D` (fecha) se perdía. El pie se escribió directamente en el XML con los códigos
+    estándar (`&L`, `&C`, `&R`, `&D`).
+  - Las filas espaciadoras vacías (4 y 7) quedan como `<row .../>` autocerrado: hizo
+    aflorar un defecto de `XlsxQuirurgico::leerCeldas()` (se comía la fila siguiente),
+    ya corregido.
+  - El formato condicional del gris va sin funciones (`=($D$6<>"")*(D$9="")`): con
+    `Y()`/`AND()` depende del idioma de Excel.
+  - El PDF (`_planilla-asistencia.scss`) repite estas medidas; su alto de fila sale de
+    `PlanillaAsistenciaModel::altoFilaMm()` en décimas (`planilla-print--alto-N`).
+  - **Nombre que no cabe (decisión del usuario, 28/09/2026):** apellidos + primer
+    nombre + inicial del segundo con punto («SANTAMARIA RODRIGUEZ, JAKELINE E.»).
+    Punto único `PlanillaAsistenciaModel::nombreQueCabe()` (Excel y PDF), con topes
+    `MAX_NOMBRE` 36 · `MAX_TUTOR` 32 · `MAX_AUXILIAR` 26 caracteres; vale también para
+    tutor y auxiliar de la franja. Solo si ni así cabe (o hay un único nombre) se
+    reduce la letra (PDF 8/7,5 pt; Excel «reducir hasta ajustar»): nunca se corta.
   - `.alert` declara `display:block`: el `hidden` va en un envoltorio sin clase.
   - Los verificadores deben FIJAR su escenario dentro de la transacción: la BD local
     trae asignaciones reales.
@@ -212,7 +271,14 @@ completos**.
 5. En el panel del auxiliar: ¿card propia «Nómina de docentes» (icono y color nuevos) o
    acción dentro de otra card?
 
-### F4c — Planilla de asistencia manual (Excel + PDF) (SIGUIENTE)
+### F4c — Planilla de asistencia manual (Excel + PDF) (HECHA 28/09/2026; decisiones y rediseño en §3, trampas en §6)
+Construida: `PlanillaAsistenciaModel` (días, meses del bimestre, cabecera, `generarExcel`
+sobre una COPIA de la plantilla), `Documentos\DocumentoController::planillaAsistencia`
+(selección) y `::planillaGenerar`, `GET /documentos/planilla-asistencia[/generar]`, vistas
+`documentos/planilla-asistencia{,-imprimir}.php`, `planilla-asistencia.js`,
+`pages/_planilla-asistencia.scss`, card en el dashboard (`folder-check.svg`). Solo admin,
+RA y Dirección. `XlsxQuirurgico` ganó dos añadidos opcionales (estilo de una celda
+modelo al crear una celda; reemplazo acotado al pie). Lo de abajo es el plan original.
 **Qué pide el plan (D6, D7, D9):**
 `/documentos/planilla-asistencia/{seccion}?modo=blanco|mes&mes=N&formato=pdf|xlsx`.
 Cabecera del modelo (UNASAM, colegio, nivel, grado, sección, bimestre, tutor, auxiliar
@@ -251,7 +317,7 @@ dónde van N°/nombres/tutor/auxiliar/pie) y **preguntar** lo que no esté decid
 `modo=blanco`, ¿las filas 10–11 van vacías?; ¿qué meses se ofrecen (los del bimestre)?;
 el nombre del archivo; el diseño del PDF. Luego, la card «Planilla» en el panel.
 
-### F5 — Comunicados (D13)
+### F5 — Comunicados (D13) (SIGUIENTE)
 `NotificacionModel`: añadir `ROL_AUXILIAR` a `ROLES_RECEPTORES` (con eso aparece la
 campana en su navbar); `DESTINO_AUXILIARES = 'auxiliares'` en `DESTINOS` y su rama en
 `destinatariosDeComunicado`. `comunicados.destinos` es `varchar(100)` → sin migración.

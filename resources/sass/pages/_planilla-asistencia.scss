@@ -1,0 +1,185 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// _planilla-asistencia.scss — PLANILLA DE ASISTENCIA MANUAL (28/09/2026)
+// Página de selección (/documentos/planilla-asistencia) y el PDF (A4 horizontal,
+// `body.doc-landscape` → @page paisaje). El PDF repite el diseño de la plantilla
+// Excel (rediseño del 28/09/2026: comodidad para escribir a mano). Solo admin,
+// RA y Dirección. Ver docs/modulos/auxiliares.md (F4c).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Página de selección ──────────────────────────────────────
+.planilla-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+}
+
+// ── PDF ──────────────────────────────────────────────────────
+// Medidas en mm/pt, las mismas de la plantilla Excel. Ancho útil 277 mm.
+$planilla-borde: 2px solid #000;
+
+.planilla-print {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+
+    p { margin: 0; }
+
+    // ── Encabezado: recuadro institucional + título (16,5 mm) ──
+    &__head {
+        display: flex;
+        align-items: stretch;
+        gap: 4mm;
+        height: 16.5mm;
+    }
+
+    &__inst {
+        display: flex;
+        align-items: center;
+        gap: 3mm;
+        width: 138mm;
+        padding: 0 3mm 0 1.5mm;
+        border: $planilla-borde;
+    }
+
+    &__logo { height: 14mm; width: auto; }
+    &__inst-texto { flex: 1; text-align: center; }
+    &__unasam,
+    &__colegio { font-size: 9pt; font-weight: 700; }
+    &__lema    { font-size: 8pt; font-style: italic; }
+
+    &__titulo {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+
+        h1 { font-size: 15pt; font-weight: 700; margin: 0; }
+    }
+
+    &__nivel { font-size: 12pt; font-weight: 700; margin-top: 1mm; }
+
+    // ── Franja de datos (11,3 mm) ──
+    &__franja {
+        display: flex;
+        margin-top: 2mm;
+        height: 11.3mm;
+        border: 1px solid #000;
+    }
+
+    &__dato {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-width: 0;
+        padding: 0 2mm;
+
+        & + & { border-left: 1px solid #000; }
+
+        // Mismos anchos que las casillas del Excel (48 · 40 · 42 · 84 · 63 mm).
+        &--grado    { flex: 0 0 48mm; }
+        &--bimestre { flex: 0 0 40mm; }
+        &--mes      { flex: 0 0 42mm; }
+        &--tutor    { flex: 0 0 84mm; }
+        &--auxiliar { flex: 1 1 auto; }
+    }
+
+    &__dato-rotulo {
+        font-size: 7pt;
+        font-weight: 700;
+        color: #444;
+    }
+
+    &__dato-valor {
+        font-size: 11pt;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-height: 1.2em;
+    }
+
+    // ── Grilla ──
+    &__tabla {
+        width: 100%;
+        margin-top: 2mm;
+        border-collapse: collapse;
+        table-layout: fixed;
+        border: $planilla-borde;
+
+        th, td {
+            border: 1px solid #000;
+            padding: 0;
+            text-align: center;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        th { font-weight: 700; }
+        tr { page-break-inside: avoid; }
+        thead { display: table-header-group; }   // se repite si la sección no cabe en una hoja
+        thead tr:first-child th { height: 5.5mm; font-size: 8.5pt; }
+
+        // Líneas gruesas (como en el Excel): tras los nombres, entre semanas y
+        // alrededor de los totales. Aquí dentro para ganarle a `th, td`.
+        .planilla-print__nombre,
+        .planilla-print__dia--fin,
+        .planilla-print__semana { border-right: $planilla-borde; }
+        .planilla-print__semana { border-left: $planilla-borde; }
+        th.planilla-print__total:nth-last-child(5),
+        td.planilla-print__total:nth-last-child(5),
+        thead tr:first-child th:last-child,
+        tbody td:last-child { border-left: $planilla-borde; }
+        thead tr:last-child th { border-bottom: $planilla-borde; }
+    }
+
+    &__fila-num th   { height: 5mm; font-size: 9pt; }
+    &__fila-abrev th { height: 4.5mm; font-size: 7pt; font-weight: 400 !important; }
+
+    &__num    { width: 8mm; font-size: 9pt; }
+    &__nombre {
+        width: 80mm;
+        text-align: left !important;
+        padding: 0 1.5mm !important;
+        font-size: 9pt;
+    }
+    // Último recurso, si ni abreviado cabe (`nombreQueCabe`): letra menor en vez
+    // de cortarlo (en el Excel lo hace «reducir hasta ajustar»).
+    &__nombre--largo     { font-size: 8pt; }
+    &__nombre--muy-largo { font-size: 7.5pt; letter-spacing: -0.1pt; }
+    &__dia     { width: 6mm; }
+    &__dia--sin { background: #d9d9d9; }
+    &__total   { width: 8mm; font-size: 11pt; }
+
+    // ── Leyenda y pie ──
+    &__leyenda {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0 6mm;
+        margin-top: 2mm;
+        font-size: 9pt;
+    }
+
+    &__pie {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-top: 2mm;
+        font-size: 7pt;
+    }
+
+    &__slogan {
+        font-style: italic;
+        font-size: 9pt;
+        color: #0070c0;
+    }
+}
+
+// Alto de las filas de estudiantes en décimas de mm: lo calcula PHP
+// (`PlanillaAsistenciaModel::altoFilaMm`, el mismo cálculo que el Excel) para
+// llenar la hoja con la cantidad de filas de cada sección.
+@for $d from 40 through 90 {
+    .planilla-print--alto-#{$d} .planilla-print__cuerpo td { height: $d * 0.1mm; }
+}

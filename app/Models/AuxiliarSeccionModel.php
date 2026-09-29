@@ -63,7 +63,8 @@ class AuxiliarSeccionModel extends BaseModel
     public function periodoActivo(): ?array
     {
         return $this->queryOne("
-            SELECT p.id, p.numero, p.nombre_display, p.anio_id, a.anio
+            SELECT p.id, p.numero, p.nombre_display, p.anio_id, a.anio,
+                   p.fecha_inicio, p.fecha_fin
             FROM periodos p
             INNER JOIN anios_academicos a ON a.id = p.anio_id AND a.estado = 'activo'
             WHERE p.estado = 'activo'

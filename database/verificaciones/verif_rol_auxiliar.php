@@ -17,7 +17,7 @@ define('CONFIG_PATH', ROOT_PATH . '/config');
 require ROOT_PATH . '/app/Helpers/helpers.php';
 
 spl_autoload_register(function (string $c): void {
-    foreach (['Core\\' => '/core/', 'App\\Models\\' => '/app/Models/'] as $pre => $base) {
+    foreach (['Core\\' => '/core/', 'App\\Models\\' => '/app/Models/', 'App\\Siagie\\' => '/app/Siagie/'] as $pre => $base) {
         if (str_starts_with($c, $pre)) {
             $f = ROOT_PATH . $base . str_replace('\\', '/', substr($c, strlen($pre))) . '.php';
             if (is_file($f)) { require $f; }
@@ -206,6 +206,141 @@ if ($una) {
     $chk('auxiliar: sin secciones propias no sale nadie', $nomDoc->documento([]) === []);
     $chk('auxiliar: los docentes acotados son a lo sumo los de la sección',
         count(array_unique(array_map(fn($k) => explode('|', $k, 2)[1], array_keys($acotado)))) <= count($enSec));
+}
+
+// ── 2d) Planilla de asistencia manual (F4c) ──────────────────────
+echo "2d) Planilla de asistencia: solo admin/RA/Dirección, días y Excel\n";
+$docs = $src('app/Controllers/Documentos/DocumentoController.php');
+foreach (['planillaAsistencia', 'planillaGenerar'] as $met) {
+    $cu = $cuerpoDe($docs, $met);
+    // Decisión del 28/09/2026: el auxiliar NO tiene la planilla (que registre en
+    // el sistema). Si alguien le suma ROL_AUXILIAR, esto lo caza.
+    $chk("{$met} es SOLO para admin, RA y Dirección (sin el auxiliar)",
+        str_contains($cu, '$this->requireRole(self::ROLES_COLEGIO);') && !str_contains($cu, 'ROL_AUXILIAR'));
+}
+$chk('rutas de la planilla registradas',
+    str_contains($src('routes/web.php'), "'/documentos/planilla-asistencia',")
+    && str_contains($src('routes/web.php'), "'/documentos/planilla-asistencia/generar',"));
+$chk('el panel del auxiliar NO enlaza la planilla',
+    !str_contains($src('resources/views/auxiliar/inicio.php'), 'planilla-asistencia'));
+$chk('la planilla usa el roster de la grilla de asistencia',
+    str_contains($cuerpoDe($docs, 'planillaGenerar'), '->getEstudiantesConIncidencias('));
+$chk('el CSS compilado trae la planilla', str_contains($css, '.planilla-print__tabla'));
+
+$P = App\Models\PlanillaAsistenciaModel::class;
+$diasOk = true;
+for ($an = 2026; $an <= 2040; $an++) {
+    for ($me = 1; $me <= 12; $me++) {
+        $ds  = $P::diasPlanilla($an, $me);
+        $hab = 0;
+        for ($d = 1; $d <= (int) date('t', mktime(0, 0, 0, $me, 1, $an)); $d++) {
+            if ((int) date('N', mktime(0, 0, 0, $me, $d, $an)) <= 5) { $hab++; }
+        }
+        $idx = array_column($ds, 'indice');
+        $diasOk = $diasOk && count($ds) === $hab && max(array_column($ds, 'semana')) <= 5
+            && count(array_unique($idx)) === count($idx) && max($idx) <= 24 && $ds[0]['semana'] === 1;
+    }
+}
+$chk('días 2026–2040: todos los hábiles, sin choques de columna, a lo sumo 5 semanas', $diasOk);
+$oct = $P::diasPlanilla(2026, 10);   // 01/10/2026 es jueves
+$chk('octubre 2026 empieza el jueves 1 en SEMANA 1 (columna G)',
+    $oct[0]['dia'] === 1 && $oct[0]['abrev'] === 'J' && $P::COLUMNAS_DIA[$oct[0]['indice']] === 'G');
+// Filas según la sección: hasta 3 libres mientras la fila no baje de 5 mm; nadie
+// se queda fuera; alto con tope de 9 mm.
+$chk('filas: 21 estudiantes → 24 filas; 25 → 27; 28 → 28 (sin libres, nadie fuera)',
+    $P::filasGrilla(21) === 24 && $P::filasGrilla(25) === 27 && $P::filasGrilla(28) === 28);
+$chk('alto de fila: llena la hoja con tope de 9 mm',
+    $P::altoFilaMm(10) === $P::ALTO_MAX_MM && abs($P::altoFilaMm(27) - 136 / 27) < 0.001);
+// Nombre que no cabe: primer nombre + inicial del segundo (decisión 28/09/2026).
+$largo = 'SANTAMARIA RODRIGUEZ, JAKELINE ERLINDA MILAGROS';
+$chk('nombre largo → primer nombre e inicial del segundo («JAKELINE E.»)',
+    $P::nombreQueCabe($largo, $P::MAX_NOMBRE) === 'SANTAMARIA RODRIGUEZ, JAKELINE E.');
+$chk('nombre que cabe, o con un solo nombre, no se toca',
+    $P::nombreQueCabe('LOPEZ LUNA, GAEL EDIEL', $P::MAX_NOMBRE) === 'LOPEZ LUNA, GAEL EDIEL'
+    && $P::nombreQueCabe('APELLIDOMUYLARGO OTROAPELLIDOLARGO, MARGARITA', 20)
+        === 'APELLIDOMUYLARGO OTROAPELLIDOLARGO, MARGARITA');
+$chk('las tildes y la ñ no se rompen al abreviar',
+    $P::nombreQueCabe('NUÑEZ OSORIO, ÁNGEL ÉMILE', 10) === 'NUÑEZ OSORIO, ÁNGEL É.');
+$chk('meses del periodo: de su mes de inicio al de fin',
+    array_keys($P::mesesDelPeriodo(['fecha_inicio' => '2026-08-10', 'fecha_fin' => '2026-10-16']))
+        === ['2026-08', '2026-09', '2026-10']);
+
+$plan    = new App\Models\PlanillaAsistenciaModel();
+$secPl   = $m->queryOne("SELECT s.id FROM secciones s
+                         INNER JOIN anios_academicos an ON an.id = s.anio_id AND an.estado = 'activo'
+                         WHERE s.estado_nomina = 'aprobada' AND s.tutor_id IS NOT NULL ORDER BY s.id LIMIT 1");
+if (!class_exists('ZipArchive')) {
+    // XAMPP trae `;extension=zip` comentado: sin ella no se puede abrir un xlsx
+    // (tampoco las Actas SIAGIE). Se salta, no se da por bueno ni por malo.
+    echo "  [SKIP] este PHP no tiene la extensión zip: no se puede probar el Excel\n";
+} elseif ($secPl) {
+    $sec     = $plan->seccion((int) $secPl['id']);
+    $per     = ['nombre_display' => 'III Bimestre'];
+    $aux     = ['nombre' => 'PRUEBA VERIF, Auxiliar'];
+    $alumnos = ['PRIMERO PRUEBA, Uno', 'SEGUNDO PRUEBA, Dos', $largo];
+    $md5     = md5_file($P::PLANTILLA);
+    $leerXml = function (string $ruta): string {
+        $z = new ZipArchive(); $z->open($ruta);
+        $x = (string) $z->getFromName('xl/worksheets/sheet1.xml'); $z->close();
+        return $x;
+    };
+    // Atributos del <row> de una fila (alto y si está oculta).
+    $fila = fn(string $xml, int $n): string
+        => preg_match('/<(?:\w+:)?row r="' . $n . '"([^>]*)>/', $xml, $mm) ? $mm[1] : '';
+
+    // Modo «con fechas», con un año distinto al del pie de la plantilla.
+    $sec2027 = array_merge($sec, ['anio' => 2027]);
+    $ruta    = $plan->generarExcel($sec2027, $per, $aux, $alumnos, ['anio' => 2026, 'mes' => 10, 'nombre' => 'Octubre']);
+    $x       = new App\Siagie\XlsxQuirurgico($ruta);
+    $hoja    = $x->nombresDeHojas()[0];
+    $c       = $x->leerCeldas($hoja);
+    $xml     = $leerXml($ruta);
+    $chk('Excel: título y nivel (L1 y L3)',
+        ($c[1]['L'] ?? '') === 'REGISTRO AUXILIAR DE ASISTENCIA - 2027' && str_starts_with($c[3]['L'] ?? '', 'NIVEL '));
+    $chk('Excel: franja de datos con sus rótulos (fila 5) y valores (fila 6)',
+        ($c[5]['A'] ?? '') === 'GRADO Y SECCIÓN' && ($c[5]['K'] ?? '') === 'TUTOR(A)' && ($c[5]['Y'] ?? '') === 'AUXILIAR'
+        && ($c[6]['A'] ?? '') === trim($sec['grado_nombre'] . ' ' . $sec['seccion_nombre'])
+        && ($c[6]['C'] ?? '') === 'III Bimestre' && ($c[6]['D'] ?? '') === 'OCTUBRE'
+        && ($c[6]['K'] ?? '') === $sec['tutor_nombre'] && ($c[6]['Y'] ?? '') === 'PRUEBA VERIF, Auxiliar');
+    $chk('Excel: días de octubre (jueves 1 en G9/G10, sin días en D..F)',
+        ($c[9]['G'] ?? '') === '01' && ($c[10]['G'] ?? '') === 'J' && !isset($c[9]['D']) && !isset($c[9]['F']));
+    $chk('Excel: los días que no existen se sombrean solos (formato condicional sobre el MES)',
+        str_contains($xml, '<conditionalFormatting sqref="D9:AB45">') && str_contains($xml, '($D$6&lt;&gt;"")*(D$9="")'));
+    $chk('Excel: siglas del SIAGIE F · J · T · U y leyenda bajo la grilla',
+        ($c[8]['AC'] ?? '') === 'F' && ($c[8]['AD'] ?? '') === 'J' && ($c[8]['AE'] ?? '') === 'T'
+        && ($c[8]['AF'] ?? '') === 'U' && str_contains($c[46]['A'] ?? '', 'U = Tardanza justificada'));
+    $chk('Excel: estudiantes desde B11 en orden', ($c[11]['B'] ?? '') === $alumnos[0] && ($c[12]['B'] ?? '') === $alumnos[1]);
+    $chk('Excel: el nombre que no cabe sale abreviado', ($c[13]['B'] ?? '') === 'SANTAMARIA RODRIGUEZ, JAKELINE E.');
+    $filasG = $P::filasGrilla(count($alumnos));
+    $chk("Excel: {$filasG} filas visibles con alto fijado; el resto ocultas",
+        str_contains($fila($xml, 11), 'customHeight="1"') && !str_contains($fila($xml, 10 + $filasG), 'hidden')
+        && str_contains($fila($xml, 11 + $filasG), 'hidden="1"') && str_contains($fila($xml, 45), 'hidden="1"'));
+    $chk('Excel: el pie lleva el año del documento y la fecha de impresión (&D)',
+        $x->pieContiene($hoja, 'CAVVG/HZ/2027') && !$x->pieContiene($hoja, 'CAVVG/HZ/2026')
+        && $x->pieContiene($hoja, 'FECHA DE IMPRESIÓN: &D'));
+    $chk('Excel: el pie de la plantilla trae el código a reemplazar',
+        (new App\Siagie\XlsxQuirurgico($P::PLANTILLA))->pieContiene($hoja, 'CAVVG/HZ/2026'));
+    @unlink($ruta);
+
+    // Modo «en blanco»: sin días, sin MES, sin auxiliar.
+    $ruta = $plan->generarExcel($sec, $per, null, $alumnos, null);
+    $c    = (new App\Siagie\XlsxQuirurgico($ruta))->leerCeldas($hoja);
+    $sinDias = true;
+    foreach ($P::COLUMNAS_DIA as $col) { $sinDias = $sinDias && !isset($c[9][$col]) && !isset($c[10][$col]); }
+    $chk('Excel en blanco: filas de día y MES vacíos, rótulos SEMANA intactos',
+        $sinDias && !isset($c[6]['D']) && ($c[8]['D'] ?? '') === 'SEMANA 1');
+    $chk('Excel en blanco: sin auxiliar, su casilla queda vacía', !isset($c[6]['Y']));
+    @unlink($ruta);
+
+    $excede = false;
+    try { $plan->generarExcel($sec, $per, null, array_fill(0, $P::FILAS_EXCEL + 1, 'X'), null); }
+    catch (RuntimeException $e) { $excede = true; }
+    $chk('Excel: más de ' . $P::FILAS_EXCEL . ' estudiantes se rechaza (no trunca)', $excede);
+    $chk('la plantilla quedó intacta', md5_file($P::PLANTILLA) === $md5
+        && !is_file($P::PLANTILLA . '.tmp_siagie'));
+    $chk('nombre del archivo: Registro_Asistencia_<grado><sección>_<Nivel>',
+        $P::nombreArchivo(['grado_numero' => 1, 'seccion_nombre' => 'A', 'nivel_nombre' => 'Primaria'])
+            === 'Registro_Asistencia_1A_Primaria');
 }
 
 // ── 3) Reglas de asignación (dentro de una transacción) ─────────
