@@ -36,6 +36,10 @@ class XlsxQuirurgico
     private bool $sstModificado = false;
     /** @var array entry => [ref => texto] escrituras pendientes */
     private array $escrituras = [];
+    /** @var array entry => [[buscar, reemplazo]] cambios en el pie de página */
+    private array $pies = [];
+    /** @var array entry => [fila => ['ht' => ?float, 'oculta' => bool]] */
+    private array $filas = [];
 
     public function __construct(string $ruta)
     {
@@ -108,7 +112,9 @@ class XlsxQuirurgico
     {
         $xml    = $this->xmlDeHoja($hoja);
         $celdas = [];
-        foreach ($this->matchAll('/<(?:\w+:)?row r="(\d+)"[^>]*>(.*?)<\/(?:\w+:)?row>/s', $xml, null) as $row) {
+        // `[^>]*(?<!\/)>`: una fila vacía autocerrada (`<row r="4" .../>`) no abre
+        // bloque; sin esto se comía el contenido de la fila siguiente (28/09/2026).
+        foreach ($this->matchAll('/<(?:\w+:)?row r="(\d+)"[^>]*(?<!\/)>(.*?)<\/(?:\w+:)?row>/s', $xml, null) as $row) {
             $fila = (int) $row[1];
             foreach ($this->matchAll('/<(?:\w+:)?c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>(.*?)<\/(?:\w+:)?c>)/s', $row[2], null) as $c) {
                 $col    = $c[1];
@@ -141,6 +147,46 @@ class XlsxQuirurgico
         $this->escrituras[$entry][$ref] = $texto;
     }
 
+    /**
+     * Encola un reemplazo de texto dentro del pie/encabezado de página de una
+     * hoja (`<headerFooter>`), y SOLO ahí. Nació para el año que la plantilla de
+     * asistencia trae escrito en su pie («CAVVG/HZ/2026», 28/09/2026). Si el
+     * texto no está, no hace nada: `pieContiene()` permite comprobarlo.
+     */
+    public function reemplazarEnPie(string $hoja, string $buscar, string $reemplazo): void
+    {
+        $entry = $this->hojas[$hoja] ?? null;
+        if ($entry === null) {
+            throw new RuntimeException("Hoja inexistente: {$hoja}");
+        }
+        $this->pies[$entry][] = [$buscar, $reemplazo];
+    }
+
+    /**
+     * Fija el alto (en puntos) de una fila EXISTENTE de la hoja. Nació para la
+     * planilla de asistencia (28/09/2026): el alto de las filas de estudiantes se
+     * ajusta para llenar la hoja. Solo toca los atributos del `<row>`.
+     */
+    public function altoFila(string $hoja, int $fila, float $puntos): void
+    {
+        $entry = $this->hojas[$hoja] ?? throw new RuntimeException("Hoja inexistente: {$hoja}");
+        $this->filas[$entry][$fila]['ht'] = round($puntos, 2);
+    }
+
+    /** Oculta una fila EXISTENTE de la hoja (no se imprime). Mismo origen que altoFila(). */
+    public function ocultarFila(string $hoja, int $fila): void
+    {
+        $entry = $this->hojas[$hoja] ?? throw new RuntimeException("Hoja inexistente: {$hoja}");
+        $this->filas[$entry][$fila]['oculta'] = true;
+    }
+
+    /** ¿El pie/encabezado de página de la hoja contiene ese texto (ya escapado a XML)? */
+    public function pieContiene(string $hoja, string $texto): bool
+    {
+        return preg_match('/<(?:\w+:)?headerFooter\b.*?<\/(?:\w+:)?headerFooter>/s', $this->xmlDeHoja($hoja), $m) === 1
+            && str_contains($m[0], $this->escapar($texto));
+    }
+
     /** Cantidad total de escrituras encoladas. */
     public function totalEscrituras(): int
     {
@@ -161,6 +207,30 @@ class XlsxQuirurgico
             foreach ($refs as $ref => $texto) {
                 $xml = $this->insertarValor($xml, $ref, $texto);
             }
+            $modificadas[$entry] = $xml;
+        }
+        // Alto y visibilidad de filas: solo los atributos del <row>.
+        foreach ($this->filas as $entry => $cambios) {
+            $xml = $modificadas[$entry] ?? $this->xmlDeEntry($entry);
+            foreach ($cambios as $fila => $c) {
+                $xml = $this->ajustarFila($xml, (int) $fila, $c['ht'] ?? null, $c['oculta'] ?? false);
+            }
+            $modificadas[$entry] = $xml;
+        }
+        // Reemplazos en el pie: solo dentro de <headerFooter>, nunca en las celdas.
+        foreach ($this->pies as $entry => $cambios) {
+            $xml = $modificadas[$entry] ?? $this->xmlDeEntry($entry);
+            $xml = preg_replace_callback(
+                '/<(?:\w+:)?headerFooter\b.*?<\/(?:\w+:)?headerFooter>/s',
+                function (array $m) use ($cambios): string {
+                    $pie = $m[0];
+                    foreach ($cambios as [$buscar, $reemplazo]) {
+                        $pie = str_replace($this->escapar($buscar), $this->escapar($reemplazo), $pie);
+                    }
+                    return $pie;
+                },
+                $xml
+            );
             $modificadas[$entry] = $xml;
         }
 
@@ -242,6 +312,25 @@ class XlsxQuirurgico
         $cuerpoNuevo = substr($cuerpo, 0, $offset) . $celda . substr($cuerpo, $offset);
         $filaNueva   = '<' . $mf[1][0] . 'row r="' . $fila . '"' . $mf[2][0] . '>' . $cuerpoNuevo . $mf[4][0];
         return substr_replace($xml, $filaNueva, $mf[0][1], strlen($mf[0][0]));
+    }
+
+    /** Reescribe los atributos ht/customHeight/hidden de un `<row>` existente. */
+    private function ajustarFila(string $xml, int $fila, ?float $ht, bool $oculta): string
+    {
+        $patron = '/<((?:\w+:)?)row r="' . $fila . '"([^>]*?)(\/?)>/';
+        if (!preg_match($patron, $xml, $m, PREG_OFFSET_CAPTURE)) {
+            throw new RuntimeException("La fila {$fila} no existe en la hoja");
+        }
+        $attrs = $m[2][0];
+        if ($ht !== null) {
+            $attrs = preg_replace('/\s(?:ht|customHeight)="[^"]*"/', '', $attrs)
+                . ' ht="' . $ht . '" customHeight="1"';
+        }
+        if ($oculta) {
+            $attrs = preg_replace('/\shidden="[^"]*"/', '', $attrs) . ' hidden="1"';
+        }
+        $nueva = '<' . $m[1][0] . 'row r="' . $fila . '"' . $attrs . $m[3][0] . '>';
+        return substr_replace($xml, $nueva, $m[0][1], strlen($m[0][0]));
     }
 
     /** Índice en sharedStrings del texto (reusa el existente o anexa uno). */
