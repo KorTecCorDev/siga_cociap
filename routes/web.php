@@ -128,9 +128,14 @@ $router->post('/admin/asistencia/motivos/crear',        'Admin\AsistenciaMotivoC
 $router->post('/admin/asistencia/motivos/{id}/editar',  'Admin\AsistenciaMotivoController@actualizar');
 $router->post('/admin/asistencia/motivos/{id}/retirar', 'Admin\AsistenciaMotivoController@retirar');
 $router->post('/admin/asistencia/motivos/{id}/mover',   'Admin\AsistenciaMotivoController@mover');
+// Días no lectivos (30/09/2026, migración 070): literales, ANTES de `/{id}`.
+$router->get( '/admin/asistencia/no-lectivos',                 'Admin\AsistenciaCalendarioController@index');
+$router->post('/admin/asistencia/no-lectivos/crear',           'Admin\AsistenciaCalendarioController@crear');
+$router->post('/admin/asistencia/no-lectivos/{fecha}/quitar',  'Admin\AsistenciaCalendarioController@quitar');
 $router->post('/admin/asistencia/dia',        'Admin\AsistenciaController@dia');
 $router->post('/admin/asistencia/confirmar',  'Admin\AsistenciaController@confirmar');
 $router->post('/admin/asistencia/{id}/confirmar-todo', 'Admin\AsistenciaController@confirmarTodo');
+$router->post('/admin/asistencia/{id}/jornada', 'Admin\AsistenciaController@jornada');
 $router->post('/admin/asistencia/{id}/bloquear','Admin\AsistenciaController@bloquear');
 $router->get( '/admin/asistencia/{id}/imprimir/{periodo_id}', 'Admin\AsistenciaController@imprimir');
 $router->get( '/admin/asistencia/{id}/estudiante', 'Admin\AsistenciaController@estudiante');

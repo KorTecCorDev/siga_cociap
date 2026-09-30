@@ -18,6 +18,27 @@ por decisión del usuario:
 - **Asistencia por QR (2027):** `asistencia_incidencias` ya ES la tabla diaria que ese
   plan preveía; el escáner escribiría por `AsistenciaModel::marcarDia` y los contadores
   seguirían saliendo de `recalcularContadores`, sin tocar boleta ni cierres.
+  - **Diseño acordado el 30/09/2026.** El QR **invierte la presunción**: con la lista
+    manual, el estudiante asistió salvo que se marque otra cosa; con el QR, faltó hasta
+    que lo escaneen. La **lista del día** (`asistencia_jornadas`, migración 070) es el
+    ancla: el ingreso por QR la abre con `origen = 'qr'`.
+  - **Tabla nueva para los escaneos:** matrícula, fecha, hora y quién escaneó.
+  - **Tardanza:** quien llega después de la **hora límite** recibe una T. La hora límite
+    es configurable por Dirección, por nivel o turno, nunca fija en el código.
+  - **Falta:** al **cerrar el ingreso**, quien no escaneó recibe una F. El cierre lo hace
+    el auxiliar con un botón, más una tarea programada de respaldo.
+  - **Correcciones del auxiliar:** usa el mismo menú de la celda (FJ con motivo, o «✓
+    asistió» para quien vino sin fotocheck).
+  - **Identificador del QR:** propio y revocable; **nunca** `matriculas.token_acceso`.
+  - **Suplantación** (fotografiar el QR de otro): la defensa real es ver la foto del
+    estudiante al escanear, lo que requiere tener fotos.
+  - **Cámara:** exige HTTPS y un lector de QR local (sin terceros).
+  - **Quiénes entran:** el roster de la grilla. Un retirado o trasladado nunca recibe F
+    automática.
+- **Estadísticas de justificaciones sin los días no lectivos:** la tasa de asistencia de
+  `/admin/cuadros` (`AsistenciaEstadisticaModel`) sigue contando los feriados como hábiles,
+  porque llama a `diasMarcables` sin la lista de no lectivos. Pasársela es un cambio de una
+  línea, pero mueve cifras ya vistas: decidirlo con el usuario.
 
 ## Orden de mérito EN LA BOLETA — descartado por ahora (10/08/2026)
 

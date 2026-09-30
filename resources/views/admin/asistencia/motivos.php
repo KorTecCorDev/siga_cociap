@@ -23,10 +23,12 @@ $urlBase   = url('admin/asistencia/motivos');
     <div>
         <h1 class="page-title">Motivos de justificación</h1>
         <p class="page-subtitle">
-            Cada falta o tardanza justificada (FJ, TJ) lleva uno de estos motivos para poder confirmarse.
+            Toda falta o tardanza justificada (FJ, TJ) lleva uno de estos motivos: sin él no se guarda.
             Se guardan para los reportes.
         </p>
     </div>
+    <?php // Dirección llega aquí desde su card; los días no lectivos van al lado. ?>
+    <a href="<?= url('admin/asistencia/no-lectivos') ?>" class="btn btn--secondary btn--sm">Días no lectivos</a>
 </div>
 
 <?php if ($vigentes === []): ?>

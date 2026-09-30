@@ -161,8 +161,9 @@ $chk('el constructor admite Direccion',
     (bool) preg_match('/__construct.*?requireRole\(\[\.\.\.self::ROLES_REGISTRAN, \.\.\.ROLES_DIRECCION\]\)/s', $ctl));
 // Cada metodo publico enrutado, salvo `imprimir`, debe re-restringir.
 // `estudiante` (entrada por estudiante, 28/09/2026) es de REGISTRO: Direccion no.
-// `confirmarTodo` (asistencia por fechas, 29/09/2026) también es de REGISTRO.
-foreach (['index', 'seccion', 'bloquear', 'guardar', 'estudiante', 'confirmarTodo'] as $metodo) {
+// `confirmarTodo` (asistencia por fechas, 29/09/2026) también es de REGISTRO, y
+// `jornada` («Pasar lista» / «Deshacer», 30/09/2026) también.
+foreach (['index', 'seccion', 'bloquear', 'guardar', 'estudiante', 'confirmarTodo', 'jornada'] as $metodo) {
     $chk("{$metodo}() sigue restringido a quien registra",
         (bool) preg_match(
             '/public function ' . $metodo . '\([^)]*\): void\s*\{\s*\$this->requireRole\(self::ROLES_REGISTRAN\);/s',
@@ -190,7 +191,7 @@ $chk('imprimir() NO se re-restringe (es la que ve Direccion)',
 preg_match_all('/public function (\w+)\(/', $ctl, $m);
 $publicos = array_values(array_diff($m[1], ['__construct']));
 sort($publicos);
-$esperados = ['bloquear', 'confirmar', 'confirmarTodo', 'dia', 'estudiante', 'guardar', 'imprimir', 'index', 'seccion'];
+$esperados = ['bloquear', 'confirmar', 'confirmarTodo', 'dia', 'estudiante', 'guardar', 'imprimir', 'index', 'jornada', 'seccion'];
 $chk('no nacio ningun metodo publico sin decidir su rol: ' . implode(', ', $publicos),
     $publicos === $esperados);
 

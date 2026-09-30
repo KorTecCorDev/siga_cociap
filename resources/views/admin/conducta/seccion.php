@@ -170,13 +170,23 @@ foreach ($estudiantes as $est) {
 
 <?php else: ?>
 
-<details class="conducta-criterios-leyenda">
-    <summary>Ver los <?= $total ?> criterios (✓ = cumple · ✗ = no cumple)</summary>
-    <ol class="conducta-criterios-lista">
+<?php // Leyenda de los códigos de la cabecera (30/09/2026): chip de código del
+      // sistema + texto, la misma lista que la consulta de Dirección. El código
+      // sale del DATO (migración 056), nunca de la posición. ?>
+<details class="conducta-criterios-leyenda conducta-criterios-leyenda--rejilla">
+    <summary class="conducta-criterios-leyenda__summary">
+        <span class="conducta-criterios-leyenda__titulo">Criterios de conducta</span>
+        <span class="conducta-criterios-leyenda__cantidad"><?= $total ?></span>
+        <span class="conducta-criterios-leyenda__clave"><strong>✓</strong> cumple · <strong>✗</strong> no cumple</span>
+    </summary>
+    <ul class="criterios-codigos criterios-codigos--rejilla">
         <?php foreach ($criterios as $c): ?>
-            <li><?= e($c['texto']) ?></li>
+            <li>
+                <span class="competencia-card__codigo"><?= e($c['codigo']) ?></span>
+                <?= e($c['texto']) ?>
+            </li>
         <?php endforeach; ?>
-    </ol>
+    </ul>
 </details>
 
 <?php if (!$bloqueada && !$soloLectura): ?>

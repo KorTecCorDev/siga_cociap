@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Models\AsistenciaJornadaModel;
 use App\Models\AsistenciaModel;
 use App\Models\AuxiliarSeccionModel;
 use Core\Session;
@@ -184,7 +185,10 @@ class AsistenciaController extends BaseController
         $porFechas = $periodoVer !== null && (int) ($periodoVer['asistencia_por_fechas'] ?? 0) === 1;
         $fechas    = [];
         if ($porFechas) {
-            $calendario = AsistenciaModel::calendario($periodoVer);
+            // Lista del día y no lectivos (30/09/2026, migración 070).
+            $jornadasM  = new AsistenciaJornadaModel();
+            $noLectivos = $jornadasM->noLectivos($periodoVer);
+            $calendario = AsistenciaModel::calendario($periodoVer, null, $noLectivos);
             $mesVer     = (string) ($this->query('mes') ?? '');
             if (!isset($calendario[$mesVer])) {
                 // Por defecto: el mes de HOY si cae en el bimestre; si no (historial),
@@ -208,6 +212,9 @@ class AsistenciaController extends BaseController
                 'motivos'    => (new \App\Models\AsistenciaMotivoModel())->vigentes(),
                 'progreso'   => $this->model->getProgresoPorSeccion((int) $periodoVer['id'])[$seccionId]
                                 ?? ['esperados' => 0, 'registrados' => 0],
+                'jornadas'   => $jornadasM->tomadasDe($seccionId, (int) $periodoVer['id']),
+                'sinTomar'   => $jornadasM->diasSinTomar($seccionId, $periodoVer),
+                'hoy'        => date('Y-m-d'),
             ];
         }
 
@@ -305,7 +312,9 @@ class AsistenciaController extends BaseController
             'anteriorUrl'  => $anterior ? $urlDe($anterior) : null,
             'topeMax'      => self::TOPE_MAX,
             'porFechas'    => $porFechas,
-            'calendario'   => $porFechas ? AsistenciaModel::calendario($periodo) : [],
+            'calendario'   => $porFechas
+                ? AsistenciaModel::calendario($periodo, null, (new AsistenciaJornadaModel())->noLectivos($periodo)) : [],
+            'jornadas'     => $porFechas ? (new AsistenciaJornadaModel())->tomadasDe($seccionId, (int) $periodo['id']) : [],
             'dias'         => $porFechas ? ($this->model->incidenciasDe([$mid], (int) $periodo['id'])[$mid] ?? []) : [],
             'motivos'      => $porFechas ? (new \App\Models\AsistenciaMotivoModel())->vigentes() : [],
             'page_scripts' => [$porFechas ? 'asistencia-fechas' : 'asistencia', 'registro-estudiante'],
@@ -572,9 +581,62 @@ class AsistenciaController extends BaseController
 
         $res = $this->model->marcarDia($w['matricula'], $w['periodo'], $fecha, $tipo, $motivo ?: null, $w['usuario']);
         $this->json([
-            'success'    => $res['ok'],
-            'mensaje'    => $res['mensaje'],
-            'contadores' => $res['contadores'] ?? null,
+            'success'        => $res['ok'],
+            'mensaje'        => $res['mensaje'],
+            'contadores'     => $res['contadores'] ?? null,
+            'jornada_tomada' => $res['jornada_tomada'] ?? false,
+        ], $res['ok'] ? 200 : 400);
+    }
+
+    // POST /admin/asistencia/{seccion_id}/jornada  (AJAX — LISTA DEL DÍA, 30/09/2026)
+    // fecha=AAAA-MM-DD · accion=tomar|deshacer. «Pasar lista» deja a toda la
+    // sección con ✓ ese día; «deshacer» solo sin incidencias (lo decide el modelo).
+    public function jornada(string $seccionId): void
+    {
+        $this->requireRole(self::ROLES_REGISTRAN);
+        $this->validateCsrf();
+        $seccionId = (int) $seccionId;
+
+        $fecha  = trim((string) $this->input('fecha'));
+        $accion = (string) $this->input('accion');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !in_array($accion, ['tomar', 'deshacer'], true)) {
+            $this->json(['success' => false, 'mensaje' => 'Datos no válidos.'], 400);
+        }
+
+        $periodo = null;
+        foreach ($this->model->listarPeriodosActivos() as $p) {
+            if ((bool) $p['editable']) {
+                $periodo = $p;
+                break;
+            }
+        }
+        if ($periodo === null || !$this->model->periodoEditable((int) $periodo['id'])) {
+            $this->json(['success' => false, 'mensaje' => 'El periodo no está disponible para edición.'], 403);
+        }
+        $pid = (int) $periodo['id'];
+        if ((int) ($periodo['asistencia_por_fechas'] ?? 0) !== 1) {
+            $this->json(['success' => false, 'mensaje' => 'Este bimestre no se registra por fechas.'], 409);
+        }
+        if (!$this->buscarSeccion($seccionId)) {
+            $this->json(['success' => false, 'mensaje' => 'Sección no encontrada.'], 404);
+        }
+        if (!$this->puede($seccionId, $pid)) {
+            $this->json(['success' => false, 'mensaje' => 'Esta sección no está a tu cargo en este bimestre.'], 403);
+        }
+        if ($this->model->getCierreVigente($seccionId, $pid)) {
+            $this->json(['success' => false, 'mensaje' => 'La asistencia de esta sección ya fue bloqueada; no se puede editar.'], 403);
+        }
+
+        $jornadas = new AsistenciaJornadaModel();
+        $res = $accion === 'tomar'
+            ? $jornadas->pasarLista($seccionId, $periodo, $fecha, (int) Session::user()['id'])
+            : $jornadas->deshacer($seccionId, $pid, $fecha);
+
+        $this->json([
+            'success'   => $res['ok'],
+            'mensaje'   => $res['mensaje'],
+            'tomada'    => $jornadas->estaTomada($seccionId, $pid, $fecha),
+            'sin_tomar' => count($jornadas->diasSinTomar($seccionId, $periodo)),
         ], $res['ok'] ? 200 : 400);
     }
 

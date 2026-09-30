@@ -43,14 +43,27 @@
     // el número y el nivel alcanzado, visibles y de buen tamaño). En el celular
     // el nombre baja a su propia fila y el número y la nota quedan en la de
     // arriba, a los dos extremos (`order`).
+    //
+    // 🔴 FIJA al desplazar (30/09/2026, pedido del usuario): al recorrer los
+    // criterios o el calendario en el celular no se pierde a QUIÉN se evalúa. Se
+    // engancha justo bajo la barra superior (`.navbar`, sticky, z-index 100). Los
+    // márgenes negativos llevan su fondo blanco hasta los bordes de la tarjeta
+    // (anula su relleno lateral) para que el contenido no asome por los lados.
+    // Ningún ancestro (`.app-main`, `.app-body`) tiene `overflow`: si alguno lo
+    // recibe, el sticky deja de engancharse en silencio.
     &__cabecera {
+        position: sticky;
+        top: $topbar-height;
+        z-index: 20;
         display: flex;
         align-items: center;
         flex-wrap: wrap;
         gap: $spacing-xs $spacing-md;
-        padding-bottom: $spacing-sm;
-        margin-bottom: $spacing-sm;
+        margin: (-$spacing-md) (-$spacing-md) $spacing-sm;
+        padding: $spacing-sm $spacing-md;
+        background: $bg-white;
         border-bottom: 1px solid $border-color;
+        border-radius: $border-radius $border-radius 0 0;
 
         // Mensaje de guardado: fila propia, debajo, para no empujar la nota.
         .conducta-status,

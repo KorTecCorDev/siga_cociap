@@ -30,8 +30,19 @@ asistencia POR FECHAS con motivos, estadísticas de justificaciones en Cuadros, 
 impersonales, Usuarios solo para admin, grillas sin columna Estado, imprimible con
 «Detalle de incidencias» y `.form-input`.
 
+**30/09/2026 (oficina): 4.ª y 5.ª ronda HECHAS, COMMITEADAS Y PUSHEADAS a `dev`.**
+- Grillas sin fondo de estado; solo la franja del N° y el resaltado completo.
+- Paleta F/FJ/T/TJ.
+- Cabecera fija en las vistas por estudiante.
+- Criterios de conducta en rejilla con su código.
+- **Lista del día** (✓ solo con lista tomada), **menú por celda**, **FJ/TJ siempre con
+  motivo** y **días no lectivos**. Migración **070**, aplicada en la BD de la oficina.
+- Batería 55/55. Probado en Chrome con admin, auxiliar y Director EBR.
+- Falta el celular real. Detalle en la «QUINTA RONDA» de
+  `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
+
 **Al retomar EN CASA, antes de probar nada:**
-- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 069**: aplicarlas a
+- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 070**: aplicarlas a
       mano en orden. Sin la 068 y la 069 el código nuevo falla (`conducta_confirmaciones`,
       `inasistencias.confirmado_en`, `asistencia_incidencias`,
       `periodos.asistencia_por_fechas`). Tampoco tiene auxiliares de prueba (ver punto 1).
@@ -81,6 +92,15 @@ impersonal + nombre real), `asistencia.js` conserva lo tecleado y marca la celda
       `periodos.asistencia_por_fechas`). Antes de la 069, correr su PREVIEW: lista las filas
       de asistencia del III guardadas como números > 0, que quedarán desconfirmadas y hay
       que volver a registrar por fecha. Tras la 068, «sin confirmar» de conducta debe ser 0.
+- [ ] 🔴 **Producción: migración `070_asistencia_jornadas.sql` a mano ANTES del push a
+      `main`** (30/09/2026: lista del día, días no lectivos, FJ/TJ siempre con motivo). Sin
+      ella el código nuevo no encuentra `asistencia_jornadas` ni
+      `asistencia_dias_no_lectivos`. Antes, correr su PREVIEW: las FJ/TJ sin motivo pasarán
+      a F/T y su fila quedará desconfirmada. ⚠️ Su RELLENO toma la lista de cada día hábil
+      hasta la VÍSPERA del despliegue: los días siguientes quedan «Sin tomar» y el auxiliar
+      debe pasar lista. Declarar en `/admin/asistencia/no-lectivos` los feriados del
+      bimestre (p. ej. el 08/10, Combate de Angamos) ANTES de bloquear: el bloqueo exige
+      lista en todo día lectivo.
 - [ ] 🔴 **Antes del merge, en PRODUCCIÓN:** comprobar que cada sección del I y II Bimestre
       tiene cierre de asistencia vigente. Desde el 29/09/2026 la boleta solo muestra
       asistencia con cierre (`AsistenciaModel::sqlVisible`): una sección sin cierre perdería

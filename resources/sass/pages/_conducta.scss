@@ -32,6 +32,7 @@
 }
 
 // ── Leyenda de criterios (desplegable) ──────────────────────────────────────
+// Base: la usa tal cual la vista del tutor (`docente/conducta-criterios.php`).
 .conducta-criterios-leyenda {
     margin-bottom: $spacing-md;
     padding: $spacing-sm $spacing-md;
@@ -50,6 +51,97 @@
         padding-left: 1.4rem;
 
         li { margin-bottom: $spacing-xs; font-size: $font-size-base; color: $text-secondary; }
+    }
+}
+
+// ── Variante en rejilla (30/09/2026): grilla del auxiliar/RA ────────────────
+// Plegable a propósito: es una LEYENDA de consulta (qué significa cada código de
+// la cabecera), no datos. Adentro, la lista del sistema con el chip de código
+// (`.criterios-codigos` + `.competencia-card__codigo`), la misma de la consulta
+// de Dirección, en rejilla de 2 columnas en pantallas anchas.
+.conducta-criterios-leyenda--rejilla {
+    padding: 0;
+    background: $bg-white;
+    box-shadow: $shadow-sm;
+
+    // `.conducta-criterios-leyenda__summary`: la clase propia le gana al
+    // `summary` genérico de la base (0,2,0 contra 0,1,1).
+    .conducta-criterios-leyenda__summary {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: $spacing-xs $spacing-md;
+        padding: $spacing-sm $spacing-md;
+        cursor: pointer;
+        list-style: none;
+        border-radius: $border-radius;
+
+        &::-webkit-details-marker { display: none; }
+
+        // Marcador propio: gira al abrir.
+        &::before {
+            content: '▸';
+            color: $brand-mid;
+            font-size: $font-size-base;
+            transition: transform .15s ease;
+        }
+
+        &:hover { background: $bg-secondary; }
+        &:focus-visible { outline: 2px solid $brand-mid; outline-offset: 2px; }
+    }
+
+    &[open] > .conducta-criterios-leyenda__summary {
+        border-bottom: 1px solid $border-color;
+        border-radius: $border-radius $border-radius 0 0;
+
+        &::before { transform: rotate(90deg); }
+    }
+
+    .conducta-criterios-leyenda__titulo {
+        font-weight: 700;
+        color: $text-primary;
+    }
+
+    .conducta-criterios-leyenda__cantidad {
+        padding: 0 $spacing-sm;
+        border-radius: $border-radius-sm;
+        background: $bg-secondary;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+        font-weight: 700;
+    }
+
+    .conducta-criterios-leyenda__clave {
+        margin-left: auto;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+
+        strong { color: $text-primary; }
+    }
+
+    .criterios-codigos { padding: $spacing-xs $spacing-md $spacing-sm; }
+}
+
+// Rejilla: 2 columnas desde 720 px. El separador de fila lo pone cada `li`
+// (`.criterios-codigos`); en rejilla también la última fila de la columna
+// izquierda debe perderlo, así que se dibuja arriba en vez de abajo.
+// Clase doble: `.criterios-codigos` se define MÁS ABAJO en este archivo y, con
+// la misma especificidad, su borde inferior ganaría por orden.
+.criterios-codigos.criterios-codigos--rejilla {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: $spacing-xl;
+
+    li,
+    li:not(:last-child) { border-bottom: none; border-top: 1px solid $border-color; }
+    li:first-child { border-top: none; }
+
+    .competencia-card__codigo { flex-shrink: 0; min-width: 38px; text-align: center; }
+
+    @media (min-width: 720px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+
+        li:nth-child(2) { border-top: none; }
     }
 }
 
@@ -105,17 +197,10 @@
     th.conducta-th-crit,
     td.conducta-td-crit { border-left: 1px solid $border-color; }
 
-    // Sin resaltado de fila al pasar el cursor (decisión del usuario, 29/09/2026):
-    // en esta grilla el estado de la fila ya lo dicen el fondo ámbar (sin guardar)
-    // y la barra de la columna N°, y el gris del hover competía con ellos. Se anula
-    // el `tr:hover` GLOBAL de `.tabla-notas` (`_tables.scss`) solo aquí, devolviendo
-    // a cada celda su fondo normal. Va por especificidad: (0,4,2) le gana al
-    // (0,3,2) de `tr:hover td.col-resultado` y al (0,3,1) de las sticky.
-    &.tabla-notas tr:hover {
-        td                           { background: transparent; }
-        td.col-num, td.col-nombre    { background: $bg-white; }
-        td.col-resultado             { background: #f8fafc; }
-    }
+    // Resaltado de fila al pasar el cursor: el del SISTEMA (`.tabla-notas tr:hover`),
+    // en TODAS las columnas (decisión del usuario, 30/09/2026; deroga la del 29/09
+    // que lo anulaba aquí). La fila ya no lleva fondo de estado —solo la franja del
+    // N°—, así que el hover no compite con nada.
 
     // ⚠️ El borde que cierra los criterios contra la zona calculada YA NO se
     // dibuja aqui: lo pone `.col-resultado--inicio`, el separador del sistema que
@@ -171,13 +256,12 @@
     &--c  { color: $color-error; }
 }
 
-// ── Estado de guardado por fila (sin texto: franja en el N° + color de fila) ─
-// El fondo se aplica tambien a la celda sticky del nombre con !important para
-// ganarle a su fondo propio, igual que .fila-pendiente. Las dos columnas N° quedan
-// BLANCAS (decisión del usuario, 29/09/2026; ver `$num-borde` en _asistencia.scss).
-.conducta-fila--pendiente {
-    td:not(.col-num):not(.col-num-fin) { background: $color-warning-bg !important; }
-}
+// ── Estado de guardado por fila: SOLO la franja del N° ──────────────────────
+// 🔴 SIN FONDO DE FILA (decisión del usuario, 30/09/2026). El ámbar de fila
+// entera rompía el resaltado del cursor y hacía que el III Bimestre no se viera
+// como los anteriores. El estado lo dice únicamente la franja; el resto de la
+// fila conserva el estilo establecido de `.tabla-notas`. Las dos columnas N°
+// quedan BLANCAS (ver `$num-borde` en _asistencia.scss).
 
 // Separador + franja de estado en la MISMA sombra (`--franja`), para que el
 // estado no borre el separador.
@@ -185,6 +269,9 @@
     background: $bg-white;
     box-shadow: inset 4px 0 0 var(--franja, transparent), inset -2px 0 0 $text-secondary;
 }
+// El N° inicial también se resalta al pasar el cursor (la regla de arriba le
+// daba blanco fijo). Solo cambia el fondo: la sombra (franja + separador) queda.
+.conducta-grilla tr:hover td.col-num { background: $bg-secondary; }
 .conducta-fila--pendiente td.col-num { --franja: #{$color-warning}; }
 .conducta-fila--guardada  td.col-num { --franja: #{$color-success}; }
 // Un autoguardado que falló (conducta.js): rojo, gana a los otros dos.

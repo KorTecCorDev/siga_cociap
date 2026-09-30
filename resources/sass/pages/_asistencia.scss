@@ -296,10 +296,52 @@
 // siempre ESCRITO en la celda (F, FJ, T, TJ): el color solo refuerza.
 // ============================================================================
 
-$af-f:  $color-error;     // falta
-$af-fj: $brand-mid;       // falta justificada
-$af-t:  $color-warning;   // tardanza
-$af-tj: $color-info;      // tardanza justificada
+// ── Paleta de incidencias (decisión del usuario, 30/09/2026) ─────────────────
+// Familias: ROJO = faltas, NARANJA = tardanzas, en tonos CORRIDOS (carmín y
+// terracota) para no confundirse con el rojo de C (#dc2626) ni con el ámbar de
+// B (#d97706). La injustificada va RELLENA (texto blanco); la justificada, en
+// CONTORNO claro del mismo tono: se distinguen por forma, no solo por matiz.
+// Punto único del color: `.af-celda--{tipo}` (celda) y `.af-tipo--{tipo}`
+// (pastilla de encabezados y leyendas). No copiar estos valores a otro archivo.
+$af-f:        #be123c;   // falta — relleno carmín
+$af-fj-borde: #fb7185;   // falta justificada — contorno rosa
+$af-fj-fondo: #fff1f2;
+$af-fj-texto: #be123c;
+$af-t:        #c2410c;   // tardanza — relleno terracota
+$af-tj-borde: #fb923c;   // tardanza justificada — contorno durazno
+$af-tj-fondo: #fff7ed;
+$af-tj-texto: #9a3412;
+// LISTA DEL DÍA (30/09/2026, migración 070). «Asistió» en gris PIZARRA, nunca
+// verde: el verde es de AD y de «confirmado». «Sin tomar» con el ámbar de aviso
+// del sistema, solo en el borde. «No lectivo», gris apagado.
+$af-asistio:  $text-secondary;
+
+@mixin af-tipo-colores {
+    &--f  { border-color: $af-f;        background: $af-f;        color: $text-white; }
+    &--fj { border-color: $af-fj-borde; background: $af-fj-fondo; color: $af-fj-texto; }
+    &--t  { border-color: $af-t;        background: $af-t;        color: $text-white; }
+    &--tj { border-color: $af-tj-borde; background: $af-tj-fondo; color: $af-tj-texto; }
+    &--asistio   { border-color: $border-color; background: $bg-white; color: $af-asistio; }
+    &--sin-tomar { border-color: rgba($color-warning, .55); border-style: dashed; background: $bg-white; color: $color-warning; }
+    &--nl,
+    &--no-lectivo { border-color: $border-color; background: $bg-secondary; color: $text-muted; }
+}
+
+// Pastilla del tipo (encabezados de los totales, leyendas, totales por estudiante).
+.af-tipo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    padding: 1px 6px;
+    border: 1.5px solid $border-color;
+    border-radius: $border-radius-sm;
+    font-weight: 800;
+    font-size: 12px;
+    line-height: 1.4;
+
+    @include af-tipo-colores;
+}
 
 // Columna «Fechas» de la tabla de solo lectura (Dirección, bimestre por fechas).
 .asistencia-tabla {
@@ -440,16 +482,18 @@ $num-borde: $text-secondary;
     td.af-td-dia { padding: 3px 2px; text-align: center; }
 
 
-    // 🔴 Las columnas FIJAS (N°, nombre) necesitan fondo OPACO: esta grilla sí
-    // se desplaza a lo ancho (hasta 23 días) y los días pasan por debajo. El
-    // verde/ámbar de las filas es `rgba` translúcido y los dejaba ver a través.
-    // Mismo tono, mezclado con blanco. Especificidad (0,4,1): le gana a las
-    // reglas de estado de fila de arriba, que son (0,4,1) pero van antes.
-    .asistencia-fila.asistencia-fila--registrada td.col-nombre {
-        background: mix($color-success, $bg-white, 6%);
-    }
-    .asistencia-fila.asistencia-fila--con-cambios td.col-nombre {
-        background: mix($color-warning, $bg-white, 10%);
+    // 🔴 SIN FONDO DE ESTADO EN LA FILA (decisión del usuario, 30/09/2026). El
+    // verde/ámbar de `.asistencia-tabla .asistencia-fila--registrada/--con-cambios`
+    // es el estilo ESTABLECIDO de la tabla de números (I/II y Dirección,
+    // `_tabla-incidencias.php`) y allí se queda; en esta grilla el estado lo dice
+    // SOLO la franja del N°, como en conducta. Se anula aquí con (0,5,x), por
+    // encima de esas reglas (0,4,x). Las columnas FIJAS quedan blancas y OPACAS:
+    // la grilla se desplaza a lo ancho y los días pasan por debajo.
+    .asistencia-fila.af-fila.asistencia-fila--registrada,
+    .asistencia-fila.af-fila.asistencia-fila--con-cambios {
+        background: transparent;
+
+        td.col-nombre { background: $bg-white; }
     }
 
     // N° inicial: blanco con separador y franja de estado (ver `$num-borde`).
@@ -458,6 +502,16 @@ $num-borde: $text-secondary;
     .asistencia-fila.af-fila td.col-num {
         background: $bg-white;
         box-shadow: inset 4px 0 0 var(--franja, transparent), inset -2px 0 0 $num-borde;
+    }
+
+    // Resaltado al pasar el cursor en TODAS las columnas (30/09/2026), las fijas
+    // incluidas: sus reglas de arriba les dan blanco fijo. Solo cambia el fondo;
+    // la sombra (franja + separador) se conserva. La zona de totales sube al tono
+    // de hover del sistema (`#eef2f7`, `_tables.scss`).
+    .asistencia-fila.af-fila:hover {
+        td.col-num,
+        td.col-nombre,
+        td.col-num-fin { background: $bg-secondary; }
     }
     .asistencia-fila--registrada td.col-num { --franja: #{$color-success}; }
     .asistencia-fila--con-cambios td.col-num { --franja: #{$color-warning}; }
@@ -486,16 +540,16 @@ $num-borde: $text-secondary;
 
     &:focus-visible { outline: 2px solid $brand-mid; outline-offset: 1px; }
 
-    &--f  { border-color: $af-f;  background: rgba($af-f,  .10); color: $af-f; }
-    &--fj { border-color: $af-fj; background: rgba($af-fj, .10); color: $af-fj; }
-    &--t  { border-color: $af-t;  background: rgba($af-t,  .12); color: darken($af-t, 12%); }
-    &--tj { border-color: $af-tj; background: rgba($af-tj, .10); color: $af-tj; }
+    @include af-tipo-colores;
 
-    // Justificada SIN motivo: borde discontinuo (no se puede confirmar así).
-    &--sin-motivo { border-style: dashed; }
+    // «Asistió» (✓): trazo más fino que una incidencia, para que las excepciones
+    // resalten en una columna llena de ✓.
+    &--asistio { font-weight: 600; }
+    // «No lectivo»: rótulo pequeño, sin acción.
+    &--no-lectivo { font-size: 10px; cursor: default; }
 
-    // Justificada CON motivo: icono de documento en la esquina (29/09/2026).
-    // Máscara sobre `currentColor`: toma el color del tipo (FJ azul, TJ celeste).
+    // Justificación con su motivo (siempre, desde la 070): icono de documento en
+    // la esquina. Máscara sobre `currentColor`: toma el color del tipo.
     &--con-motivo {
         position: relative;
 
@@ -531,14 +585,18 @@ $num-borde: $text-secondary;
 // «Confirmar» en conducta).
 .af-confirmar[hidden] { display: none; }
 
-// Select del motivo, anclado a la celda por el JS.
-.af-motivo {
+// ── Menú de la celda (30/09/2026; `_af-menu.php`), anclado a la celda por el JS ─
+// Botones grandes (≥ 44 px, objetivo táctil): lo usan auxiliares con poca
+// destreza digital, en el celular. FJ/TJ despliegan el motivo; «Guardar» se
+// habilita solo con uno elegido.
+.af-menu {
     position: absolute;
     z-index: 30;
     display: flex;
     flex-direction: column;
-    gap: $spacing-xs;
-    width: 260px;
+    gap: $spacing-sm;
+    width: 280px;
+    max-width: calc(100vw - 16px);
     padding: $spacing-sm;
     background: $bg-white;
     border: 1px solid $border-color;
@@ -546,9 +604,89 @@ $num-borde: $text-secondary;
     box-shadow: $shadow-md;
 
     &[hidden] { display: none; }
-    .form-label { margin: 0; }
-    .btn { align-self: flex-end; }
+
+    &__titulo {
+        margin: 0;
+        font-size: $font-size-sm;
+        font-weight: 700;
+        color: $text-primary;
+    }
+
+    &__opciones {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: $spacing-xs;
+    }
+
+    &__op {
+        display: flex;
+        align-items: center;
+        gap: $spacing-xs;
+        min-height: 44px;
+        padding: $spacing-xs $spacing-sm;
+        border: 1.5px solid $border-color;
+        border-radius: $border-radius-sm;
+        background: $bg-white;
+        color: $text-primary;
+        font-family: $font-family;
+        font-size: $font-size-sm;
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+
+        // «Asistió» ocupa la fila entera: es la opción de «deshacer» una incidencia.
+        &--asistio { grid-column: 1 / -1; }
+
+        @media (hover: hover) { &:hover { border-color: $brand-mid; } }
+        &:focus-visible { outline: 2px solid $brand-mid; outline-offset: 1px; }
+        &[aria-pressed='true'] { border-color: $brand-mid; background: rgba($brand-mid, .08); }
+    }
+
+    &__motivo {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+        padding-top: $spacing-xs;
+        border-top: 1px solid $border-color;
+
+        &[hidden] { display: none; }
+        .form-label { margin: 0; }
+        .btn { align-self: flex-end; min-height: 36px; }
+    }
+
+    &__cancelar { align-self: flex-end; }
 }
+
+// ── Encabezado del día: estado de su LISTA (30/09/2026) ────────────────────
+.af-grilla th.af-th-dia {
+    &.af-th-dia--sin-tomar { background: $color-warning-bg; }
+    &.af-th-dia--no-lectivo { opacity: .55; }
+}
+
+.af-th-dia__lista {
+    display: block;
+    width: 100%;
+    margin-top: 2px;
+    padding: 1px 0;
+    border: 0;
+    border-radius: $border-radius-sm;
+    background: transparent;
+    color: $af-asistio;
+    font-family: $font-family;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+
+    .af-th-dia--sin-tomar & { color: $color-warning; }
+
+    @media (hover: hover) { &:hover:not(.af-th-dia__lista--solo) { background: rgba($brand-mid, .12); } }
+    &:focus-visible { outline: 2px solid $brand-mid; outline-offset: 1px; }
+    &--solo { cursor: default; }
+}
+
+// `.btn` fija su `display` y le ganaría al atributo `hidden`.
+.af-lista--hoy[hidden] { display: none; }
 
 // ── Calendario por estudiante (celular) ──────────────────────────
 .af-totales {

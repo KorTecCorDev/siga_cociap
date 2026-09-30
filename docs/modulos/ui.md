@@ -1186,3 +1186,26 @@ como lista de acciones (`.mat-llegada__lista`), una fila por sección sin datos,
 con competencias sin nota. «Exoneraciones» se pinta solo si hay alguna. Traslado y retorno ya
 cumplían la regla.
 
+
+## Paleta de incidencias de asistencia (30/09/2026)
+
+Decisión del usuario, para que el personal se familiarice con los colores a partir de ahora.
+Familias **ROJO = faltas** y **NARANJA = tardanzas**, en tonos corridos (carmín y terracota)
+para no confundirse con los literales C (`#dc2626`) y B (`#d97706`). La injustificada va
+**RELLENA** (texto blanco) y la justificada va en **CONTORNO** claro del mismo tono, así que se
+distinguen por la forma y no solo por el matiz:
+
+| Tipo | Estilo | Colores |
+|---|---|---|
+| F  | relleno  | `#be123c` |
+| FJ | contorno | borde `#fb7185`, fondo `#fff1f2`, texto `#be123c` |
+| T  | relleno  | `#c2410c` |
+| TJ | contorno | borde `#fb923c`, fondo `#fff7ed`, texto `#9a3412` |
+
+**Punto único:** `_asistencia.scss` (`$af-*` + mixin `af-tipo-colores`). Lo aplican
+`.af-celda--{tipo}` (la celda del día) y `.af-tipo--{tipo}` (la pastilla de los encabezados de
+totales, de las leyendas y de los totales por estudiante). No copiar los valores a otro archivo.
+
+Hoy la paleta sale solo en la asistencia **por fechas** (grilla mensual y vista por estudiante).
+La tabla de números (`_tabla-incidencias.php`: I/II y consulta de Dirección) y el imprimible A4
+(blanco y negro) conservan su estilo establecido.

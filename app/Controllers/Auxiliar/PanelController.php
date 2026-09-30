@@ -3,6 +3,7 @@
 namespace App\Controllers\Auxiliar;
 
 use App\Controllers\BaseController;
+use App\Models\AsistenciaJornadaModel;
 use App\Models\AsistenciaModel;
 use App\Models\AuxiliarSeccionModel;
 use App\Models\ConductaModel;
@@ -53,6 +54,11 @@ class PanelController extends BaseController
             $mias     = (new AuxiliarSeccionModel())->seccionesDe((int) Session::user()['id'], $pid);
             $progC    = $conducta->getProgresoConductaPorSeccion($pid);
             $progA    = $asistencia->getProgresoPorSeccion($pid);
+            // Bimestre por fechas: el bloqueo exige además la LISTA DEL DÍA de cada
+            // día marcable (30/09/2026, migración 070). Sin esto el panel diría
+            // «Listo para bloquear» y el bloqueo se negaría.
+            $perAsis  = $asistencia->periodo($pid);
+            $jornadas = ($perAsis && (int) $perAsis['asistencia_por_fechas'] === 1) ? new AsistenciaJornadaModel() : null;
             $todas    = array_values(array_filter(
                 $conducta->listarSeccionesActivas(),
                 static fn($s) => in_array((int) $s['id'], $mias, true)
@@ -86,7 +92,8 @@ class PanelController extends BaseController
                     // todos antes de bloquear: tiene su «Listo para bloquear».
                     'asistencia'   => self::estado(
                         $asistencia->getCierreVigente($sid, $pid), $editable,
-                        $a['registrados'], $a['esperados'], true
+                        $a['registrados'], $a['esperados'], true,
+                        $jornadas ? count($jornadas->diasSinTomar($sid, $perAsis)) : 0
                     ),
                 ];
             }
@@ -179,9 +186,12 @@ class PanelController extends BaseController
      *              todos están confirmados (29/09/2026: conducta y asistencia
      *              cuentan solo lo CONFIRMADO; un borrador no avanza el contador).
      *
+     *   - asistencia por fechas (30/09/2026): con todos confirmados pero días sin
+     *     lista tomada, «Días sin tomar: N» en lugar de «Listo para bloquear».
+     *
      * @return array{bloqueada:bool, badge:string, texto:string}
      */
-    private static function estado(?array $cierre, bool $editable, int $hechos, int $esperados, bool $conCompletitud): array
+    private static function estado(?array $cierre, bool $editable, int $hechos, int $esperados, bool $conCompletitud, int $sinTomar = 0): array
     {
         if ($cierre !== null) {
             return ['bloqueada' => true, 'badge' => 'activo',
@@ -192,6 +202,9 @@ class PanelController extends BaseController
         }
         if ($esperados === 0) {
             return ['bloqueada' => false, 'badge' => 'espera', 'texto' => 'Sin estudiantes'];
+        }
+        if ($conCompletitud && $hechos >= $esperados && $sinTomar > 0) {
+            return ['bloqueada' => false, 'badge' => 'warning', 'texto' => "Días sin tomar: {$sinTomar}"];
         }
         if ($conCompletitud && $hechos >= $esperados) {
             return ['bloqueada' => false, 'badge' => 'warning', 'texto' => 'Listo para bloquear'];

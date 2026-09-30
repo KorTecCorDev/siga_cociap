@@ -110,17 +110,20 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
 
 <?php if ($editable && $porFechas):
     $prog     = $fechas['progreso'];
-    $completo = $prog['esperados'] > 0 && $prog['registrados'] >= $prog['esperados']; ?>
-    <?php // Exige a TODOS confirmados (decisión b, 29/09/2026); el servidor lo
-          // vuelve a comprobar en `AsistenciaModel::bloquearRA`. ?>
+    $sinTomar = count($fechas['sinTomar'] ?? []);
+    $completo = $prog['esperados'] > 0 && $prog['registrados'] >= $prog['esperados'] && $sinTomar === 0; ?>
+    <?php // Exige a TODOS confirmados (decisión b, 29/09/2026) y, desde el
+          // 30/09/2026, TODO día con su lista tomada; el servidor lo vuelve a
+          // comprobar en `AsistenciaModel::bloquearRA`. ?>
     <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/bloquear') ?>"
           class="conducta-bloqueo-form"
           onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Después solo Dirección podrá desbloquearla.');">
         <?= csrf_field() ?>
         <div class="conducta-bloqueo-info">
             Confirmados: <strong><?= (int) $prog['registrados'] ?>/<?= (int) $prog['esperados'] ?></strong>
+            · Días sin tomar: <strong class="af-sin-tomar-total"><?= $sinTomar ?></strong>
             <?php if (!$completo): ?>
-                <span class="text-muted">— faltan estudiantes por confirmar</span>
+                <span class="text-muted">— confirma a todos y pasa lista de cada día para poder bloquear</span>
             <?php endif; ?>
         </div>
         <button type="submit" class="btn btn--success" <?= $completo ? '' : 'disabled' ?>>

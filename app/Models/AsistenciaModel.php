@@ -353,14 +353,17 @@ class AsistenciaModel extends BaseModel
 
     /**
      * Días MARCABLES del bimestre: lunes a viernes entre su inicio y su fin, sin
-     * días FUTUROS (nadie falta mañana). Sin calendario de feriados (decisión
-     * del usuario, 29/09/2026). La definición de «día hábil» es la de la
-     * planilla (`PlanillaAsistenciaModel::diasPlanilla`): no se escribe otra.
+     * días FUTUROS (nadie falta mañana) y, desde el 30/09/2026 (migración 070),
+     * sin los días NO LECTIVOS que se le pasen. Sigue siendo pura: quien llama
+     * lee los no lectivos de `AsistenciaJornadaModel::noLectivos()`; sin ellos
+     * (estadísticas) se comporta como antes. La definición de «día hábil» es la
+     * de la planilla (`PlanillaAsistenciaModel::diasPlanilla`): no se escribe otra.
      *
      * @param array{fecha_inicio:string, fecha_fin:string} $periodo
+     * @param array<string, string> $noLectivos [fecha => motivo]
      * @return list<string> fechas 'AAAA-MM-DD' en orden
      */
-    public static function diasMarcables(array $periodo, ?string $hoy = null): array
+    public static function diasMarcables(array $periodo, ?string $hoy = null, array $noLectivos = []): array
     {
         $ini = substr((string) ($periodo['fecha_inicio'] ?? ''), 0, 10);
         $fin = substr((string) ($periodo['fecha_fin'] ?? ''), 0, 10);
@@ -373,7 +376,7 @@ class AsistenciaModel extends BaseModel
         foreach (PlanillaAsistenciaModel::mesesDelPeriodo($periodo) as $mes) {
             foreach (PlanillaAsistenciaModel::diasPlanilla($mes['anio'], $mes['mes']) as $d) {
                 $f = sprintf('%04d-%02d-%02d', $mes['anio'], $mes['mes'], $d['dia']);
-                if ($f >= $ini && $f <= $tope) {
+                if ($f >= $ini && $f <= $tope && !isset($noLectivos[$f])) {
                     $out[] = $f;
                 }
             }
@@ -383,14 +386,16 @@ class AsistenciaModel extends BaseModel
 
     /**
      * CALENDARIO del bimestre para las pantallas: por mes, los días hábiles
-     * (lun–vie) que caen dentro del bimestre, con `marcable` = no es futuro.
-     * Misma definición de día hábil que `diasMarcables` y la planilla.
+     * (lun–vie) que caen dentro del bimestre, con `marcable` = no es futuro NI
+     * no lectivo, y `no_lectivo` = su motivo (o null). Misma definición de día
+     * hábil que `diasMarcables` y la planilla.
      *
+     * @param array<string, string> $noLectivos [fecha => motivo]
      * @return array<string, array{nombre:string, anio:int, mes:int,
-     *         dias:list<array{fecha:string, dia:int, abrev:string, marcable:bool}>}>
+     *         dias:list<array{fecha:string, dia:int, abrev:string, marcable:bool, no_lectivo:?string}>}>
      *         clave 'AAAA-MM'; los meses sin ningún día del bimestre no salen
      */
-    public static function calendario(array $periodo, ?string $hoy = null): array
+    public static function calendario(array $periodo, ?string $hoy = null, array $noLectivos = []): array
     {
         $ini = substr((string) ($periodo['fecha_inicio'] ?? ''), 0, 10);
         $fin = substr((string) ($periodo['fecha_fin'] ?? ''), 0, 10);
@@ -405,7 +410,9 @@ class AsistenciaModel extends BaseModel
             foreach (PlanillaAsistenciaModel::diasPlanilla($mes['anio'], $mes['mes']) as $d) {
                 $f = sprintf('%04d-%02d-%02d', $mes['anio'], $mes['mes'], $d['dia']);
                 if ($f >= $ini && $f <= $fin) {
-                    $dias[] = ['fecha' => $f, 'dia' => $d['dia'], 'abrev' => $d['abrev'], 'marcable' => $f <= $hoy];
+                    $nl     = $noLectivos[$f] ?? null;
+                    $dias[] = ['fecha' => $f, 'dia' => $d['dia'], 'abrev' => $d['abrev'],
+                               'marcable' => $f <= $hoy && $nl === null, 'no_lectivo' => $nl];
                 }
             }
             if ($dias !== []) {
@@ -570,13 +577,15 @@ class AsistenciaModel extends BaseModel
     }
 
     /**
-     * AUTOGUARDADO de UN día: marca (`$tipo` en TIPOS) o desmarca (`$tipo` null)
-     * la fecha, con su motivo si es FJ/TJ (puede ir vacío: se exige al
-     * confirmar). Si algo CAMBIÓ, recalcula los contadores y la fila queda como
-     * borrador. Valida el DÍA contra `diasMarcables` y el motivo contra el
-     * catálogo vigente. Todo en una transacción.
+     * AUTOGUARDADO de UN día: marca (`$tipo` en TIPOS) o desmarca (`$tipo` null
+     * = «✓ asistió») la fecha. FJ/TJ EXIGEN motivo del catálogo vigente (30/09/2026,
+     * migración 070: también un CHECK en la base). Si algo CAMBIÓ, recalcula los
+     * contadores y la fila queda como borrador. En la MISMA transacción toma la
+     * LISTA DEL DÍA de la sección (`AsistenciaJornadaModel::tomar`): cualquier
+     * marca significa que ese día se pasó lista. Valida el DÍA contra
+     * `diasMarcables` (sin no lectivos).
      *
-     * @return array{ok:bool, mensaje:string, contadores?:array}
+     * @return array{ok:bool, mensaje:string, contadores?:array, jornada_tomada?:bool}
      */
     public function marcarDia(int $matriculaId, int $periodoId, string $fecha, ?string $tipo, ?int $motivoId, int $userId): array
     {
@@ -584,8 +593,9 @@ class AsistenciaModel extends BaseModel
         if ($periodo === null || (int) $periodo['asistencia_por_fechas'] !== 1) {
             return ['ok' => false, 'mensaje' => 'Este bimestre no se registra por fechas.'];
         }
-        if (!in_array($fecha, self::diasMarcables($periodo), true)) {
-            return ['ok' => false, 'mensaje' => 'Ese día no se puede marcar (fuera del bimestre, fin de semana o futuro).'];
+        $jornadas = new AsistenciaJornadaModel();
+        if (!in_array($fecha, self::diasMarcables($periodo, null, $jornadas->noLectivos()), true)) {
+            return ['ok' => false, 'mensaje' => 'Ese día no se puede marcar (fuera del bimestre, fin de semana, no lectivo o futuro).'];
         }
         if ($tipo !== null && !in_array($tipo, self::TIPOS, true)) {
             return ['ok' => false, 'mensaje' => 'Tipo de incidencia no válido.'];
@@ -594,12 +604,22 @@ class AsistenciaModel extends BaseModel
         if ($tipo === null || !in_array($tipo, ['FJ', 'TJ'], true)) {
             $motivoId = null;
         }
+        // 🔴 Una justificada SIN motivo no existe, ni como borrador (30/09/2026).
+        if ($motivoId === null && in_array($tipo, ['FJ', 'TJ'], true)) {
+            return ['ok' => false, 'mensaje' => 'Elige el motivo de la justificación.'];
+        }
         if ($motivoId !== null && !(new AsistenciaMotivoModel())->esVigente($motivoId)) {
             return ['ok' => false, 'mensaje' => 'Motivo no válido o retirado.'];
+        }
+        $seccionId = $this->seccionDeMatricula($matriculaId);
+        if ($seccionId === null) {
+            return ['ok' => false, 'mensaje' => 'Matrícula no encontrada.'];
         }
 
         $this->beginTransaction();
         try {
+            $jornadas->tomar($seccionId, $periodoId, $fecha, $userId);
+
             $previa = $this->queryOne("
                 SELECT id, tipo, motivo_id FROM asistencia_incidencias
                 WHERE matricula_id = ? AND fecha = ?
@@ -631,12 +651,14 @@ class AsistenciaModel extends BaseModel
             return ['ok' => false, 'mensaje' => 'Error al guardar el día.'];
         }
 
-        return ['ok' => true, 'mensaje' => 'Guardado como borrador.', 'contadores' => $this->contadoresDe($matriculaId, $periodoId)];
+        return ['ok' => true, 'mensaje' => 'Guardado como borrador.',
+                'contadores' => $this->contadoresDe($matriculaId, $periodoId), 'jornada_tomada' => true];
     }
 
     /**
      * CONFIRMAR el registro de un estudiante en un bimestre por fechas: exige
-     * motivo en TODA FJ/TJ, recalcula los contadores (garantiza el invariante)
+     * motivo en TODA FJ/TJ (desde la 070 es solo DEFENSA: el CHECK
+     * `chk_justificada_con_motivo` ya impide guardarlas sin él), recalcula los contadores (garantiza el invariante)
      * y marca la fila como confirmada. Sin incidencias, confirma una fila en
      * ceros («sin incidencias», que es un DATO). Todo en una transacción.
      *
@@ -1007,6 +1029,18 @@ class AsistenciaModel extends BaseModel
                 return ['ok' => false, 'mensaje' =>
                     "Faltan estudiantes por confirmar ({$p['registrados']}/{$p['esperados']}). " .
                     'Confirma el registro de todos antes de bloquear.'];
+            }
+            // Bimestre por fechas: TODO día marcable con su lista tomada
+            // (30/09/2026, migración 070). El director (forzado) no lo exige.
+            $periodo = $this->periodo($periodoId);
+            if ($periodo !== null && (int) $periodo['asistencia_por_fechas'] === 1) {
+                $sinTomar = (new AsistenciaJornadaModel())->diasSinTomar($seccionId, $periodo);
+                if ($sinTomar !== []) {
+                    $lista = implode(', ', array_map(static fn(string $f): string => substr($f, 8, 2) . '/' . substr($f, 5, 2), $sinTomar));
+                    return ['ok' => false, 'mensaje' =>
+                        'Hay ' . count($sinTomar) . " día(s) sin lista tomada ({$lista}). " .
+                        'Pasa lista de esos días (o que se declaren no lectivos) antes de bloquear.'];
+                }
             }
         }
         $ok = $this->execute("

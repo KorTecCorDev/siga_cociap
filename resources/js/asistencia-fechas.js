@@ -1,21 +1,26 @@
 /**
  * asistencia-fechas.js — SIGA-COCIAP
- * ASISTENCIA POR FECHAS con AUTOGUARDADO y CONFIRMACIÓN (29/09/2026, migración 069).
+ * ASISTENCIA POR FECHAS con AUTOGUARDADO y CONFIRMACIÓN (29/09/2026, migración 069)
+ * y LISTA DEL DÍA + MENÚ POR CELDA (30/09/2026, migración 070).
  *
  * Lo usan la grilla mensual (`_grilla-fechas.php`) y la vista por estudiante
  * (`estudiante.php` en un bimestre por fechas); las dos respetan el mismo
- * contrato de DOM (ver la cabecera de `_grilla-fechas.php`).
+ * contrato de DOM (ver la cabecera de `_grilla-fechas.php` y `_af-celda.php`).
  *
- *   - Tocar un día recorre · → F → FJ → T → TJ → · y lo AUTOGUARDA como borrador
- *     (`/admin/asistencia/dia`). Los 4 contadores los calcula el SERVIDOR de las
- *     fechas y vuelven en la respuesta: aquí no se suma nada.
- *   - Al llegar a FJ/TJ se abre el select del motivo. Puede quedar vacío: se
- *     exige al CONFIRMAR, no al marcar (decisión del usuario).
+ *   - Tocar un día abre el MENÚ (`#af-menu`): ✓ Asistió · F · T guardan al
+ *     tocarlos; FJ · TJ piden el MOTIVO y solo se guardan con él. Cancelar,
+ *     tocar fuera o Esc NO cambian nada. Una justificada sin motivo no existe
+ *     (lo rechazan también el servidor y un CHECK en la base).
+ *   - Cada marca se AUTOGUARDA como borrador (`/admin/asistencia/dia`) y toma la
+ *     LISTA DEL DÍA de la sección: toda la columna pasa a ✓ salvo las
+ *     incidencias. Los 4 contadores los calcula el SERVIDOR: aquí no se suma nada.
+ *   - «Pasar lista» (encabezado del día o «Pasar lista de hoy») y «Deshacer
+ *     lista» van por `/admin/asistencia/{id}/jornada`.
  *   - «Confirmar» da el visto bueno (`/admin/asistencia/confirmar`); cambiar
  *     cualquier día lo desconfirma.
  *
  * 🔴 LOS ENVÍOS DE UNA FILA VAN EN COLA (`fila._cola`), como en conducta.js:
- * dos toques rápidos en la misma celda no pueden llegar en desorden.
+ * dos marcas rápidas en la misma fila no pueden llegar en desorden.
  *
  * Expone `confirmarAsistencia(fila)` y `asistenciaSinGuardar(fila)` para
  * `registro-estudiante.js`.
@@ -29,8 +34,10 @@
 const BASE_AF = document.querySelector('meta[name="base-url"]')?.content ?? '';
 const URL_DIA       = `${BASE_AF}/admin/asistencia/dia`;
 const URL_CONFIRMAR = `${BASE_AF}/admin/asistencia/confirmar`;
-const CICLO         = ['', 'F', 'FJ', 'T', 'TJ'];
 const JUSTIFICADAS  = ['FJ', 'TJ'];
+// Clases de estado de una celda: las mismas que pinta `_af-celda.php`.
+const CLASES_CELDA  = ['af-celda--f', 'af-celda--fj', 'af-celda--t', 'af-celda--tj',
+                       'af-celda--asistio', 'af-celda--sin-tomar', 'af-celda--con-motivo'];
 
 const feedbackAf = document.getElementById('asistencia-feedback');
 let feedbackAfTimer;
@@ -51,61 +58,54 @@ function statusFila(fila, tipo, mensaje) {
     s.className = `asistencia-status status--${tipo}`;
 }
 
-// Pinta una celda según su tipo y su motivo («!» = justificada sin motivo).
-// Solo toca las clases de TIPO: la celda grande de la vista por estudiante
-// lleva además su columna (`af-col-N`) y el número del día (`.af-celda__num`).
-function pintarCelda(celda) {
-    const tipo = celda.dataset.tipo ?? '';
-    CICLO.filter(Boolean).forEach(t => celda.classList.remove(`af-celda--${t.toLowerCase()}`));
-    if (tipo) celda.classList.add(`af-celda--${tipo.toLowerCase()}`);
-    const sinMotivo = JUSTIFICADAS.includes(tipo) && !celda.dataset.motivo;
-    const conMotivo = JUSTIFICADAS.includes(tipo) && !!celda.dataset.motivo;
-    celda.classList.toggle('af-celda--sin-motivo', sinMotivo);
-    // Icono de documento = la justificación YA tiene motivo (29/09/2026).
-    celda.classList.toggle('af-celda--con-motivo', conMotivo);
-    const texto = celda.querySelector('.af-celda__tipo') ?? celda;
-    texto.textContent = tipo + (sinMotivo ? '!' : '');
-    // El nombre del motivo, al pasar el cursor o mantener pulsado.
-    const nombre = conMotivo ? nombreMotivo(celda.dataset.motivo) : '';
-    celda.title = celda.dataset.fecha + (nombre ? ` · ${nombre}` : (sinMotivo ? ' · Falta el motivo' : ''));
+// «16/09» a partir de «2026-09-16».
+function ddmm(fecha) {
+    return `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`;
 }
 
 // Nombre de un motivo, leído del select del catálogo (no hay copia en el JS).
 function nombreMotivo(id) {
-    return document.querySelector(`#af-motivo-select option[value="${id}"]`)?.textContent ?? '';
+    return document.querySelector(`#af-menu-motivo option[value="${id}"]`)?.textContent ?? '';
 }
 
-// Cantidad de justificaciones SIN motivo de la fila (las de este mes, más las
-// de otros meses que el servidor contó en `data-sin-motivo-otros`).
-function sinMotivo(fila) {
-    const visibles = [...fila.querySelectorAll('.af-celda[data-fecha]')]
-        .filter(c => JUSTIFICADAS.includes(c.dataset.tipo) && !c.dataset.motivo).length;
-    return visibles + (parseInt(fila.dataset.sinMotivoOtros, 10) || 0);
+// Pinta una celda según su tipo, su motivo y la LISTA DEL DÍA. Mismos estados que
+// `_af-celda.php`. La celda grande de la vista por estudiante lleva además su
+// columna (`af-col-N`) y el número del día (`.af-celda__num`): no se tocan.
+function pintarCelda(celda) {
+    const tipo   = celda.dataset.tipo ?? '';
+    const tomada = celda.dataset.tomada === '1';
+    const motivo = JUSTIFICADAS.includes(tipo) ? (celda.dataset.motivo ?? '') : '';
+    celda.classList.remove(...CLASES_CELDA);
+    if (tipo)        celda.classList.add(`af-celda--${tipo.toLowerCase()}`);
+    else if (tomada) celda.classList.add('af-celda--asistio');
+    else             celda.classList.add('af-celda--sin-tomar');
+    // Icono de documento = la justificación tiene su motivo (siempre, desde la 070).
+    if (motivo) celda.classList.add('af-celda--con-motivo');
+
+    const texto = celda.querySelector('.af-celda__tipo') ?? celda;
+    texto.textContent = tipo || (tomada ? '✓' : '');
+
+    const detalle = tipo ? (motivo ? ` · ${nombreMotivo(motivo)}` : '')
+                         : (tomada ? ' · Asistió' : ' · Sin tomar lista');
+    celda.title = celda.dataset.fecha + detalle;
+    const nombre = celda.closest('.af-fila')?.dataset.nombre;
+    celda.setAttribute('aria-label', (nombre ? `${nombre} ` : '') + celda.title);
 }
 
-// Estado visible: Confirmado / Falta motivo / Sin confirmar / Sin registrar.
+// Estado visible: Confirmado / Sin confirmar / Sin registrar.
 function pintarEstado(fila) {
     const confirmada = fila.dataset.confirmada === '1';
-    const faltan     = sinMotivo(fila);
     fila.classList.toggle('asistencia-fila--registrada', confirmada);
     fila.classList.toggle('asistencia-fila--con-cambios', !confirmada && fila.dataset.registrada === '1');
 
     const estado = fila.querySelector('.af-estado');
     if (estado) {
-        let txt = '✓ Confirmado', mod = 'ok';
-        if (!confirmada) {
-            mod = 'pendiente';
-            txt = faltan > 0 ? `Falta motivo (${faltan})`
-                : (fila.dataset.registrada === '1' ? 'Sin confirmar' : 'Sin registrar');
-        }
-        estado.textContent = txt;
-        estado.className = `af-estado af-estado--${mod}`;
+        estado.textContent = confirmada ? '✓ Confirmado'
+            : (fila.dataset.registrada === '1' ? 'Sin confirmar' : 'Sin registrar');
+        estado.className = `af-estado af-estado--${confirmada ? 'ok' : 'pendiente'}`;
     }
     const btn = fila.querySelector('.af-confirmar');
-    if (btn) {
-        btn.hidden   = confirmada;
-        btn.disabled = faltan > 0;
-    }
+    if (btn) btn.hidden = confirmada;
     pintarJustificaciones(fila);
 }
 
@@ -118,6 +118,79 @@ function pintarTotales(fila, c) {
     fila.dataset.confirmada = c.confirmado ? '1' : '0';
     fila.dataset.registrada = '1';
 }
+
+// ── Lista del día ───────────────────────────────────────────────────
+// Pinta TODO lo que depende de la lista de `fecha`: las celdas de ese día (toda
+// la columna en la grilla), su encabezado y el atajo «Pasar lista de hoy».
+function pintarLista(fecha, tomada) {
+    document.querySelectorAll(`.af-celda[data-fecha="${fecha}"]`).forEach(celda => {
+        celda.dataset.tomada = tomada ? '1' : '0';
+        pintarCelda(celda);
+    });
+    const th = document.querySelector(`th.af-th-dia[data-fecha="${fecha}"]`);
+    if (th) {
+        th.dataset.tomada = tomada ? '1' : '0';
+        th.classList.toggle('af-th-dia--sin-tomar', !tomada);
+        const btn = th.querySelector('.af-lista');
+        if (btn) {
+            btn.dataset.accion = tomada ? 'deshacer' : 'tomar';
+            btn.textContent    = tomada ? '✓' : '⚠';
+            btn.title          = tomada ? 'Lista tomada · tocar para deshacer' : 'Sin tomar · tocar para pasar lista';
+            btn.setAttribute('aria-label', (tomada ? 'Deshacer la lista del ' : 'Pasar lista del ') + ddmm(fecha));
+        }
+    }
+    document.querySelectorAll(`.af-lista--hoy[data-fecha="${fecha}"]`).forEach(b => { b.hidden = tomada; });
+}
+
+function pintarSinTomar(n) {
+    document.querySelectorAll('.af-sin-tomar-total').forEach(el => { el.textContent = n; });
+}
+
+// Una marca tomó la lista de su día: si la columna estaba «Sin tomar», se pinta
+// tomada y el contador del pie baja en uno (el servidor lo vuelve a contar al
+// recargar y al bloquear).
+function listaTomadaPorMarca(fecha) {
+    const th = document.querySelector(`th.af-th-dia[data-fecha="${fecha}"]`);
+    const antes = th ? th.dataset.tomada === '1'
+        : document.querySelector(`.af-celda[data-fecha="${fecha}"]`)?.dataset.tomada === '1';
+    if (antes) return;
+    pintarLista(fecha, true);
+    document.querySelectorAll('.af-sin-tomar-total').forEach(el => {
+        el.textContent = Math.max(0, (parseInt(el.textContent, 10) || 0) - 1);
+    });
+}
+
+async function cambiarLista(boton) {
+    const barra = document.querySelector('[data-jornada-url]');
+    if (!barra) return;
+    const fecha  = boton.dataset.fecha;
+    const accion = boton.dataset.accion;
+    if (accion === 'deshacer'
+        && !confirm(`¿Deshacer la lista del ${ddmm(fecha)}? El día quedará «Sin tomar».`)) {
+        return;
+    }
+    boton.disabled = true;
+    try {
+        const res = await fetch(barra.dataset.jornadaUrl, {
+            method: 'POST',
+            body: new URLSearchParams({ _csrf_token: barra.dataset.csrf, fecha, accion }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            pintarLista(fecha, !!data.tomada);
+            pintarSinTomar(data.sin_tomar ?? 0);
+            avisar('ok', accion === 'tomar' ? `✓ Lista del ${ddmm(fecha)} tomada` : `Lista del ${ddmm(fecha)} deshecha`);
+        } else {
+            avisar('error', '⚠ ' + (data.mensaje ?? 'No se pudo cambiar la lista.'));
+        }
+    } catch {
+        avisar('error', '⚠ Sin conexión: la lista no cambió.');
+    } finally {
+        boton.disabled = false;
+    }
+}
+
+// ── Guardado ────────────────────────────────────────────────────────
 
 function encolarAf(fila, tarea) {
     fila._pendientes = (fila._pendientes ?? 0) + 1;
@@ -141,45 +214,55 @@ async function postearAf(url, fila, extra) {
     return res.json();
 }
 
-// AUTOGUARDADO de un día (tipo vacío = desmarcar).
+// AUTOGUARDADO de un día (tipo vacío = «✓ asistió»).
 function guardarDia(fila, celda) {
     const datos = { fecha: celda.dataset.fecha, tipo: celda.dataset.tipo ?? '', motivo_id: celda.dataset.motivo ?? '' };
     return encolarAf(fila, async () => {
+        const fallo = (msg) => {
+            fila.dataset.errorGuardado = '1';
+            fila.classList.add('asistencia-fila--error');
+            celda.classList.add('af-celda--error');
+            statusFila(fila, 'error', '⚠ ' + msg);
+            avisar('error', '⚠ ' + msg);
+            return false;
+        };
         try {
             const data = await postearAf(URL_DIA, fila, datos);
-            if (data.success) {
-                fila.dataset.errorGuardado = '0';
-                fila.classList.remove('asistencia-fila--error');
-                pintarTotales(fila, data.contadores);
-                statusFila(fila, 'success', '');
-                pintarEstado(fila);
-                return true;
-            }
-            fila.dataset.errorGuardado = '1';
-            fila.classList.add('asistencia-fila--error');
-            celda.classList.add('af-celda--error');
-            statusFila(fila, 'error', '⚠ ' + (data.mensaje ?? 'No se guardó'));
-            avisar('error', '⚠ ' + (data.mensaje ?? 'No se guardó el día.'));
-            return false;
+            if (!data.success) return fallo(data.mensaje ?? 'No se guardó el día.');
+            fila.dataset.errorGuardado = '0';
+            fila.classList.remove('asistencia-fila--error');
+            celda.classList.remove('af-celda--error');
+            pintarTotales(fila, data.contadores);
+            if (data.jornada_tomada) listaTomadaPorMarca(datos.fecha);
+            statusFila(fila, 'success', '');
+            pintarEstado(fila);
+            return true;
         } catch {
-            fila.dataset.errorGuardado = '1';
-            fila.classList.add('asistencia-fila--error');
-            celda.classList.add('af-celda--error');
-            statusFila(fila, 'error', '⚠ Sin conexión: no se guardó');
-            avisar('error', '⚠ Sin conexión: el día no se guardó.');
-            return false;
+            return fallo('Sin conexión: el día no se guardó.');
         }
     });
 }
 
+// Aplica la opción elegida en el menú: pinta, desconfirma y autoguarda. Si nada
+// cambia y la lista ya está tomada, no hay nada que enviar.
+function aplicarOpcion(celda, tipo, motivo) {
+    const igual = (celda.dataset.tipo ?? '') === tipo && (celda.dataset.motivo ?? '') === motivo;
+    if (igual && celda.dataset.tomada === '1') return;
+    const fila = celda.closest('.af-fila');
+    celda.dataset.tipo   = tipo;
+    celda.dataset.motivo = motivo;
+    celda.dataset.tomada = '1';   // cualquier marca toma la lista del día
+    celda.classList.remove('af-celda--error');
+    pintarCelda(celda);
+    if (!igual) {
+        fila.dataset.confirmada = '0';
+        pintarEstado(fila);
+    }
+    guardarDia(fila, celda);
+}
+
 // CONFIRMAR un estudiante: espera la cola y pide el visto bueno al servidor.
 async function confirmarAsistencia(fila) {
-    const faltan = sinMotivo(fila);
-    if (faltan > 0) {
-        statusFila(fila, 'error', '⚠ Falta el motivo');
-        avisar('error', `⚠ Elige el motivo de ${faltan} justificación(es) antes de confirmar.`);
-        return false;
-    }
     const btn = fila.querySelector('.af-confirmar');
     if (btn) btn.disabled = true;
     statusFila(fila, 'loading', 'Confirmando…');
@@ -204,51 +287,95 @@ async function confirmarAsistencia(fila) {
             avisar('error', '⚠ Error de conexión.');
             pintarEstado(fila);
             return false;
+        } finally {
+            if (btn) btn.disabled = false;
         }
     });
 }
 
-// ── Select del motivo (un solo elemento, anclado a la celda) ────────
-const popover = document.getElementById('af-motivo');
-const selectMotivo = popover?.querySelector('select');
-let celdaMotivo = null;
+// ── Menú de la celda (un solo elemento, anclado a la celda tocada) ─────
+const menu         = document.getElementById('af-menu');
+const menuTitulo   = menu?.querySelector('.af-menu__titulo');
+const menuMotivo   = menu?.querySelector('.af-menu__motivo');
+const selectMotivo = menu?.querySelector('#af-menu-motivo');
+const btnGuardar   = menu?.querySelector('.af-menu__guardar');
+let celdaMenu = null;
+let tipoPendiente = '';   // FJ/TJ elegida, a la espera del motivo
 
-function abrirMotivo(celda) {
-    if (!popover) return;
-    celdaMotivo = celda;
-    selectMotivo.value = celda.dataset.motivo ?? '';
-    const r = celda.getBoundingClientRect();
-    popover.hidden = false;
-    popover.style.top  = `${window.scrollY + r.bottom + 6}px`;
-    popover.style.left = `${Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - popover.offsetWidth - 8))}px`;
+function marcarOpcion(tipo) {
+    menu.querySelectorAll('.af-menu__op').forEach(b => {
+        b.setAttribute('aria-pressed', b.dataset.tipo === tipo ? 'true' : 'false');
+    });
+}
+
+function mostrarMotivo(tipo) {
+    tipoPendiente = tipo;
+    marcarOpcion(tipo);
+    menuMotivo.hidden = false;
+    const actual = JUSTIFICADAS.includes(celdaMenu.dataset.tipo) ? (celdaMenu.dataset.motivo ?? '') : '';
+    selectMotivo.value = actual;
+    btnGuardar.disabled = !selectMotivo.value;
     selectMotivo.focus();
 }
 
-function cerrarMotivo() {
-    if (popover) popover.hidden = true;
-    celdaMotivo = null;
+function abrirMenu(celda) {
+    if (!menu) return;
+    celdaMenu = celda;
+    tipoPendiente = '';
+    const nombre = celda.closest('.af-fila')?.dataset.nombre ?? '';
+    menuTitulo.textContent = `${ddmm(celda.dataset.fecha)}${nombre ? ' · ' + nombre : ''}`;
+    menuMotivo.hidden = true;
+    const actual = celda.dataset.tipo ?? '';
+    marcarOpcion(celda.dataset.tomada === '1' || actual ? actual : null);
+    if (JUSTIFICADAS.includes(actual)) mostrarMotivo(actual);
+
+    menu.hidden = false;
+    const r = celda.getBoundingClientRect();
+    const ancho = document.documentElement.clientWidth;
+    menu.style.top  = `${window.scrollY + r.bottom + 6}px`;
+    menu.style.left = `${Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + ancho - menu.offsetWidth - 8))}px`;
+    menu.querySelector('.af-menu__op')?.focus({ preventScroll: true });
 }
 
-selectMotivo?.addEventListener('change', () => {
-    const celda = celdaMotivo;
-    if (!celda) return;
-    const fila = celda.closest('.af-fila');
-    celda.dataset.motivo = selectMotivo.value;
-    pintarCelda(celda);
-    fila.dataset.confirmada = '0';
-    pintarEstado(fila);
-    guardarDia(fila, celda);
-    cerrarMotivo();
+function cerrarMenu() {
+    if (menu) menu.hidden = true;
+    celdaMenu = null;
+    tipoPendiente = '';
+}
+
+menu?.querySelectorAll('.af-menu__op').forEach(op => {
+    op.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!celdaMenu) return;
+        const tipo = op.dataset.tipo;
+        if (JUSTIFICADAS.includes(tipo)) {
+            mostrarMotivo(tipo);   // no guarda hasta tener motivo
+            return;
+        }
+        const celda = celdaMenu;
+        cerrarMenu();
+        aplicarOpcion(celda, tipo, '');
+    });
 });
-popover?.querySelector('.af-motivo__cerrar')?.addEventListener('click', cerrarMotivo);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarMotivo(); });
+selectMotivo?.addEventListener('change', () => { btnGuardar.disabled = !selectMotivo.value; });
+btnGuardar?.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!celdaMenu || !JUSTIFICADAS.includes(tipoPendiente) || !selectMotivo.value) return;
+    const celda = celdaMenu;
+    const tipo  = tipoPendiente;
+    const motivo = selectMotivo.value;
+    cerrarMenu();
+    aplicarOpcion(celda, tipo, motivo);
+});
+menu?.querySelector('.af-menu__cancelar')?.addEventListener('click', cerrarMenu);
+menu?.addEventListener('click', e => e.stopPropagation());
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarMenu(); });
 document.addEventListener('click', e => {
-    if (popover && !popover.hidden && !popover.contains(e.target) && e.target !== celdaMotivo) cerrarMotivo();
+    if (menu && !menu.hidden && !menu.contains(e.target) && e.target !== celdaMenu) cerrarMenu();
 });
 
 // ── Lista de justificaciones (solo vista por estudiante) ────────────
-// Muestra cada FJ/TJ con su motivo y permite cambiarlo sin tener que recorrer
-// el ciclo de la celda otra vez.
+// Muestra cada FJ/TJ con su motivo; tocar una abre el menú de ese día.
 function pintarJustificaciones(fila) {
     const lista = fila.querySelector('.af-justificaciones');
     if (!lista) return;
@@ -259,13 +386,11 @@ function pintarJustificaciones(fila) {
     celdas.forEach(c => {
         const li = document.createElement('li');
         li.className = 'af-justificaciones__item';
-        const [a, m, d] = c.dataset.fecha.split('-');
-        const nombre = c.dataset.motivo ? (nombreMotivo(c.dataset.motivo) || 'Motivo') : 'Falta el motivo';
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'btn btn--secondary btn--sm' + (c.dataset.motivo ? '' : ' af-justificaciones__falta');
-        btn.textContent = `${c.dataset.tipo} ${d}/${m}: ${nombre}`;
-        btn.addEventListener('click', e => { e.stopPropagation(); abrirMotivo(c); });
+        btn.className = 'btn btn--secondary btn--sm';
+        btn.textContent = `${c.dataset.tipo} ${ddmm(c.dataset.fecha)}: ${nombreMotivo(c.dataset.motivo) || 'Motivo'}`;
+        btn.addEventListener('click', e => { e.stopPropagation(); abrirMenu(c); });
         li.appendChild(btn);
         lista.appendChild(li);
     });
@@ -277,25 +402,16 @@ document.querySelectorAll('.af-fila').forEach(fila => {
         pintarCelda(celda);
         celda.addEventListener('click', e => {
             e.stopPropagation();
-            const actual = celda.dataset.tipo ?? '';
-            const sig    = CICLO[(CICLO.indexOf(actual) + 1) % CICLO.length];
-            celda.dataset.tipo = sig;
-            // El motivo solo vive en FJ/TJ; al pasar de FJ a TJ se conserva.
-            if (!JUSTIFICADAS.includes(sig)) celda.dataset.motivo = '';
-            celda.classList.remove('af-celda--error');
-            pintarCelda(celda);
-            fila.dataset.confirmada = '0';
-            pintarEstado(fila);
-            guardarDia(fila, celda);
-            if (JUSTIFICADAS.includes(sig) && !celda.dataset.motivo) {
-                abrirMotivo(celda);
-            } else {
-                cerrarMotivo();
-            }
+            if (celdaMenu === celda && !menu.hidden) { cerrarMenu(); return; }
+            abrirMenu(celda);
         });
     });
     fila.querySelector('.af-confirmar')?.addEventListener('click', () => confirmarAsistencia(fila));
     pintarEstado(fila);
+});
+
+document.querySelectorAll('.af-lista').forEach(b => {
+    b.addEventListener('click', e => { e.stopPropagation(); cambiarLista(b); });
 });
 
 // «Confirmar todo»: espera a que se vacíen las colas antes de enviar el formulario.

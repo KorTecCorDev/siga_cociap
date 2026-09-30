@@ -70,6 +70,125 @@
 >    sticky le tapaba el separador. La franja y el separador comparten `box-shadow`
 >    mediante `--franja`, para que ninguna regla de estado borre el separador.
 
+> **CUARTA RONDA (30/09/2026, decisiones del usuario, HECHA y probada en Chrome con admin):**
+>
+> **Regla del usuario:** el estilo UI/UX ya establecido no se cambia. La grilla del III debe
+> verse como la de los bimestres anteriores.
+>
+> 1. **Sin fondo de estado en la fila** en las dos grillas.
+>    - Deroga, del 29/09, el ámbar de fila entera de conducta y el tinte verde de la grilla por
+>      fechas.
+>    - El estado lo dice **solo la franja del N°**.
+>    - Se restituye el **resaltado del sistema al pasar el cursor, en TODAS las columnas**, N°
+>      inicial, nombre y N° final incluidos. Esto deroga el «sin resaltado» del 29/09 en conducta.
+>    - La tabla de números de I/II y de Dirección (`_tabla-incidencias.php`) conserva su verde de
+>      «registrada»: es su estilo establecido.
+> 2. **Franja de asistencia:** se conserva su distinción.
+>    - Sin franja si el estudiante no tiene registro.
+>    - Ámbar si es borrador, verde si está confirmado, rojo si falló un guardado.
+>    - Conducta sigue en ámbar para todo lo no confirmado.
+> 3. **Paleta de incidencias** (convención global en `docs/modulos/ui.md`).
+>    - Familias: rojo = faltas, naranja = tardanzas.
+>    - Injustificada **rellena**, justificada **en contorno**.
+>    - Sale en los encabezados de los totales, en la leyenda de la grilla y en los totales y la
+>      leyenda de la vista por estudiante.
+> 4. **Cabecera del estudiante FIJA** en las dos vistas «por estudiante», bajo la barra
+>    superior, para registrar desde el celular.
+> 5. **Bloque «Criterios» de la grilla admin:** sigue plegable, ahora en rejilla con el chip de
+>    código (`.conducta-criterios-leyenda--rejilla` + `.criterios-codigos--rejilla`). La vista del
+>    tutor conserva el bloque base.
+> 6. **PENDIENTE DE DEBATE: la marca «asistió normalmente»** en cada día.
+>    - El sistema no guarda un «pasé lista» por día: un día sin incidencia puede ser «asistió» o
+>      «nadie registró».
+>    - Opciones:
+>      - a) solo con fila registrada;
+>      - b) todo día transcurrido;
+>      - c) solo confirmado;
+>      - d) registrar el día tomado por sección y fecha, con una migración nueva. Es la única que
+>        hace la marca verdadera y no deducida.
+>    - No se implementó nada.
+
+> **QUINTA RONDA (30/09/2026, decisiones del usuario; migración 070):** lista del día,
+> menú por celda y justificación siempre con motivo. Resuelve el punto 6 de la cuarta
+> ronda.
+>
+> 1. **✓ asistió = lista del día.** Cada sección y bimestre tiene una lista por fecha
+>    (`asistencia_jornadas`).
+>    - Sin lista, el día está **«Sin tomar»** (⚠ en el encabezado, celda vacía).
+>    - Con lista, todo estudiante sin incidencia sale con **✓**, en gris pizarra: nunca
+>      verde, que es el color de AD y de «confirmado».
+>    - La lista se toma con el botón del encabezado del día, con «Pasar lista de hoy» o con
+>      **cualquier marca** (`marcarDia` la toma en su transacción).
+>    - Se **deshace** solo si ningún estudiante de la sección tiene incidencia ese día.
+>    - UNIQUE `(sección, periodo, fecha)`: **los bimestres se solapan**.
+> 2. **Menú por celda** (`_af-menu.php`) en lugar del ciclo de toques.
+>    - Opciones: ✓ Asistió · F · T guardan y cierran; FJ · TJ piden el motivo y «Guardar»
+>      solo se habilita con uno.
+>    - **Cancelar, tocar fuera o Esc no cambian nada.**
+>    - El ciclo viejo no admitía la regla «cancelar = volver a F»: F → FJ → cancelar → F →
+>      FJ… nunca llegaba a T.
+> 3. **FJ/TJ SIEMPRE con motivo:** el modelo las rechaza sin él y hay un CHECK
+>    `chk_justificada_con_motivo`.
+>    - La 070 convirtió las existentes sin motivo a F/T (1 en local), las recontó y las
+>      desconfirmó.
+>    - Se retiraron la marca «!», el borde discontinuo, «Falta motivo (n)» y
+>      `data-sin-motivo-otros`. La comprobación de `confirmar()` queda solo como defensa.
+> 4. **Relleno:** listas con `origen = 'migracion'` en todo lunes a viernes ya transcurrido
+>    (hasta AYER) de cada bimestre por fechas. Es lo que se suponía antes. En local: 851
+>    (23 secciones × 37 días).
+> 5. **Bloqueo:** el auxiliar/RA exige además **0 días sin tomar**; el mensaje lista las
+>    fechas. El director (forzado) no lo exige. El panel del auxiliar muestra «Días sin
+>    tomar: N» en lugar de «Listo para bloquear».
+> 6. **Días no lectivos** (`asistencia_dias_no_lectivos`, `/admin/asistencia/no-lectivos`):
+>    - son de **todo el colegio**; admin y RA editan, Dirección los ve (enlace desde
+>      Motivos);
+>    - un día no lectivo no se marca, no se exige al bloquear y sale como «NL»;
+>    - solo se declara un día **sin incidencias** en el colegio, y borra las listas de ese
+>      día.
+> 7. **Solo lectura** (historial, bloqueo): el ✓ sale solo para estudiantes CONFIRMADOS.
+>    Tras un bloqueo forzado, un borrador no muestra sus incidencias, y un ✓ afirmaría una
+>    asistencia falsa.
+> 8. **Parcial de celda único** (`_af-celda.php`): los cinco estados, compartidos por la
+>    grilla y el calendario por estudiante. El JS repinta con las mismas clases.
+> 9. El **QR de 2027** abrirá la misma lista con `origen = 'qr'`: diseño en
+>    `docs/decisiones-diferidas.md`.
+>
+> Pendiente de decisión: que las estadísticas de Cuadros descuenten los días no lectivos
+> (ver `decisiones-diferidas.md`).
+>
+> **Estado (30/09/2026, sin commit):** la 070 está aplicada en local (851 listas, 0
+> justificadas sin motivo, 0 contadores incoherentes). La batería da 55/55, con
+> `verif_asistencia_jornadas.php` nuevo.
+>
+> Probado en Chrome con admin, en 2.° B:
+> - menú por celda;
+> - FJ + Cancelar no cambia nada; T + TJ + Cancelar deja la T;
+> - TJ con motivo guarda con su icono;
+> - la marca toma la lista y toda la columna pasa a ✓;
+> - FJ sin motivo por POST directo → 400;
+> - deshacer con incidencias → 400; sin incidencias → vuelve a «Sin tomar»;
+> - «Pasar lista de hoy» funciona;
+> - el pie «Días sin tomar» cuadra y el botón de bloqueo queda deshabilitado;
+> - el no lectivo 08/10 sale como «NL» en la grilla y en el calendario;
+> - vista por estudiante con el mismo menú.
+>
+> Los datos de prueba se revirtieron.
+>
+> **Con sesión de AUXILIAR (ESPINOZA):**
+> - con 18/18 confirmados y el 30/09 sin tomar, el panel dice «Días sin tomar: 1» en lugar
+>   de «Listo para bloquear»;
+> - el POST de bloqueo se niega con «Hay 1 día(s) sin lista tomada (30/09)…» y no crea
+>   cierre;
+> - estado revertido.
+>
+> **Con sesión de DIRECTOR EBR (BERNUI):**
+> - Motivos en solo lectura, con el enlace a «Días no lectivos»;
+> - la pantalla de no lectivos sin formularios y con «← Motivos»;
+> - `POST /no-lectivos/crear` y `POST /{id}/jornada` → **403 por rol**, también con un
+>   token CSRF válido. Nada escrito.
+>
+> **Falta probar:** el celular real.
+
 > **AVANCE (29/09/2026, sin commit):**
 > - ✅ **Fase 1 — Conducta B2: HECHA y probada.** `ConductaModel::RESPUESTAS_OFICIALES`
 >   (punto único), `guardarBorrador` / `confirmar` / `estaConfirmado`, `bloquearRA(...,

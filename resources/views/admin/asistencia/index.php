@@ -22,6 +22,7 @@
     <?php // Catálogo de motivos de justificación (29/09/2026): solo quien lo gestiona. ?>
     <?php if (has_role(['admin', 'registro_academico'])): ?>
         <a href="<?= url('admin/asistencia/motivos') ?>" class="btn btn--secondary btn--sm">Motivos</a>
+        <a href="<?= url('admin/asistencia/no-lectivos') ?>" class="btn btn--secondary btn--sm">Días no lectivos</a>
     <?php endif; ?>
 </div>
 

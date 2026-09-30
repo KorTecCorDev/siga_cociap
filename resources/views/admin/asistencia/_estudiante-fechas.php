@@ -6,12 +6,14 @@
  * lista de sus justificaciones con su motivo.
  *
  * 🔴 NO TIENE JS PROPIO: respeta el contrato de DOM de `_grilla-fechas.php`
- * (`.af-fila`, `.af-celda[data-fecha]`, `.af-total`, `.af-estado`…), así que
- * `asistencia-fechas.js` lo maneja igual que la grilla. `registro-estudiante.js`
- * añade «← Anterior» / «Confirmar y siguiente →».
+ * (`.af-fila`, celdas de `_af-celda.php`, `.af-total`, `.af-estado`…), así que
+ * `asistencia-fechas.js` lo maneja igual que la grilla, con el mismo MENÚ por
+ * celda (`_af-menu.php`, 30/09/2026). La LISTA DEL DÍA es de la sección: aquí no
+ * hay botón «Pasar lista» (va en la grilla), pero cualquier marca la toma.
+ * `registro-estudiante.js` añade «← Anterior» / «Confirmar y siguiente →».
  *
  * Variables heredadas de `estudiante.php`: $est, $inc, $pos, $ultimo, $csrfToken,
- * $periodo, $siguienteUrl, $anteriorUrl, $calendario, $dias, $motivos.
+ * $periodo, $siguienteUrl, $anteriorUrl, $calendario, $dias, $motivos, $jornadas.
  */
 
 use App\Models\AsistenciaModel;
@@ -31,7 +33,7 @@ $cabeceraSemana = ['L', 'Mar.', 'Mié.', 'J', 'V'];
          data-csrf="<?= e($csrfToken) ?>"
          data-confirmada="<?= !empty($inc['confirmado']) ? '1' : '0' ?>"
          data-registrada="<?= !empty($inc['registrado']) ? '1' : '0' ?>"
-         data-sin-motivo-otros="0"
+         data-nombre="<?= e($est['nombre_completo']) ?>"
          data-siguiente="<?= e($siguienteUrl) ?>">
 
     <header class="registro-estudiante__cabecera">
@@ -45,7 +47,7 @@ $cabeceraSemana = ['L', 'Mar.', 'Mié.', 'J', 'V'];
     <dl class="af-totales">
         <?php foreach (AsistenciaModel::CAMPOS as $c): [$corta, $larga] = $etiquetasAf[$c]; ?>
             <div class="af-totales__item" title="<?= e($larga) ?>">
-                <dt><?= e($corta) ?></dt>
+                <dt><span class="af-tipo af-tipo--<?= strtolower($corta) ?>"><?= e($corta) ?></span></dt>
                 <dd class="af-total" data-campo="<?= $c ?>"><?= (int) $inc[$c] ?></dd>
             </div>
         <?php endforeach; ?>
@@ -61,29 +63,32 @@ $cabeceraSemana = ['L', 'Mar.', 'Mié.', 'J', 'V'];
                 // Columna = día de la semana (1 = lunes … 5 = viernes), por CLASE
                 // (nunca CSS inline): la grilla de 5 columnas deja sola los huecos
                 // de un mes o bimestre que no empieza en lunes.
-                $col  = 'af-col-' . (int) date('N', strtotime($d['fecha']));
-                $x    = $dias[$d['fecha']] ?? null;
-                $tipo = $x['tipo'] ?? '';
-                $mot  = $x['motivo_id'] ?? null;
-            ?>
-                <?php if ($d['marcable']): ?>
-                    <button type="button" class="af-celda af-celda--grande <?= $col ?><?= $tipo !== '' ? ' af-celda--' . strtolower($tipo) : '' ?>"
-                            data-fecha="<?= e($d['fecha']) ?>" data-tipo="<?= e($tipo) ?>"
-                            data-motivo="<?= $mot !== null ? (int) $mot : '' ?>"
-                            aria-label="<?= e($d['fecha'] . ': ' . ($tipo !== '' ? $tipo : 'sin incidencia')) ?>">
-                        <span class="af-celda__num"><?= (int) $d['dia'] ?></span>
-                        <span class="af-celda__tipo"><?= e($tipo) ?></span>
-                    </button>
-                <?php else: ?>
-                    <span class="af-celda af-celda--grande af-celda--solo af-celda--futuro <?= $col ?>" title="<?= e($d['fecha']) ?>">
-                        <span class="af-celda__num"><?= (int) $d['dia'] ?></span>
-                    </span>
-                <?php endif; ?>
-            <?php endforeach; ?>
+                $colClase = 'af-col-' . (int) date('N', strtotime($d['fecha']));
+                $x        = $dias[$d['fecha']] ?? null;
+                $tomada   = isset($jornadas[$d['fecha']]);
+                $editable = true;
+                $grande   = true;
+                $etiqueta = '';
+                require VIEW_PATH . '/admin/asistencia/_af-celda.php';
+            endforeach; ?>
         </div>
     <?php endforeach; ?>
 
-    <?php // Sus FJ/TJ con el motivo: tocar una abre el select (lo arma el JS). ?>
+    <?php // Leyenda de colores (30/09/2026): la misma pastilla que la grilla. ?>
+    <div class="tabla-pie tabla-pie--suelto">
+        <p class="tabla-pie__leyenda">
+            <span class="tabla-pie__item"><span class="af-tipo af-tipo--asistio">✓</span> Asistió</span>
+            <?php foreach (AsistenciaModel::CAMPOS as $c): [$corta, $larga] = $etiquetasAf[$c]; ?>
+                <span class="tabla-pie__item">
+                    <span class="af-tipo af-tipo--<?= strtolower($corta) ?>"><?= e($corta) ?></span> <?= e($larga) ?>
+                </span>
+            <?php endforeach; ?>
+            <span class="tabla-pie__item"><span class="af-tipo af-tipo--sin-tomar">⚠</span> Sin tomar lista</span>
+            <span class="tabla-pie__item"><span class="af-tipo af-tipo--nl">NL</span> No lectivo</span>
+        </p>
+    </div>
+
+    <?php // Sus FJ/TJ con el motivo: tocar una abre el menú del día (lo arma el JS). ?>
     <ul class="af-justificaciones" hidden></ul>
 
     <div class="registro-estudiante__acciones">
@@ -96,4 +101,4 @@ $cabeceraSemana = ['L', 'Mar.', 'Mié.', 'J', 'V'];
     </div>
 </section>
 
-<?php require VIEW_PATH . '/admin/asistencia/_af-motivo.php'; ?>
+<?php require VIEW_PATH . '/admin/asistencia/_af-menu.php'; ?>

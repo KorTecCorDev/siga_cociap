@@ -161,11 +161,11 @@ if (!$fila || !$usuario || !$motivo || count($dias) < 3) {
         $chk('b) el motivo en una F se descarta (solo FJ/TJ lo llevan)',
             $dia1 !== null && array_key_exists('motivo_id', $dia1) && $dia1['motivo_id'] === null);
 
-        // c) FJ sin motivo: se guarda, pero no se puede confirmar.
-        $m->marcarDia($mid, $pid, $d2, 'FJ', null, $uid);
-        $r = $m->confirmar($mid, $pid, $uid);
-        $chk('c) confirmar con una FJ SIN motivo se rechaza', !$r['ok'] && ($r['sin_motivo'] ?? 0) === 1);
-        $chk('c) y no confirma', !$cont()['confirmado']);
+        // c) FJ/TJ SIN motivo: ya no se guardan, ni como borrador (30/09/2026,
+        //    migración 070). Antes se guardaban y solo se frenaban al confirmar.
+        $chk('c) marcar una FJ SIN motivo se rechaza', !$m->marcarDia($mid, $pid, $d2, 'FJ', null, $uid)['ok']);
+        $chk('c) marcar una TJ SIN motivo se rechaza', !$m->marcarDia($mid, $pid, $d2, 'TJ', null, $uid)['ok']);
+        $chk('c) y el día quedó sin incidencia', !isset($fechas()[$d2]));
 
         // d) Con motivo, confirma.
         $m->marcarDia($mid, $pid, $d2, 'FJ', $mot, $uid);
