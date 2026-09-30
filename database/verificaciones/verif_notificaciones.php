@@ -180,9 +180,19 @@ try {
         'el personal administrativo recibe');
     $ok(!in_array('padre', N::ROLES_RECEPTORES, true),
         'los padres quedan fuera (su superficie sigue oscura)');
+    $ok(in_array(ROL_AUXILIAR, N::ROLES_RECEPTORES, true),
+        'el auxiliar académico recibe (campana y comunicados, decisión D13)');
 
     echo "\n=== 7. DESTINOS combinables ===\n";
     $pdo->prepare("UPDATE usuarios SET estado = 'activo' WHERE id = ?")->execute([$docB]);
+    // Un auxiliar de prueba dentro de la transacción: la base puede no tener
+    // ninguno, y sin él el destino «auxiliares» pasaría las pruebas vacío.
+    $pdo->prepare("INSERT INTO personas (dni, apellido_paterno, apellido_materno, nombres, sexo)
+                   VALUES ('99000009', 'PRUEBA', 'VERIF', 'Auxiliar', 'F')")->execute();
+    $pdo->prepare("INSERT INTO usuarios (persona_id, rol_id, password_hash, estado)
+                   SELECT ?, id, 'x', 'activo' FROM roles WHERE codigo = ?")
+        ->execute([(int) $pdo->lastInsertId(), ROL_AUXILIAR]);
+    $auxPrueba = (int) $pdo->lastInsertId();
     $todos = array_keys(N::DESTINOS);
     $seccionId = $contar("SELECT seccion_id FROM matriculas WHERE id = ?", [$mid]);
     $dest = $notifs->destinatariosDeComunicado($todos, $seccionId, $emisor);
@@ -195,11 +205,22 @@ try {
         $r
     );
     $esperados = array_unique(array_merge(
-        $rolesIn(['docente']), $idsDocentes, $rolesIn(ROLES_DIRECCION), $rolesIn(N::ROLES_ADMINISTRATIVOS)
+        $rolesIn(['docente']), $idsDocentes, $rolesIn(ROLES_DIRECCION), $rolesIn(N::ROLES_ADMINISTRATIVOS),
+        $rolesIn([ROL_AUXILIAR])
     ));
     $esperados = array_values(array_diff($esperados, [$emisor]));
     sort($esperados); $d = $dest; sort($d);
-    $ok($d === $esperados, 'la unión de los 4 destinos es exactamente la esperada');
+    $ok($d === $esperados, 'la unión de los ' . count(N::DESTINOS) . ' destinos es exactamente la esperada');
+
+    $soloAux = $notifs->destinatariosDeComunicado([N::DESTINO_AUXILIARES], null, $emisor);
+    sort($soloAux);
+    $ok(in_array($auxPrueba, $soloAux, true) && $soloAux === array_values(array_diff($rolesIn([ROL_AUXILIAR]), [$emisor])),
+        'solo «auxiliares» = los auxiliares activos, nadie más');
+    $pdo->prepare("UPDATE usuarios SET estado = 'inactivo' WHERE id = ?")->execute([$auxPrueba]);
+    $ok(!in_array($auxPrueba, $notifs->destinatariosDeComunicado([N::DESTINO_AUXILIARES], null, $emisor), true),
+        'un auxiliar inactivo no recibe');
+    $ok(!in_array($auxPrueba, $notifs->destinatariosDeComunicado([N::DESTINO_DOCENTES], null, $emisor), true),
+        '«Todos los docentes» no incluye auxiliares');
 
     $soloSeccion = $notifs->destinatariosDeComunicado([N::DESTINO_SECCION], $seccionId, $emisor);
     sort($soloSeccion);

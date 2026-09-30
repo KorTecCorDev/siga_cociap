@@ -68,6 +68,13 @@
 // ── Documento imprimible (layout print, A4 portrait) ─────────
 .registro-doc {
 
+    // Anexo en HOJA APARTE (29/09/2026): nunca comparte hoja con las firmas ni
+    // se parte a mitad de la hoja principal.
+    &--anexo {
+        break-before: page;
+        page-break-before: always;
+    }
+
     &__leyenda {
         font-family: Arial, Helvetica, sans-serif;
         font-size: 6.5pt;
@@ -98,6 +105,20 @@
         break-inside: avoid;
         page-break-inside: avoid;
     }
+
+    // Aviso de que se adjunta el anexo (29/09/2026): recuadro con borde, legible
+    // también en blanco y negro, al pie de la hoja principal.
+    &__adjunto {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 7.5pt;
+        color: #000;
+        margin: 4mm 0 0;
+        padding: 2mm 3mm;
+        border: 0.8pt solid #000;
+        border-left-width: 3pt;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
 }
 
 // Grilla del registro (criterios de conducta o contadores de asistencia)
@@ -113,6 +134,16 @@
     .tr-crit     { width: 8mm; }
     .tr-nota     { width: 20mm; }
     .tr-contador { width: 22mm; }
+
+    // Asistencia POR FECHAS (29/09/2026): las columnas llevan las siglas (F, FJ,
+    // T, TJ) y se estrechan. Las fechas ya no van en una columna: van en el anexo
+    // «Detalle de incidencias», en hoja aparte.
+    &--fechas .tr-contador { width: 13mm; }
+
+    // Anexo de fechas (29/09/2026).
+    .tr-anexo-fecha { width: 22mm; text-align: center; }
+    .tr-anexo-tipo  { width: 12mm; text-align: center; }
+    .tr-anexo-motivo { text-align: left; }
 
     thead th {
         background: #efefef;

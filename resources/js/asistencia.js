@@ -64,6 +64,19 @@ function sanearInput(input) {
     input.value = String(n);
 }
 
+// Guardado FALLIDO: lo tecleado se queda en pantalla (antes se devolvía al
+// último valor guardado y se perdía lo que el usuario transcribió) y se marcan
+// en rojo las celdas que no llegaron a guardarse. Si ninguna difiere del valor
+// guardado (primer registro de la fila en ceros), se marcan todas. La fila
+// sigue --con-cambios porque sus valores difieren del `data-inicial`.
+function marcarErrorFila(inputs) {
+    const sinGuardar = Array.from(inputs).filter(inputDifiereDeInicial);
+    (sinGuardar.length ? sinGuardar : Array.from(inputs))
+        .forEach(i => i.classList.add('asistencia-input--error'));
+}
+
+// Devuelve true si guardó. La grilla lo ignora; la entrada por estudiante
+// (registro-estudiante.js) lo usa para avanzar solo si el guardado salió bien.
 async function guardarFila(fila) {
     const matriculaId = fila.dataset.matriculaId;
     const periodoId   = fila.dataset.periodoId;
@@ -71,11 +84,9 @@ async function guardarFila(fila) {
     const btn         = fila.querySelector('.asistencia-guardar');
     const inputs      = fila.querySelectorAll('.asistencia-input');
 
-    // Normalizar valores antes de enviar y capturar previos para rollback.
-    const valoresPrevios = {};
+    // Normalizar valores antes de enviar.
     const valoresEnviar  = {};
     inputs.forEach(i => {
-        valoresPrevios[i.name] = i.dataset.inicial ?? '0';
         sanearInput(i);
         valoresEnviar[i.name]  = i.value;
     });
@@ -98,23 +109,28 @@ async function guardarFila(fila) {
             // Sincroniza el estado: los valores enviados son ahora el nuevo
             // "inicial" para futuros diffs. La fila se marca como registrada
             // y se limpia el ámbar de cambios pendientes.
-            inputs.forEach(i => { i.dataset.inicial = i.value; });
+            inputs.forEach(i => {
+                i.dataset.inicial = i.value;
+                i.classList.remove('asistencia-input--error');
+            });
             fila.classList.add('asistencia-fila--registrada');
             recalcularCambiosFila(fila);
             mostrarStatusFila(fila, 'success', '✓ Guardado');
             mostrarFeedback('ok', '✓ Guardado');
+            return true;
         } else {
-            // Rollback: restaurar los inputs y mantener el estado anterior.
-            inputs.forEach(i => { i.value = valoresPrevios[i.name]; });
             recalcularCambiosFila(fila);
+            marcarErrorFila(inputs);
             mostrarStatusFila(fila, 'error', '⚠ ' + (data.mensaje ?? 'Error.'), true);
             mostrarFeedback('error', '⚠ ' + (data.mensaje ?? 'Error al guardar.'));
+            return false;
         }
     } catch (err) {
-        inputs.forEach(i => { i.value = valoresPrevios[i.name]; });
         recalcularCambiosFila(fila);
+        marcarErrorFila(inputs);
         mostrarStatusFila(fila, 'error', '⚠ Error de conexión.', true);
         mostrarFeedback('error', '⚠ Error de conexión.');
+        return false;
     } finally {
         btn.disabled = false;
     }
@@ -127,7 +143,19 @@ document.querySelectorAll('.asistencia-fila').forEach(fila => {
 
     inputs.forEach(input => {
         // Detección de cambios en cada tecla.
-        input.addEventListener('input', () => recalcularCambiosFila(fila));
+        // Al volver a teclear, la celda deja de estar «en error»: su valor ya es
+        // otro, pendiente de un nuevo intento (el ámbar de la fila lo sigue diciendo).
+        // El aviso de error de la fila también se retira: describe un intento
+        // que ya no corresponde a lo que hay en pantalla.
+        input.addEventListener('input', () => {
+            input.classList.remove('asistencia-input--error');
+            const status = fila.querySelector('.asistencia-status.status--error');
+            if (status) {
+                status.textContent = '';
+                status.className = 'asistencia-status';
+            }
+            recalcularCambiosFila(fila);
+        });
 
         // Al perder foco: saneamos y recalculamos (puede haber clamp).
         input.addEventListener('blur', () => {

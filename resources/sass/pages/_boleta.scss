@@ -47,9 +47,9 @@ $c-alt-bg: #f8f8f8;
 // Página CSS con nombre: convive con la @page portrait por defecto sin
 // afectar a la boleta. Se activa con la clase `.doc-landscape` que
 // print.php inyecta en el <body> (variable $bodyClass del controlador).
-// ⚠️ HOY NO LA USA NINGÚN DOCUMENTO: el reporte de orden de mérito, su único
-// consumidor, pasó a A4 vertical (11/08/2026). Se conserva como mecanismo
-// disponible para el próximo documento ancho que lo necesite.
+// La usa la planilla de asistencia manual. El reporte de orden de mérito (su
+// primer consumidor, 11/08/2026) y la nómina de docentes (29/09/2026) pasaron
+// a A4 vertical.
 @page paisaje {
     size: A4 landscape;
     margin: 1cm;

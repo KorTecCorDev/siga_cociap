@@ -61,7 +61,9 @@ Constantes en `NotificacionModel`; no se listan códigos a mano en ningún otro 
 - **`ROLES_RECEPTORES`** = `docente`, `registro_academico`, `admin` y
   **`...ROLES_DIRECCION`** (desde el 16/09/2026). `padre` queda fuera: hay **0 usuarios
   con ese rol** y su superficie sigue oscura. Dirección **no recibe avisos del sistema**
-  (no tiene cargas), solo comunicados.
+  (no tiene cargas), solo comunicados. **Desde el 28/09/2026 también `ROL_AUXILIAR`**
+  (decisión D13 de `auxiliares.md`): campana y comunicados por su destino propio; tampoco
+  recibe avisos automáticos.
 - **`ROLES_EMISORES`** = `admin`, `registro_academico`. **Deliberadamente NO incluye
   ninguno de `ROLES_DIRECCION`**: los tres directores son SOLO LECTURA (invariante de
   `CLAUDE.md`). El gate de escritura va **por método**, no en el constructor.
@@ -118,7 +120,9 @@ entonces. En el detalle (`/docente/notas-origen/{id}`) el colegio pasó del subt
 
 ### Destinos del comunicado — casillas COMBINABLES
 
-*Todos los docentes* · *Docentes de una sección* · *Dirección* · *Personal administrativo*.
+*Todos los docentes* · *Docentes de una sección* · *Dirección* · *Personal administrativo* ·
+*Auxiliares académicos* (28/09/2026; auxiliares activos, sin migración: `destinos` es VARCHAR).
+*Todos los docentes* NO incluye a los auxiliares.
 `NotificacionModel::destinatariosDeComunicado()` **une** los grupos marcados,
 **deduplica por usuario** y **excluye a quien envía** (lo que mandó lo ve en el historial).
 Solo usuarios `activo`: el destino *Docentes de una sección* (`docentesDeSeccion`) **no lo

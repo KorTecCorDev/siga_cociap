@@ -66,25 +66,68 @@ class ConductaModel extends BaseModel
         ", [date('Y-m-d H:i:s')]);
     }
 
-    /** Criterios vigentes; si se pasa $nivelId, incluye los de ambos (nivel_id NULL). */
-    public function getCriterios(?int $nivelId = null): array
+    /** Año académico activo como expresión SQL (el año por defecto de los criterios). */
+    private const ANIO_ACTIVO_SQL = "(SELECT id FROM anios_academicos WHERE estado = 'activo' ORDER BY anio LIMIT 1)";
+
+    /**
+     * 🔴 PUNTO ÚNICO de «respuestas OFICIALES» (29/09/2026, migración 068).
+     *
+     * Desde el autoguardado, `conducta_respuestas` guarda también BORRADORES: lo
+     * que el auxiliar marcó y aún no confirmó. Un borrador queda «al aire» y NO
+     * cuenta en nada (decisión del usuario): ni boleta, ni padre, ni tutor, ni
+     * cuadros, ni completitud del bloqueo, ni vía extraordinaria. Sin este filtro,
+     * 4 «Sí» de un borrador de 10 criterios darían 8 (C) en la boleta, porque toda
+     * lectura calcula «Sí ÷ total × 20» apenas hay alguna respuesta.
+     *
+     * Es una tabla derivada con las mismas columnas que `conducta_respuestas`:
+     * cada lectura oficial escribe `FROM " . self::RESPUESTAS_OFICIALES . " r` en
+     * vez de `FROM conducta_respuestas r`. Ninguna lectura oficial vuelve a leer la
+     * tabla cruda. Las únicas que la leen a propósito son el EDITOR (la grilla
+     * del auxiliar, que tiene que ver su borrador) y las comprobaciones de
+     * EXISTENCIA (`getRegistroLegado`, `CriterioConductaModel::tieneRespuestas`).
+     * Protegido por `verif_confirmacion_conducta.php`.
+     */
+    public const RESPUESTAS_OFICIALES = "(SELECT rr.id, rr.matricula_id, rr.periodo_id, rr.criterio_id, rr.respuesta
+            FROM conducta_respuestas rr
+            INNER JOIN conducta_confirmaciones rc
+                    ON rc.matricula_id = rr.matricula_id AND rc.periodo_id = rr.periodo_id)";
+
+    /**
+     * 🔴 PUNTO ÚNICO de «criterio VIGENTE de un año y un nivel» (F6, 28/09/2026,
+     * migración 067). Los criterios son POR AÑO: sin el `anio_id`, retirar o
+     * agregar un criterio para el año siguiente cambiaría la completitud de todos
+     * los bimestres pasados. Antes esta condición estaba copiada a mano en seis
+     * consultas; ninguna la vuelve a escribir.
+     *
+     * $k = alias de criterios_conducta; $anio y $nivel = expresión SQL (una
+     * columna como 's.anio_id' o un '?'). Constantes del código, nunca entrada.
+     */
+    public static function criteriosDelAnio(string $k, string $anio, string $nivel): string
     {
+        return "{$k}.eliminado_en IS NULL AND {$k}.anio_id = {$anio}"
+             . " AND ({$k}.nivel_id IS NULL OR {$k}.nivel_id = {$nivel})";
+    }
+
+    /**
+     * Criterios vigentes de un año (por defecto, el activo) para un nivel: los de
+     * ese nivel y los de ambos (nivel_id NULL). Sin $nivelId, todos los del año.
+     */
+    public function getCriterios(?int $nivelId = null, ?int $anioId = null): array
+    {
+        $anio   = $anioId !== null ? '?' : self::ANIO_ACTIVO_SQL;
+        $params = $anioId !== null ? [$anioId] : [];
         if ($nivelId === null) {
-            $filas = $this->query("
-                SELECT id, codigo, texto, orden, nivel_id
-                FROM criterios_conducta
-                WHERE eliminado_en IS NULL
-                ORDER BY orden, id
-            ");
+            $filtro = "k.eliminado_en IS NULL AND k.anio_id = {$anio}";
         } else {
-            $filas = $this->query("
-                SELECT id, codigo, texto, orden, nivel_id
-                FROM criterios_conducta
-                WHERE eliminado_en IS NULL
-                  AND (nivel_id IS NULL OR nivel_id = ?)
-                ORDER BY orden, id
-            ", [$nivelId]);
+            $filtro   = self::criteriosDelAnio('k', $anio, '?');
+            $params[] = $nivelId;
         }
+        $filas = $this->query("
+            SELECT k.id, k.codigo, k.texto, k.orden, k.nivel_id
+            FROM criterios_conducta k
+            WHERE {$filtro}
+            ORDER BY k.orden, k.id
+        ", $params);
 
         // 🔴 EL CODIGO SALE DE AQUI, NO DE LAS VISTAS. Se rotulaba a mano como
         // `C{$i + 1}` en el imprimible y en la grilla del tutor: dos copias de la
@@ -105,15 +148,19 @@ class ConductaModel extends BaseModel
         return $filas;
     }
 
-    /** Total de criterios vigentes que aplican a un nivel (para la formula y completitud). */
-    public function totalCriterios(int $nivelId): int
+    /**
+     * Total de criterios vigentes que aplican a un nivel en un año (por defecto,
+     * el activo), para la fórmula y la completitud.
+     */
+    public function totalCriterios(int $nivelId, ?int $anioId = null): int
     {
+        $anio   = $anioId !== null ? '?' : self::ANIO_ACTIVO_SQL;
+        $params = $anioId !== null ? [$anioId, $nivelId] : [$nivelId];
         $row = $this->queryOne("
             SELECT COUNT(*) AS total
-            FROM criterios_conducta
-            WHERE eliminado_en IS NULL
-              AND (nivel_id IS NULL OR nivel_id = ?)
-        ", [$nivelId]);
+            FROM criterios_conducta k
+            WHERE " . self::criteriosDelAnio('k', $anio, '?') . "
+        ", $params);
         return (int) ($row['total'] ?? 0);
     }
 
@@ -127,6 +174,25 @@ class ConductaModel extends BaseModel
             INNER JOIN grados    g ON g.id = s.grado_id
             WHERE m.id = ?
         ", [$matriculaId]);
+    }
+
+    /**
+     * true si la matricula pertenece al ROSTER de conducta (mismo criterio que
+     * getEstudiantesParaRegistro: `roster_evaluacion()`). Guard del endpoint de
+     * guardado (28/09/2026): hasta entonces no existia y se podia escribir la
+     * conducta de un trasladado o retirado enviando su matricula_id a mano.
+     * Mismo patron que AsistenciaModel::matriculaEnRoster.
+     */
+    public function matriculaEnRoster(int $matriculaId): bool
+    {
+        $row = $this->queryOne("
+            SELECT 1 AS ok
+            FROM matriculas m
+            WHERE m.id = ?
+              " . roster_evaluacion('m') . "
+        ", [$matriculaId]);
+
+        return $row !== null;
     }
 
     // ── Indice: progreso y estado de bloqueo por seccion ─────────
@@ -144,8 +210,7 @@ class ConductaModel extends BaseModel
                 COUNT(DISTINCT CASE
                     WHEN sub.respondidos > 0 AND sub.respondidos >= (
                         SELECT COUNT(*) FROM criterios_conducta k
-                        WHERE k.eliminado_en IS NULL
-                          AND (k.nivel_id IS NULL OR k.nivel_id = g.nivel_id)
+                        WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'g.nivel_id') . "
                     ) THEN m.id END) AS calificados,
                 MAX(z.id IS NOT NULL)              AS bloqueada,
                 MAX(z.tutor_cerrado_en IS NOT NULL) AS cerrada_tutor
@@ -157,9 +222,10 @@ class ConductaModel extends BaseModel
                   -- Roster de evaluacion (punto unico en helpers.php).
                   " . roster_evaluacion('m') . "
             LEFT JOIN (
-                SELECT matricula_id, COUNT(*) AS respondidos
-                FROM conducta_respuestas WHERE periodo_id = ?
-                GROUP BY matricula_id
+                -- Solo lo CONFIRMADO: el panel dice «Confirmados X de N».
+                SELECT r.matricula_id, COUNT(*) AS respondidos
+                FROM " . self::RESPUESTAS_OFICIALES . " r WHERE r.periodo_id = ?
+                GROUP BY r.matricula_id
             ) sub ON sub.matricula_id = m.id
             LEFT JOIN cierres_conducta z
                    ON z.seccion_id = s.id AND z.periodo_id = ? AND z.anulado_en IS NULL
@@ -182,10 +248,16 @@ class ConductaModel extends BaseModel
     // ── Etapa 1: Registro Academico (respuestas Si/No) ───────────
 
     /**
-     * Alumnos de la seccion con su matriz de respuestas [criterio_id => 0|1].
-     * Para la grilla de registro de RA.
+     * Alumnos de la seccion con su matriz de respuestas [criterio_id => 0|1] y
+     * si su registro está CONFIRMADO (`confirmado` bool, `confirmado_en`).
+     *
+     * $soloConfirmadas (29/09/2026):
+     *   - false → el EDITOR (grilla y vista por estudiante del auxiliar/RA): ve
+     *     su BORRADOR, que es lo que tiene que seguir editando.
+     *   - true  → las grillas de SOLO LECTURA (tutor, Dirección, imprimible): ven
+     *     solo lo oficial (`RESPUESTAS_OFICIALES`); un borrador sale vacío.
      */
-    public function getEstudiantesParaRegistro(int $seccionId, int $periodoId): array
+    public function getEstudiantesParaRegistro(int $seccionId, int $periodoId, bool $soloConfirmadas = false): array
     {
         $alumnos = $this->query("
             SELECT
@@ -195,12 +267,15 @@ class ConductaModel extends BaseModel
                 -- bimestre cerrado (migracion 063). El historial de RA lo pinta
                 -- en la columna de nota en vez de dejar la fila en blanco.
                 cc.literal                        AS literal_directo,
-                COALESCE(cc.extraordinaria, 0)    AS extraordinaria
+                COALESCE(cc.extraordinaria, 0)    AS extraordinaria,
+                cf.confirmado_en                  AS confirmado_en
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
             LEFT JOIN calificaciones_conducta cc
                    ON cc.matricula_id = m.id AND cc.periodo_id = ?
+            LEFT JOIN conducta_confirmaciones cf
+                   ON cf.matricula_id = m.id AND cf.periodo_id = ?
             WHERE m.seccion_id = ?
               -- Mismo roster que el docente al ingresar notas (getAlumnosSeccion):
               -- TODOS los matriculados de la seccion (aprobada, pendiente e incluso
@@ -209,18 +284,19 @@ class ConductaModel extends BaseModel
               " . roster_evaluacion('m') . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$periodoId, $seccionId]);
+        ", [$periodoId, $periodoId, $seccionId]);
 
         if (empty($alumnos)) {
             return [];
         }
 
+        $origen = $soloConfirmadas ? self::RESPUESTAS_OFICIALES : 'conducta_respuestas';
         $ids = array_column($alumnos, 'matricula_id');
         $ph  = implode(',', array_fill(0, count($ids), '?'));
         $resp = $this->query("
-            SELECT matricula_id, criterio_id, respuesta
-            FROM conducta_respuestas
-            WHERE periodo_id = ? AND matricula_id IN ($ph)
+            SELECT r.matricula_id, r.criterio_id, r.respuesta
+            FROM {$origen} r
+            WHERE r.periodo_id = ? AND r.matricula_id IN ($ph)
         ", array_merge([$periodoId], $ids));
 
         $idx = [];
@@ -230,6 +306,7 @@ class ConductaModel extends BaseModel
 
         foreach ($alumnos as &$a) {
             $a['respuestas'] = $idx[(int) $a['matricula_id']] ?? [];
+            $a['confirmado'] = $a['confirmado_en'] !== null;
         }
         return $alumnos;
     }
@@ -300,42 +377,123 @@ class ConductaModel extends BaseModel
         return $registro ?: null;
     }
 
+    // ── Escritura: BORRADOR (autoguardado) y CONFIRMACIÓN (29/09/2026) ──
+    // Mismo flujo que los docentes: cada toque se guarda como borrador, «Confirmar»
+    // da el visto bueno de quien registra y «Bloquear y aprobar» sigue siendo el
+    // visto final. Editar algo confirmado lo DESCONFIRMA, pero solo si el valor
+    // cambió de verdad: reenviar la misma marca no es un cambio.
+
     /**
-     * Upsert atomico de las respuestas de un alumno. Exige que esten TODOS los
-     * criterios de $criterioIds (los 10 son obligatorios). Devuelve false si falta
-     * alguno o ante error de BD.
+     * Upsert de las respuestas dadas. Devuelve cuántas CAMBIARON (0 si todas
+     * traían el mismo valor que ya estaba guardado). Sin transacción propia.
      * @param array<int,int> $respuestas [criterio_id => 0|1]
+     */
+    private function upsertRespuestas(int $matriculaId, int $periodoId, array $respuestas, int $userId): int
+    {
+        $previas = [];
+        foreach ($this->query("
+            SELECT criterio_id, respuesta FROM conducta_respuestas
+            WHERE matricula_id = ? AND periodo_id = ?
+            FOR UPDATE
+        ", [$matriculaId, $periodoId]) as $r) {
+            $previas[(int) $r['criterio_id']] = (int) $r['respuesta'];
+        }
+
+        $sql = "INSERT INTO conducta_respuestas
+                    (matricula_id, periodo_id, criterio_id, respuesta, registrado_por)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    respuesta      = VALUES(respuesta),
+                    registrado_por = VALUES(registrado_por),
+                    modificado_en  = NOW()";
+        $cambios = 0;
+        foreach ($respuestas as $cid => $v) {
+            $v = $v ? 1 : 0;
+            if (($previas[(int) $cid] ?? null) === $v) {
+                continue;
+            }
+            $this->execute($sql, [$matriculaId, $periodoId, (int) $cid, $v, $userId]);
+            $cambios++;
+        }
+        return $cambios;
+    }
+
+    /**
+     * AUTOGUARDADO: guarda como borrador una o varias respuestas (un toque de la
+     * grilla, o «Marcar Sí»). Si algo CAMBIÓ, el registro deja de estar confirmado.
+     * Todo en una transacción.
+     *
+     * @param array<int,int> $respuestas [criterio_id => 0|1], ya validados contra
+     *                                   los criterios vigentes por el controlador
+     * @return array{ok:bool, confirmado:bool}
+     */
+    public function guardarBorrador(int $matriculaId, int $periodoId, array $respuestas, int $userId): array
+    {
+        $this->beginTransaction();
+        try {
+            $cambios = $this->upsertRespuestas($matriculaId, $periodoId, $respuestas, $userId);
+            if ($cambios > 0) {
+                $this->execute("
+                    DELETE FROM conducta_confirmaciones WHERE matricula_id = ? AND periodo_id = ?
+                ", [$matriculaId, $periodoId]);
+            }
+            $confirmado = $this->estaConfirmado($matriculaId, $periodoId);
+            $this->commit();
+            return ['ok' => true, 'confirmado' => $confirmado];
+        } catch (\Throwable $ex) {
+            $this->rollback();
+            log_error('conducta.guardarBorrador', ['err' => $ex->getMessage()]);
+            return ['ok' => false, 'confirmado' => false];
+        }
+    }
+
+    /**
+     * CONFIRMAR: guarda las N respuestas visibles (corrige cualquier autoguardado
+     * que se hubiera perdido) y marca el registro como confirmado, en UNA
+     * transacción. Exige TODOS los criterios de $criterioIds.
+     *
+     * @param array<int,int> $respuestas  [criterio_id => 0|1]
      * @param array<int>     $criterioIds ids de criterios vigentes del nivel
      */
-    public function guardarRespuestas(int $matriculaId, int $periodoId, array $respuestas, int $userId, array $criterioIds): bool
+    public function confirmar(int $matriculaId, int $periodoId, array $respuestas, int $userId, array $criterioIds): bool
     {
+        if ($criterioIds === []) {
+            return false;
+        }
         foreach ($criterioIds as $cid) {
             if (!array_key_exists($cid, $respuestas)) {
-                return false; // incompleto: no se permiten respuestas en blanco
+                return false; // incompleto: no se confirma un registro a medias
             }
         }
 
         $this->beginTransaction();
         try {
-            $sql = "INSERT INTO conducta_respuestas
-                        (matricula_id, periodo_id, criterio_id, respuesta, registrado_por)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        respuesta      = VALUES(respuesta),
-                        registrado_por = VALUES(registrado_por),
-                        modificado_en  = NOW()";
-            foreach ($criterioIds as $cid) {
-                $this->execute($sql, [
-                    $matriculaId, $periodoId, $cid, $respuestas[$cid] ? 1 : 0, $userId,
-                ]);
-            }
+            $this->upsertRespuestas(
+                $matriculaId,
+                $periodoId,
+                array_intersect_key($respuestas, array_flip($criterioIds)),
+                $userId
+            );
+            $this->execute("
+                INSERT INTO conducta_confirmaciones (matricula_id, periodo_id, confirmado_en, confirmado_por)
+                VALUES (?, ?, NOW(), ?)
+                ON DUPLICATE KEY UPDATE confirmado_en = NOW(), confirmado_por = VALUES(confirmado_por)
+            ", [$matriculaId, $periodoId, $userId]);
             $this->commit();
             return true;
         } catch (\Throwable $ex) {
             $this->rollback();
-            log_error('conducta.guardarRespuestas', ['err' => $ex->getMessage()]);
+            log_error('conducta.confirmar', ['err' => $ex->getMessage()]);
             return false;
         }
+    }
+
+    /** ¿Está confirmado el registro de ese estudiante en ese bimestre? */
+    public function estaConfirmado(int $matriculaId, int $periodoId): bool
+    {
+        return $this->queryOne("
+            SELECT 1 AS ok FROM conducta_confirmaciones WHERE matricula_id = ? AND periodo_id = ?
+        ", [$matriculaId, $periodoId]) !== null;
     }
 
     // ── Completitud y cierre por seccion ─────────────────────────
@@ -349,9 +507,10 @@ class ConductaModel extends BaseModel
                 SUM(CASE WHEN sub.respondidos >= ? THEN 1 ELSE 0 END) AS completos
             FROM matriculas m
             LEFT JOIN (
-                SELECT matricula_id, COUNT(*) AS respondidos
-                FROM conducta_respuestas WHERE periodo_id = ?
-                GROUP BY matricula_id
+                -- Solo lo CONFIRMADO: un borrador completo tampoco deja bloquear.
+                SELECT r.matricula_id, COUNT(*) AS respondidos
+                FROM " . self::RESPUESTAS_OFICIALES . " r WHERE r.periodo_id = ?
+                GROUP BY r.matricula_id
             ) sub ON sub.matricula_id = m.id
             WHERE m.seccion_id = ?
               -- Roster de evaluacion (punto unico en helpers.php): la compuerta de
@@ -440,10 +599,18 @@ class ConductaModel extends BaseModel
     }
 
     /**
-     * Etapa 1: RA bloquea/aprueba la seccion. Precondicion: completitud total.
+     * Etapa 1: el auxiliar (o RA) bloquea/aprueba la seccion. Precondicion:
+     * TODOS los estudiantes CONFIRMADOS (`completitudSeccion` cuenta solo lo
+     * confirmado desde el 29/09/2026).
+     *
+     * $forzado = true lo usa SOLO el director (`Director\BloqueoController::
+     * bloquearConducta`, decisión b del usuario del 29/09/2026): bloquea aunque
+     * falten confirmaciones, y lo no confirmado queda fuera (guion en boleta,
+     * porque las lecturas oficiales solo ven `RESPUESTAS_OFICIALES`).
+     *
      * @return array{ok:bool,mensaje:string}
      */
-    public function bloquearRA(int $seccionId, int $periodoId, int $userId, int $totalCriterios): array
+    public function bloquearRA(int $seccionId, int $periodoId, int $userId, int $totalCriterios, bool $forzado = false): array
     {
         if ($this->getCierreVigente($seccionId, $periodoId)) {
             return ['ok' => false, 'mensaje' => 'La conducta de esta seccion ya esta bloqueada.'];
@@ -452,10 +619,10 @@ class ConductaModel extends BaseModel
         if ($c['esperados'] === 0) {
             return ['ok' => false, 'mensaje' => 'No hay estudiantes matriculados en esta seccion.'];
         }
-        if ($c['completos'] < $c['esperados']) {
+        if (!$forzado && $c['completos'] < $c['esperados']) {
             return ['ok' => false, 'mensaje' =>
-                "Faltan estudiantes por calificar ({$c['completos']}/{$c['esperados']}). " .
-                'Complete los criterios de todos antes de bloquear.'];
+                "Faltan estudiantes por confirmar ({$c['completos']}/{$c['esperados']}). " .
+                'Confirma el registro de todos antes de bloquear.'];
         }
         $ok = $this->execute("
             INSERT INTO cierres_conducta (seccion_id, periodo_id, ra_bloqueado_en, ra_bloqueado_por)
@@ -474,11 +641,11 @@ class ConductaModel extends BaseModel
         $cierre = $this->getCierreVigente($seccionId, $periodoId);
         if (!$cierre) {
             return ['ok' => false, 'mensaje' =>
-                'Todavia los auxiliares academicos no han registrado sus calificaciones de conducta. ' .
-                'Consulte con Registro Academico para mas informacion.'];
+                'Todavía los auxiliares académicos no han registrado sus calificaciones de conducta. ' .
+                'Consulta con Registro Académico para más información.'];
         }
         if ($cierre['tutor_cerrado_en']) {
-            return ['ok' => false, 'mensaje' => 'La conducta de esta seccion ya fue cerrada por el tutor.'];
+            return ['ok' => false, 'mensaje' => 'La conducta de esta sección ya fue cerrada por el tutor.'];
         }
         $ok = $this->execute("
             UPDATE cierres_conducta
@@ -557,7 +724,9 @@ class ConductaModel extends BaseModel
                       AND (ccx.literal IS NOT NULL OR ccx.nota_tutor IS NOT NULL)
                 )
                 AND NOT EXISTS (
-                    SELECT 1 FROM conducta_respuestas rx
+                    -- Solo lo CONFIRMADO cierra la vía: un borrador que quedó al
+                    -- aire no es conducta registrada (decisión del 29/09/2026).
+                    SELECT 1 FROM " . self::RESPUESTAS_OFICIALES . " rx
                     WHERE rx.periodo_id = {$per}.id
                       AND rx.matricula_id IN {$fuentes}
                 )
@@ -610,9 +779,10 @@ class ConductaModel extends BaseModel
             throw new \InvalidArgumentException('Literal de conducta no valido: ' . $literal);
         }
 
+        // Solo la matriz CONFIRMADA lo impide (misma regla que `sqlAdmiteExtraordinaria`).
         $matriz = $this->queryOne("
-            SELECT 1 AS x FROM conducta_respuestas
-            WHERE matricula_id = ? AND periodo_id = ? LIMIT 1
+            SELECT 1 AS x FROM " . self::RESPUESTAS_OFICIALES . " r
+            WHERE r.matricula_id = ? AND r.periodo_id = ? LIMIT 1
         ", [$matriculaId, $periodoId]);
         if ($matriz !== null) {
             throw new \RuntimeException('El alumno ya tiene conducta registrada por criterios.');
@@ -658,9 +828,9 @@ class ConductaModel extends BaseModel
                 CONCAT(p.apellido_paterno,' ',p.apellido_materno,', ',p.nombres) AS nombre_completo,
                 cc.nota_tutor,
                 cc.literal AS literal_legado,
-                (SELECT COUNT(*) FROM conducta_respuestas r
+                (SELECT COUNT(*) FROM " . self::RESPUESTAS_OFICIALES . " r
                   WHERE r.matricula_id = m.id AND r.periodo_id = ? AND r.respuesta = 1) AS si,
-                (SELECT COUNT(*) FROM conducta_respuestas r
+                (SELECT COUNT(*) FROM " . self::RESPUESTAS_OFICIALES . " r
                   WHERE r.matricula_id = m.id AND r.periodo_id = ?) AS respondidos
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
@@ -733,13 +903,12 @@ class ConductaModel extends BaseModel
                 g.nivel_id                             AS nivel_id,
                 cc.literal                             AS literal_legado,
                 cc.nota_tutor                          AS nota_tutor,
-                (SELECT COUNT(*) FROM conducta_respuestas r
+                (SELECT COUNT(*) FROM " . self::RESPUESTAS_OFICIALES . " r
                   WHERE r.matricula_id = m.id AND r.periodo_id = p.id AND r.respuesta = 1) AS si,
-                (SELECT COUNT(*) FROM conducta_respuestas r
+                (SELECT COUNT(*) FROM " . self::RESPUESTAS_OFICIALES . " r
                   WHERE r.matricula_id = m.id AND r.periodo_id = p.id) AS respondidos,
                 (SELECT COUNT(*) FROM criterios_conducta k
-                  WHERE k.eliminado_en IS NULL
-                    AND (k.nivel_id IS NULL OR k.nivel_id = g.nivel_id)) AS total_criterios,
+                  WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'g.nivel_id') . ") AS total_criterios,
                 EXISTS(SELECT 1 FROM cierres_conducta z
                   WHERE z.seccion_id = m.seccion_id AND z.periodo_id = p.id
                     AND z.anulado_en IS NULL) AS visible
@@ -798,13 +967,12 @@ class ConductaModel extends BaseModel
                 g.nivel_id,
                 cc.literal    AS literal_legado,
                 cc.nota_tutor AS nota_tutor,
-                (SELECT COUNT(*) FROM conducta_respuestas r
+                (SELECT COUNT(*) FROM " . self::RESPUESTAS_OFICIALES . " r
                   WHERE r.matricula_id = m.id AND r.periodo_id = ? AND r.respuesta = 1) AS si,
-                (SELECT COUNT(*) FROM conducta_respuestas r
+                (SELECT COUNT(*) FROM " . self::RESPUESTAS_OFICIALES . " r
                   WHERE r.matricula_id = m.id AND r.periodo_id = ?) AS respondidos,
                 (SELECT COUNT(*) FROM criterios_conducta k
-                  WHERE k.eliminado_en IS NULL
-                    AND (k.nivel_id IS NULL OR k.nivel_id = g.nivel_id)) AS total_criterios,
+                  WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'g.nivel_id') . ") AS total_criterios,
                 EXISTS(SELECT 1 FROM cierres_conducta z
                   WHERE z.seccion_id = m.seccion_id AND z.periodo_id = ?
                     AND z.anulado_en IS NULL) AS visible
@@ -883,8 +1051,7 @@ class ConductaModel extends BaseModel
                 COALESCE(r.si, 0)          AS si,
                 COALESCE(r.respondidos, 0) AS respondidos,
                 (SELECT COUNT(*) FROM criterios_conducta k
-                  WHERE k.eliminado_en IS NULL
-                    AND (k.nivel_id IS NULL OR k.nivel_id = n.id)) AS total_criterios
+                  WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'n.id') . ") AS total_criterios
             FROM periodos p
             INNER JOIN secciones  s ON s.anio_id = p.anio_id AND s.estado_nomina = 'aprobada'
             INNER JOIN grados     g ON g.id = s.grado_id
@@ -896,11 +1063,12 @@ class ConductaModel extends BaseModel
             LEFT JOIN calificaciones_conducta cc
                    ON cc.matricula_id = m.id AND cc.periodo_id = p.id
             LEFT JOIN (
-                SELECT matricula_id, periodo_id,
-                       SUM(respuesta = 1) AS si,
-                       COUNT(*)           AS respondidos
-                FROM conducta_respuestas
-                GROUP BY matricula_id, periodo_id
+                -- Solo lo CONFIRMADO (un borrador no es un literal que contar).
+                SELECT r.matricula_id, r.periodo_id,
+                       SUM(r.respuesta = 1) AS si,
+                       COUNT(*)             AS respondidos
+                FROM " . self::RESPUESTAS_OFICIALES . " r
+                GROUP BY r.matricula_id, r.periodo_id
             ) r ON r.matricula_id = m.id AND r.periodo_id = p.id
             WHERE p.anio_id = ?
             ORDER BY p.numero, n.id
@@ -1021,7 +1189,8 @@ class ConductaModel extends BaseModel
                 n.codigo AS nivel_codigo,
                 COUNT(*)             AS respondidos,
                 SUM(r.respuesta = 0) AS no_cumple
-            FROM conducta_respuestas r
+            -- Solo lo CONFIRMADO: un «No» de un borrador aún puede cambiar.
+            FROM " . self::RESPUESTAS_OFICIALES . " r
             INNER JOIN criterios_conducta k ON k.id = r.criterio_id
             INNER JOIN matriculas m
                     ON m.id = r.matricula_id

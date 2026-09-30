@@ -10,10 +10,11 @@
  * @var array       $periodosNav  periodos del año activo + ['cierre' => cierre vigente|null]
  * @var bool        $soloLectura  true = periodo no editable (historial)
  * @var array       $criterios    [{ id, texto, orden }]
- * @var array       $estudiantes  [{ matricula_id, nombre_completo, respuestas[criterio_id] }]
+ * @var array       $estudiantes  [{ matricula_id, nombre_completo, respuestas[criterio_id], confirmado }]
  * @var array       $legado       [{ matricula_id, nombre_completo, literal }] — solo
  *                                bimestre legado (literal directo) en solo lectura
  * @var array|null  $cierre       cierre vigente del periodo mostrado o null
+ * @var array|null  $firmas       AuxiliarSeccionModel::firmasDelRegistro() si hay cierre
  * @var array       $completitud  { esperados, completos }
  */
 
@@ -23,6 +24,9 @@ $bloqueada = $cierre !== null;
 $cerradaT  = $bloqueada && !empty($cierre['tutor_cerrado_en']);
 $completo  = $completitud['esperados'] > 0 && $completitud['completos'] >= $completitud['esperados'];
 $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
+// Grilla EDITABLE: autoguardado + «Confirmar». Nombre propio: `$editable` lo
+// reusa el bucle de pestañas de abajo con otro significado.
+$grillaEditable = !$bloqueada && !$soloLectura;
 ?>
 
 <div class="page-header">
@@ -39,6 +43,12 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
             <?php endif; ?>
         </p>
     </div>
+    <?php // Segunda entrada del registro (un estudiante por pantalla). Solo
+          // cuando hay algo que registrar: la pantalla no muestra historial. ?>
+    <?php if ($periodoVer && !$soloLectura && !$bloqueada && !empty($estudiantes) && $total > 0): ?>
+        <a href="<?= url('admin/conducta/' . (int) $seccion['id'] . '/estudiante') ?>"
+           class="btn btn--primary btn--sm">Registrar por estudiante</a>
+    <?php endif; ?>
 </div>
 
 <?php if (!empty($periodosNav)): ?>
@@ -92,7 +102,8 @@ foreach ($estudiantes as $est) {
                 Conducta <strong>bloqueada y aprobada por el tutor(a)</strong>
                 el <?= e(fechaLima($cierre['tutor_cerrado_en'])) ?>.
             <?php else: ?>
-                Conducta <strong>bloqueada y aprobada por Registro Académico</strong>
+                Conducta <strong>bloqueada y aprobada por <?= e($firmas['bloqueo_nombre'] ?? '') ?></strong>
+                (<?= e($firmas['bloqueo_rol'] ?? '') ?>)
                 el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>. En espera del cierre del tutor.
             <?php endif; ?>
             Para corregir, solicita el desbloqueo a Dirección.
@@ -159,11 +170,17 @@ foreach ($estudiantes as $est) {
 
 <?php else: ?>
 
+<?php // Leyenda con el estilo ESTABLECIDO, el mismo marcado que la grilla del
+      // tutor (`docente/conducta-criterios.php`). El chip lleva el código del
+      // DATO (migración 056), nunca de la posición. ?>
 <details class="conducta-criterios-leyenda">
     <summary>Ver los <?= $total ?> criterios (✓ = cumple · ✗ = no cumple)</summary>
     <ol class="conducta-criterios-lista">
         <?php foreach ($criterios as $c): ?>
-            <li><?= e($c['texto']) ?></li>
+            <li>
+                <span class="competencia-card__codigo"><?= e($c['codigo']) ?></span>
+                <?= e($c['texto']) ?>
+            </li>
         <?php endforeach; ?>
     </ol>
 </details>
@@ -174,12 +191,14 @@ foreach ($estudiantes as $est) {
                 title="Marcar Sí en los criterios sin responder (no cambia las excepciones)">
             <span class="btn-icon btn-icon--saveall" aria-hidden="true"></span> Marcar Sí
         </button>
-        <button type="button" id="conducta-guardar-todos" class="btn btn--primary btn--sm"
-                title="Guardar todas las filas pendientes">
-            <span class="btn-icon btn-icon--save" aria-hidden="true"></span> Guardar todo
+        <button type="button" id="conducta-confirmar-todos" class="btn btn--primary btn--sm"
+                title="Confirmar a todos los estudiantes con sus criterios completos">
+            <span class="btn-icon btn-icon--save" aria-hidden="true"></span> Confirmar todo
         </button>
         <span class="conducta-toolbar__hint text-muted">
-            “Marcar Sí” rellena solo lo que falte.
+            Cada marca se guarda sola como borrador. Solo lo confirmado cuenta. Franja del N°:
+            verde confirmado, ámbar sin confirmar. Para confirmar a uno solo, usa
+            <em>Registrar por estudiante</em>.
         </span>
     </div>
 <?php endif; ?>
@@ -194,15 +213,24 @@ foreach ($estudiantes as $est) {
                       // reordenar o dar de baja un criterio corria las etiquetas de
                       // esta grilla respecto del imprimible ya firmado. ?>
                 <?php foreach ($criterios as $c): ?>
-                    <th class="conducta-th-crit" title="<?= e($c['texto']) ?>"><?= e($c['codigo']) ?></th>
+                    <th class="conducta-th-crit" title="<?= e($c['texto']) ?>">
+                        <span class="competencia-card__codigo competencia-card__codigo--solo"><?= e($c['codigo']) ?></span>
+                    </th>
                 <?php endforeach; ?>
-                <th class="conducta-th-nota" title="Nota de Registro Académico (Sí ÷ <?= $total ?> × 20)">Nota</th>
+                <?php // Nota y Literal en columnas SEPARADAS, con la zona de resultado del
+                      // sistema: el mismo modelo de la grilla del tutor y de los docentes
+                      // (30/09/2026). Sin columna «Estado»: lo dice la franja del N°. ?>
+                <th class="conducta-th-nota col-resultado col-resultado--inicio"
+                    title="Nota del auxiliar (Sí ÷ <?= $total ?> × 20)">Nota</th>
+                <th class="conducta-th-literal col-resultado">Literal</th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($estudiantes as $idx => $est):
                 $resp     = $est['respuestas'];
-                $guardado = count($resp) >= $total;
+                // Editable: verde = CONFIRMADO (29/09/2026); un borrador completo
+                // sigue en ámbar. Solo lectura: lo que se muestra ya es oficial.
+                $guardado = $grillaEditable ? !empty($est['confirmado']) : count($resp) >= $total;
                 // En solo lectura la nota RA se calcula en el servidor (sin JS).
                 $notaRa = $litRa = null;
                 if ($soloLectura && $total > 0 && count($resp) >= $total) {
@@ -215,7 +243,8 @@ foreach ($estudiantes as $est) {
                     data-matricula="<?= (int) $est['matricula_id'] ?>"
                     data-periodo="<?= $pidVer ?>"
                     data-csrf="<?= e($csrfToken) ?>"
-                    data-total="<?= $total ?>">
+                    data-total="<?= $total ?>"
+                    data-confirmada="<?= !empty($est['confirmado']) ? '1' : '0' ?>">
                     <td class="col-num"><?= $idx + 1 ?></td>
                     <td class="col-nombre">
                         <?= e($est['nombre_completo']) ?>
@@ -241,23 +270,35 @@ foreach ($estudiantes as $est) {
                         </td>
                     <?php endforeach; ?>
 
-                    <td class="conducta-td-nota">
+                    <?php // Conducta por literal directo, sin matriz: la via extraordinaria
+                          // de un bimestre cerrado (migracion 063). No tiene numeral. ?>
+                    <?php $litDirecto = ($soloLectura && $notaRa === null && empty($resp) && !empty($est['literal_directo']))
+                        ? $est['literal_directo'] : null; ?>
+                    <td class="conducta-td-nota col-resultado col-resultado--inicio">
                         <?php if ($soloLectura): ?>
                             <?php if ($notaRa !== null): ?>
                                 <span class="nota-numeral nota-numeral--<?= strtolower($litRa) ?>">
                                     <?= fmt_nota($notaRa) ?>
                                 </span>
-                            <?php elseif (empty($resp) && !empty($est['literal_directo'])): ?>
-                                <?php // Conducta por literal directo, sin matriz: la via
-                                      // extraordinaria de un bimestre cerrado (migracion 063). ?>
-                                <span class="nota-literal nota-literal--<?= strtolower($est['literal_directo']) ?>">
-                                    <?= e($est['literal_directo']) ?>
-                                </span>
+                            <?php else: ?>
+                                <span class="text-muted" title="<?= $litDirecto !== null ? 'Sin numeral: literal directo' : 'Registro incompleto' ?>">—</span>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <?php // Los llena conducta.js (`recalcularNotaFila`) con los
+                                  // mismos badges que el solo lectura. ?>
+                            <span class="text-muted" data-formato="numeral">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="conducta-td-literal col-resultado">
+                        <?php if ($soloLectura): ?>
+                            <?php $litVer = $litRa ?? $litDirecto; ?>
+                            <?php if ($litVer !== null): ?>
+                                <span class="nota-literal nota-literal--<?= strtolower($litVer) ?>"><?= e($litVer) ?></span>
                             <?php else: ?>
                                 <span class="text-muted" title="Registro incompleto">—</span>
                             <?php endif; ?>
                         <?php else: ?>
-                            <span class="cc-nota">—</span>
+                            <span class="text-muted" data-formato="literal">—</span>
                         <?php endif; ?>
                     </td>
                 </tr>
@@ -272,9 +313,9 @@ foreach ($estudiantes as $est) {
           onsubmit="return confirm('¿Bloquear y aprobar la conducta de toda la sección? Después solo Dirección podrá desbloquearla.');">
         <?= csrf_field() ?>
         <div class="conducta-bloqueo-info">
-            Completos: <strong><?= $completitud['completos'] ?>/<?= $completitud['esperados'] ?></strong>
+            Confirmados: <strong><?= $completitud['completos'] ?>/<?= $completitud['esperados'] ?></strong>
             <?php if (!$completo): ?>
-                <span class="text-muted">— faltan estudiantes por calificar</span>
+                <span class="text-muted">— faltan estudiantes por confirmar</span>
             <?php endif; ?>
         </div>
         <button type="submit" class="btn btn--success" <?= $completo ? '' : 'disabled' ?>>

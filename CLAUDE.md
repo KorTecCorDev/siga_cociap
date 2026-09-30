@@ -184,6 +184,7 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | Orden de mérito, snapshot, desempates, rectificaciones | `docs/modulos/orden-merito.md` |
 | Usuarios, secciones/tutores, Director EBR, panel de bloqueos, conducta | `docs/modulos/admin.md` |
 | **Usuarios de Dirección** (los 3 directores, solo lectura, `ROLES_DIRECCION`) | `docs/modulos/usuarios-direccion.md` |
+| **Auxiliar académico** (rol, asignación de secciones por bimestre, `puedeRegistrar`, panel, entrada por estudiante, documentos) | `docs/modulos/auxiliares.md` |
 | **Acompañamiento pedagógico: riesgo académico / situación final MINEDU + seguimiento** (PRO·RR·PER, `/admin/cuadros/acompanamiento`, A4) | `docs/modulos/usuarios-direccion.md` |
 | **Reglas de PROMOCIÓN DE GRADO** (situación final PRO·RR·PER por grado y ciclo, «la mitad», qué cuenta, SIAGIE) | `docs/modulos/promocion-de-grado.md` |
 | Exportación de notas al SIAGIE (llenado de Excel oficiales) | `docs/modulos/export-siagie.md` |
@@ -199,6 +200,7 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | **Consulta de notas con transversales y conducta** | `docs/modulos/consulta-notas-ampliada.md` |
 | **Bloqueos fantasma del cierre + visibilidad del tutor** | `docs/modulos/transversales-visibilidad-tutor.md` |
 | **Cambio de sección a mitad de bimestre** (mudanza, convalidación, reversión) | `docs/modulos/cambio-seccion.md` |
+| **Confirmar conducta/asistencia** (autoguardado = borrador) y **asistencia POR FECHAS** (calendario, motivos, contadores calculados) | `docs/modulos/confirmacion-y-asistencia-por-fechas.md` |
 | **Estado vivo: pendientes, migraciones, planes con fecha** | `docs/ESTADO.md` |
 
 > ⚠️ **Esta tabla enruta por TEMA, nunca por ESTADO.** No añadir «(PLAN, sin implementar)»,
@@ -281,6 +283,31 @@ Versión de una línea; el porqué completo está en el doc del módulo.
 - **Los 4 contadores de `inasistencias` son INDEPENDIENTES**, no un total y su
   subconjunto: `faltas`/`tardanzas` YA son las **sin justificación**. NUNCA restar
   (159 filas tienen `faltas_justificadas > faltas`). Ver `docs/modulos/admin.md`.
+- **Conducta y asistencia: CONFIRMADO es la única verdad de «oficial»** (29/09/2026,
+  migración 068). El auxiliar AUTOGUARDA borradores; un borrador queda «al aire» y no
+  cuenta en boleta, padre, tutor, cuadros, bloqueo ni vía extraordinaria. Editar
+  desconfirma. PUNTOS ÚNICOS: `ConductaModel::RESPUESTAS_OFICIALES` (ninguna lectura
+  oficial lee `conducta_respuestas` cruda) y `AsistenciaModel::sqlConfirmada` /
+  `sqlVisible` (la boleta exige confirmado **Y** cierre vigente: desde este día la
+  asistencia también sale de la boleta sin bloqueo). El bloqueo del auxiliar exige 100 %
+  confirmado; el del director es FORZADO y lo no confirmado queda con guion.
+- **Asistencia POR FECHAS** (migración 069): en un periodo con
+  `asistencia_por_fechas = 1`, los 4 contadores de una fila con `extraordinaria = 0` son
+  **el conteo de sus `asistencia_incidencias`**, y solo los escribe
+  `AsistenciaModel::recalcularContadores` (el `guardar` de números se niega). I y II
+  Bimestre 2026 son histórico de solo números. Protegido por
+  `verif_asistencia_fechas.php` y `verif_confirmacion_conducta.php`. Ver
+  `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
+- **Lista del día y justificación con motivo** (migración 070, 30/09/2026):
+  - **✓ asistió NO es un dato por estudiante.** Es «la sección tiene su lista
+    (`asistencia_jornadas`) ese día» más «el estudiante no tiene incidencia». Sin lista,
+    el día está «Sin tomar» y no se afirma nada.
+  - Cualquier marca toma la lista (`marcarDia`).
+  - El bloqueo del auxiliar/RA exige **0 días sin tomar**; el del director es forzado.
+  - **FJ/TJ SIEMPRE con motivo**: lo exigen el modelo y el CHECK
+    `chk_justificada_con_motivo`, así que no existen ni como borrador.
+  - Los **días no lectivos** son de todo el colegio y se excluyen de `diasMarcables`.
+  - PUNTO ÚNICO: `AsistenciaJornadaModel`. Protegido por `verif_asistencia_jornadas.php`.
 - **Orden de mérito excluye áreas `tipo IN ('transversal','tutoria')`, con UNA excepción:
   ÉTICA Y VALORES cuenta en TODA secundaria, 5.º incluido** (decisión cerrada 05/08/2026).
   **Ética NO es tutoría**: es la nota del área-curso **Educación Religiosa de secundaria**,

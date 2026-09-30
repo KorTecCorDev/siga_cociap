@@ -109,6 +109,11 @@ require VIEW_PATH . '/admin/cuadros/_chart-data.php';
           ['cuadros-g-conducta',      'Conducta',              null],
           ['cuadros-g-asistencia',    'Asistencia',            null],
       ];
+      // Justificaciones (29/09/2026): condicional, como Reaperturas: solo existe
+      // en los bimestres por fechas.
+      if (!empty($bloques['justificaciones'])) {
+          $indice[] = ['cuadros-g-justificaciones', 'Justificaciones', null];
+      }
       if (!empty($bloques['reaperturas'])) {
           $indice[] = ['cuadros-g-reaperturas', 'Reaperturas', count($bloques['reaperturas'])];
       }
@@ -665,6 +670,144 @@ $pid = (int) $periodo['id'];
         <?php endif; ?>
     </p>
 </section>
+
+<?php // ── 6. JUSTIFICACIONES (29/09/2026) ───────────────────────────
+      // Solo en bimestres POR FECHAS (desde el III): en los demás el bloque es
+      // null y no se pinta. Lo calcula `AsistenciaEstadisticaModel`; los gráficos
+      // salen de `_chart-data.php` (J1–J5) y las listas de `_just-*.php`, que
+      // comparte el A4. ?>
+<?php $just = $bloques['justificaciones'] ?? null; ?>
+<?php if ($just): ?>
+<section class="dash-grupo" aria-labelledby="cuadros-g-justificaciones">
+    <h2 id="cuadros-g-justificaciones" class="dash-grupo__titulo">Justificaciones</h2>
+
+    <div class="tabs" role="tablist" aria-label="Bloques de justificaciones"
+         data-tabs="justificaciones" data-tabs-memoria="cuadros.tab.justificaciones.<?= $pid ?>">
+        <button type="button" class="tab tab--activa" role="tab" id="tab-just-panorama"
+                data-tab="just-panorama" aria-controls="panel-just-panorama" aria-selected="true">
+            Panorama
+        </button>
+        <button type="button" class="tab" role="tab" id="tab-just-secciones"
+                data-tab="just-secciones" aria-controls="panel-just-secciones" aria-selected="false" tabindex="-1">
+            Secciones
+        </button>
+        <button type="button" class="tab" role="tab" id="tab-just-tendencias"
+                data-tab="just-tendencias" aria-controls="panel-just-tendencias" aria-selected="false" tabindex="-1">
+            Tendencias
+        </button>
+        <button type="button" class="tab" role="tab" id="tab-just-estudiantes"
+                data-tab="just-estudiantes" aria-controls="panel-just-estudiantes" aria-selected="false" tabindex="-1">
+            Estudiantes
+        </button>
+    </div>
+
+    <?php // ── Panorama: tarjetas, niveles, motivos y días críticos ── ?>
+    <div id="panel-just-panorama" class="tab-panel" role="tabpanel"
+         data-panel="just-panorama" aria-labelledby="tab-just-panorama">
+        <?php require VIEW_PATH . '/admin/cuadros/_just-kpis.php'; ?>
+        <?php if ((int) $just['kpis']['estudiantes'] === 0): ?>
+            <p class="empty-state">Todavía no hay asistencia confirmada en este bimestre.</p>
+        <?php else: ?>
+            <div class="cuadros-charts">
+                <?php if (isset($chartData['justMotivos'])): ?>
+                <div class="card cuadros-chart">
+                    <div class="card__header"><h3 class="card__title">Usos por motivo</h3></div>
+                    <div class="card__body">
+                        <div id="chart-just-motivos"></div>
+                        <?php $t = $chartTablas['justMotivos'] ?? null; $abierta = false; ?>
+                        <?php require VIEW_PATH . '/admin/cuadros/_tabla-grafico.php'; ?>
+                        <p class="cuadros-nota"><?= $t['nota'] ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <div class="card cuadros-chart">
+                    <div class="card__header"><h3 class="card__title">Días críticos</h3></div>
+                    <div class="card__body">
+                        <?php require VIEW_PATH . '/admin/cuadros/_just-criticos.php'; ?>
+                        <?php if (empty($just['criticos'])): ?>
+                            <p class="empty-state">Ningún día con ausencias confirmadas.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php // ── Secciones: por estudiante y oportunidad del registro ── ?>
+    <div id="panel-just-secciones" class="tab-panel" role="tabpanel"
+         data-panel="just-secciones" aria-labelledby="tab-just-secciones" hidden>
+        <?php if (isset($chartData['justSecciones'])): ?>
+        <div class="card cuadros-chart cuadros-chart--ancho mb-md">
+            <div class="card__header"><h3 class="card__title">Incidencias por estudiante, por sección</h3></div>
+            <div class="card__body">
+                <div id="chart-just-secciones"></div>
+                <?php $t = $chartTablas['justSecciones'] ?? null; $abierta = false; ?>
+                <?php require VIEW_PATH . '/admin/cuadros/_tabla-grafico.php'; ?>
+                <p class="cuadros-nota"><?= $t['nota'] ?></p>
+            </div>
+        </div>
+        <?php endif; ?>
+        <?php if (isset($chartData['justOportunidad'])): ?>
+        <div class="card cuadros-chart cuadros-chart--ancho">
+            <div class="card__header"><h3 class="card__title">Oportunidad del registro</h3></div>
+            <div class="card__body">
+                <div id="chart-just-oportunidad"></div>
+                <?php $t = $chartTablas['justOportunidad'] ?? null; $abierta = false; ?>
+                <?php require VIEW_PATH . '/admin/cuadros/_tabla-grafico.php'; ?>
+                <p class="cuadros-nota"><?= $t['nota'] ?></p>
+            </div>
+        </div>
+        <?php endif; ?>
+        <?php if (!isset($chartData['justSecciones']) && !isset($chartData['justOportunidad'])): ?>
+            <p class="empty-state">Todavía no hay incidencias confirmadas en este bimestre.</p>
+        <?php endif; ?>
+    </div>
+
+    <?php // ── Tendencias: semanal y por día de la semana ── ?>
+    <div id="panel-just-tendencias" class="tab-panel" role="tabpanel"
+         data-panel="just-tendencias" aria-labelledby="tab-just-tendencias" hidden>
+        <?php if (isset($chartData['justSemanas']) || isset($chartData['justDias'])): ?>
+        <div class="cuadros-charts">
+            <?php if (isset($chartData['justSemanas'])): ?>
+            <div class="card cuadros-chart">
+                <div class="card__header"><h3 class="card__title">Tendencia semanal</h3></div>
+                <div class="card__body">
+                    <div id="chart-just-semanas"></div>
+                    <?php $t = $chartTablas['justSemanas'] ?? null; $abierta = false; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/_tabla-grafico.php'; ?>
+                    <p class="cuadros-nota"><?= $t['nota'] ?></p>
+                </div>
+            </div>
+            <?php endif; ?>
+            <?php if (isset($chartData['justDias'])): ?>
+            <div class="card cuadros-chart">
+                <div class="card__header"><h3 class="card__title">Por día de la semana</h3></div>
+                <div class="card__body">
+                    <div id="chart-just-dias"></div>
+                    <?php $t = $chartTablas['justDias'] ?? null; $abierta = false; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/_tabla-grafico.php'; ?>
+                    <p class="cuadros-nota"><?= $t['nota'] ?></p>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php else: ?>
+            <p class="empty-state">Todavía no hay incidencias confirmadas en este bimestre.</p>
+        <?php endif; ?>
+    </div>
+
+    <?php // ── Estudiantes: ausencias y alerta de verbales ── ?>
+    <div id="panel-just-estudiantes" class="tab-panel" role="tabpanel"
+         data-panel="just-estudiantes" aria-labelledby="tab-just-estudiantes" hidden>
+        <div class="card">
+            <div class="card__header"><h3 class="card__title">Estudiantes que más se ausentan</h3></div>
+            <div class="card__body">
+                <?php require VIEW_PATH . '/admin/cuadros/_just-estudiantes.php'; ?>
+            </div>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 
 <?php // ── Reaperturas del bimestre ────────────────────────────────── ?>
 <?php if (!empty($bloques['reaperturas'])): ?>

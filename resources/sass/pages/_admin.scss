@@ -32,6 +32,10 @@
     &--registro_academico,
     &--secretaria                         { background: $color-info;     }
     &--docente                            { background: $brand-mid;      }
+    // Auxiliar académico (28/09/2026): el púrpura de CONDUCTA, que es su
+    // registro principal (wayfinding). Copia a mano de ROL_AUXILIAR: SASS no
+    // lee la constante de PHP.
+    &--auxiliar_academico                 { background: $card-conducta-line; }
     &--padre                              { background: $color-success;  }
 }
 
@@ -147,7 +151,7 @@ tr.fila-separador-nivel td {
 }
 
 // ── Hub de accesos: 4 cards-tab (académicas / transversales / conducta / asistencia) ──
-// Color fijo por concepto (wayfinding): azul / teal / púrpura / naranja. Rojo y
+// Color fijo por concepto (wayfinding): azul / teal / púrpura / oliva. Rojo y
 // ámbar se reservan para badges de estado dentro de cada panel.
 .bloqueos-hub {
     display: grid;
@@ -228,13 +232,14 @@ tr.fila-separador-nivel td {
             box-shadow: inset 0 0 0 1px $card-conducta-line, $shadow-md;
         }
     }
+    // Color propio desde el 28/09/2026 (antes tomaba prestado el de Nómina).
     &--asistencia {
-        border-left-color: $card-nomina-line;
-        .bloqueos-tabcard__titulo { color: $card-nomina-ink; }
-        .bloqueos-tabcard__fill   { background: $card-nomina-line; }
+        border-left-color: $card-asistencia-line;
+        .bloqueos-tabcard__titulo { color: $card-asistencia-ink; }
+        .bloqueos-tabcard__fill   { background: $card-asistencia-line; }
         &.bloqueos-tabcard--activa {
-            background: $card-nomina-bg;
-            box-shadow: inset 0 0 0 1px $card-nomina-line, $shadow-md;
+            background: $card-asistencia-bg;
+            box-shadow: inset 0 0 0 1px $card-asistencia-line, $shadow-md;
         }
     }
 }

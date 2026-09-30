@@ -54,6 +54,12 @@
   | **Conducta** (`$card-conducta-*`) | `#7c3aed` púrpura | `#f5f0fe` | `#6d28d9` |
   | **Nómina** (`$card-nomina-*`) | `#e07b1a` naranja | `#fef3e2` | `#b45309` |
   | **Acompañamiento pedagógico** (`$card-riesgo-*`, solo tutores; 23/09/2026) | `#be185d` rosa oscuro | `#fdf2f8` | `#9d174d` |
+  | **Asistencia** (`$card-asistencia-*`, 28/09/2026) | `#4d7c0f` verde oliva | `#f4f8ec` | `#3f6212` |
+- **Asistencia tomaba prestado el naranja de Nómina** en el hub de `/director/bloqueos`
+  hasta el 28/09/2026. Nació su color propio con el panel del auxiliar
+  (`/auxiliar/inicio`), donde las cards Asistencia y Nómina son vecinas y habrían
+  quedado iguales; el hub de bloqueos se corrigió en el mismo cambio. Oliva y no
+  verde puro: el verde `#16a34a` es el del badge «terminado».
 - **REGLA:** rojo (`$color-error`) y ámbar (`$color-warning`) quedan RESERVADOS para los
   badges de estado (error/advertencia); NUNCA se usan como identidad de un acceso.
 - Combinación azul↔naranja + teal/púrpura: bien diferenciable con daltonismo.
@@ -119,6 +125,16 @@ verificador y la lista queda vacía.
   &--cerrado` que existen en `pages/_dashboard.scss:929` pertenecen a `.tutoria-card`, la
   card larga que se retiró de `/docente/mis-cargas`. **En `/docente/inicio` el ÚNICO
   elemento que comunica estado es el badge** (ver sección del semáforo, más abajo).
+
+### KPI «días para el cierre» — parcial compartido (28/09/2026)
+El widget de los paneles (umbrales: ≤ 3 días rojo, ≤ 7 ámbar, más verde; pasada la
+fecha, gris «días desde el cierre»; sin fecha, «—») vive en
+`shared/_kpi-dias-cierre.php` y lo incluyen `docente/inicio.php` y `auxiliar/inicio.php`
+(recibe `$diasCierre`). Nació al llegar el segundo panel, para no copiar los umbrales;
+un A/B contra el código anterior dio salida idéntica en las 11 ramas y bordes.
+`verif_rol_auxiliar.php` falla si una vista vuelve a calcular `$diasMod` por su cuenta.
+⚠️ El CÁLCULO de `$diasCierre` (`ceil((limite_notas − ahora) / 86400)`) sigue en cada
+controlador de panel (2 líneas en `Docente\PanelController` y `Auxiliar\PanelController`).
 
 ## Nómina del docente — buscador destacado + íconos de sección (22/06/2026)
 
@@ -408,8 +424,9 @@ el caso de `ControlOperativoModel::alertasEvaluacionIncompleta`, que ordenaba po
 
 `.col-resultado` marca las columnas **calculadas** (promedio, nota final, literal)
 para que no se confundan con las de origen. Vive en `components/_tables.scss` y la
-usan **seis vistas**: `consulta-notas/{conducta,transversales,_tabla}` y
-`docente/{conducta,resumen-competencia,tutoria}`.
+usan **siete vistas**: `consulta-notas/{conducta,transversales,_tabla}`,
+`docente/{conducta,resumen-competencia,tutoria}` y `admin/conducta/seccion` (Nota y
+Literal separadas, 30/09/2026).
 
 - 🔴 **Su fondo era `#f8fafc`, el MISMO valor literal que `$bg-secondary`**, que es
   el color del hover de fila. Al pasar por una fila, toda ella tomaba ese gris y la
@@ -1170,3 +1187,26 @@ como lista de acciones (`.mat-llegada__lista`), una fila por sección sin datos,
 con competencias sin nota. «Exoneraciones» se pinta solo si hay alguna. Traslado y retorno ya
 cumplían la regla.
 
+
+## Paleta de incidencias de asistencia (30/09/2026)
+
+Decisión del usuario, para que el personal se familiarice con los colores a partir de ahora.
+Familias **ROJO = faltas** y **NARANJA = tardanzas**, en tonos corridos (carmín y terracota)
+para no confundirse con los literales C (`#dc2626`) y B (`#d97706`). La injustificada va
+**RELLENA** (texto blanco) y la justificada va en **CONTORNO** claro del mismo tono, así que se
+distinguen por la forma y no solo por el matiz:
+
+| Tipo | Estilo | Colores |
+|---|---|---|
+| F  | relleno  | `#be123c` |
+| FJ | contorno | borde `#fb7185`, fondo `#fff1f2`, texto `#be123c` |
+| T  | relleno  | `#c2410c` |
+| TJ | contorno | borde `#fb923c`, fondo `#fff7ed`, texto `#9a3412` |
+
+**Punto único:** `_asistencia.scss` (`$af-*` + mixin `af-tipo-colores`). Lo aplican
+`.af-celda--{tipo}` (la celda del día) y `.af-tipo--{tipo}` (la pastilla de los encabezados de
+totales, de las leyendas y de los totales por estudiante). No copiar los valores a otro archivo.
+
+Hoy la paleta sale solo en la asistencia **por fechas** (grilla mensual y vista por estudiante).
+La tabla de números (`_tabla-incidencias.php`: I/II y consulta de Dirección) y el imprimible A4
+(blanco y negro) conservan su estilo establecido.

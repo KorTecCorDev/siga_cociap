@@ -1,11 +1,33 @@
 /**
- * conducta.js — SIGA-COCIAP · ETAPA 1 (Registro Academico)
- * Grilla de criterios Si/No: toggle por criterio, nota RA en vivo (Si / total * 20,
- * redondeo a favor) y guardado por fila (los criterios son obligatorios).
+ * conducta.js — SIGA-COCIAP · ETAPA 1 (auxiliar académico / Registro Académico)
+ * Grilla de criterios Si/No con AUTOGUARDADO y CONFIRMACIÓN (29/09/2026).
+ *
+ * Mismo flujo que los docentes:
+ *   - Cada toque ✓/✗ se guarda al instante como BORRADOR (`/admin/conducta/guardar`).
+ *     Un borrador queda «al aire»: no cuenta en boleta, tutor ni cuadros.
+ *   - «Confirmar» (por fila) guarda los N criterios y da el visto bueno
+ *     (`/admin/conducta/confirmar`). Cambiar algo confirmado lo desconfirma.
+ *   - «Bloquear y aprobar» sigue siendo el visto final (formulario de la vista).
+ *
+ * 🔴 LOS ENVÍOS DE UNA FILA VAN EN COLA. Tocar ✓ y luego ✗ rápido lanzaría dos
+ * peticiones que pueden llegar al servidor en desorden y dejar guardada la
+ * PRIMERA marca. La cola (`fila._cola`) las serializa, y «Confirmar» espera a que
+ * se vacíe antes de enviar.
+ *
+ * Lo usa también la vista por estudiante (`registro-estudiante.js` llama a
+ * `confirmarFila`): el contrato de DOM es el mismo (`.conducta-fila`,
+ * `data-matricula`, `data-periodo`, `data-csrf`, `data-total`, `.cc-toggle`,
+ * `.cc-btn[data-v]`, `.cc-nota`, `.conducta-status`, `.conducta-confirmar`).
+ * La GRILLA no tiene `.conducta-status` ni `.conducta-confirmar` (sin columna
+ * «Estado», 29/09/2026): aquí son opcionales. En la grilla, un autoguardado
+ * fallido pinta la franja ROJA del N° (`conducta-fila--error`) y el aviso global.
+ * La grilla usa `[data-formato="numeral"]` y `[data-formato="literal"]` en lugar
+ * de `.cc-nota`: la nota sale como badge y el literal va en su propia columna.
  */
 
 const BASE = document.querySelector('meta[name="base-url"]')?.content ?? '';
-const URL_GUARDAR = `${BASE}/admin/conducta/guardar`;
+const URL_BORRADOR  = `${BASE}/admin/conducta/guardar`;
+const URL_CONFIRMAR = `${BASE}/admin/conducta/confirmar`;
 
 const feedback = document.getElementById('conducta-feedback');
 let feedbackTimer;
@@ -42,7 +64,8 @@ function literalDe(nota) {
     return 'C';
 }
 
-// Nota RA en vivo: solo cuando los N criterios estan respondidos.
+// Nota RA en vivo: se actualiza con cada marca, en la grilla y en la vista por
+// estudiante (ver abajo).
 function recalcularNotaFila(fila) {
     const toggles = fila.querySelectorAll('.cc-toggle');
     const total   = parseInt(fila.dataset.total, 10) || toggles.length;
@@ -52,13 +75,40 @@ function recalcularNotaFila(fila) {
         if (v === '1' || v === '0') respondidos++;
         if (v === '1') si++;
     });
+    // Grilla de la sección (30/09/2026): numeral y literal en columnas separadas,
+    // con EXACTAMENTE las clases del solo lectura y de la grilla del tutor. Se
+    // ubican por `data-formato`, SIN `.cc-nota`: esa clase trae color gris y, al
+    // cargarse después que `.nota-numeral--*` con la misma especificidad, dejaba
+    // el número y su contorno en gris.
+    // NOTA EN VIVO (decisión del usuario, 30/09/2026): se actualiza con CADA marca,
+    // Sí ÷ N × 20 con lo no respondido contado como No — si se deja así, ya es la
+    // nota final, y nunca muestra algo que luego baje. Mismo badge que la definitiva.
+    // Sin ninguna marca no hay dato: guion.
+    const num = fila.querySelector('[data-formato="numeral"]');
+    if (num) {
+        const lit = fila.querySelector('[data-formato="literal"]');
+        if (respondidos === 0) {
+            num.textContent = '—';
+            num.className = 'text-muted';
+            if (lit) { lit.textContent = '—'; lit.className = 'text-muted'; }
+        } else {
+            const nota  = Math.round((si / total) * 20);
+            const clave = literalDe(nota).toLowerCase();
+            num.textContent = String(nota).padStart(2, '0'); // espejo de fmt_nota()
+            num.className = `nota-numeral nota-numeral--${clave}`;
+            if (lit) { lit.textContent = literalDe(nota); lit.className = `nota-literal nota-literal--${clave}`; }
+        }
+        return;
+    }
+    // Vista por estudiante: la MISMA regla en vivo (30/09/2026), con su formato
+    // propio «15 (A)».
     const span = fila.querySelector('.cc-nota');
     if (!span) return;
-    if (respondidos < total) {
+    if (respondidos === 0) {
         span.textContent = '—';
         span.className = 'cc-nota';
     } else {
-        const nota = Math.round((si / total) * 20); // RA siempre par con 10 criterios
+        const nota = Math.round((si / total) * 20); // lo no respondido cuenta como No
         span.textContent = `${nota} (${literalDe(nota)})`;
         span.className = `cc-nota cc-nota--${literalDe(nota).toLowerCase()}`;
     }
@@ -73,124 +123,177 @@ function pintarToggle(toggle) {
     });
 }
 
-// Marca visual del estado de guardado de la fila (barra izquierda + color de fila).
-function marcarEstado(fila, estado) { // 'guardado' | 'pendiente'
-    const guardado = estado === 'guardado';
-    fila.classList.toggle('conducta-fila--guardada', guardado);
-    fila.classList.toggle('conducta-fila--pendiente', !guardado);
-}
-
 // true si la fila tiene los N criterios respondidos.
 function filaCompleta(fila) {
     return [...fila.querySelectorAll('.cc-toggle')]
         .every(t => t.dataset.valor === '1' || t.dataset.valor === '0');
 }
 
-// Guarda una fila. En modo silencioso no dispara el toast global (lo usa el
-// guardado masivo, que muestra un resumen agregado). Devuelve true si guardó.
-async function guardarFila(fila, silencioso = false) {
-    const toggles = [...fila.querySelectorAll('.cc-toggle')];
-    const respuestas = {};
-    let faltan = false;
-    toggles.forEach(t => {
-        const v = t.dataset.valor;
-        if (v !== '1' && v !== '0') faltan = true;
-        else respuestas[t.dataset.criterio] = v;
-    });
-
-    if (faltan) {
-        mostrarStatusFila(fila, 'error', '⚠ Responde todos', true);
-        if (!silencioso) mostrarFeedback('error', '⚠ Faltan criterios por responder en esta fila.');
-        return false;
+// Estado visible de la fila. `guardada` = CONFIRMADA (barra verde);
+// `pendiente` = borrador o incompleta (ámbar). El botón Confirmar solo se
+// habilita con los N criterios respondidos y sin confirmar.
+function marcarEstado(fila, confirmada) {
+    fila.classList.toggle('conducta-fila--guardada', confirmada);
+    fila.classList.toggle('conducta-fila--pendiente', !confirmada);
+    fila.dataset.confirmada = confirmada ? '1' : '0';
+    const btn = fila.querySelector('.conducta-confirmar');
+    if (btn) {
+        btn.hidden   = confirmada;
+        btn.disabled = !filaCompleta(fila);
     }
-
-    const btn = fila.querySelector('.conducta-guardar');
-    if (btn) btn.disabled = true;
-    mostrarStatusFila(fila, 'loading', 'Guardando…', true);
-
-    try {
-        const body = new URLSearchParams();
-        body.append('_csrf_token', fila.dataset.csrf);
-        body.append('matricula_id', fila.dataset.matricula);
-        body.append('periodo_id', fila.dataset.periodo);
-        Object.entries(respuestas).forEach(([cid, v]) => body.append(`respuestas[${cid}]`, v));
-
-        const res  = await fetch(URL_GUARDAR, { method: 'POST', body });
-        const data = await res.json();
-
-        if (data.success) {
-            marcarEstado(fila, 'guardado');
-            mostrarStatusFila(fila, 'success', '✓ Guardado');
-            if (!silencioso) mostrarFeedback('ok', '✓ Guardado');
-            return true;
-        }
-        mostrarStatusFila(fila, 'error', '⚠ ' + (data.mensaje ?? 'Error'), true);
-        if (!silencioso) mostrarFeedback('error', '⚠ ' + (data.mensaje ?? 'Error al guardar.'));
-        return false;
-    } catch (err) {
-        mostrarStatusFila(fila, 'error', '⚠ Error de conexión', true);
-        if (!silencioso) mostrarFeedback('error', '⚠ Error de conexión.');
-        return false;
-    } finally {
-        if (btn) btn.disabled = false;
+    const estado = fila.querySelector('.conducta-estado');
+    if (estado) {
+        estado.textContent = confirmada ? '✓ Confirmado' : (filaCompleta(fila) ? 'Sin confirmar' : 'Incompleto');
+        estado.className   = `conducta-estado conducta-estado--${confirmada ? 'ok' : 'pendiente'}`;
     }
 }
 
-// Guarda en lote todas las filas pendientes y completas. Las pendientes con
-// criterios sin responder se saltan (no se pueden guardar) y se informan.
-async function guardarTodosPendientes(boton) {
-    const pendientes = [...document.querySelectorAll('.conducta-fila--pendiente')];
-    const completas  = pendientes.filter(filaCompleta);
-    const incompletas = pendientes.length - completas.length;
+// Cola de envíos por fila (ver cabecera). Devuelve la promesa del envío.
+function encolar(fila, tarea) {
+    fila._pendientes = (fila._pendientes ?? 0) + 1;
+    const p = (fila._cola ?? Promise.resolve()).then(tarea, tarea);
+    fila._cola = p.finally(() => { fila._pendientes--; });
+    return p;
+}
+
+// true si la fila tiene envíos en vuelo o un autoguardado fallido.
+function filaSinGuardar(fila) {
+    return (fila._pendientes ?? 0) > 0 || fila.dataset.errorGuardado === '1';
+}
+
+async function postear(url, fila, respuestas) {
+    const body = new URLSearchParams();
+    body.append('_csrf_token', fila.dataset.csrf);
+    body.append('matricula_id', fila.dataset.matricula);
+    body.append('periodo_id', fila.dataset.periodo);
+    Object.entries(respuestas).forEach(([cid, v]) => body.append(`respuestas[${cid}]`, v));
+    const res = await fetch(url, { method: 'POST', body });
+    return res.json();
+}
+
+// AUTOGUARDADO de un borrador: una o varias respuestas de la fila.
+function autoguardar(fila, respuestas) {
+    return encolar(fila, async () => {
+        try {
+            const data = await postear(URL_BORRADOR, fila, respuestas);
+            if (data.success) {
+                fila.dataset.errorGuardado = '0';
+                fila.classList.remove('conducta-fila--error');
+                marcarEstado(fila, !!data.confirmado);
+                if (fila.querySelector('.conducta-status')?.classList.contains('status--error')) {
+                    mostrarStatusFila(fila, 'success', 'Guardado');
+                }
+                return true;
+            }
+            fila.dataset.errorGuardado = '1';
+            fila.classList.add('conducta-fila--error');
+            mostrarStatusFila(fila, 'error', '⚠ ' + (data.mensaje ?? 'No se guardó'), true);
+            mostrarFeedback('error', '⚠ ' + (data.mensaje ?? 'No se guardó el cambio.'));
+            return false;
+        } catch {
+            fila.dataset.errorGuardado = '1';
+            fila.classList.add('conducta-fila--error');
+            mostrarStatusFila(fila, 'error', '⚠ Sin conexión: no se guardó', true);
+            mostrarFeedback('error', '⚠ Sin conexión: el cambio no se guardó.');
+            return false;
+        }
+    });
+}
+
+// CONFIRMAR una fila: espera la cola, envía los N criterios y confirma.
+// En modo silencioso no dispara el toast global (lo usa «Confirmar todo»).
+// Devuelve true si quedó confirmada.
+async function confirmarFila(fila, silencioso = false) {
+    if (!filaCompleta(fila)) {
+        mostrarStatusFila(fila, 'error', '⚠ Responde todos', true);
+        if (!silencioso) mostrarFeedback('error', '⚠ Faltan criterios por responder.');
+        return false;
+    }
+    const respuestas = {};
+    fila.querySelectorAll('.cc-toggle').forEach(t => { respuestas[t.dataset.criterio] = t.dataset.valor; });
+
+    const btn = fila.querySelector('.conducta-confirmar');
+    if (btn) btn.disabled = true;
+    mostrarStatusFila(fila, 'loading', 'Confirmando…', true);
+
+    return encolar(fila, async () => {
+        try {
+            const data = await postear(URL_CONFIRMAR, fila, respuestas);
+            if (data.success) {
+                fila.dataset.errorGuardado = '0';
+                fila.classList.remove('conducta-fila--error');
+                marcarEstado(fila, true);
+                mostrarStatusFila(fila, 'success', '');
+                if (!silencioso) mostrarFeedback('ok', '✓ Confirmado');
+                return true;
+            }
+            marcarEstado(fila, false);
+            mostrarStatusFila(fila, 'error', '⚠ ' + (data.mensaje ?? 'Error'), true);
+            if (!silencioso) mostrarFeedback('error', '⚠ ' + (data.mensaje ?? 'Error al confirmar.'));
+            return false;
+        } catch {
+            marcarEstado(fila, false);
+            mostrarStatusFila(fila, 'error', '⚠ Error de conexión', true);
+            if (!silencioso) mostrarFeedback('error', '⚠ Error de conexión.');
+            return false;
+        }
+    });
+}
+
+// «Confirmar todo»: confirma las filas completas sin confirmar. Las incompletas
+// se saltan y se informan.
+async function confirmarTodas(boton) {
+    const filas      = [...document.querySelectorAll('.conducta-fila')].filter(f => f.dataset.confirmada !== '1');
+    const completas  = filas.filter(filaCompleta);
+    const incompletas = filas.length - completas.length;
 
     if (completas.length === 0) {
         mostrarFeedback(incompletas ? 'error' : 'ok',
             incompletas
-                ? `⚠ ${incompletas} fila(s) pendiente(s) tienen criterios sin responder.`
-                : 'No hay filas pendientes por guardar.');
+                ? `⚠ ${incompletas} estudiante(s) tienen criterios sin responder.`
+                : 'No hay estudiantes por confirmar.');
         return;
     }
 
     if (boton) boton.disabled = true;
     let ok = 0, fail = 0;
     for (const fila of completas) {
-        (await guardarFila(fila, true)) ? ok++ : fail++;
+        (await confirmarFila(fila, true)) ? ok++ : fail++;
     }
 
-    // Todo guardado, sin errores ni filas a medio llenar → refrescar para
-    // mostrar los registros ya persistidos desde la BD.
+    // Todo confirmado y nada a medias → recargar para mostrar el estado de la BD
+    // (y habilitar «Bloquear y aprobar», que se decide en el servidor).
     if (fail === 0 && incompletas === 0) {
-        mostrarFeedback('ok', `✓ ${ok} fila(s) guardada(s). Actualizando…`);
+        mostrarFeedback('ok', `✓ ${ok} confirmado(s). Actualizando…`);
         setTimeout(() => window.location.reload(), 700);
         return;
     }
 
-    // Si quedaron filas sin completar, NO recargamos (perderían sus marcas).
     if (boton) boton.disabled = false;
     const extra = incompletas ? ` · ${incompletas} sin completar` : '';
-    if (fail === 0) mostrarFeedback('ok', `✓ ${ok} guardada(s)${extra}. Completa las faltantes y vuelve a guardar.`);
-    else            mostrarFeedback('error', `Guardadas ${ok}, con error ${fail}${extra}.`);
+    if (fail === 0) mostrarFeedback('ok', `✓ ${ok} confirmado(s)${extra}. Completa los que faltan.`);
+    else            mostrarFeedback('error', `Confirmados ${ok}, con error ${fail}${extra}.`);
 }
 
-// Autollenar ✓ (Sí) en los criterios SIN responder de todas las filas.
-// Manual y nunca destructivo: respeta toda marca previa (✓ o ✗). No guarda:
-// deja las filas afectadas en estado pendiente para que el usuario revise y guarde.
+// «Marcar Sí»: rellena ✓ en los criterios SIN responder y los AUTOGUARDA como
+// borrador (una petición por fila). Nunca pisa una marca existente.
 function autollenarSi() {
     let celdas = 0, filas = 0;
     document.querySelectorAll('.conducta-fila').forEach(fila => {
-        let cambiada = false;
+        const nuevas = {};
         fila.querySelectorAll('.cc-toggle').forEach(toggle => {
             const v = toggle.dataset.valor;
-            if (v === '1' || v === '0') return;            // ya respondida → no tocar
+            if (v === '1' || v === '0') return;                    // ya respondida → no tocar
             if (toggle.querySelector('.cc-btn')?.disabled) return; // seccion bloqueada
             toggle.dataset.valor = '1';
             pintarToggle(toggle);
+            nuevas[toggle.dataset.criterio] = '1';
             celdas++;
-            cambiada = true;
         });
-        if (cambiada) {
+        if (Object.keys(nuevas).length) {
             recalcularNotaFila(fila);
-            marcarEstado(fila, 'pendiente');
+            marcarEstado(fila, false);
+            autoguardar(fila, nuevas);
             filas++;
         }
     });
@@ -198,17 +301,17 @@ function autollenarSi() {
     if (celdas === 0) {
         mostrarFeedback('ok', 'No quedaban criterios sin responder.');
     } else {
-        mostrarFeedback('ok', `✓ ${celdas} criterio(s) marcados en ${filas} fila(s). Revisa las excepciones y guarda.`);
+        mostrarFeedback('ok', `✓ ${celdas} criterio(s) marcados en ${filas} estudiante(s). Revisa las excepciones y confirma.`);
     }
 }
 
 document.getElementById('conducta-autollenar')?.addEventListener('click', () => {
-    if (!confirm('¿Marcar ✓ (Sí) en todos los criterios sin responder?\nNo cambia las marcas existentes. Luego revisa las excepciones y guarda.')) return;
+    if (!confirm('¿Marcar ✓ (Sí) en todos los criterios sin responder?\nNo cambia las marcas existentes. Luego revisa las excepciones y confirma.')) return;
     autollenarSi();
 });
 
-document.getElementById('conducta-guardar-todos')?.addEventListener('click', e => {
-    guardarTodosPendientes(e.currentTarget);
+document.getElementById('conducta-confirmar-todos')?.addEventListener('click', e => {
+    confirmarTodas(e.currentTarget);
 });
 
 document.querySelectorAll('.conducta-fila').forEach(fila => {
@@ -216,11 +319,25 @@ document.querySelectorAll('.conducta-fila').forEach(fila => {
         toggle.addEventListener('click', e => {
             const b = e.target.closest('.cc-btn');
             if (!b || b.disabled || !toggle.contains(b)) return;
+            if (toggle.dataset.valor === b.dataset.v) return; // misma marca: no es un cambio
             toggle.dataset.valor = b.dataset.v;
             pintarToggle(toggle);
             recalcularNotaFila(fila);
-            marcarEstado(fila, 'pendiente'); // hay cambios sin guardar
+            marcarEstado(fila, false); // cambiar algo confirmado lo desconfirma
+            autoguardar(fila, { [toggle.dataset.criterio]: b.dataset.v });
         });
     });
+    fila.querySelector('.conducta-confirmar')?.addEventListener('click', () => confirmarFila(fila));
     recalcularNotaFila(fila); // nota inicial al cargar
+    marcarEstado(fila, fila.dataset.confirmada === '1');
 });
+
+// Salir con envíos en vuelo o con un autoguardado fallido pierde datos: avisar.
+// La vista por estudiante tiene su propio aviso (`registro-estudiante.js`).
+if (!document.querySelector('.registro-estudiante')) {
+    window.addEventListener('beforeunload', e => {
+        if (![...document.querySelectorAll('.conducta-fila')].some(filaSinGuardar)) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+}

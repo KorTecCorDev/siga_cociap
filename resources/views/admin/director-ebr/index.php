@@ -16,7 +16,11 @@
 <?php if (empty($usuarios)): ?>
     <div class="flash flash--warning">
         No hay usuarios con rol <strong>Director EBR</strong> activos.
-        Crea uno desde <a href="<?= url('admin/usuarios') ?>">Gestión de Usuarios</a>
+        <?php if (has_role('admin')): ?>
+            Crea uno desde <a href="<?= url('admin/usuarios') ?>">Gestión de Usuarios</a>
+        <?php else: ?>
+            El administrador debe crearlo en Gestión de Usuarios
+        <?php endif; ?>
         antes de hacer una asignación.
     </div>
 <?php endif; ?>

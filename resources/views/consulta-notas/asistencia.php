@@ -17,6 +17,8 @@
  * @var array      $alumnos  [{ matricula_id, nombre_completo, incidencias{...} }]
  * @var array      $totales  AsistenciaModel::totalesIncidencias($alumnos)
  * @var array|null $cierre   cierre vigente { ra_bloqueado_en, ra_nombre, ... } o null
+ * @var array|null $fechasDetalle   bimestre por fechas: [matricula_id => «F: 03/09 · FJ: 10/09»]
+ * @var array      $justificaciones anexo (AsistenciaModel::justificaciones); vacío si no hay
  */
 $volver = url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $seccion['seccion_id']);
 
@@ -52,7 +54,7 @@ $pidVer      = (int) $periodo['id'];
     <div class="alert alert--info">
         <span class="btn-icon btn-icon--locked" aria-hidden="true"></span>
         <span>
-            Asistencia <strong>bloqueada y aprobada por Registro Académico</strong>
+            Asistencia <strong>bloqueada y aprobada</strong>
             el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?><?php
                 if (!empty($cierre['ra_nombre'])): ?> por <?= e($cierre['ra_nombre']) ?><?php
                 endif; ?>.
@@ -66,7 +68,7 @@ $pidVer      = (int) $periodo['id'];
     <div class="alert alert--warning">
         <span class="btn-icon btn-icon--wait" aria-hidden="true"></span>
         <span>
-            Registro <strong>en curso</strong>: Registro Académico todavía puede modificarlo.
+            Registro <strong>en curso</strong>: todavía puede modificarse.
             Lo que se ve aquí es el estado de este momento, no un registro aprobado.
         </span>
     </div>
@@ -77,9 +79,17 @@ $pidVer      = (int) $periodo['id'];
 <?php else: ?>
     <p class="text-sm text-muted mb-md">
         <strong><?= (int) $totales['registrados'] ?></strong> de <?= count($alumnos) ?>
-        estudiantes con registro guardado.
-        Para modificar se usa <em>Asistencia</em> en el panel de Registro Académico.
+        estudiantes con registro confirmado.
+        Para modificar se usa <em>Asistencia</em> (auxiliar académico o Registro Académico).
     </p>
 
     <?php require VIEW_PATH . '/admin/asistencia/_tabla-incidencias.php'; ?>
+
+    <?php // Anexo «Detalle de justificaciones» debajo de la tabla (29/09/2026). ?>
+    <?php if (!empty($justificaciones)): ?>
+        <h2 class="asistencia-anexo-titulo">Detalle de justificaciones</h2>
+        <div class="tabla-notas-wrapper">
+            <?php $claseAnexo = 'tabla-notas asistencia-tabla tabla-anexo'; require VIEW_PATH . '/admin/asistencia/_anexo-justificaciones.php'; ?>
+        </div>
+    <?php endif; ?>
 <?php endif; ?>

@@ -43,8 +43,10 @@ $tituloClase = $tituloClase ?? 'page-title page-title--wf page-title--conducta';
 <div class="alert alert--info">
     <span class="btn-icon btn-icon--locked" aria-hidden="true"></span>
     <span>
-        Registro de los auxiliares académicos, <strong>bloqueado y aprobado por
-        Registro Académico</strong> el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>.
+        Registro de los auxiliares académicos, <strong>bloqueado y aprobado</strong>
+        el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?><?php
+            if (!empty($cierre['ra_nombre'])): ?> por <?= e($cierre['ra_nombre']) ?><?php
+            endif; ?>.
         Esta vista es de consulta: cualquier corrección se solicita a Registro Académico.
     </span>
 </div>
@@ -92,7 +94,7 @@ $tituloClase = $tituloClase ?? 'page-title page-title--wf page-title--conducta';
                       // `--inicio` las despega de los criterios y el hover ya no las borra.
                       // Ver docs/modulos/ui.md. ?>
                 <th class="conducta-th-nota col-resultado col-resultado--inicio"
-                    title="Nota de Registro Académico (Sí ÷ <?= $total ?> × 20)">Nota</th>
+                    title="Nota del auxiliar (Sí ÷ <?= $total ?> × 20)">Nota</th>
                 <th class="conducta-th-literal col-resultado">Literal</th>
             </tr>
         </thead>

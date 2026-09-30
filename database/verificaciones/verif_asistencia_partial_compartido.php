@@ -160,10 +160,27 @@ $ctl = file_get_contents(ROOT_PATH . '/app/Controllers/Admin/AsistenciaControlle
 $chk('el constructor admite Direccion',
     (bool) preg_match('/__construct.*?requireRole\(\[\.\.\.self::ROLES_REGISTRAN, \.\.\.ROLES_DIRECCION\]\)/s', $ctl));
 // Cada metodo publico enrutado, salvo `imprimir`, debe re-restringir.
-foreach (['index', 'seccion', 'bloquear', 'guardar'] as $metodo) {
+// `estudiante` (entrada por estudiante, 28/09/2026) es de REGISTRO: Direccion no.
+// `confirmarTodo` (asistencia por fechas, 29/09/2026) también es de REGISTRO, y
+// `jornada` («Pasar lista» / «Deshacer», 30/09/2026) también.
+foreach (['index', 'seccion', 'bloquear', 'guardar', 'estudiante', 'confirmarTodo', 'jornada'] as $metodo) {
     $chk("{$metodo}() sigue restringido a quien registra",
         (bool) preg_match(
             '/public function ' . $metodo . '\([^)]*\): void\s*\{\s*\$this->requireRole\(self::ROLES_REGISTRAN\);/s',
+            $ctl
+        ));
+}
+// `dia` y `confirmar` (29/09/2026) empiezan por su guardián común, y ese
+// guardián empieza restringiendo a quien registra.
+$chk('escrituraFechasValidada() empieza restringiendo a quien registra',
+    (bool) preg_match(
+        '/function escrituraFechasValidada\(\): array\s*\{\s*\$this->requireRole\(self::ROLES_REGISTRAN\);/s',
+        $ctl
+    ));
+foreach (['dia', 'confirmar'] as $metodo) {
+    $chk("{$metodo}() empieza por el guardián común (restringido a quien registra)",
+        (bool) preg_match(
+            '/public function ' . $metodo . '\(\): void\s*\{\s*\$w\s*=\s*\$this->escrituraFechasValidada\(\);/s',
             $ctl
         ));
 }
@@ -174,7 +191,7 @@ $chk('imprimir() NO se re-restringe (es la que ve Direccion)',
 preg_match_all('/public function (\w+)\(/', $ctl, $m);
 $publicos = array_values(array_diff($m[1], ['__construct']));
 sort($publicos);
-$esperados = ['bloquear', 'guardar', 'imprimir', 'index', 'seccion'];
+$esperados = ['bloquear', 'confirmar', 'confirmarTodo', 'dia', 'estudiante', 'guardar', 'imprimir', 'index', 'jornada', 'seccion'];
 $chk('no nacio ningun metodo publico sin decidir su rol: ' . implode(', ', $publicos),
     $publicos === $esperados);
 

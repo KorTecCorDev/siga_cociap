@@ -185,7 +185,13 @@ class RetornoGradoController extends BaseController
 
             if ($activos) {
                 $marcas = implode(',', array_fill(0, count($activos), '?'));
-                foreach (['inasistencias', 'conducta_respuestas', 'calificaciones_conducta'] as $tabla) {
+                // `conducta_confirmaciones` (29/09/2026, migración 068) viaja con
+                // sus respuestas: sin ella, la conducta confirmada llegaría a la
+                // operativa como un BORRADOR y saldría de la boleta.
+                // `asistencia_incidencias` (migración 069) viaja con sus
+                // contadores de `inasistencias`: los contadores SON el conteo de
+                // esas fechas (invariante) y deben vivir en la misma matrícula.
+                foreach (['inasistencias', 'asistencia_incidencias', 'conducta_respuestas', 'conducta_confirmaciones', 'calificaciones_conducta'] as $tabla) {
                     $this->model->execute("
                         UPDATE {$tabla}
                         SET matricula_id = ?

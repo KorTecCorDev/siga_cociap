@@ -3,24 +3,35 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Models\AuxiliarSeccionModel;
 use App\Models\ConductaModel;
 use Core\Session;
 use Core\View;
 
 /**
- * Conducta — ETAPA 1 (Registro Academico).
+ * Conducta — ETAPA 1 (auxiliar académico; Registro Académico como respaldo).
  * Registra los criterios Si/No por alumno y bloquea/aprueba la seccion.
  * La ETAPA 2 (tutor) vive en Docente\ConductaTutorController.
  */
 class ConductaController extends BaseController
 {
     private ConductaModel $model;
+    private AuxiliarSeccionModel $aux;
 
     public function __construct()
     {
-        // Conducta ahora la registra Registro Academico (ademas de admin).
-        $this->requireRole(['admin', 'registro_academico']);
+        // Registran admin, Registro Academico y, desde el 28/09/2026, el
+        // auxiliar academico. El auxiliar solo sobre SUS secciones del
+        // bimestre: lo decide AuxiliarSeccionModel::puedeRegistrar() por metodo.
+        $this->requireRole(['admin', 'registro_academico', ROL_AUXILIAR]);
         $this->model = new ConductaModel();
+        $this->aux   = new AuxiliarSeccionModel();
+    }
+
+    /** ¿Puede el usuario de la sesión registrar esa sección en ese periodo? */
+    private function puede(int $seccionId, int $periodoId): bool
+    {
+        return $this->aux->puedeRegistrar(Session::user() ?? [], $seccionId, $periodoId);
     }
 
     /** Devuelve el primer periodo editable del año activo, o null. */
@@ -81,6 +92,18 @@ class ConductaController extends BaseController
             ? $this->model->getProgresoConductaPorSeccion((int) $periodoVer['id'])
             : [];
 
+        // El auxiliar ve SOLO las secciones que tuvo a su cargo en el bimestre
+        // mostrado (el en curso o el cerrado del historial). Admin y RA, todas.
+        if (has_role(ROL_AUXILIAR)) {
+            $mias = $periodoVer
+                ? $this->aux->seccionesDe((int) Session::user()['id'], (int) $periodoVer['id'])
+                : [];
+            $secciones = array_values(array_filter(
+                $secciones,
+                fn($s) => in_array((int) $s['id'], $mias, true)
+            ));
+        }
+
         $porNivel = [];
         foreach ($secciones as $s) {
             $porNivel[$s['nivel_nombre']][] = $s;
@@ -94,6 +117,8 @@ class ConductaController extends BaseController
             'periodosNav'   => $periodosNav,
             'esHistorial'   => $esHistorial,
             'progreso'      => $progreso,
+            // Año activo sin criterios (F6): se avisa en vez de dejar grillas vacías.
+            'sinCriterios'  => $this->model->getCriterios() === [],
         ]);
     }
 
@@ -133,11 +158,21 @@ class ConductaController extends BaseController
         }
         $soloLectura = $periodoVer !== null && !((bool) $periodoVer['editable']);
 
+        // Auxiliar: solo una sección que tuvo a su cargo EN el bimestre mostrado.
+        $esAuxiliar = has_role(ROL_AUXILIAR);
+        if ($esAuxiliar && ($periodoVer === null || !$this->puede($seccionId, (int) $periodoVer['id']))) {
+            $this->forbidden();
+        }
+
         // Estado de cierre por periodo para las pestañas del historial.
         // Los bimestres 'pendiente' (futuros) no se listan: sin datos que ver.
+        // Al auxiliar solo se le listan los bimestres en que tuvo la sección.
         $periodosNav = [];
         foreach ($periodos as $p) {
             if ($p['estado'] === 'pendiente') {
+                continue;
+            }
+            if ($esAuxiliar && !$this->puede($seccionId, (int) $p['id'])) {
                 continue;
             }
             $p['cierre'] = $this->model->getCierreVigente($seccionId, (int) $p['id']);
@@ -147,13 +182,18 @@ class ConductaController extends BaseController
         $nivelId   = (int) $seccion['nivel_id'];
         $criterios = $this->model->getCriterios($nivelId);
 
-        $estudiantes = $cierre = null;
+        $estudiantes = $cierre = $firmas = null;
         $completitud = ['esperados' => 0, 'completos' => 0];
         $legado      = [];
         if ($periodoVer) {
             $pid         = (int) $periodoVer['id'];
-            $estudiantes = $this->model->getEstudiantesParaRegistro($seccionId, $pid);
             $cierre      = $this->model->getCierreVigente($seccionId, $pid);
+            // Editable: el borrador del auxiliar. Historial o sección bloqueada:
+            // solo lo OFICIAL (confirmado), que es lo que cuenta.
+            $estudiantes = $this->model->getEstudiantesParaRegistro($seccionId, $pid, $soloLectura || $cierre !== null);
+            if ($cierre) {
+                $firmas = $this->aux->firmasDelRegistro($seccionId, $pid, (int) $cierre['ra_bloqueado_por']);
+            }
             $completitud = $this->model->completitudSeccion($seccionId, $pid, count($criterios));
 
             // Bimestre legado (B1): sin matriz de respuestas pero con literal
@@ -186,6 +226,7 @@ class ConductaController extends BaseController
             'estudiantes'  => $estudiantes ?? [],
             'legado'       => $legado,
             'cierre'       => $cierre,
+            'firmas'       => $firmas,
             'completitud'  => $completitud,
             'page_scripts' => $soloLectura ? [] : ['conducta'],
         ]);
@@ -214,6 +255,9 @@ class ConductaController extends BaseController
         if (!$periodo) {
             $this->redirectWithError(url('admin/conducta/' . $seccionId), 'Periodo no encontrado.');
         }
+        if (!$this->puede($seccionId, $periodoId)) {
+            $this->forbidden();
+        }
 
         $cierre = $this->model->getCierreDetalle($seccionId, $periodoId);
         if (!$cierre) {
@@ -224,7 +268,8 @@ class ConductaController extends BaseController
         }
 
         $criterios   = $this->model->getCriterios((int) $seccion['nivel_id']);
-        $estudiantes = $this->model->getEstudiantesParaRegistro($seccionId, $periodoId);
+        // El registro impreso es el OFICIAL: solo lo confirmado.
+        $estudiantes = $this->model->getEstudiantesParaRegistro($seccionId, $periodoId, true);
 
         // Bimestre legado (B1): literal directo, sin matriz de criterios que imprimir.
         $hayRespuestas = false;
@@ -250,12 +295,93 @@ class ConductaController extends BaseController
             'criterios'   => $criterios,
             'estudiantes' => $estudiantes,
             'cierre'      => $cierre,
+            'firmas'      => $this->aux->firmasDelRegistro($seccionId, $periodoId, (int) $cierre['ra_bloqueado_por']),
             'institucion' => config('institucion'),
         ]);
     }
 
-    // POST /admin/conducta/guardar  (AJAX — respuestas de un alumno)
-    public function guardar(): void
+    // GET /admin/conducta/{seccion_id}/estudiante   (?m={matricula_id})
+    // Segunda entrada del registro (28/09/2026): UN estudiante por pantalla, con
+    // los criterios uno bajo otro, pensada para el celular del auxiliar. Convive
+    // con la grilla y guarda por el MISMO endpoint (`guardar`), así que no añade
+    // ninguna regla de escritura. Es solo para REGISTRAR: sin bimestre editable,
+    // o con la sección ya bloqueada, devuelve a la grilla, que resuelve el resto.
+    public function estudiante(string $seccionId): void
+    {
+        $seccionId = (int) $seccionId;
+        $seccion   = $this->buscarSeccion($seccionId);
+        if (!$seccion) {
+            $this->redirectWithError(url('admin/conducta'), 'Sección no encontrada.');
+        }
+
+        $grilla  = url('admin/conducta/' . $seccionId);
+        $periodo = $this->periodoActivo();
+        // Mismo corte que la grilla: al auxiliar, sin bimestre en curso no le
+        // queda ninguna sección suya.
+        if ($periodo === null && has_role(ROL_AUXILIAR)) {
+            $this->forbidden();
+        }
+        if ($periodo === null) {
+            $this->redirectWithError($grilla, 'No hay periodo abierto para edición.');
+        }
+        $pid = (int) $periodo['id'];
+        if (!$this->puede($seccionId, $pid)) {
+            $this->forbidden();
+        }
+        if ($this->model->getCierreVigente($seccionId, $pid)) {
+            $this->redirectWithError($grilla, 'La conducta de esta sección ya fue bloqueada; no se puede editar.');
+        }
+
+        $criterios   = $this->model->getCriterios((int) $seccion['nivel_id']);
+        $estudiantes = $this->model->getEstudiantesParaRegistro($seccionId, $pid);
+        if (empty($criterios) || empty($estudiantes)) {
+            redirect($grilla);
+        }
+
+        $pos = 0;
+        $m   = (int) ($this->query('m') ?? 0);
+        if ($m) {
+            $pos = array_search($m, array_map('intval', array_column($estudiantes, 'matricula_id')), true);
+            if ($pos === false) {
+                $this->redirectWithError(
+                    url('admin/conducta/' . $seccionId . '/estudiante'),
+                    'Ese estudiante no forma parte del registro de conducta de la sección.'
+                );
+            }
+        }
+
+        $siguiente = $estudiantes[$pos + 1] ?? null;
+        $anterior  = $pos > 0 ? $estudiantes[$pos - 1] : null;
+
+        $this->view('admin/conducta/estudiante', [
+            'titulo'       => 'Conducta — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
+            'seccion'      => $seccion,
+            'periodo'      => $periodo,
+            'criterios'    => $criterios,
+            'estudiantes'  => $estudiantes,
+            'pos'          => $pos,
+            'siguienteUrl' => $siguiente
+                ? url('admin/conducta/' . $seccionId . '/estudiante?m=' . (int) $siguiente['matricula_id'])
+                : $grilla,
+            // «← Anterior» (29/09/2026): sin anterior (el primero) no se pinta.
+            'anteriorUrl'  => $anterior
+                ? url('admin/conducta/' . $seccionId . '/estudiante?m=' . (int) $anterior['matricula_id'])
+                : null,
+            'page_scripts' => ['conducta', 'registro-estudiante'],
+        ]);
+    }
+
+    /**
+     * GUARDIÁN COMÚN de las dos escrituras de un estudiante (`guardar` y
+     * `confirmar`, 29/09/2026). Valida CSRF, periodo editable, sección a cargo
+     * (`puede`), roster y sección no bloqueada; responde el JSON de error y corta
+     * si algo falla. Devuelve el contexto y las respuestas recibidas, ya limpias
+     * contra los criterios VIGENTES del nivel (un id ajeno o un valor que no sea
+     * 0/1 se rechaza con 400).
+     *
+     * @return array{matricula:int, periodo:int, usuario:int, criterioIds:int[], respuestas:array<int,int>}
+     */
+    private function escrituraValidada(): array
     {
         $this->validateCsrf();
 
@@ -277,35 +403,81 @@ class ConductaController extends BaseController
         $seccionId = (int) $ctx['seccion_id'];
         $nivelId   = (int) $ctx['nivel_id'];
 
-        // Si la seccion ya esta bloqueada, RA no puede editar (debe desbloquear admin).
+        if (!$this->puede($seccionId, $periodoId)) {
+            $this->json(['success' => false, 'mensaje' => 'Esta sección no está a tu cargo en este bimestre.'], 403);
+        }
+        // La matricula tiene que estar en el roster de la seccion (el mismo que
+        // pinta la grilla). Faltaba desde siempre: asistencia ya lo exigia.
+        if (!$this->model->matriculaEnRoster($matriculaId)) {
+            $this->json([
+                'success' => false,
+                'mensaje' => 'Esta matrícula no forma parte del registro de conducta de la sección.',
+            ], 403);
+        }
+
+        // Si la seccion ya esta bloqueada, nadie edita (debe desbloquear Dirección).
         if ($this->model->getCierreVigente($seccionId, $periodoId)) {
             $this->json(['success' => false, 'mensaje' => 'La conducta de esta sección ya fue bloqueada; no se puede editar.'], 403);
         }
 
-        $criterios   = $this->model->getCriterios($nivelId);
-        $criterioIds = array_map(static fn($c) => (int) $c['id'], $criterios);
+        $criterioIds = array_map(static fn($c) => (int) $c['id'], $this->model->getCriterios($nivelId));
         $respIn      = $this->input('respuestas', []);
         if (!is_array($respIn)) {
             $respIn = [];
         }
 
-        // Los criterios son OBLIGATORIOS: todos deben venir con 0 o 1.
         $respuestas = [];
-        foreach ($criterioIds as $cid) {
-            $v = $respIn[$cid] ?? null;
-            if ($v === null || !in_array((string) $v, ['0', '1'], true)) {
-                $this->json([
-                    'success' => false,
-                    'mensaje' => 'Debes responder Sí/No en los ' . count($criterioIds) . ' criterios.',
-                ], 400);
+        foreach ($respIn as $cid => $v) {
+            if (!in_array((int) $cid, $criterioIds, true) || !in_array((string) $v, ['0', '1'], true)) {
+                $this->json(['success' => false, 'mensaje' => 'Respuesta de criterio no válida.'], 400);
             }
-            $respuestas[$cid] = (int) $v;
+            $respuestas[(int) $cid] = (int) $v;
         }
 
-        $ok = $this->model->guardarRespuestas($matriculaId, $periodoId, $respuestas, $userId, $criterioIds);
+        return [
+            'matricula'   => $matriculaId,
+            'periodo'     => $periodoId,
+            'usuario'     => $userId,
+            'criterioIds' => $criterioIds,
+            'respuestas'  => $respuestas,
+        ];
+    }
+
+    // POST /admin/conducta/guardar  (AJAX — AUTOGUARDADO de un BORRADOR)
+    // Desde el 29/09/2026 guarda lo que llegue (un criterio por toque, o varios
+    // con «Marcar Sí») y NO confirma: si algo cambió, desconfirma.
+    public function guardar(): void
+    {
+        $w = $this->escrituraValidada();
+        if ($w['respuestas'] === []) {
+            $this->json(['success' => false, 'mensaje' => 'No llegó ninguna respuesta.'], 400);
+        }
+
+        $res = $this->model->guardarBorrador($w['matricula'], $w['periodo'], $w['respuestas'], $w['usuario']);
         $this->json([
-            'success' => $ok,
-            'mensaje' => $ok ? 'Guardado.' : 'Error al guardar.',
+            'success'    => $res['ok'],
+            'confirmado' => $res['confirmado'],
+            'mensaje'    => $res['ok'] ? 'Guardado como borrador.' : 'Error al guardar.',
+        ], $res['ok'] ? 200 : 500);
+    }
+
+    // POST /admin/conducta/confirmar  (AJAX — visto bueno de UN estudiante)
+    // Exige los N criterios: guarda los visibles y confirma, en una transacción.
+    public function confirmar(): void
+    {
+        $w = $this->escrituraValidada();
+        if (count($w['respuestas']) < count($w['criterioIds'])) {
+            $this->json([
+                'success' => false,
+                'mensaje' => 'Responde Sí/No en los ' . count($w['criterioIds']) . ' criterios para confirmar.',
+            ], 400);
+        }
+
+        $ok = $this->model->confirmar($w['matricula'], $w['periodo'], $w['respuestas'], $w['usuario'], $w['criterioIds']);
+        $this->json([
+            'success'    => $ok,
+            'confirmado' => $ok,
+            'mensaje'    => $ok ? 'Confirmado.' : 'Error al confirmar.',
         ], $ok ? 200 : 500);
     }
 
@@ -322,6 +494,9 @@ class ConductaController extends BaseController
         $periodoActivo = $this->periodoActivo();
         if (!$periodoActivo) {
             $this->redirectWithError(url('admin/conducta/' . $seccionId), 'No hay periodo abierto para edición.');
+        }
+        if (!$this->puede($seccionId, (int) $periodoActivo['id'])) {
+            $this->forbidden();
         }
 
         $total = $this->model->totalCriterios((int) $seccion['nivel_id']);

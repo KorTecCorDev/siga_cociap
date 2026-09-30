@@ -267,5 +267,36 @@ if ($nRetornos === 0) {
         "estado = {$estadoOriginal}");
 }
 
+echo "\n=== 6. Nadie escribe el filtro de retorno a mano ===\n";
+// Hasta el 28/09/2026 quedaban CINCO copias del HIBRIDO en app/ (panel docente
+// x2, panel del padre, export SIAGIE x2). Eran correctas solo por su filtro
+// `estado = 'aprobada'`, que deja fuera la operativa desactivada por revertir();
+// la del panel docente tenia ademas una variante de estado amplio que SI
+// duplicaba. Toda consulta que excluya la operativa usa matricula_documento().
+// El HIBRIDO es la OPERATIVA filtrada por `estado = 'activo'`. Ojo: excluir la
+// operativa con `estado = 'revertido'` es LEGITIMO (roster_evaluacion(): tras
+// revertir, el estudiante se evalua en la oficial), asi que el patron exige
+// 'activo' y no cualquier WHERE.
+$patronHibrido = "/SELECT\\s+matricula_operativa_id\\s+FROM\\s+retornos_grado\\s+WHERE\\s+(?:\\w+\\.)?estado\\s*=\\s*'activo'/i";
+$chk('la guarda reconoce el HIBRIDO (no es un aserto vacio)',
+    preg_match($patronHibrido, $hibrido ?? "AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'activo')") === 1);
+$chk('y NO confunde la exclusion legitima de roster_evaluacion()',
+    preg_match($patronHibrido, roster_evaluacion('m')) === 0);
+$copias = [];
+$it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(ROOT_PATH . '/app', FilesystemIterator::SKIP_DOTS));
+foreach ($it as $f) {
+    if ($f->getExtension() !== 'php') { continue; }
+    $codigo = (string) file_get_contents($f->getPathname());
+    if (preg_match_all($patronHibrido, $codigo, $mm, PREG_OFFSET_CAPTURE)) {
+        foreach ($mm[0] as [, $pos]) {
+            $copias[] = str_replace(ROOT_PATH . DIRECTORY_SEPARATOR, '', $f->getPathname())
+                . ':' . (substr_count(substr($codigo, 0, $pos), "\n") + 1);
+        }
+    }
+}
+$chk('ninguna copia a mano del HIBRIDO en app/ (usar matricula_documento())',
+    $copias === [],
+    $copias ? implode(', ', $copias) : 'barrido de app/ completo');
+
 echo "\n", $ok ? "TODO OK\n" : "HAY FALLAS\n";
 exit($ok ? 0 : 1);

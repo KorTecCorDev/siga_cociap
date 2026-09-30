@@ -72,6 +72,14 @@ $esperadasDirector = [
     'admin/control', 'consulta-notas', 'consulta-notas/criterios', 'admin/cuadros',
     'admin/cuadros/acompanamiento',
     'director/bloqueos', 'director/orden-merito', 'director/ranking-seccion',
+    // Nómina de docentes (28/09/2026, decisión D9 del módulo auxiliares): lectura.
+    'documentos/nomina-docentes',
+    // Planilla de asistencia manual (F4c, 28/09/2026): lectura, genera un documento.
+    'documentos/planilla-asistencia',
+    // Criterios de conducta por año (F6, 28/09/2026): solo lectura para Dirección.
+    'admin/conducta/criterios',
+    // Motivos de justificación de la asistencia (29/09/2026): solo lectura.
+    'admin/asistencia/motivos',
 ];
 foreach (ROLES_DIRECCION as $rol) {
     $suyas = array_keys(array_filter($cards, fn($r) => in_array($rol, $r, true)));

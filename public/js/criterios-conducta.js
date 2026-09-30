@@ -1,0 +1,1 @@
+document.addEventListener("submit",function(t){var e=t.target;e.hasAttribute&&e.hasAttribute("data-confirm")&&(window.confirm(e.getAttribute("data-confirm"))||t.preventDefault())});

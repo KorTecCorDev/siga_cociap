@@ -36,6 +36,12 @@
                            autofocus>
                 </div>
 
+                <?php // Lo llena usuario-dni.js al completar el DNI. `hidden` va en el
+                      // envoltorio SIN clase: `.alert` declara display:block. ?>
+                <div class="form-group--full" id="dniAviso" hidden>
+                    <p class="alert" id="dniAvisoTexto"></p>
+                </div>
+
                 <div class="form-group">
                     <label class="form-label" for="sexo">Sexo <span class="text-danger">*</span></label>
                     <select id="sexo" name="sexo" class="form-input" required>

@@ -19,11 +19,22 @@
             <?php endif; ?>
         </p>
     </div>
+    <?php // Catálogo de motivos de justificación (29/09/2026): solo quien lo gestiona. ?>
+    <?php if (has_role(['admin', 'registro_academico'])): ?>
+        <a href="<?= url('admin/asistencia/motivos') ?>" class="btn btn--secondary btn--sm">Motivos</a>
+        <a href="<?= url('admin/asistencia/no-lectivos') ?>" class="btn btn--secondary btn--sm">Días no lectivos</a>
+    <?php endif; ?>
 </div>
 
 <?php if (empty($porNivel)): ?>
     <div class="empty-state">
-        <p>No hay secciones activas configuradas para el año académico en curso.</p>
+        <?php // Al auxiliar la lista vacía no significa que el colegio no tenga
+              // secciones, sino que ninguna está a SU cargo en este bimestre. ?>
+        <?php if (has_role(ROL_AUXILIAR)): ?>
+            <p>Aún no tienes secciones asignadas en este bimestre. Comunícate con Registro Académico para que te las asignen.</p>
+        <?php else: ?>
+            <p>No hay secciones activas configuradas para el año académico en curso.</p>
+        <?php endif; ?>
     </div>
 <?php else: ?>
 

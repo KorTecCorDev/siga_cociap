@@ -84,21 +84,61 @@ $router->get( '/admin/actas-siagie/resultado/reporte',   'Admin\ActasSiagieContr
 $router->get( '/admin/secciones',             'Admin\SeccionController@index');
 $router->post('/admin/secciones/{id}/tutor',  'Admin\SeccionController@asignarTutor');
 
+// Auxiliares académicos: qué secciones tiene cada uno, por bimestre (migración 066).
+$router->get( '/admin/auxiliares',                        'Admin\AuxiliarController@index');
+$router->post('/admin/auxiliares/{seccion_id}/asignar',   'Admin\AuxiliarController@asignar');
+// Panel del auxiliar académico: su aterrizaje tras iniciar sesión (28/09/2026).
+$router->get( '/auxiliar/inicio',                         'Auxiliar\PanelController@inicio');
+$router->get( '/auxiliar/nomina/{seccion_id}/imprimir',   'Auxiliar\PanelController@nominaImprimir');
+$router->get( '/auxiliar/horario/{seccion_id}',           'Auxiliar\PanelController@horario');
+// Documentos compartidos (admin, RA y Dirección; el auxiliar solo la nómina de
+// docentes). Guarda por método.
+$router->get( '/documentos/nomina-docentes',              'Documentos\DocumentoController@nominaDocentes');
+// Planilla de asistencia manual: SOLO admin, RA y Dirección (no el auxiliar).
+$router->get( '/documentos/planilla-asistencia',          'Documentos\DocumentoController@planillaAsistencia');
+$router->get( '/documentos/planilla-asistencia/generar',  'Documentos\DocumentoController@planillaGenerar');
+
 // ─── Admin — Buscador de estudiantes ────────────────────────
 $router->get( '/admin/buscar-estudiante',     'Admin\BuscadorEstudianteController@index');
 $router->get( '/admin/buscar-estudiante/api', 'Admin\BuscadorEstudianteController@buscar');
 
 // ─── Admin — Conducta ───────────────────────────────────────
+// Criterios de conducta por año (F6, 28/09/2026). ANTES que /admin/conducta/{id}:
+// el router ancla por orden de registro y 'criterios' encajaría como {id}.
+$router->get( '/admin/conducta/criterios',              'Admin\CriterioConductaController@index');
+$router->post('/admin/conducta/criterios/crear',        'Admin\CriterioConductaController@crear');
+$router->post('/admin/conducta/criterios/copiar',       'Admin\CriterioConductaController@copiar');
+$router->post('/admin/conducta/criterios/{id}/editar',  'Admin\CriterioConductaController@actualizar');
+$router->post('/admin/conducta/criterios/{id}/retirar', 'Admin\CriterioConductaController@retirar');
+$router->post('/admin/conducta/criterios/{id}/mover',   'Admin\CriterioConductaController@mover');
 $router->get( '/admin/conducta',              'Admin\ConductaController@index');
 $router->post('/admin/conducta/guardar',      'Admin\ConductaController@guardar');
+$router->post('/admin/conducta/confirmar',    'Admin\ConductaController@confirmar');
 $router->post('/admin/conducta/{id}/bloquear','Admin\ConductaController@bloquear');
 $router->get( '/admin/conducta/{id}/imprimir/{periodo_id}', 'Admin\ConductaController@imprimir');
+$router->get( '/admin/conducta/{id}/estudiante', 'Admin\ConductaController@estudiante');
 $router->get( '/admin/conducta/{id}',         'Admin\ConductaController@seccion');
 
 // ─── Admin — Asistencia (incidencias) ───────────────────────
 $router->get( '/admin/asistencia',            'Admin\AsistenciaController@index');
+// Asistencia por fechas (29/09/2026): literales ANTES de los patrones {id}.
+// Motivos de justificación: `/motivos` chocaría con GET `/admin/asistencia/{id}`.
+$router->get( '/admin/asistencia/motivos',              'Admin\AsistenciaMotivoController@index');
+$router->post('/admin/asistencia/motivos/crear',        'Admin\AsistenciaMotivoController@crear');
+$router->post('/admin/asistencia/motivos/{id}/editar',  'Admin\AsistenciaMotivoController@actualizar');
+$router->post('/admin/asistencia/motivos/{id}/retirar', 'Admin\AsistenciaMotivoController@retirar');
+$router->post('/admin/asistencia/motivos/{id}/mover',   'Admin\AsistenciaMotivoController@mover');
+// Días no lectivos (30/09/2026, migración 070): literales, ANTES de `/{id}`.
+$router->get( '/admin/asistencia/no-lectivos',                 'Admin\AsistenciaCalendarioController@index');
+$router->post('/admin/asistencia/no-lectivos/crear',           'Admin\AsistenciaCalendarioController@crear');
+$router->post('/admin/asistencia/no-lectivos/{fecha}/quitar',  'Admin\AsistenciaCalendarioController@quitar');
+$router->post('/admin/asistencia/dia',        'Admin\AsistenciaController@dia');
+$router->post('/admin/asistencia/confirmar',  'Admin\AsistenciaController@confirmar');
+$router->post('/admin/asistencia/{id}/confirmar-todo', 'Admin\AsistenciaController@confirmarTodo');
+$router->post('/admin/asistencia/{id}/jornada', 'Admin\AsistenciaController@jornada');
 $router->post('/admin/asistencia/{id}/bloquear','Admin\AsistenciaController@bloquear');
 $router->get( '/admin/asistencia/{id}/imprimir/{periodo_id}', 'Admin\AsistenciaController@imprimir');
+$router->get( '/admin/asistencia/{id}/estudiante', 'Admin\AsistenciaController@estudiante');
 $router->get( '/admin/asistencia/{id}',       'Admin\AsistenciaController@seccion');
 $router->post('/admin/asistencia/guardar',    'Admin\AsistenciaController@guardar');
 
@@ -116,6 +156,7 @@ $router->post('/admin/director-ebr/{id}/imagenes',         'Admin\DirectorEbrCon
 // ─── Admin — Usuarios ───────────────────────────────────────
 $router->get( '/admin/usuarios',             'Admin\UsuarioController@index');
 $router->get( '/admin/usuarios/crear',       'Admin\UsuarioController@create');
+$router->get( '/admin/usuarios/persona',     'Admin\UsuarioController@buscarPersona');
 $router->post('/admin/usuarios/crear',       'Admin\UsuarioController@store');
 $router->get( '/admin/usuarios/{id}/editar', 'Admin\UsuarioController@edit');
 $router->post('/admin/usuarios/{id}/editar', 'Admin\UsuarioController@update');

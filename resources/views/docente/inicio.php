@@ -24,14 +24,10 @@
  * @var array $auth_user
  */
 
-// Estado del widget "días para el cierre"
-if ($diasCierre === null)      { $diasMod = 'muted'; $diasTxt = '—';  $diasSub = 'Sin fecha límite'; }
-elseif ($diasCierre < 0)       { $diasMod = 'muted'; $diasTxt = abs($diasCierre); $diasSub = 'días desde el cierre'; }
-elseif ($diasCierre <= 3)      { $diasMod = 'err';   $diasTxt = $diasCierre; $diasSub = 'días para el cierre'; }
-elseif ($diasCierre <= 7)      { $diasMod = 'warn';  $diasTxt = $diasCierre; $diasSub = 'días para el cierre'; }
-else                           { $diasMod = 'ok';    $diasTxt = $diasCierre; $diasSub = 'días para el cierre'; }
+// El widget "días para el cierre" vive en shared/_kpi-dias-cierre.php (punto
+// único de sus umbrales, compartido con el panel del auxiliar).
 
-$avEstado      = $avance >= 100 ? 'completo' : ($avance > 0 ? 'parcial' : 'vacio');
+$avEstado     = $avance >= 100 ? 'completo' : ($avance > 0 ? 'parcial' : 'vacio');
 $avEstadoTotal = $avanceTotal >= 100 ? 'completo' : ($avanceTotal > 0 ? 'parcial' : 'vacio');
 ?>
 
@@ -83,10 +79,7 @@ $saludo = match($auth_user['sexo'] ?? null) {
         <span class="dpanel-kpi__num <?= $sinCriterios > 0 ? 'dpanel-kpi__num--err' : '' ?>"><?= $sinCriterios ?></span>
         <span class="dpanel-kpi__label">Cargas sin criterios</span>
     </div>
-    <div class="dpanel-kpi">
-        <span class="dpanel-kpi__num dpanel-kpi__num--<?= $diasMod ?>"><?= $diasTxt ?></span>
-        <span class="dpanel-kpi__label"><?= $diasSub ?></span>
-    </div>
+    <?php require VIEW_PATH . '/shared/_kpi-dias-cierre.php'; ?>
 </div>
 
 <div class="dpanel-grid">

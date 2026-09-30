@@ -275,13 +275,13 @@ class BloqueoController extends BaseController
      *
      * El motivo es el mismo en las cuatro: `periodoEditable`/`periodoEstaBloqueado`
      * cortan por `estado='cerrado'` SIN mirar el bloqueo, asi que reabrir no
-     * habilita a nadie a corregir. Y en tres de ellas, ademas, el dato
-     * DESAPARECE del documento mientras tanto: la boleta pinta solo competencias
-     * bloqueadas, `getTransversalesAgregadas` exige cierre vigente y
-     * `ConductaModel::getParaPeriodo` devuelve null sin el. La asistencia es la
-     * excepcion —`getDelBimestre` lee `inasistencias` directo— pero reabrirla
-     * tampoco sirve de nada, por eso el guard es igual. Cada llamada pasa SU
-     * mensaje: el efecto no es identico y el aviso no debe mentir.
+     * habilita a nadie a corregir. Y en las CUATRO, ademas, el dato DESAPARECE
+     * del documento mientras tanto: la boleta pinta solo competencias
+     * bloqueadas, `getTransversalesAgregadas` exige cierre vigente,
+     * `ConductaModel::getParaPeriodo` devuelve null sin el y, desde el 29/09/2026,
+     * la asistencia tambien (`AsistenciaModel::sqlVisible` exige cierre vigente;
+     * antes era la excepcion). Cada llamada pasa SU mensaje: el efecto no es
+     * identico y el aviso no debe mentir.
      *
      * La via correcta siempre es reabrir el bimestre (`PeriodoController::reabrir`).
      * Mismo criterio que `limpiarBloqueosCierre`, que ya lo exigia.
@@ -719,9 +719,10 @@ class BloqueoController extends BaseController
 
     /**
      * POST /director/bloqueos/conducta/{seccion_id}/bloquear
-     * Etapa 1 forzada por el director: bloquea/aprueba la conducta como lo haría
-     * el auxiliar académico (hoy Registro Académico). Respeta la regla de negocio:
-     * exige que TODOS los estudiantes estén calificados (validado en bloquearRA).
+     * Etapa 1 FORZADA por el director: bloquea/aprueba la conducta como lo haría
+     * el auxiliar académico. Desde el 29/09/2026 (decisión b del usuario) NO exige
+     * que todos estén confirmados: lo no confirmado queda fuera de la boleta
+     * (guion), porque las lecturas oficiales solo ven lo confirmado.
      */
     public function bloquearConducta(string $seccionId): void
     {
@@ -742,7 +743,7 @@ class BloqueoController extends BaseController
         }
 
         $total = $this->conductaModel->totalCriterios($nivelId);
-        $res   = $this->conductaModel->bloquearRA($seccionId, $periodoId, (int) $user['id'], $total);
+        $res   = $this->conductaModel->bloquearRA($seccionId, $periodoId, (int) $user['id'], $total, true);
 
         if ($res['ok']) {
             $this->redirectWithSuccess($back, $res['mensaje']);
@@ -810,7 +811,7 @@ class BloqueoController extends BaseController
 
         if ($ok) {
             $this->redirectWithSuccess($back,
-                'Conducta reabierta. El auxiliar académico puede corregir y volver a cerrar.');
+                'Conducta reabierta. Ya se puede corregir y volver a cerrar.');
         }
         $this->redirectWithError($back, 'No había un cierre de conducta vigente para anular.');
     }
@@ -838,7 +839,8 @@ class BloqueoController extends BaseController
             $this->redirectWithError($back, 'Sección no encontrada.');
         }
 
-        $res = $this->asistenciaModel->bloquearRA($seccionId, $periodoId, (int) $user['id']);
+        // FORZADO (decisión b, 29/09/2026): no exige todo confirmado.
+        $res = $this->asistenciaModel->bloquearRA($seccionId, $periodoId, (int) $user['id'], true);
 
         if ($res['ok']) {
             $this->redirectWithSuccess($back, $res['mensaje']);
@@ -864,16 +866,16 @@ class BloqueoController extends BaseController
         }
         $back = url("director/bloqueos?periodo_id={$periodoId}");
 
-        // A diferencia de las otras tres, la asistencia NO sale de la boleta
-        // (`getDelBimestre` lee `inasistencias` sin mirar el cierre). Pero
+        // Desde el 29/09/2026 la asistencia SÍ sale de la boleta sin cierre
+        // vigente (`AsistenciaModel::sqlVisible`), igual que las otras tres. Y
         // `AsistenciaModel::periodoEditable` exige el periodo `activo`, asi que
-        // reabrir dejaria la seccion en un estado que nadie puede tocar. El
-        // mensaje lo dice tal cual: aqui no se pierde ningun dato.
+        // reabrir con el bimestre cerrado la dejaria fuera de la boleta sin que
+        // nadie pueda tocarla.
         $this->abortarSiPeriodoCerrado(
             $periodoId,
             $back,
-            'No se puede reabrir con el bimestre cerrado: nadie podria registrar ni corregir '
-            . 'asistencia hasta reabrirlo. Reabre el bimestre primero.'
+            'No se puede reabrir con el bimestre cerrado: la asistencia desapareceria de la '
+            . 'boleta de la seccion y nadie podria corregirla. Reabre el bimestre primero.'
         );
 
         $ok = $this->asistenciaModel->anularCierre(
@@ -883,7 +885,7 @@ class BloqueoController extends BaseController
 
         if ($ok) {
             $this->redirectWithSuccess($back,
-                'Asistencia reabierta. Registro Académico puede corregir y volver a bloquear.');
+                'Asistencia reabierta. Ya se puede corregir y volver a bloquear.');
         }
         $this->redirectWithError($back, 'No había un cierre de asistencia vigente para anular.');
     }

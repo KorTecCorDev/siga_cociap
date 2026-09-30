@@ -70,12 +70,14 @@ class ConsultaNotasController extends BaseController
      * como nacieron los bugs de asistencia del 04/08/2026. Los campos de conducta
      * que trae de propina los usa F3; F2 solo necesita id y nombre.
      */
-    private function rosterSeccion(int $seccionId, int $periodoId, int $nivelId): array
+    private function rosterSeccion(int $seccionId, int $periodoId, int $nivelId, int $anioId): array
     {
+        // Criterios del año DEL PERIODO (F6, 28/09/2026): esta consulta también
+        // abre bimestres de años cerrados, que tienen sus propios criterios.
         return $this->conductaModel->getEstudiantesParaTutor(
             $seccionId,
             $periodoId,
-            $this->conductaModel->totalCriterios($nivelId)
+            $this->conductaModel->totalCriterios($nivelId, $anioId)
         );
     }
 
@@ -383,7 +385,7 @@ class ConsultaNotasController extends BaseController
             'seccion'      => $seccion,
             'cierre'       => $cierre,
             'competencias' => $this->transModel->getCompetencias($nivelId),
-            'alumnos'      => $this->rosterSeccion($seccionId, $periodoId, $nivelId),
+            'alumnos'      => $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']),
             'promedios'    => $this->transModel->getPromediosSeccion($seccionId, $periodoId),
             'conclusiones' => $this->transModel->getConclusionesSeccion($seccionId, $periodoId),
         ]);
@@ -428,7 +430,7 @@ class ConsultaNotasController extends BaseController
         $primera = $filas[0];
         $nivelId = (int) $primera['nivel_id'];
 
-        $alumnos  = $this->rosterSeccion($seccionId, $periodoId, $nivelId);
+        $alumnos  = $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']);
         $esLegado = !empty($alumnos) && !empty($alumnos[0]['es_legado']);
 
         $this->view('consulta-notas/conducta', [
@@ -442,7 +444,7 @@ class ConsultaNotasController extends BaseController
             ],
             'cierre'    => $cierre,
             'alumnos'   => $alumnos,
-            'criterios' => $esLegado ? [] : $this->conductaModel->getCriterios($nivelId),
+            'criterios' => $esLegado ? [] : $this->conductaModel->getCriterios($nivelId, (int) $periodo['anio_id']),
             'esLegado'  => $esLegado,
         ]);
     }
@@ -487,7 +489,8 @@ class ConsultaNotasController extends BaseController
         $primera = $filas[0];
         $nivelId = (int) $primera['nivel_id'];
 
-        $estudiantes = $this->conductaModel->getEstudiantesParaRegistro($seccionId, $periodoId);
+        // Solo lectura: Dirección ve lo OFICIAL (confirmado), nunca un borrador.
+        $estudiantes = $this->conductaModel->getEstudiantesParaRegistro($seccionId, $periodoId, true);
 
         // B1 legado (literal directo): no existe matriz de respuestas que mostrar.
         $hayRespuestas = false;
@@ -509,7 +512,7 @@ class ConsultaNotasController extends BaseController
             ],
             'periodo'       => $periodo,
             'cierre'        => $cierre,
-            'criterios'     => $this->conductaModel->getCriterios($nivelId),
+            'criterios'     => $this->conductaModel->getCriterios($nivelId, (int) $periodo['anio_id']),
             'estudiantes'   => $estudiantes,
             'hayRespuestas' => $hayRespuestas,
             // El chrome de ESTA entrada: se vuelve a la conducta de la seccion, y
@@ -665,7 +668,23 @@ class ConsultaNotasController extends BaseController
         }
         $primera = $filas[0];
 
-        $alumnos = $this->asistenciaModel->getEstudiantesConIncidencias($seccionId, $periodoId);
+        // EN VIVO pero solo lo CONFIRMADO (29/09/2026): un borrador del auxiliar
+        // queda «al aire» y no es un dato para Dirección. Sigue sin exigir el
+        // cierre, como decidió el usuario el 24/08.
+        $alumnos = $this->asistenciaModel->getEstudiantesConIncidencias($seccionId, $periodoId, true);
+
+        // Bimestre por fechas: las fechas de cada estudiante y, debajo de la tabla,
+        // el anexo «Detalle de justificaciones» con sus motivos (solo lo confirmado).
+        $fechasDetalle   = null;
+        $justificaciones = [];
+        if ($this->asistenciaModel->periodoPorFechas($periodoId)) {
+            $fechasDetalle = [];
+            $incidencias   = $this->asistenciaModel->incidenciasDe(array_column($alumnos, 'matricula_id'), $periodoId, true);
+            foreach ($incidencias as $mid => $dias) {
+                $fechasDetalle[$mid] = AsistenciaModel::resumenFechas($dias);
+            }
+            $justificaciones = AsistenciaModel::justificaciones($alumnos, $incidencias);
+        }
 
         // Totales de la seccion. PUNTO UNICO en el modelo: los calculaba a mano
         // aqui, y la vista de Registro Academico no los tenia. Ahora las dos
@@ -684,6 +703,8 @@ class ConsultaNotasController extends BaseController
             'alumnos' => $alumnos,
             'totales' => $totales,
             'cierre'  => $this->asistenciaModel->getCierreDetalle($seccionId, $periodoId),
+            'fechasDetalle'   => $fechasDetalle,
+            'justificaciones' => $justificaciones,
         ]);
     }
 

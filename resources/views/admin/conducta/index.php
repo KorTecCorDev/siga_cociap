@@ -8,6 +8,7 @@
  * @var array       $progreso       [ seccion_id => [esperados, calificados, bloqueada, cerrada_tutor] ]
  */
 $pidVer = $periodoVer ? (int) $periodoVer['id'] : 0;
+// @var bool $sinCriterios  el año activo aún no tiene criterios de conducta (F6)
 ?>
 
 <div class="page-header">
@@ -26,6 +27,10 @@ $pidVer = $periodoVer ? (int) $periodoVer['id'] : 0;
             <?php endif; ?>
         </p>
     </div>
+    <?php // Criterios por año (F6): solo quien los gestiona (admin y RA). ?>
+    <?php if (has_role(['admin', 'registro_academico'])): ?>
+        <a href="<?= url('admin/conducta/criterios') ?>" class="btn btn--secondary btn--sm">Criterios</a>
+    <?php endif; ?>
     <?php if (!empty($periodosNav)): ?>
         <form method="GET" action="<?= url('admin/conducta') ?>" class="conducta-periodo-selector">
             <label for="periodo" class="form-label">Bimestre</label>
@@ -43,9 +48,32 @@ $pidVer = $periodoVer ? (int) $periodoVer['id'] : 0;
     <?php endif; ?>
 </div>
 
+<?php if (!empty($sinCriterios)): ?>
+    <div>
+        <div class="alert alert--warning">
+            <span>
+                El año en curso aún no tiene criterios de conducta: no se puede registrar la conducta.
+                <?php if (has_role(['admin', 'registro_academico'])): ?>
+                    Cárgalos en <a href="<?= url('admin/conducta/criterios') ?>">Criterios</a>.
+                <?php else: ?>
+                    Comunícate con Registro Académico.
+                <?php endif; ?>
+            </span>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php if (empty($porNivel)): ?>
     <div class="empty-state">
-        <p>No hay secciones activas configuradas para el año académico en curso.</p>
+        <?php // Al auxiliar la lista vacía no significa que el colegio no tenga
+              // secciones, sino que ninguna estuvo a SU cargo en ese bimestre. ?>
+        <?php if (has_role(ROL_AUXILIAR) && $esHistorial): ?>
+            <p>No tuviste secciones a tu cargo en este bimestre.</p>
+        <?php elseif (has_role(ROL_AUXILIAR)): ?>
+            <p>Aún no tienes secciones asignadas en este bimestre. Comunícate con Registro Académico para que te las asignen.</p>
+        <?php else: ?>
+            <p>No hay secciones activas configuradas para el año académico en curso.</p>
+        <?php endif; ?>
     </div>
 <?php else: ?>
 

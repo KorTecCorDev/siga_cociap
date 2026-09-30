@@ -108,44 +108,17 @@ class CargaAcademicaController extends BaseController
      */
     public function horarioSeccion(string $seccionId): void
     {
-        $seccionId = (int) $seccionId;
-        $seccion   = $this->model->findSeccion($seccionId);
+        // El armado del documento es de HorarioModel (punto único compartido con
+        // el horario de sección del auxiliar académico, 28/09/2026).
+        $datos = (new HorarioModel())->documentoSeccion((int) $seccionId);
 
-        if (!$seccion) {
+        if ($datos === null) {
             $this->redirectWithError(url('director/cargas'), 'Sección no encontrada.');
         }
 
-        $horarioModel = new HorarioModel();
-        $anio         = $this->model->queryOne(
-            "SELECT id, anio FROM anios_academicos WHERE estado = 'activo' LIMIT 1"
-        );
-
-        $sesiones = $horarioModel->getSesionesSeccion($seccionId);
-        $grilla   = $horarioModel->armarGrilla(
-            $sesiones,
-            $horarioModel->duracionHoraAcademica($anio ? (int) $anio['id'] : null),
-            'docente'
-        );
-
         View::setLayout('print');
-        $this->view('director/horario-seccion', array_merge($grilla, [
-            'titulo'  => 'Horario — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
-            'seccion' => [
-                'id'             => $seccionId,
-                'grado_nombre'   => $seccion['grado_nombre'],
-                'seccion_nombre' => $seccion['seccion_nombre'],
-                'nivel_nombre'   => $seccion['nivel_nombre'] ?? '',
-                // findSeccion devuelve el tutor en TRES columnas sueltas, no
-                // compuesto: se arma aqui (vacio si la seccion no tiene tutor).
-                'tutor_nombre'   => trim($seccion['tutor_id'] ?? null
-                    ? ($seccion['tutor_paterno'] ?? '') . ' ' . ($seccion['tutor_materno'] ?? '')
-                      . ', ' . ($seccion['tutor_nombres'] ?? '')
-                    : ''),
-            ],
-            'anio'        => $anio,
-            'directorEbr' => $anio
-                ? (new DirectorEbrModel())->getVigenteEnFecha((int) $anio['id'])
-                : null,
+        $this->view('director/horario-seccion', array_merge($datos, [
+            'titulo' => 'Horario — ' . $datos['seccion']['grado_nombre'] . ' ' . $datos['seccion']['seccion_nombre'],
         ]));
     }
 

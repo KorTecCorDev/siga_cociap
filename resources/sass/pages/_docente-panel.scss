@@ -120,6 +120,8 @@
         --dpanel-icon: url("../assets/icons/childs-students.svg");
         border-left: 4px solid $card-nomina-line;
         .card__title { color: $card-nomina-ink; }
+        // La cifra del badge no se parte en dos renglones («78 / matriculados»).
+        .dpanel-card__head .badge { white-space: nowrap; }
     }
     // Mismo glifo que «Estudiantes en riesgo» en el panel de Dirección: mismo
     // concepto, mismo icono en todo el sistema. Ninguna otra card del docente
@@ -129,7 +131,106 @@
         border-left: 4px solid $card-riesgo-line;
         .card__title { color: $card-riesgo-ink; }
     }
+    // Panel del auxiliar (28/09/2026). Mismo glifo que la card «Asistencia» del
+    // panel de administración: mismo concepto, mismo icono.
+    &--asistencia {
+        --dpanel-icon: url("../assets/icons/calendar-add.svg");
+        border-left: 4px solid $card-asistencia-line;
+        .card__title { color: $card-asistencia-ink; }
+    }
+    // Nómina de docentes (panel del auxiliar, 28/09/2026). Mismo glifo que su
+    // card del dashboard de administración: mismo concepto, mismo icono.
+    &--docentes {
+        --dpanel-icon: url("../assets/icons/folder-2.svg");
+        border-left: 4px solid $card-docentes-line;
+        .card__title { color: $card-docentes-ink; }
+    }
 
+}
+
+// ── Panel del auxiliar: una fila por sección dentro de cada card ────────────
+// Cada fila es un enlace a la grilla de esa sección, con el badge del semáforo
+// (ámbar = le toca · verde = bloqueada · gris = no puede actuar). Filas de 44 px
+// como mínimo: el auxiliar trabaja desde el celular.
+.aux-secciones {
+    list-style: none;
+    margin: $spacing-md 0 0;
+    padding: 0;
+    border-top: 1px solid $border-color;
+}
+
+.aux-seccion {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    min-height: 44px;
+    padding: $spacing-sm $spacing-xs;
+    border-bottom: 1px solid $border-color;
+    color: $text-primary;
+    text-decoration: none;
+    transition: background-color .15s;
+
+    &:hover,
+    &:focus-visible {
+        background: $bg-secondary;
+        text-decoration: none;
+        color: $text-primary;
+    }
+
+    &__nombre {
+        flex: 1;
+        min-width: 0;
+        font-weight: 700;
+    }
+
+    &__nivel {
+        margin-left: $spacing-xs;
+        font-size: $font-size-sm;
+        font-weight: 400;
+        color: $text-muted;
+    }
+
+    &__ir { color: $text-muted; }
+
+    // Fila con varias acciones (card Nómina): la fila no es un enlace, lo son
+    // sus botones. Sin fondo al pasar el ratón.
+    // 🔴 UNA LÍNEA POR SECCIÓN, como Conducta y Asistencia (29/09/2026, pedido
+    // del usuario): con los botones DEBAJO del nombre cada fila medía el doble y
+    // la card no se alineaba con sus vecinas. Los botones van a la derecha y NO
+    // cambian su distribución (siempre lado a lado, `nowrap`); lo que se acomoda
+    // en una card angosta es el texto del nombre, que parte en dos renglones.
+    &--acciones {
+        &:hover { background: none; }
+    }
+
+    // Botones de 27 px en escritorio: con 40 la fila medía 59 px contra los 44
+    // de Conducta y Asistencia (medido el 29/09/2026). 27 + 16 de relleno + 1 de
+    // borde = 44 exactos. En el celular las cards se apilan —la alineación no
+    // importa— y vuelven a 40 px para el dedo.
+    &__acciones {
+        display: flex;
+        flex-wrap: nowrap;
+        flex-shrink: 0;
+        gap: $spacing-xs;
+
+        .dpanel-card__accion {
+            min-height: 27px;
+            padding-top: 0;
+            padding-bottom: 0;
+
+            @media (max-width: 640px) { min-height: 40px; }
+        }
+    }
+
+    // Texto solo para lector de pantalla («matriculados» tras la cifra).
+    &__oculto {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
 }
 
 // ── Wayfinding en el h1 de la vista destino ──────────────────
@@ -518,6 +619,139 @@
     }
 }
 
+// ── Nómina de docentes (impresión A4 vertical desde el 29/09/2026) ─
+// Reusa .nomina-print; añade el filtro por nivel (solo pantalla), un bloque
+// por nivel y las líneas «áreas · secciones» de cada docente.
+
+// Naranja institucional oscurecido: el `$brand-accent` puro salía en blanco y
+// negro como un gris MÁS CLARO que el azul de las secciones, justo al revés de
+// lo que debe destacar (medido con escala de grises el 29/09/2026).
+$nomina-tono-tutoria: darken($brand-accent, 18%);
+
+.nomina-docentes {
+    &__filtro {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+        margin-bottom: $spacing-sm;
+
+        @media print { display: none; }
+    }
+
+    &__opcion {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 4px 12px;
+        border: 1.5px solid $border-color;
+        border-radius: $border-radius;
+        color: $text-primary;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+
+        &:hover,
+        &:focus-visible { border-color: $card-docentes-line; text-decoration: none; }
+
+        &.is-activa {
+            border-color: $card-docentes-line;
+            background: $card-docentes-bg;
+            color: $card-docentes-ink;
+        }
+    }
+
+    &__nivel { margin-bottom: $spacing-md; }
+
+    // El título del nivel no queda huérfano al pie de una hoja.
+    &__nivel-titulo {
+        font-size: 13px;
+        margin: $spacing-sm 0 4px;
+        page-break-after: avoid;
+    }
+
+    &__nombre { font-weight: 600; }
+    // El correo no se parte (se partía en «EDU.↵PE»): el más largo mide 29
+    // caracteres y cabe en la hoja vertical; lo que se acomoda es el nombre.
+    &__correo { white-space: nowrap; }
+    &__vacio { font-size: 12px; }
+
+    // ── Ficha de dos filas (A4 vertical, 29/09/2026) ──────────
+    // Un `<tbody>` por docente: contacto arriba, tutoría y cargas abajo a todo
+    // el ancho. La ficha no se parte entre dos hojas.
+    //
+    // 🔴 BLANCO Y NEGRO: el color es SOLO un refuerzo. Cada distinción tiene
+    // además forma y texto (rótulo «TUTORÍA» + barra gruesa; recuadro en cada
+    // sección). Bordes y texto, nunca fondos: Chrome imprime sin «gráficos de
+    // fondo» por defecto y un fondo desaparecería. Dos tonos: naranja oscuro
+    // (`$nomina-tono-tutoria`) para la tutoría y `$brand-mid` para las
+    // secciones que dicta; en gris, la tutoría queda al menos tan oscura.
+    &__ficha { break-inside: avoid; page-break-inside: avoid; }
+
+    &__tabla thead th { white-space: nowrap; }
+    &__dato { white-space: nowrap; }
+
+    &__detalle { padding: 5px 6px 6px; }
+
+    &__tutoria {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 6px;
+        padding-left: 6px;
+        margin-bottom: 4px;
+        border-left: 4px solid $nomina-tono-tutoria;
+    }
+
+    &__rotulo {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: $nomina-tono-tutoria;
+    }
+
+    // Línea de carga: etiquetas de sección a la izquierda, áreas a la derecha.
+    &__carga {
+        display: grid;
+        grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
+        gap: 6px;
+        align-items: start;
+
+        & + & {
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 0.5px dashed #999;
+        }
+    }
+
+    &__secs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+    }
+
+    // Cada sección en su recuadro, nombrada entera («1° A», nunca «1° A-B»).
+    &__sec {
+        display: inline-block;
+        padding: 0 5px;
+        border: 1px solid $brand-mid;
+        border-radius: 3px;
+        color: $brand-mid;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.5;
+        white-space: nowrap;
+
+        &--tutoria {
+            border-width: 1.5px;
+            border-color: $nomina-tono-tutoria;
+            color: $nomina-tono-tutoria;
+        }
+    }
+
+    &__areas { line-height: 1.4; }
+}
+
 // Cabecera de panel con accion a la derecha (ej. "Mi horario" + Imprimir).
 .dpanel-panel__head {
     display: flex;
@@ -735,6 +969,20 @@
     &--nomina  { --accion-icon: url("../assets/icons/childs-students.svg"); }
     &--merito  { --accion-icon: url("../assets/icons/medal-ribbon-star.svg"); }
     &--seccion { --accion-icon: url("../assets/icons/ver-resumen.svg"); }
+    // Mismo glifo que el panel «Mi horario» del docente: mismo concepto.
+    &--horario { --accion-icon: url("../assets/icons/calendar.svg"); }
+    // Card «Nómina de docentes» del auxiliar: el botón toma el índigo de su card.
+    &--docentes {
+        --accion-icon: url("../assets/icons/printer.svg");
+        color: $card-docentes-ink;
+
+        &:hover,
+        &:focus-visible {
+            border-color: $card-docentes-line;
+            background: $card-docentes-bg;
+            color: $card-docentes-ink;
+        }
+    }
 }
 
 .dpanel-card__accion-ico {

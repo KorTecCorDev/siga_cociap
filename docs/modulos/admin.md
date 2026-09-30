@@ -7,6 +7,11 @@
 - **Rutas:** `GET/POST /admin/usuarios`, `/admin/usuarios/crear`, `/{id}/editar`, `/{id}/estado`
 - **Rol requerido:** solo `admin`
 - **Controlador:** `app/Controllers/Admin/UsuarioController.php`
+- **Registro Académico NO gestiona usuarios** (decisión del usuario, 29/09/2026). La card
+  del dashboard se le mostraba desde el origen del módulo, aunque el controlador siempre le
+  negó el acceso. Se le quitó la card y el enlace de `admin/director-ebr`. No abrirlo a RA,
+  ni siquiera parcialmente: la edición cambia el rol y la contraseña de cualquier cuenta, así
+  que RA podría tomar la del administrador.
 - **Vistas:** `resources/views/admin/usuarios/` (index.php, crear.php, editar.php)
 - **SASS:** `resources/sass/pages/_admin.scss`
 
@@ -207,10 +212,12 @@ tanto el dato desaparece de la boleta:
 | Reabrir transversal (sección) | **Sí** | `getTransversalesAgregadas` corta si no hay cierre vigente |
 | Liberar transversal (carga) | **Sí** | la competencia sale del promedio agregado, y además anula el cierre |
 | Reabrir conducta | **Sí** | `ConductaModel::getParaPeriodo` devuelve `null` (campo `visible`) |
-| Reabrir asistencia | **No** | `getDelBimestre` lee `inasistencias` sin mirar el cierre |
+| Reabrir asistencia | **Sí** (desde el 29/09/2026; antes **No**) | `AsistenciaModel::sqlVisible` exige confirmación **y** cierre vigente |
 
-⚠️ **Cada llamada pasa SU mensaje**: el efecto no es idéntico y el aviso de asistencia no
-debe prometer una pérdida de datos que no ocurre. En la vista los botones quedan
+⚠️ **Cada llamada pasa SU mensaje**: el efecto no es idéntico. (Hasta el 29/09/2026 la
+asistencia era la excepción y su aviso no prometía pérdida; desde la confirmación y la
+asistencia por fechas, sale de la boleta como la conducta. Ver
+`docs/modulos/confirmacion-y-asistencia-por-fechas.md`.) En la vista los botones quedan
 **inertes con el motivo en el `title`** (no desaparecen: se ve POR QUÉ no se puede),
 reusando `.btn:disabled` de `components/_buttons.scss` — sin SASS nuevo.
 
@@ -540,6 +547,15 @@ tabla desplazada a la derecha, **saltar de fila** es un error caro.
   el input porque es el elemento que recibe el foco y al que el navegador desplaza.
 - En la vista de Dirección **no se activa nunca**: en solo lectura el partial no
   pinta inputs, y sin nada enfocable no hay `:focus-within`.
+
+## Conducta: criterios POR AÑO (28/09/2026, migración 067)
+
+- Cada año académico tiene SUS criterios (`criterios_conducta.anio_id`). La condición
+  «criterio vigente de un año y un nivel» vive SOLO en `ConductaModel::criteriosDelAnio()`;
+  las subconsultas de completitud toman el año de la SECCIÓN. Se gestionan en
+  `/admin/conducta/criterios` (admin y RA; Dirección en solo lectura). Con respuestas en
+  el año, solo se corrige la redacción y los códigos no se tocan. Detalle y reglas:
+  `docs/modulos/auxiliares.md` §7 F6.
 
 ## Conducta: código de criterio y grilla Sí/No compartida (25/08/2026)
 

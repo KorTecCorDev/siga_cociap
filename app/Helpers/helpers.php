@@ -216,6 +216,21 @@ const NOTA_MIN_B  = 11;
 const ROLES_DIRECCION = ['director_general', 'director_ebr', 'director_academico'];
 
 /**
+ * Rol del AUXILIAR ACADÉMICO (migración 065, 28/09/2026).
+ *
+ * Registra y bloquea la conducta y la asistencia, pero SOLO de las secciones
+ * que tiene asignadas en ese bimestre (`auxiliar_secciones`, migración 066).
+ * El rol por sí solo no da acceso a ninguna sección: el alcance lo decide
+ * `AuxiliarSeccionModel::puedeRegistrar()`, que es el punto único del permiso.
+ * Admin y Registro Académico siguen registrando CUALQUIER sección (respaldo).
+ *
+ * Como con ROLES_DIRECCION: nunca escribir el código a mano. La única copia que
+ * no puede leer la constante es el color del avatar en `pages/_admin.scss`.
+ * Ver docs/modulos/auxiliares.md.
+ */
+const ROL_AUXILIAR = 'auxiliar_academico';
+
+/**
  * PROCEDENCIA de una nota que NO salió del registro ordinario del docente.
  *
  * Conviven TRES mecanismos y hasta el 10/09/2026 solo uno llevaba marca, así
@@ -467,8 +482,12 @@ function matriculas_vigentes(string $alias = 'm'): string
  * está `activo`). Lo vigila `verif_matricula_documento.php`.
  *
  * Consumidores: el lote de boletas y el hub de tokens (`BoletaPublicaModel`),
- * la resolución del token público (`BoletaController`), y toda
- * `/matriculas/resumen` — chips, los 5 gráficos y el cuadro por grado.
+ * la resolución del token público (`BoletaController`), toda
+ * `/matriculas/resumen` — chips, los 5 gráficos y el cuadro por grado — y,
+ * desde el 28/09/2026, la nómina del docente (`Docente\PanelController` ×2),
+ * el hijo del panel del padre y el matching del export SIAGIE
+ * (`SiagieExportModel` ×2): eran cinco copias a mano del híbrido. La sección 6
+ * de `verif_matricula_documento.php` barre `app/` para que no vuelva.
  *
  * @param  string $alias alias de la tabla `matriculas` en la consulta
  * @return string la condición, ya con `AND` inicial, lista para interpolar

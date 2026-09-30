@@ -1,0 +1,86 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// _criterios-conducta.scss — CRITERIOS DE CONDUCTA POR AÑO (F6, 28/09/2026)
+// /admin/conducta/criterios: admin y RA editan, Dirección ve. Ver
+// docs/modulos/auxiliares.md §7 F6.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Selector de año (enlaces, como el filtro por nivel de la nómina de docentes).
+.criterios-anios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-md;
+
+    &__opcion {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 4px 14px;
+        border: 1.5px solid $border-color;
+        border-radius: $border-radius;
+        color: $text-primary;
+        font-weight: 600;
+        text-decoration: none;
+
+        &:hover,
+        &:focus-visible { border-color: $card-conducta-line; text-decoration: none; }
+
+        &.is-activa {
+            border-color: $card-conducta-line;
+            background: $card-conducta-bg;
+            color: $card-conducta-ink;
+        }
+    }
+}
+
+.criterios-tabla {
+    &__codigo { width: 72px; font-weight: 700; white-space: nowrap; }
+    &__nivel  { width: 150px; white-space: nowrap; }
+
+    // Quién corrigió la redacción (migración 067).
+    &__traza {
+        display: block;
+        margin-top: 2px;
+        font-size: $font-size-sm;
+        color: $text-muted;
+    }
+
+    &__acciones {
+        text-align: right;
+        white-space: nowrap;
+
+        form { display: inline-block; margin-left: $spacing-xs; }
+    }
+
+    &__editando td { background: $bg-secondary; }
+}
+
+// `_auth.scss` deja a `.form-input` un padding izquierdo de 40 px (el hueco del
+// icono del login) a nivel GLOBAL; aquí no hay icono. Corrección local, no global.
+.criterios-form .form-input,
+.criterios-nuevo .form-input { padding-left: 12px; }
+
+.criterios-form {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+
+    &__nivel { max-width: 260px; }
+
+    &__acciones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+        margin-top: $spacing-xs;
+    }
+}
+
+.criterios-nuevo {
+    margin-top: $spacing-md;
+
+    .card__body {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+    }
+}

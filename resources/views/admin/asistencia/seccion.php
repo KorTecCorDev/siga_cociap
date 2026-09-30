@@ -10,9 +10,12 @@
  * @var array       $periodosNav  periodos del año activo + ['cierre' => cierre vigente|null]
  * @var bool        $soloLectura  true = periodo no editable (historial)
  * @var array|null  $cierre       cierre vigente del periodo mostrado o null
+ * @var array|null  $firmas       AuxiliarSeccionModel::firmasDelRegistro() si hay cierre
  * @var array       $estudiantes  [{ matricula_id, nombre_completo, incidencias{...} }]
  * @var array       $totales      AsistenciaModel::totalesIncidencias($estudiantes)
  * @var int         $topeMax      valor máximo por contador (espejo del backend)
+ * @var bool        $porFechas    bimestre por fechas (migración 069): grilla mensual
+ * @var array       $fechas       datos de la grilla por fechas (ver _grilla-fechas.php)
  *
  * La TABLA vive en `_tabla-incidencias.php`, compartida con la consulta de
  * Direccion. Las variables de arriba son el contrato que ese partial espera.
@@ -38,6 +41,12 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
             <?php endif; ?>
         </p>
     </div>
+    <?php // Segunda entrada del registro (un estudiante por pantalla). Solo
+          // cuando hay algo que registrar: la pantalla no muestra historial. ?>
+    <?php if ($periodoVer && $editable && !empty($estudiantes)): ?>
+        <a href="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/estudiante') ?>"
+           class="btn btn--primary btn--sm">Registrar por estudiante</a>
+    <?php endif; ?>
 </div>
 
 <?php if (!empty($periodosNav)): ?>
@@ -78,7 +87,8 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
     <div class="alert alert--info">
         <span class="btn-icon btn-icon--locked" aria-hidden="true"></span>
         <span>
-            Asistencia <strong>bloqueada y aprobada por Registro Académico</strong>
+            Asistencia <strong>bloqueada y aprobada por <?= e($firmas['bloqueo_nombre'] ?? '') ?></strong>
+            (<?= e($firmas['bloqueo_rol'] ?? '') ?>)
             el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>.
             Para corregir, solicita el desbloqueo a Dirección.
         </span>
@@ -89,11 +99,38 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
     </div>
 <?php endif; ?>
 
-<?php // La tabla es un PARTIAL COMPARTIDO con la consulta de Direccion: el mismo
-      // dato se pintaba en dos plantillas distintas. Ver _tabla-incidencias.php.
-      require VIEW_PATH . '/admin/asistencia/_tabla-incidencias.php'; ?>
+<?php if ($porFechas): ?>
+    <?php // Bimestre POR FECHAS (29/09/2026): grilla mensual día × estudiante. ?>
+    <?php require VIEW_PATH . '/admin/asistencia/_grilla-fechas.php'; ?>
+<?php else: ?>
+    <?php // La tabla es un PARTIAL COMPARTIDO con la consulta de Direccion: el mismo
+          // dato se pintaba en dos plantillas distintas. Ver _tabla-incidencias.php.
+          require VIEW_PATH . '/admin/asistencia/_tabla-incidencias.php'; ?>
+<?php endif; ?>
 
-<?php if ($editable): ?>
+<?php if ($editable && $porFechas):
+    $prog     = $fechas['progreso'];
+    $sinTomar = count($fechas['sinTomar'] ?? []);
+    $completo = $prog['esperados'] > 0 && $prog['registrados'] >= $prog['esperados'] && $sinTomar === 0; ?>
+    <?php // Exige a TODOS confirmados (decisión b, 29/09/2026) y, desde el
+          // 30/09/2026, TODO día con su lista tomada; el servidor lo vuelve a
+          // comprobar en `AsistenciaModel::bloquearRA`. ?>
+    <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/bloquear') ?>"
+          class="conducta-bloqueo-form"
+          onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Después solo Dirección podrá desbloquearla.');">
+        <?= csrf_field() ?>
+        <div class="conducta-bloqueo-info">
+            Confirmados: <strong><?= (int) $prog['registrados'] ?>/<?= (int) $prog['esperados'] ?></strong>
+            · Días sin tomar: <strong class="af-sin-tomar-total"><?= $sinTomar ?></strong>
+            <?php if (!$completo): ?>
+                <span class="text-muted">— confirma a todos y pasa lista de cada día para poder bloquear</span>
+            <?php endif; ?>
+        </div>
+        <button type="submit" class="btn btn--success" <?= $completo ? '' : 'disabled' ?>>
+            <span class="btn-icon btn-icon--upload" aria-hidden="true"></span>Bloquear y aprobar
+        </button>
+    </form>
+<?php elseif ($editable): ?>
     <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/bloquear') ?>"
           class="conducta-bloqueo-form"
           onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Las filas sin registro cuentan como 0 incidencias. Después solo Dirección podrá desbloquearla.');">

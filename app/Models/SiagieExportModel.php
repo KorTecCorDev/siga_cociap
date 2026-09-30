@@ -106,8 +106,9 @@ class SiagieExportModel extends BaseModel
 
     /**
      * Universo de estudiantes de la sección para el matching: matrículas
-     * APROBADAS, excluyendo las OPERATIVAS de un retorno de grado activo
-     * (ese alumno figura en el archivo SIAGIE de su sección OFICIAL).
+     * APROBADAS, excluyendo las OPERATIVAS de un retorno de grado, activo o
+     * revertido (ese alumno figura en el archivo SIAGIE de su sección OFICIAL).
+     * Punto único: `matricula_documento()`.
      */
     public function estudiantesDeSeccion(int $seccionId): array
     {
@@ -125,9 +126,7 @@ class SiagieExportModel extends BaseModel
             INNER JOIN personas p    ON p.id = e.persona_id
             WHERE m.seccion_id = ?
               AND m.estado     = 'aprobada'
-              AND m.id NOT IN (
-                  SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'activo'
-              )
+              " . matricula_documento('m') . "
             ORDER BY " . orden_alfabetico('p') . "
         ", [$seccionId]);
     }
@@ -136,7 +135,7 @@ class SiagieExportModel extends BaseModel
      * Estudiantes de las OTRAS secciones del mismo grado y año (para detectar
      * un cambio de sección sin tramitar: la fila del SIAGIE pertenece a un
      * alumno que en SIGA sigue en otra sección). Mismos filtros que
-     * estudiantesDeSeccion (aprobadas, excluye operativas de retorno activo)
+     * estudiantesDeSeccion (aprobadas, excluye operativas de retorno)
      * MÁS la sección de origen (id + nombre) para poder informarla.
      */
     public function estudiantesDeOtrasSecciones(int $gradoId, int $anioId, int $seccionExcluida): array
@@ -160,9 +159,7 @@ class SiagieExportModel extends BaseModel
               AND s.anio_id    = ?
               AND m.seccion_id <> ?
               AND m.estado     = 'aprobada'
-              AND m.id NOT IN (
-                  SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'activo'
-              )
+              " . matricula_documento('m') . "
             ORDER BY s.nombre, " . orden_alfabetico('p') . "
         ", [$gradoId, $anioId, $seccionExcluida]);
     }

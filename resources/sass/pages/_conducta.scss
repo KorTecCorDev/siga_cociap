@@ -32,6 +32,7 @@
 }
 
 // ── Leyenda de criterios (desplegable) ──────────────────────────────────────
+// Base: la usa tal cual la vista del tutor (`docente/conducta-criterios.php`).
 .conducta-criterios-leyenda {
     margin-bottom: $spacing-md;
     padding: $spacing-sm $spacing-md;
@@ -105,6 +106,11 @@
     th.conducta-th-crit,
     td.conducta-td-crit { border-left: 1px solid $border-color; }
 
+    // Resaltado de fila al pasar el cursor: el del SISTEMA (`.tabla-notas tr:hover`),
+    // en TODAS las columnas (decisión del usuario, 30/09/2026; deroga la del 29/09
+    // que lo anulaba aquí). La fila ya no lleva fondo de estado —solo la franja del
+    // N°—, así que el hover no compite con nada.
+
     // ⚠️ El borde que cierra los criterios contra la zona calculada YA NO se
     // dibuja aqui: lo pone `.col-resultado--inicio`, el separador del sistema que
     // usan todas las grillas. Mantener los dos daria doble linea, y el manual era
@@ -134,7 +140,15 @@
 
     & + .cc-btn { border-left: 1px solid $border-color; }
 
-    &:hover:not(:disabled) { background: $bg-secondary; }
+    // 🔴 EL HOVER NO TOCA AL BOTÓN SELECCIONADO. `:hover:not(:disabled)` es
+    // (0,3,0) y le ganaba a `--si/--no.cc-btn--activo` (0,2,0): el fondo pasaba
+    // a gris y el texto seguía blanco, así que la opción elegida DESAPARECÍA.
+    // En el celular el «hover» se queda pegado tras tocar, hasta tocar otra cosa
+    // (lo reportó el usuario el 29/09/2026). Por eso además va solo en
+    // dispositivos con puntero real.
+    @media (hover: hover) {
+        &:hover:not(:disabled):not(.cc-btn--activo) { background: $bg-secondary; }
+    }
     &:disabled { cursor: default; opacity: .55; }
 
     &--si.cc-btn--activo { background: $color-success; color: $text-white; }
@@ -151,20 +165,33 @@
     &--c  { color: $color-error; }
 }
 
-// ── Estado de guardado por fila (sin texto: barra izquierda + color de fila) ─
-// El fondo se aplica tambien a las celdas sticky (col-num/col-nombre) con
-// !important para ganarle a su fondo propio, igual que .fila-pendiente.
-.conducta-fila--pendiente {
-    td,
-    td.col-num,
-    td.col-nombre { background: $color-warning-bg !important; }
+// ── Estado de guardado por fila: SOLO la franja del N° ──────────────────────
+// 🔴 SIN FONDO DE FILA (decisión del usuario, 30/09/2026). El estado lo dice
+// únicamente la franja de 3 px; el N° conserva el estilo ESTABLECIDO de
+// `.tabla-notas` (fondo y hover del sistema), igual que en el I y II Bimestre.
+// Deroga el N° blanco, en negrita y con separador grueso del 29/09.
+.conducta-grilla td.col-num { box-shadow: inset 3px 0 0 var(--franja, transparent); }
+.conducta-fila--pendiente td.col-num { --franja: #{$color-warning}; }
+.conducta-fila--guardada  td.col-num { --franja: #{$color-success}; }
+// Un autoguardado que falló (conducta.js): rojo, gana a los otros dos.
+.conducta-fila--error     td.col-num { --franja: #{$color-error}; }
 
-    // barra de estado en la celda N° (no pelea con el fondo sticky)
-    td.col-num { box-shadow: inset 3px 0 0 $color-warning; }
-}
+// ── Estado de confirmación (29/09/2026) ─────────────────────────────────────
+// Verde = CONFIRMADO (el visto bueno de quien registra; cuenta en boleta al
+// bloquear). Ámbar = borrador o incompleto: autoguardado, pero «al aire».
+// El texto lo pinta conducta.js (`marcarEstado`) en la vista por estudiante; la
+// grilla no tiene columna «Estado» y lo dice solo con la franja del N°.
 
-.conducta-fila--guardada {
-    td.col-num { box-shadow: inset 3px 0 0 $color-success; }
+// 🔴 `.btn` fija su propio `display` y le gana al atributo `hidden` del
+// navegador: sin esto, «Confirmar» seguía visible en una fila ya confirmada.
+.conducta-confirmar[hidden] { display: none; }
+
+.conducta-estado {
+    font-size: $font-size-sm;
+    font-weight: 600;
+
+    &--ok        { color: $color-success; }
+    &--pendiente { color: $color-warning; }
 }
 
 // ── Bloqueo de seccion ──────────────────────────────────────────────────────

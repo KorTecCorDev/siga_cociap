@@ -10,6 +10,8 @@
  * @var array  $criterios    [{ id, texto }]
  * @var array  $estudiantes  [{ matricula_id, nombre_completo, respuestas[criterio_id] }]
  * @var array  $cierre       { ra_bloqueado_en, ra_nombre, tutor_cerrado_en, tutor_nombre }
+ * @var array  $firmas       AuxiliarSeccionModel::firmasDelRegistro() — nombres de las
+ *                           dos líneas de firma y quién bloqueó con su rol real
  * @var string $institucion
  */
 
@@ -63,6 +65,9 @@ $hayExtraordinaria = false;
                     <th class="tr-crit"><?= e($c['codigo']) ?></th>
                 <?php endforeach; ?>
                 <th class="tr-nota">Nota</th>
+                <?php // N° REPETIDO al final (decisión del usuario, 29/09/2026): guía la
+                      // lectura de una fila larga en el listado impreso. ?>
+                <th class="tr-num">N&deg;</th>
             </tr>
         </thead>
         <tbody>
@@ -96,6 +101,7 @@ $hayExtraordinaria = false;
                             &mdash;
                         <?php endif; ?>
                     </td>
+                    <td class="tr-num"><?= $idx + 1 ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
@@ -122,8 +128,8 @@ $hayExtraordinaria = false;
     </div>
 
     <p class="registro-doc__traza">
-        Registro bloqueado y aprobado por <strong><?= e($cierre['ra_nombre']) ?></strong>
-        (Registro Académico) el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>.
+        Registro bloqueado y aprobado por <strong><?= e($firmas['bloqueo_nombre']) ?></strong>
+        (<?= e($firmas['bloqueo_rol']) ?>) el <?= e(fechaLima($cierre['ra_bloqueado_en'])) ?>.
         <?php if (!empty($cierre['tutor_cerrado_en'])): ?>
             Cerrado por el tutor(a) <strong><?= e($cierre['tutor_nombre'] ?? '') ?></strong>
             el <?= e(fechaLima($cierre['tutor_cerrado_en'])) ?>.
@@ -141,11 +147,17 @@ $hayExtraordinaria = false;
         <div class="reporte-footer__bloque">
             <div class="reporte-footer__espacio-firma"></div>
             <div class="reporte-footer__linea"></div>
+            <?php if (!empty($firmas['auxiliar'])): ?>
+                <div class="reporte-footer__nombre"><?= e($firmas['auxiliar']) ?></div>
+            <?php endif; ?>
             <div class="reporte-footer__cargo">Auxiliar Responsable</div>
         </div>
         <div class="reporte-footer__bloque">
             <div class="reporte-footer__espacio-firma"></div>
             <div class="reporte-footer__linea"></div>
+            <?php if (!empty($firmas['ra'])): ?>
+                <div class="reporte-footer__nombre"><?= e($firmas['ra']) ?></div>
+            <?php endif; ?>
             <div class="reporte-footer__cargo">Personal de Registro Académico</div>
         </div>
     </footer>

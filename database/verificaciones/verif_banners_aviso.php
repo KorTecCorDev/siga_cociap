@@ -212,12 +212,14 @@ $vistas = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(VIEW_PATH
 $conGlifo = [];
 $totalBanners = 0;
 $conAccion = 0;
+$conBoton  = 0;
 foreach ($vistas as $f) {
     if ($f->getExtension() !== 'php') { continue; }
     $src = file_get_contents($f->getPathname());
     foreach ($bannersDe($src) as $cuerpoBanner) {
         $totalBanners++;
         if (str_contains($cuerpoBanner, 'alert__accion')) { $conAccion++; }
+        if (preg_match('/class="btn[\s"]/', $cuerpoBanner)) { $conBoton++; }
         // 🔴 El glifo a mano es el modo natural de romper el icono automatico:
         // `:has()` solo ve ELEMENTOS, asi que un caracter suelto no lo suprime y
         // el banner sale con DOS iconos. Habia nueve; se borraron el 02/09.
@@ -231,8 +233,11 @@ $chk('el barrido encuentra los banners del proyecto',
     $totalBanners >= 40, "$totalBanners banners");
 $chk('ningun banner trae glifo a mano (saldria con DOS iconos)',
     $conGlifo === [], $conGlifo === [] ? 'limpio' : implode(', ', array_unique($conGlifo)));
+// Antes afirmaba `=== 3`: un conteo que caduca con cada banner con boton nuevo
+// (cayo el 28/09/2026 con el de /admin/auxiliares). Lo que protege es que TODO
+// banner con boton lo lleve como `alert__accion`, y eso se mide sin fijar el total.
 $chk('los banners con boton siguen usando alert__accion',
-    $conAccion === 3, "$conAccion con accion");
+    $conBoton >= 3 && $conAccion === $conBoton, "$conAccion de $conBoton con boton");
 
 // Delimita el alcance: `alerta-item` y `alerta-empate` son OTROS componentes
 // (pages/_dashboard.scss) que un grep por `class="alert` captura por prefijo.
