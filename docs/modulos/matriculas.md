@@ -373,6 +373,12 @@ siempre con `EXO`; ya no distingue si había notas.
   restaura `tipo_anterior` (el estado sigue `desactivado`). `activar()` también
   restaura el tipo al reactivar por completo (condición extendida a
   `IN ('trasladado','retirado')`).
+- **Retirar una matrícula `pendiente`** (30/09/2026): «Desactivar matrícula» se muestra
+  también a las `pendiente` (antes solo a las `aprobada`), así que el camino es el mismo:
+  Desactivar (con motivo) → «Marcar retirado». `desactivar()` ya lo soportaba y no toca el
+  orden de mérito si no venía de `aprobada`. «Trasladar» sigue solo para `aprobada`.
+  ⚠️ «Revertir retiro» la deja en `desactivado`; de ahí sale con «Activar» (a `aprobada`,
+  si cumple requisitos), no de vuelta a `pendiente`.
 - **Migración 045** (`MODIFY tipo ENUM(...,'retirado')`, idempotente). `tipo_anterior`
   NO incluye `retirado` (nunca se revierte hacia él). Badge `matricula-badge--retirado`.
 
