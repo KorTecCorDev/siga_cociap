@@ -38,7 +38,7 @@ impersonales, Usuarios solo para admin, grillas sin columna Estado, imprimible c
 - **Lista del día** (✓ solo con lista tomada), **menú por celda**, **FJ/TJ siempre con
   motivo** y **días no lectivos**. Migración **070**, aplicada en la BD de la oficina.
 - Batería 55/55. Probado en Chrome con admin, auxiliar y Director EBR.
-- Falta el celular real. Detalle en la «QUINTA RONDA» de
+- Celular real probado por el usuario, conforme. Detalle en la «QUINTA RONDA» de
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 
 **Al retomar EN CASA, antes de probar nada:**

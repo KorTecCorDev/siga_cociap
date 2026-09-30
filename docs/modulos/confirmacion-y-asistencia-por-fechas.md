@@ -187,7 +187,9 @@
 > - `POST /no-lectivos/crear` y `POST /{id}/jornada` → **403 por rol**, también con un
 >   token CSRF válido. Nada escrito.
 >
-> **Falta probar:** el celular real.
+> **Celular real: PROBADO por el usuario el 30/09/2026.** Entró por la IP de la laptop en
+> la wifi (`http://<IP>:3000/siga_cociap/public`; en el celular, `localhost` es el propio
+> teléfono). Conforme. La quinta ronda queda cerrada.
 
 > **AVANCE (29/09/2026, sin commit):**
 > - ✅ **Fase 1 — Conducta B2: HECHA y probada.** `ConductaModel::RESPUESTAS_OFICIALES`
