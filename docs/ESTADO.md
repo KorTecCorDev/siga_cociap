@@ -16,6 +16,16 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
+## 🆕 PLANILLA DE ASISTENCIA CON LAS SIGLAS DEL SISTEMA — EN `dev`, sin desplegar (30/09/2026)
+
+Sin migración. La planilla manual (PDF y Excel) pasa de F/J/T/U (SIAGIE) a **F/FJ/T/TJ**, las
+del sistema; punto único `PlanillaAsistenciaModel::LEYENDA`. La plantilla Excel lleva vacías
+`AC8:AF8` y `A46` y el código las escribe. Además, `verif_direccion_solo_lectura.php` entiende
+los `if` partidos en varias líneas (falso positivo en `matriculas/show.php`). Batería 55/55.
+Detalle en `docs/modulos/auxiliares.md`.
+- [ ] Merge a `main` «para el final» (decisión del usuario, 30/09/2026).
+- [ ] Abrir un Excel y un PDF generados para verlos impresos (en local no hay Excel ni sesión).
+
 ## 🟢 RETIRAR UNA MATRÍCULA PENDIENTE — DESPLEGADO el 30/09/2026 (sin cambio de versión: sigue v1.0.5)
 
 Sin migración. «Desactivar matrícula» se muestra también a las `pendiente` en la ficha de

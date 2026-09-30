@@ -108,10 +108,14 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
     11 pt en negrita; casilla vacía = se escribe a mano; en blanco, MES vacío).
   - **Filas según la sección:** estudiantes + hasta 3 libres, y el alto se ajusta para
     llenar la hoja (tope 9 mm); siempre UNA hoja.
-  - **Totales con la leyenda del SIAGIE: F · J · T · U** (F = falta, J = falta
-    justificada, T = tardanza, U = tardanza justificada; coinciden con los 4 contadores
-    independientes). **Asistió = casilla en blanco.** Leyenda impresa bajo la grilla.
-    (La leyenda la confirmó el usuario; no se halló fuente oficial abierta.)
+  - **Totales con las siglas DEL SISTEMA: F · FJ · T · TJ** (30/09/2026; deroga la
+    F · J · T · U del SIAGIE del 28/09). El papel se transcribe en el sistema, que usa
+    F/FJ/T/TJ desde la asistencia por fechas, y la «J» chocaba con la de jueves en la
+    cabecera de días. **Asistió = casilla en blanco.** Leyenda impresa bajo la grilla.
+    PUNTO ÚNICO: `PlanillaAsistenciaModel::LEYENDA`. El PDF la lee directo; en el Excel,
+    las celdas `AC8:AF8` y `A46` están VACÍAS en la plantilla (como `L1`/`L3`) y
+    `generarExcel()` las escribe desde la constante: `XlsxQuirurgico` no sobrescribe
+    celdas con valor, a propósito. Protegido en `verif_rol_auxiliar.php`.
   - **Días que no son del mes** (modo con fechas): sombreados en gris claro.
   - **Sin marca de agua.** Pie: código CAVVG/HZ/año · lema · fecha de impresión.
   - **Excel:** se REDISEÑA la plantilla (con Excel, por automatización) con 35 filas; el

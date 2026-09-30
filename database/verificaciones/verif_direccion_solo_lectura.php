@@ -209,7 +209,15 @@ foreach ($itV as $fv) {
 
     $L = $leerVista($fv->getPathname());
     $pila = [];
+    // `if (` de sintaxis alternativa partido en varias lineas (30/09/2026): se
+    // apila cuando aparece su `):`. Sin esto, su `endif` desapilaba el gate de
+    // fuera (`matriculas/show.php`, condicion de «Marcar retirado»): falso positivo.
+    $ifAbierto = null;
     foreach ($L as $i => $linea) {
+        if ($ifAbierto !== null) {
+            if (preg_match('/\)\s*:/', $linea)) { $pila[] = $ifAbierto; $ifAbierto = null; }
+            elseif (str_contains($linea, '{')) { $ifAbierto = null; }
+        }
         $dentroDeGate = in_array(true, $pila, true);
 
         if (str_contains($linea, 'url(')) {
@@ -226,6 +234,9 @@ foreach ($itV as $fv) {
         foreach (preg_split('/(?=\bif\s*\(|\bendif\s*;)/', $linea) as $trozo) {
             if (preg_match('/^if\s*\(.*\)\s*:/', $trozo)) {
                 $pila[] = str_contains($trozo, 'if ($puede') || str_contains($trozo, 'if (has_role');
+            } elseif (preg_match('/^if\s*\(/', $trozo) && !str_contains($trozo, '{')
+                      && !str_contains($trozo, ')')) {
+                $ifAbierto = str_contains($trozo, 'if ($puede') || str_contains($trozo, 'if (has_role');
             } elseif (str_starts_with($trozo, 'endif')) {
                 array_pop($pila);
             }

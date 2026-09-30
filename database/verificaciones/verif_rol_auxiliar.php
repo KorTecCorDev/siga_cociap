@@ -321,9 +321,14 @@ if (!class_exists('ZipArchive')) {
         ($c[9]['G'] ?? '') === '01' && ($c[10]['G'] ?? '') === 'J' && !isset($c[9]['D']) && !isset($c[9]['F']));
     $chk('Excel: los días que no existen se sombrean solos (formato condicional sobre el MES)',
         str_contains($xml, '<conditionalFormatting sqref="D9:AB45">') && str_contains($xml, '($D$6&lt;&gt;"")*(D$9="")'));
-    $chk('Excel: siglas del SIAGIE F · J · T · U y leyenda bajo la grilla',
-        ($c[8]['AC'] ?? '') === 'F' && ($c[8]['AD'] ?? '') === 'J' && ($c[8]['AE'] ?? '') === 'T'
-        && ($c[8]['AF'] ?? '') === 'U' && str_contains($c[46]['A'] ?? '', 'U = Tardanza justificada'));
+    // Siglas DEL SISTEMA (30/09/2026; derogan la F/J/T/U del SIAGIE), escritas
+    // desde LEYENDA, el mismo punto que usa el PDF.
+    $chk('Excel: siglas del sistema F · FJ · T · TJ y leyenda bajo la grilla',
+        ($c[8]['AC'] ?? '') === 'F' && ($c[8]['AD'] ?? '') === 'FJ' && ($c[8]['AE'] ?? '') === 'T'
+        && ($c[8]['AF'] ?? '') === 'TJ' && str_contains($c[46]['A'] ?? '', 'FJ = Falta justificada')
+        && str_contains($c[46]['A'] ?? '', 'TJ = Tardanza justificada') && !str_contains($c[46]['A'] ?? '', 'U = '));
+    $chk('Excel y PDF leen la misma leyenda (LEYENDA = F/FJ/T/TJ)',
+        array_keys($P::LEYENDA) === ['F', 'FJ', 'T', 'TJ']);
     $chk('Excel: estudiantes desde B11 en orden', ($c[11]['B'] ?? '') === $alumnos[0] && ($c[12]['B'] ?? '') === $alumnos[1]);
     $chk('Excel: el nombre que no cabe sale abreviado', ($c[13]['B'] ?? '') === 'SANTAMARIA RODRIGUEZ, JAKELINE E.');
     $filasG = $P::filasGrilla(count($alumnos));

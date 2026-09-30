@@ -53,8 +53,21 @@ class PlanillaAsistenciaModel extends BaseModel
     public const MAX_TUTOR    = 32;   // casilla TUTOR(A) (84 mm, 11 pt negrita)
     public const MAX_AUXILIAR = 26;   // casilla AUXILIAR (~63 mm, 11 pt negrita)
 
-    /** Leyenda del SIAGIE (confirmada por el usuario el 28/09/2026). */
-    public const LEYENDA = ['F' => 'Falta', 'J' => 'Falta justificada', 'T' => 'Tardanza', 'U' => 'Tardanza justificada'];
+    /**
+     * Leyenda de la planilla = las siglas DEL SISTEMA (F/FJ/T/TJ, las de la
+     * asistencia por fechas): el papel se transcribe en el sistema (decisión del
+     * usuario, 30/09/2026; deroga la F/J/T/U del SIAGIE del 28/09, que además
+     * chocaba con la «J» de jueves en la cabecera de días). PUNTO ÚNICO para el
+     * PDF y el Excel: la plantilla trae la vieja escrita y `generarExcel()` la
+     * sobrescribe desde aquí.
+     */
+    public const LEYENDA = ['F' => 'Falta', 'FJ' => 'Falta justificada', 'T' => 'Tardanza', 'TJ' => 'Tardanza justificada'];
+    /** Columnas de totales de la plantilla (fila 8), en el orden de LEYENDA. */
+    private const COLUMNAS_TOTAL = ['AC', 'AD', 'AE', 'AF'];
+    /** Celda combinada de la leyenda al pie de la grilla (A46:AG46). */
+    private const CELDA_LEYENDA = 'A46';
+    /** Separador de la leyenda, el mismo que trae la plantilla. */
+    private const SEP_LEYENDA = '     ·     ';
     public const ABREV = [1 => 'L', 2 => 'Mar.', 3 => 'Mié.', 4 => 'J', 5 => 'V'];
     public const MESES = [1 => 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
                           'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -251,6 +264,16 @@ class PlanillaAsistenciaModel extends BaseModel
             foreach (array_values($alumnos) as $i => $nombre) {
                 $x->escribir($hoja, 'B' . (self::PRIMERA_FILA + $i), self::nombreQueCabe($nombre, self::MAX_NOMBRE));
             }
+
+            // Leyenda (30/09/2026): encabezados de totales y pie desde LEYENDA,
+            // el mismo punto que usa el PDF (la plantilla trae la del SIAGIE).
+            $partes = [];
+            foreach (array_keys(self::LEYENDA) as $i => $sigla) {
+                $x->escribir($hoja, self::COLUMNAS_TOTAL[$i] . '8', $sigla);
+                $partes[] = $sigla . ' = ' . self::LEYENDA[$sigla];
+            }
+            $partes[] = 'En blanco = asistió';
+            $x->escribir($hoja, self::CELDA_LEYENDA, implode(self::SEP_LEYENDA, $partes));
 
             // Filas: las de la grilla con el alto que llena la hoja; el resto,
             // ocultas (no se imprimen).
