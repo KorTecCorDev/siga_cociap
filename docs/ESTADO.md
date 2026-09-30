@@ -16,6 +16,14 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
+## 🟢 RETIRAR UNA MATRÍCULA PENDIENTE — DESPLEGADO el 30/09/2026 (sin cambio de versión: sigue v1.0.5)
+
+Sin migración. «Desactivar matrícula» se muestra también a las `pendiente` en la ficha de
+matrícula, para poder marcarlas después como retiradas (la 045 exige `desactivado`). Solo
+cambió la vista; `desactivar()` ya lo soportaba. Detalle en `docs/modulos/matriculas.md`.
+- [ ] Revisar en producción la ficha de una matrícula `pendiente` (no se vio en navegador
+      antes del deploy: la sesión de Chrome se había cerrado).
+
 ## 🟢 MÓDULO AUXILIAR ACADÉMICO + ASISTENCIA POR FECHAS — DESPLEGADO en v1.0.5 (30/09/2026)
 
 **Deploy del 30/09/2026:** merge `dev` → `main` con `--no-ff` y tag anotado `v1.0.5`.

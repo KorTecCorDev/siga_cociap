@@ -544,7 +544,13 @@ $labelDoc = [
                 </div>
             </div>
             <?php endif; ?>
-        <?php else: ?>
+        <?php endif; ?>
+
+        <?php // Desactivar: aprobada Y pendiente (30/09/2026). Una pendiente que ya no
+              // asiste necesita pasar a desactivado para poder marcarse como retirada
+              // (la 045 exige desactivado). `desactivar()` ya soporta el caso: no toca
+              // el orden de mérito si no venía de aprobada. ?>
+        <?php if ($matricula['estado'] !== 'desactivado'): ?>
             <!-- Desactivar (requiere motivo) — el motivo se despliega al pulsar
                  "Desactivar". Mejora progresiva: sin JS, el formulario se ve abierto. -->
             <div class="mat-accion mat-accion--danger">
@@ -568,7 +574,9 @@ $labelDoc = [
                     </div>
                 </form>
             </div>
+        <?php endif; ?>
 
+        <?php if ($esActivo): ?>
             <!-- Trasladar de colegio -->
             <div class="mat-accion mat-accion--danger">
                 <div class="mat-accion__info">
