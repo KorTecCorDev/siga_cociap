@@ -96,7 +96,7 @@ $cabeceraSemana = ['L', 'Mar.', 'Mié.', 'J', 'V'];
             <a href="<?= e($anteriorUrl) ?>" class="btn btn--secondary" data-accion="anterior">← Anterior</a>
         <?php endif; ?>
         <button type="button" class="btn btn--primary" data-accion="siguiente">
-            <?= $ultimo ? 'Confirmar y volver a la grilla' : 'Confirmar y siguiente →' ?>
+            <?= $ultimo ? 'Confirmar y volver a la tabla' : 'Confirmar y siguiente →' ?>
         </button>
     </div>
 </section>

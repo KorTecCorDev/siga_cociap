@@ -31,7 +31,7 @@ $sid       = (int) $seccion['id'];
 ?>
 
 <div class="page-header">
-    <a href="<?= url('admin/conducta/' . $sid) ?>" class="btn btn--secondary btn--sm">← Grilla</a>
+    <a href="<?= url('admin/conducta/' . $sid) ?>" class="btn btn--secondary btn--sm">← Tabla</a>
     <div>
         <h1 class="page-title">
             Conducta — <?= e($seccion['grado_nombre']) ?> <?= e($seccion['seccion_nombre']) ?>
@@ -116,7 +116,7 @@ $sid       = (int) $seccion['id'];
             <a href="<?= e($anteriorUrl) ?>" class="btn btn--secondary" data-accion="anterior">← Anterior</a>
         <?php endif; ?>
         <button type="button" class="btn btn--primary" data-accion="siguiente">
-            <?= $ultimo ? 'Confirmar y volver a la grilla' : 'Confirmar y siguiente →' ?>
+            <?= $ultimo ? 'Confirmar y volver a la tabla' : 'Confirmar y siguiente →' ?>
         </button>
     </div>
 </section>

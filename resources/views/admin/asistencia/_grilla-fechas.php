@@ -11,7 +11,7 @@
  * Tocar una celda abre el MENÚ (`_af-menu.php`): ✓ · F · T · FJ · TJ; FJ/TJ
  * exigen motivo y cancelar no cambia nada. Cada marca se AUTOGUARDA como
  * borrador; «Confirmar todo» da el visto bueno. SIN columna «Estado»: el estado
- * lo dice la FRANJA del N° inicial (verde confirmado, ámbar sin confirmar).
+ * lo dice la FRANJA del N° (verde confirmado, ámbar sin confirmar).
  *
  * 🔴 CONTRATO DE DOM con `asistencia-fechas.js`: `.af-fila[data-matricula-id]
  * [data-periodo-id][data-csrf][data-nombre][data-confirmada][data-registrada]`,
@@ -121,10 +121,6 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
                         <span class="af-tipo af-tipo--<?= strtolower($abrev[$c]) ?>"><?= $abrev[$c] ?></span>
                     </th>
                 <?php endforeach; ?>
-                <?php // N° REPETIDO al final, PEGADO a los totales (decisión del usuario):
-                      // en una pantalla ancha la fila no se pierde al llevar la vista del
-                      // nombre al final. ?>
-                <th class="col-num-fin">N°</th>
             </tr>
         </thead>
         <tbody>
@@ -166,7 +162,6 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
                         <td class="asistencia-td-valor af-total col-resultado<?= $j === 0 ? ' col-resultado--inicio' : '' ?>"
                             data-campo="<?= $c ?>"><?= (int) $inc[$c] ?></td>
                     <?php endforeach; ?>
-                    <td class="col-num-fin"><?= $i + 1 ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

@@ -413,60 +413,6 @@ $af-asistio:  $text-secondary;
     letter-spacing: .04em;
 }
 
-// N° REPETIDO al final de la fila (decisión del usuario, 29/09/2026). Lo usan
-// la grilla de asistencia por fechas y la de conducta.
-.col-num-fin {
-    min-width: 40px;
-    text-align: center;
-    color: $text-secondary;
-    border-left: 1px solid $border-color;
-}
-
-// ── Las DOS columnas N° de las grillas del auxiliar (29/09/2026) ────────
-// Decisión del usuario: fondo BLANCO, número en NEGRITA y borde separador GRUESO
-// oscuro, IGUAL en el N° inicial y en el final. El gris de la zona de totales
-// (`.col-resultado`, #f8fafc) es el mismo del hover y de la cabecera: sin esto el
-// N° final se leía como un total más.
-//
-// El N° inicial es STICKY: un `border` no viaja con él al desplazar a lo ancho,
-// así que su separador va en `box-shadow`. La FRANJA de estado de la fila
-// (verde confirmado · ámbar sin confirmar · rojo no se guardó) va en la MISMA
-// sombra por `--franja`, para que ninguna regla de estado borre el separador.
-// Cada grilla fija `--franja` según sus clases de fila.
-$num-borde: $text-secondary;
-
-.af-grilla,
-.conducta-grilla {
-    th.col-num,
-    th.col-num-fin { font-weight: 800; color: $text-primary; }
-
-    // 🔴 El N° inicial mide EXACTAMENTE 40 px: el nombre (sticky) se engancha en
-    // `left: 40px` (_tables.scss). Con el relleno lateral la celda medía 47 px y
-    // el nombre tapaba sus últimos 7 px, justo donde va el separador.
-    th.col-num,
-    td.col-num { padding-left: 0; padding-right: 0; }
-
-    td.col-num,
-    td.col-num-fin {
-        font-weight: 700;
-        color: $text-primary;
-        text-align: center;
-    }
-
-    th.col-num-fin,
-    td.col-num-fin {
-        background: $bg-white;
-        border-left: 2px solid $num-borde;
-    }
-}
-
-// Cabecera del N° inicial: el mismo separador, sumado al borde inferior que las
-// cabeceras fijas emulan con sombra (`.af-scroll` / `.conducta-scroll`).
-.af-scroll .af-grilla thead th.col-num,
-.conducta-scroll .conducta-grilla thead th.col-num {
-    box-shadow: inset -2px 0 0 $num-borde, inset 0 -1px 0 $border-color;
-}
-
 .af-grilla {
     th.af-th-dia {
         min-width: 34px;
@@ -496,12 +442,13 @@ $num-borde: $text-secondary;
         td.col-nombre { background: $bg-white; }
     }
 
-    // N° inicial: blanco con separador y franja de estado (ver `$num-borde`).
-    // (0,4,1) y después: le gana al fondo de estado y a la barra azul del foco
-    // (`:focus-within`), que en esta grilla taparía la franja al tocar un día.
+    // N° inicial con el estilo ESTABLECIDO del sistema (fondo blanco, como en el
+    // I/II) y la franja de estado de 3 px (30/09/2026: deroga el N° en negrita con
+    // separador grueso del 29/09). (0,4,1) y después: le gana al fondo de estado y
+    // a la barra azul del foco (`:focus-within`), que taparía la franja al tocar un día.
     .asistencia-fila.af-fila td.col-num {
         background: $bg-white;
-        box-shadow: inset 4px 0 0 var(--franja, transparent), inset -2px 0 0 $num-borde;
+        box-shadow: inset 3px 0 0 var(--franja, transparent);
     }
 
     // Resaltado al pasar el cursor en TODAS las columnas (30/09/2026), las fijas
@@ -510,8 +457,7 @@ $num-borde: $text-secondary;
     // de hover del sistema (`#eef2f7`, `_tables.scss`).
     .asistencia-fila.af-fila:hover {
         td.col-num,
-        td.col-nombre,
-        td.col-num-fin { background: $bg-secondary; }
+        td.col-nombre { background: $bg-secondary; }
     }
     .asistencia-fila--registrada td.col-num { --franja: #{$color-success}; }
     .asistencia-fila--con-cambios td.col-num { --franja: #{$color-warning}; }

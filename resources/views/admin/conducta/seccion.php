@@ -170,23 +170,19 @@ foreach ($estudiantes as $est) {
 
 <?php else: ?>
 
-<?php // Leyenda de los códigos de la cabecera (30/09/2026): chip de código del
-      // sistema + texto, la misma lista que la consulta de Dirección. El código
-      // sale del DATO (migración 056), nunca de la posición. ?>
-<details class="conducta-criterios-leyenda conducta-criterios-leyenda--rejilla">
-    <summary class="conducta-criterios-leyenda__summary">
-        <span class="conducta-criterios-leyenda__titulo">Criterios de conducta</span>
-        <span class="conducta-criterios-leyenda__cantidad"><?= $total ?></span>
-        <span class="conducta-criterios-leyenda__clave"><strong>✓</strong> cumple · <strong>✗</strong> no cumple</span>
-    </summary>
-    <ul class="criterios-codigos criterios-codigos--rejilla">
+<?php // Leyenda con el estilo ESTABLECIDO, el mismo marcado que la grilla del
+      // tutor (`docente/conducta-criterios.php`). El chip lleva el código del
+      // DATO (migración 056), nunca de la posición. ?>
+<details class="conducta-criterios-leyenda">
+    <summary>Ver los <?= $total ?> criterios (✓ = cumple · ✗ = no cumple)</summary>
+    <ol class="conducta-criterios-lista">
         <?php foreach ($criterios as $c): ?>
             <li>
                 <span class="competencia-card__codigo"><?= e($c['codigo']) ?></span>
                 <?= e($c['texto']) ?>
             </li>
         <?php endforeach; ?>
-    </ul>
+    </ol>
 </details>
 
 <?php if (!$bloqueada && !$soloLectura): ?>
@@ -217,13 +213,16 @@ foreach ($estudiantes as $est) {
                       // reordenar o dar de baja un criterio corria las etiquetas de
                       // esta grilla respecto del imprimible ya firmado. ?>
                 <?php foreach ($criterios as $c): ?>
-                    <th class="conducta-th-crit" title="<?= e($c['texto']) ?>"><?= e($c['codigo']) ?></th>
+                    <th class="conducta-th-crit" title="<?= e($c['texto']) ?>">
+                        <span class="competencia-card__codigo competencia-card__codigo--solo"><?= e($c['codigo']) ?></span>
+                    </th>
                 <?php endforeach; ?>
-                <th class="conducta-th-nota" title="Nota del auxiliar (Sí ÷ <?= $total ?> × 20)">Nota</th>
-                <?php // N° REPETIDO al final, PEGADO a la nota (decisión del usuario,
-                      // 29/09/2026). Sin columna «Estado»: lo dice la franja del N°
-                      // inicial, y a uno solo se le confirma en su vista individual. ?>
-                <th class="col-num-fin">N°</th>
+                <?php // Nota y Literal en columnas SEPARADAS, con la zona de resultado del
+                      // sistema: el mismo modelo de la grilla del tutor y de los docentes
+                      // (30/09/2026). Sin columna «Estado»: lo dice la franja del N°. ?>
+                <th class="conducta-th-nota col-resultado col-resultado--inicio"
+                    title="Nota del auxiliar (Sí ÷ <?= $total ?> × 20)">Nota</th>
+                <th class="conducta-th-literal col-resultado">Literal</th>
             </tr>
         </thead>
         <tbody>
@@ -271,26 +270,37 @@ foreach ($estudiantes as $est) {
                         </td>
                     <?php endforeach; ?>
 
-                    <td class="conducta-td-nota">
+                    <?php // Conducta por literal directo, sin matriz: la via extraordinaria
+                          // de un bimestre cerrado (migracion 063). No tiene numeral. ?>
+                    <?php $litDirecto = ($soloLectura && $notaRa === null && empty($resp) && !empty($est['literal_directo']))
+                        ? $est['literal_directo'] : null; ?>
+                    <td class="conducta-td-nota col-resultado col-resultado--inicio">
                         <?php if ($soloLectura): ?>
                             <?php if ($notaRa !== null): ?>
                                 <span class="nota-numeral nota-numeral--<?= strtolower($litRa) ?>">
                                     <?= fmt_nota($notaRa) ?>
                                 </span>
-                            <?php elseif (empty($resp) && !empty($est['literal_directo'])): ?>
-                                <?php // Conducta por literal directo, sin matriz: la via
-                                      // extraordinaria de un bimestre cerrado (migracion 063). ?>
-                                <span class="nota-literal nota-literal--<?= strtolower($est['literal_directo']) ?>">
-                                    <?= e($est['literal_directo']) ?>
-                                </span>
+                            <?php else: ?>
+                                <span class="text-muted" title="<?= $litDirecto !== null ? 'Sin numeral: literal directo' : 'Registro incompleto' ?>">—</span>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <?php // Los llena conducta.js (`recalcularNotaFila`) con los
+                                  // mismos badges que el solo lectura. ?>
+                            <span class="text-muted" data-formato="numeral">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="conducta-td-literal col-resultado">
+                        <?php if ($soloLectura): ?>
+                            <?php $litVer = $litRa ?? $litDirecto; ?>
+                            <?php if ($litVer !== null): ?>
+                                <span class="nota-literal nota-literal--<?= strtolower($litVer) ?>"><?= e($litVer) ?></span>
                             <?php else: ?>
                                 <span class="text-muted" title="Registro incompleto">—</span>
                             <?php endif; ?>
                         <?php else: ?>
-                            <span class="cc-nota">—</span>
+                            <span class="text-muted" data-formato="literal">—</span>
                         <?php endif; ?>
                     </td>
-                    <td class="col-num-fin"><?= $idx + 1 ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

@@ -424,8 +424,9 @@ el caso de `ControlOperativoModel::alertasEvaluacionIncompleta`, que ordenaba po
 
 `.col-resultado` marca las columnas **calculadas** (promedio, nota final, literal)
 para que no se confundan con las de origen. Vive en `components/_tables.scss` y la
-usan **seis vistas**: `consulta-notas/{conducta,transversales,_tabla}` y
-`docente/{conducta,resumen-competencia,tutoria}`.
+usan **siete vistas**: `consulta-notas/{conducta,transversales,_tabla}`,
+`docente/{conducta,resumen-competencia,tutoria}` y `admin/conducta/seccion` (Nota y
+Literal separadas, 30/09/2026).
 
 - 🔴 **Su fondo era `#f8fafc`, el MISMO valor literal que `$bg-secondary`**, que es
   el color del hover de fila. Al pasar por una fila, toda ella tomaba ese gris y la

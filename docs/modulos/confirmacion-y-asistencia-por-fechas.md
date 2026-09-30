@@ -1,9 +1,39 @@
 # Plan — Conducta y asistencia con autoguardado + «Confirmar», y asistencia POR FECHAS
 
+> **SEXTA RONDA (30/09/2026, decisiones del usuario, CERRADAS) — el estilo establecido manda:**
+> las grillas del III Bimestre se ven como los registros del I y II (solo lectura de
+> `/admin/conducta/{id}` y tabla de números de asistencia) y como la grilla del tutor.
+> **Deroga** el punto 2 de la segunda ronda (en las grillas), el punto 3 de la tercera y el
+> punto 5 de la cuarta.
+> 1. **Columnas N° con el estilo del sistema** (`.tabla-notas`): sin blanco forzado, sin
+>    negrita, sin separador grueso. La franja de estado se conserva, en **3 px**
+>    (`--franja`), como la barra original.
+> 2. **Sin N° repetido al final** en las dos grillas. Los **imprimibles lo conservan**: la
+>    observación fue solo de las grillas en pantalla.
+> 3. **Leyenda de criterios = la del tutor** (`.conducta-criterios-leyenda` +
+>    `ol.conducta-criterios-lista` con chip de código). Se borró la variante en rejilla.
+> 4. **Cabecera de cada criterio con el chip** `competencia-card__codigo--solo`, como el tutor.
+> 5. **Nota y Literal en columnas SEPARADAS** (`col-resultado`), con los badges
+>    `nota-numeral` / `nota-literal`, también en el III editable: `conducta.js` los pinta
+>    en `[data-formato="numeral|literal"]` (solo la grilla; la vista por estudiante sigue
+>    con su texto «15 (A)»). 🔴 Esos spans NO llevan `.cc-nota`: su gris se carga después
+>    de `.nota-numeral--*` con la misma especificidad y dejaba el número y el contorno grises. En la vía extraordinaria por literal directo,
+>    Nota queda con guion y el literal va en su columna.
+> 6. **Se conservan**: franja sin fondo de fila, paleta F/FJ/T/TJ y mes en la esquina.
+> 7. **Nota EN VIVO en la grilla**: se actualiza con cada marca, Sí ÷ N × 20 contando lo no
+>    respondido como No (si se deja así, ya es la nota final: nunca muestra algo que luego
+>    baje), con el mismo badge y literal que la definitiva. Sin ninguna marca, guion. Antes
+>    salía solo con los N criterios respondidos. La vista por estudiante aplica la MISMA
+>    regla en vivo, con su formato propio «15 (A)».
+>    Es solo la pantalla: confirmar y bloquear siguen exigiendo los N criterios.
+> 8. **«Tabla», no «Grilla», en los textos de pantalla** de las vistas por estudiante
+>    (conducta y asistencia): «← Tabla», «Confirmar/Guardar y volver a la tabla». No «Lista»:
+>    en asistencia ya significa la lista del día («Pasar lista de hoy», «Sin tomar lista»).
+
 > **SEGUNDA RONDA DE AJUSTES (29/09/2026, decisiones del usuario, CERRADAS):**
 > 1. Grilla de asistencia: encabezado FIJO (sticky) con el nombre del MES en la esquina
 >    fija, como `.conducta-scroll`.
-> 2. **N° repetido al final de la fila** en las dos grillas del auxiliar (asistencia por
+> 2. ⚠️ *En las grillas, derogado en la sexta ronda; los imprimibles lo conservan.* **N° repetido al final de la fila** en las dos grillas del auxiliar (asistencia por
 >    fechas y conducta) y en sus DOS imprimibles.
 > 3. Icono de documento en la celda FJ/TJ que ya tiene motivo (grilla y vista por
 >    estudiante).
@@ -64,7 +94,7 @@
 >    «Registrar por estudiante». El estado lo dice una **franja en el N° inicial** (verde
 >    confirmado, ámbar sin confirmar, rojo si falló un guardado), explicada en la leyenda.
 >    La vista por estudiante conserva su estado y su botón; el JS los trata como opcionales.
-> 3. **Las dos columnas N°** (inicial y final) van en blanco, con el número en negrita y un
+> 3. ⚠️ *Derogado en la sexta ronda.* **Las dos columnas N°** (inicial y final) van en blanco, con el número en negrita y un
 >    separador grueso oscuro. El N° final queda pegado a los totales (o a la Nota en
 >    conducta). El N° inicial mide exactamente 40 px: con el relleno medía 47 y el nombre
 >    sticky le tapaba el separador. La franja y el separador comparten `box-shadow`
@@ -94,7 +124,7 @@
 >      leyenda de la vista por estudiante.
 > 4. **Cabecera del estudiante FIJA** en las dos vistas «por estudiante», bajo la barra
 >    superior, para registrar desde el celular.
-> 5. **Bloque «Criterios» de la grilla admin:** sigue plegable, ahora en rejilla con el chip de
+> 5. ⚠️ *Derogado en la sexta ronda.* **Bloque «Criterios» de la grilla admin:** sigue plegable, ahora en rejilla con el chip de
 >    código (`.conducta-criterios-leyenda--rejilla` + `.criterios-codigos--rejilla`). La vista del
 >    tutor conserva el bloque base.
 > 6. **PENDIENTE DE DEBATE: la marca «asistió normalmente»** en cada día.

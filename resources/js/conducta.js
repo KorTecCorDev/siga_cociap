@@ -21,6 +21,8 @@
  * La GRILLA no tiene `.conducta-status` ni `.conducta-confirmar` (sin columna
  * «Estado», 29/09/2026): aquí son opcionales. En la grilla, un autoguardado
  * fallido pinta la franja ROJA del N° (`conducta-fila--error`) y el aviso global.
+ * La grilla usa `[data-formato="numeral"]` y `[data-formato="literal"]` en lugar
+ * de `.cc-nota`: la nota sale como badge y el literal va en su propia columna.
  */
 
 const BASE = document.querySelector('meta[name="base-url"]')?.content ?? '';
@@ -62,7 +64,8 @@ function literalDe(nota) {
     return 'C';
 }
 
-// Nota RA en vivo: solo cuando los N criterios estan respondidos.
+// Nota RA en vivo: se actualiza con cada marca, en la grilla y en la vista por
+// estudiante (ver abajo).
 function recalcularNotaFila(fila) {
     const toggles = fila.querySelectorAll('.cc-toggle');
     const total   = parseInt(fila.dataset.total, 10) || toggles.length;
@@ -72,13 +75,40 @@ function recalcularNotaFila(fila) {
         if (v === '1' || v === '0') respondidos++;
         if (v === '1') si++;
     });
+    // Grilla de la sección (30/09/2026): numeral y literal en columnas separadas,
+    // con EXACTAMENTE las clases del solo lectura y de la grilla del tutor. Se
+    // ubican por `data-formato`, SIN `.cc-nota`: esa clase trae color gris y, al
+    // cargarse después que `.nota-numeral--*` con la misma especificidad, dejaba
+    // el número y su contorno en gris.
+    // NOTA EN VIVO (decisión del usuario, 30/09/2026): se actualiza con CADA marca,
+    // Sí ÷ N × 20 con lo no respondido contado como No — si se deja así, ya es la
+    // nota final, y nunca muestra algo que luego baje. Mismo badge que la definitiva.
+    // Sin ninguna marca no hay dato: guion.
+    const num = fila.querySelector('[data-formato="numeral"]');
+    if (num) {
+        const lit = fila.querySelector('[data-formato="literal"]');
+        if (respondidos === 0) {
+            num.textContent = '—';
+            num.className = 'text-muted';
+            if (lit) { lit.textContent = '—'; lit.className = 'text-muted'; }
+        } else {
+            const nota  = Math.round((si / total) * 20);
+            const clave = literalDe(nota).toLowerCase();
+            num.textContent = String(nota).padStart(2, '0'); // espejo de fmt_nota()
+            num.className = `nota-numeral nota-numeral--${clave}`;
+            if (lit) { lit.textContent = literalDe(nota); lit.className = `nota-literal nota-literal--${clave}`; }
+        }
+        return;
+    }
+    // Vista por estudiante: la MISMA regla en vivo (30/09/2026), con su formato
+    // propio «15 (A)».
     const span = fila.querySelector('.cc-nota');
     if (!span) return;
-    if (respondidos < total) {
+    if (respondidos === 0) {
         span.textContent = '—';
         span.className = 'cc-nota';
     } else {
-        const nota = Math.round((si / total) * 20); // RA siempre par con 10 criterios
+        const nota = Math.round((si / total) * 20); // lo no respondido cuenta como No
         span.textContent = `${nota} (${literalDe(nota)})`;
         span.className = `cc-nota cc-nota--${literalDe(nota).toLowerCase()}`;
     }

@@ -34,7 +34,12 @@ impersonales, Usuarios solo para admin, grillas sin columna Estado, imprimible c
 - Grillas sin fondo de estado; solo la franja del N° y el resaltado completo.
 - Paleta F/FJ/T/TJ.
 - Cabecera fija en las vistas por estudiante.
-- Criterios de conducta en rejilla con su código.
+- Criterios de conducta en rejilla con su código (derogado en la 6.ª ronda).
+- **6.ª ronda (30/09, tarde), COMMITEADA y PUSHEADA a `dev`:** las grillas del III vuelven
+  al estilo del I/II: N° del sistema (franja de 3 px), sin N° final, leyenda y chips como el
+  tutor, Nota y Literal en columnas separadas con badges, nota EN VIVO con cada marca (grilla
+  y vista por estudiante) y «Tabla» en vez de «Grilla». Probado en Chrome con admin. Batería
+  55/55. Detalle: «SEXTA RONDA» en `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 - **Lista del día** (✓ solo con lista tomada), **menú por celda**, **FJ/TJ siempre con
   motivo** y **días no lectivos**. Migración **070**, aplicada en la BD de la oficina.
 - Batería 55/55. Probado en Chrome con admin, auxiliar y Director EBR.

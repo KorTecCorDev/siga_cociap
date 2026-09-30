@@ -38,7 +38,7 @@ $etiquetas = [
 ?>
 
 <div class="page-header">
-    <a href="<?= url('admin/asistencia/' . $sid) ?>" class="btn btn--secondary btn--sm">← Grilla</a>
+    <a href="<?= url('admin/asistencia/' . $sid) ?>" class="btn btn--secondary btn--sm">← Tabla</a>
     <div>
         <h1 class="page-title">
             Asistencia — <?= e($seccion['grado_nombre']) ?> <?= e($seccion['seccion_nombre']) ?>
@@ -123,7 +123,7 @@ if ($porFechas) {
             <span class="btn-icon btn-icon--save" aria-hidden="true"></span> Guardar
         </button>
         <button type="button" class="btn btn--primary" data-accion="siguiente">
-            <?= $ultimo ? 'Guardar y volver a la grilla' : 'Guardar y siguiente →' ?>
+            <?= $ultimo ? 'Guardar y volver a la tabla' : 'Guardar y siguiente →' ?>
         </button>
     </div>
 </section>
