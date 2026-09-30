@@ -1,8 +1,8 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **28/09/2026**.
-> **Versión desplegada: v1.0.4** (`config/app.php` + tag anotado `v1.0.4`, 27/09/2026).
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **30/09/2026**.
+> **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
 ## ⏸ DIFERIDO (29/09/2026) — Reapertura ESCALONADA de conducta y transversales
@@ -16,7 +16,28 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
-## 🆕 MÓDULO AUXILIAR ACADÉMICO — F0–F6 HECHAS en `dev` (28-29/09/2026; lo de hasta el 28 pusheado, `bae54d3`…`726f516` SIN push)
+## 🟢 MÓDULO AUXILIAR ACADÉMICO + ASISTENCIA POR FECHAS — DESPLEGADO en v1.0.5 (30/09/2026)
+
+**Deploy del 30/09/2026:** merge `dev` → `main` con `--no-ff` y tag anotado `v1.0.5`.
+Viajan el módulo auxiliar (F0–F6), confirmar y autoguardar conducta y asistencia, asistencia
+POR FECHAS, lista del día y días no lectivos, y las seis rondas de ajustes.
+- **Migraciones `065` a `070` aplicadas A MANO en producción por el usuario, ANTES del push**,
+  con sus verificaciones correctas. La `064` ya estaba (27/09).
+- Diagnóstico previo en producción: B → solo la `064` aplicada; F → cierres de asistencia
+  **23/23** en el I y en el II. El III no tenía registros (PREVIEW de la 069 sin filas).
+- Sin feriados declarados al desplegar: el relleno de la 070 dio lista tomada a todo día
+  hábil del III hasta la víspera.
+
+**Pendiente tras el deploy:**
+- [ ] Revisar en producción: una boleta del I o II con su asistencia, `/admin/conducta/{id}`
+      y `/admin/asistencia/{id}` del III, y el panel del tutor.
+- [ ] Usuarios reales de los auxiliares y sus secciones (sin ellos nadie entra como auxiliar).
+- [ ] Declarar en `/admin/asistencia/no-lectivos` los feriados que decida el colegio antes de
+      bloquear el III (el bloqueo exige lista en todo día lectivo).
+- [ ] Docs finales: `admin.md` (conducta y asistencia también las registra el auxiliar) y
+      `decisiones-diferidas.md` (asistencia por QR 2027, §8 de `auxiliares.md`).
+
+Historial del desarrollo (se conserva como referencia):
 
 ### 🔜 RETOMAR AQUÍ (30/09/2026) — PENDIENTE INMEDIATO: repaso final y cierre del módulo
 
@@ -90,14 +111,14 @@ impersonal + nombre real), `asistencia.js` conserva lo tecleado y marca la celda
 - [ ] Docs finales: cabecera de `auxiliares.md` (= desplegado), `admin.md` (conducta y
       asistencia también las registra el auxiliar), registro del deploy aquí (sección Git),
       `decisiones-diferidas.md` (asistencia por QR 2027, §8 de `auxiliares.md`).
-- [ ] 🔴 **Producción: migraciones `065`, `066`, `067`, `068` y `069` a mano ANTES del push a
+- [x] 🔴 **Producción: migraciones `065`, `066`, `067`, `068` y `069` a mano ANTES del push a
       `main`** (la 067 es imprescindible: sin ella fallan las consultas de conducta; la 068 y
       la 069, sin ellas el código nuevo no encuentra `conducta_confirmaciones`,
       `inasistencias.confirmado_en`, `asistencia_incidencias` ni
       `periodos.asistencia_por_fechas`). Antes de la 069, correr su PREVIEW: lista las filas
       de asistencia del III guardadas como números > 0, que quedarán desconfirmadas y hay
       que volver a registrar por fecha. Tras la 068, «sin confirmar» de conducta debe ser 0.
-- [ ] 🔴 **Producción: migración `070_asistencia_jornadas.sql` a mano ANTES del push a
+- [x] 🔴 **Producción: migración `070_asistencia_jornadas.sql` a mano ANTES del push a
       `main`** (30/09/2026: lista del día, días no lectivos, FJ/TJ siempre con motivo). Sin
       ella el código nuevo no encuentra `asistencia_jornadas` ni
       `asistencia_dias_no_lectivos`. Antes, correr su PREVIEW: las FJ/TJ sin motivo pasarán
@@ -106,7 +127,7 @@ impersonal + nombre real), `asistencia.js` conserva lo tecleado y marca la celda
       debe pasar lista. Declarar en `/admin/asistencia/no-lectivos` los feriados del
       bimestre (p. ej. el 08/10, Combate de Angamos) ANTES de bloquear: el bloqueo exige
       lista en todo día lectivo.
-- [ ] 🔴 **Antes del merge, en PRODUCCIÓN:** comprobar que cada sección del I y II Bimestre
+- [x] 🔴 **Antes del merge, en PRODUCCIÓN:** comprobar que cada sección del I y II Bimestre
       tiene cierre de asistencia vigente. Desde el 29/09/2026 la boleta solo muestra
       asistencia con cierre (`AsistenciaModel::sqlVisible`): una sección sin cierre perdería
       su asistencia en la boleta ya publicada. En local: 23/23 en los dos bimestres.
@@ -117,7 +138,7 @@ impersonal + nombre real), `asistencia.js` conserva lo tecleado y marca la celda
       `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 - [ ] Usuarios reales de los auxiliares: DNI, apellidos, nombres, sexo, celular, correo y
       sus secciones (pedírselos al usuario).
-- [ ] Merge `dev` → `main` (con `--no-ff`) **solo cuando el usuario lo pida**.
+- [x] Merge `dev` → `main` (con `--no-ff`), pedido por el usuario el 30/09/2026 (v1.0.5).
 
 
 **Fuente de verdad: `docs/modulos/auxiliares.md`.** Allí están las 16 decisiones del

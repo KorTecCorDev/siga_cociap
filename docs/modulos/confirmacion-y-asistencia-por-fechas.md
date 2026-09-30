@@ -1,5 +1,8 @@
 # Plan — Conducta y asistencia con autoguardado + «Confirmar», y asistencia POR FECHAS
 
+> **ESTADO: DESPLEGADO en v1.0.5 (30/09/2026)**, con las migraciones `068`, `069` y `070`
+> aplicadas a mano en producción antes del push. Las rondas de abajo son el historial.
+
 > **SEXTA RONDA (30/09/2026, decisiones del usuario, CERRADAS) — el estilo establecido manda:**
 > las grillas del III Bimestre se ven como los registros del I y II (solo lectura de
 > `/admin/conducta/{id}` y tabla de números de asistencia) y como la grilla del tutor.

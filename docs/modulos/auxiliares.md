@@ -1,13 +1,9 @@
 # Módulo AUXILIAR ACADÉMICO
 
-> **ESTADO (28/09/2026, fin del turno tarde): EN CONSTRUCCIÓN en `dev` — NO desplegado.**
-> Hechas y probadas: F0, F1, F2a, F2b, F3, F4a, F4b y F4c (+ 3 refactors previos a
-> la F4; F4b y F4c aprobadas por el usuario, la F4c tras su rediseño).
-> F5 (comunicados) y F6 (criterios de conducta por año) hechas y aprobadas por el usuario
-> en el navegador (29/09/2026). **Sigue: el repaso final con todos los roles y el cierre**
-> (todo en §7). Merge a `main`: solo cuando el usuario lo pida.
-> 🔴 **Al desplegar: aplicar A MANO en producción las migraciones `065`, `066` y `067`
-> ANTES del push a `main`** (ya aplicadas en local; la 067 es idempotente).
+> **ESTADO: DESPLEGADO en v1.0.5 (30/09/2026).** Migraciones `065` a `070` aplicadas a mano
+> en producción antes del push. Fases F0–F6, repaso final y seis rondas de ajustes. Quedan
+> los pendientes posteriores al deploy de `docs/ESTADO.md` (usuarios reales de los
+> auxiliares, revisión en producción, docs finales).
 >
 > Este doc sustituye al plan que vivía fuera del repo
 > (`~/.claude/plans/buen-d-a-en-el-floofy-minsky.md`, solo en la máquina de la
