@@ -418,16 +418,17 @@ secciones 1-6 tras el fix del roster del 04/08): 30 filas totales, **23 vivas**.
 - [ ] *(Opcional, barato)* Exportar `orden_merito_snapshot` del periodo desde phpMyAdmin.
 - [ ] Cerrar el bimestre desde la UI de Dirección.
 
-**Qué hace `cerrar()` — SEIS operaciones en una sola transacción** (`PeriodoController`):
+**Qué hace `cerrar()` — SIETE operaciones en una sola transacción** (`PeriodoController`):
 
 | # | Operación | Efecto |
 |---|---|---|
 | 1 | `bloquearCompetenciasPendientes` | Fuerza los bloqueos que falten, con `origen='cierre'` — válvula de escape para el docente que nunca bloqueó (y son distinguibles después) |
 | 2 | `crearCierresTransversalesPendientes` | **Cierra las transversales por sección**, respetando lo que el tutor ya hizo |
 | 3 | `setEstadoPeriodo` | El periodo pasa a `cerrado` |
-| 4 | `marcarBoletasAprobadas` | **Las boletas pasan a OFICIAL** (si luego se reabre, vuelven a BORRADOR) |
-| 5 | `restaurarPorCierre` | Restaura una publicación que una reapertura hubiera suspendido. **Nunca crea publicaciones nuevas** |
-| 6 | `registrarRanking` | Congela el orden de mérito |
+| 4 | `congelarPeriodo` (`TutorPeriodoModel`, migración 071) | Congela el **tutor de cada sección** para los documentos de este bimestre (boleta, acta, acompañamiento). Inmutable: un re-cierre no lo pisa. **Si hay que cambiar de tutor, hacerlo DESPUÉS de cerrar** si el saliente debe firmar este bimestre |
+| 5 | `marcarBoletasAprobadas` | **Las boletas pasan a OFICIAL** (si luego se reabre, vuelven a BORRADOR) |
+| 6 | `restaurarPorCierre` | Restaura una publicación que una reapertura hubiera suspendido. **Nunca crea publicaciones nuevas** |
+| 7 | `registrarRanking` | Congela el orden de mérito |
 
 Si algo falla, la transacción hace rollback completo y el error queda en `~/siga_logs/`.
 

@@ -55,6 +55,44 @@
 - Los datos JSON se embeben en un `<div id="modalTutorData" data-docentes="...">` en la vista
 - El JS lee el JSON y reconstruye el `<select>` cada vez que se abre el modal
 
+### Cambiar de tutor a mitad de año — FUNCIONES vs DOCUMENTOS (01/10/2026, migración 071)
+
+> Nació de analizar «¿qué pasa si hoy cambio al tutor de 3.º A sec. con el III activo?».
+> Decisiones del usuario (no re-preguntar).
+
+`asignarTutor()` solo hace `UPDATE secciones SET tutor_id` (+ desactivar la transversal
+del modelo viejo). Lo que eso implica:
+
+- **FUNCIONES → el tutor de HOY, todas.** El que sale **pierde todo** (también el
+  histórico de I y II) y el que entra lo hereda: `/docente/tutoria`, conducta etapa 2,
+  grilla Sí/No, acompañamiento, cards y chip. Salen de `secciones.tutor_id` vía
+  `TransversalModel::getSeccionDelTutor`. **Así se quiere; no tocar.**
+- **Lo ya hecho se queda en la sección**: `cierres_transversales`, `cierres_conducta` y
+  `conclusiones_transversales` van por sección/periodo (la auditoría `cerrado_por` conserva
+  al saliente; el entrante puede editar conclusiones del bimestre sin cierre).
+- **DOCUMENTOS de un bimestre → el tutor DEL BIMESTRE.** PUNTO ÚNICO `TutorPeriodoModel`:
+  el cierre del bimestre (`PeriodoController::cerrar`, misma transacción) congela el
+  tutor de cada sección en `secciones_tutor_periodo`. **Inmutable**: reabrir y re-cerrar
+  conserva el primero. Sin fila (bimestre en curso) → tutor actual. Fila con `tutor_id`
+  NULL («sin tutor al cerrar») se respeta, NO cae al actual.
+  - **Boleta** (todas las vistas, vía `BoletaModel::armar`): tutor del ÚLTIMO bimestre
+    cuyas notas muestra según su umbral — `'oficial'` último publicado, `'archivo'` último
+    cerrado, vista previa con el bimestre en curso → el actual. Tutor y notas siempre del
+    mismo bimestre: con un cambio de tutor en el III, el nuevo solo aparece al cerrar el III.
+  - **Acta de orden de mérito**: tutor del bimestre del acta.
+  - **Acompañamiento**: `SeccionModel::seccionesDelAnio($anio, $periodo)` rotula
+    (`tutor_nombre`) al del bimestre; `tutor_id` sigue siendo el de HOY.
+  - **Sin cambio, a propósito**: nómina (no es de un bimestre → tutor actual), planilla
+    de asistencia (solo se genera del bimestre activo → actual), horario, buscador, panel
+    del apoderado, listados del director. Los imprimibles de conducta ya nombran a quien
+    cerró (`tutor_cerrado_por`). `BoletaPublicaController` (dormido) no se tocó.
+- **La carga TOE / Ética y Valores NO se mueve** con el tutor (puede dictarla otro
+  docente). Si se quiere pasar, **Reemplazo de docente** de esa carga. Ojo: la regla
+  «la TOE solo la dicta el tutor» (`CargaAcademicaController:489-496`) se mantiene, así
+  que tras cambiar de tutor la TOE del saliente **ya no se puede editar** (horario) hasta
+  reemplazarla. Decisión del usuario: no encadenar ni relajar la regla por ahora.
+- Protegido por `database/verificaciones/verif_tutor_periodo.php` (rollback).
+
 ### Fuentes Inter (@font-face)
 - Las rutas en `_typography.scss` usan path relativo `../assets/fonts/inter/`
   (relativo al CSS compilado en `public/css/`). NO usar rutas absolutas con

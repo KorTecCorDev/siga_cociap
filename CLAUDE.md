@@ -418,6 +418,12 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   estos códigos, hacerlo **entre comillas** — `director_ebr` también es parte de
   la tabla `director_ebr_historial`. La única copia que no puede leer la constante
   es el color del avatar en `_admin.scss`. Ver `docs/modulos/usuarios-direccion.md`.
+- **Tutor: FUNCIONES = el de HOY, DOCUMENTOS = el DEL BIMESTRE** (01/10/2026, migración
+  071). Todo lo que el tutor opera sale de `secciones.tutor_id` (el que sale pierde todo).
+  Boleta, acta de mérito y acompañamiento nombran al tutor congelado al CERRAR cada
+  bimestre: PUNTO ÚNICO `TutorPeriodoModel` (inmutable; en curso → el actual). Un
+  documento nuevo de bimestre que nombre al tutor lo lee de ahí, nunca de `tutor_id`.
+  Ver `docs/modulos/admin.md`.
 - **PDO preparado siempre**; `cargas_academicas` y `criterios` NO tienen UNIQUE KEY →
   proteger duplicados con `WHERE NOT EXISTS`.
 - **NUNCA CSS inline en PHP** — todo en SASS bajo `resources/sass/` + `gulp build`.

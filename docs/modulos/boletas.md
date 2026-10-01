@@ -31,6 +31,12 @@
 - **Pie de página:** DOS firmas — Tutor(a) de Aula y Director(a) E.B.R. (sesión 7).
   Se eliminó "Padre/Madre/Tutor(a)". Las líneas se alinean con `boleta-footer__espacio-firma`
   de 18mm fijo en ambos bloques (firma PNG anclada al fondo con `align-items: flex-end`).
+- **Tutor(a) = el DEL BIMESTRE** (01/10/2026, migración 071), en esta boleta y en la
+  digital: el del último bimestre cuyas notas muestra según su umbral, congelado al
+  cerrarlo (`TutorPeriodoModel`); en curso → el actual. Un cambio de tutor no reescribe
+  las boletas cerradas. Detalle en `admin.md` § «Cambiar de tutor a mitad de año».
+  ⚠️ `BoletaPublicaController` (dormido) conserva su propio `getTutorSeccion` con el
+  tutor actual: si se reactiva, pasarlo a `TutorPeriodoModel`.
 - **buildBoletaData():** lógica de carga de datos extraída a método privado compartido
   entre `ver()` (imprimible) y `verDigital()` (digital). Incluye `directorEbr` con
   `firma_path` y `sello_path` del Director EBR vigente.

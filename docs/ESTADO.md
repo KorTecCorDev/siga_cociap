@@ -5,6 +5,24 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🆕 TUTOR DEL BIMESTRE EN LOS DOCUMENTOS — EN `dev` (01/10/2026), SIN DESPLEGAR
+
+Nació del análisis «cambiar al tutor de 3.º A sec. con el III activo». Detalle y decisiones
+en `admin.md` § «Cambiar de tutor a mitad de año». Resumen: el cierre del bimestre congela
+el tutor de cada sección (`TutorPeriodoModel`, inmutable) y boleta, acta de mérito y
+acompañamiento nombran al del bimestre; las funciones siguen con el tutor actual.
+- [x] Migración **071** `secciones_tutor_periodo` aplicada en la BD local (relleno I y II:
+      2 × 23 secciones). `verif_tutor_periodo.php` verde (17 asertos, rollback).
+- [ ] Navegador: cambiar tutor de una sección → boleta y acta del II siguen con el
+      anterior; vista previa del III y acompañamiento rotulan como corresponde. Revertir.
+- [ ] 🔴 **Producción: ANTES del push, correr el PREVIEW de la 071** (cierres hechos por un
+      docente que no es el tutor actual) y luego aplicar la 071 a mano. Si el preview
+      devuelve filas, corregir esa fila de `secciones_tutor_periodo` tras el relleno.
+- [ ] Si se cambia de tutor en 3.º A: es independiente de este cambio, pero hacerlo
+      DESPUÉS de desplegar la 071 para que I y II queden congelados con Zambrano.
+- Fuera de alcance (decisión del usuario): encadenar el cambio de tutor con la carga
+  TOE/Ética y relajar la regla «la TOE solo la dicta el tutor».
+
 ## ⏸ DIFERIDO (29/09/2026) — Reapertura ESCALONADA de conducta y transversales
 
 Decisión del usuario: hoy «Reabrir» en `/director/bloqueos` anula el cierre ENTERO de

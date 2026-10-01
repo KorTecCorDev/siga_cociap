@@ -275,7 +275,7 @@ class BoletaModel extends BaseModel
             ],
             'omisiones'   => $this->omisionModel->getPorMatriculaAnioUnion($fuentes, $anioId),
             'institucion' => config('institucion'),
-            'tutor'       => $this->getTutorSeccion($identidad),
+            'tutor'       => $this->getTutorSeccion($identidad, $this->ultimoPeriodoConDatos($periodos, $periodosConDatos)),
             'directorEbr' => $this->dirModel->getVigenteEnFecha($anioId),
         ];
     }
@@ -491,38 +491,46 @@ class BoletaModel extends BaseModel
         ];
     }
 
-    private function getTutorSeccion(int $matriculaId): ?array
+    /**
+     * Último bimestre (mayor número) cuyas notas muestra ESTA boleta según su
+     * umbral, o null si no muestra ninguno. Ancla del tutor que se imprime:
+     * tutor y notas siempre del mismo bimestre (decisión del 01/10/2026).
+     */
+    private function ultimoPeriodoConDatos(array $periodos, array $periodosConDatos): ?int
+    {
+        $ultimo = null;
+        foreach ($periodos as $p) { // ordenados por numero
+            if (isset($periodosConDatos[$p['id']])) {
+                $ultimo = (int) $p['id'];
+            }
+        }
+        return $ultimo;
+    }
+
+    /**
+     * Tutor que firma la boleta: el de la sección de la matrícula de IDENTIDAD
+     * (retorno de grado = la oficial) en el bimestre dado, congelado al cerrarlo
+     * (`TutorPeriodoModel`, migración 071). Sin bimestre o sin congelar (en
+     * curso) → el tutor actual.
+     */
+    private function getTutorSeccion(int $matriculaId, ?int $periodoId): ?array
     {
         $seccion = $this->queryOne("
-            SELECT s.tutor_id
+            SELECT m.seccion_id
             FROM matriculas m
-            INNER JOIN secciones s ON s.id = m.seccion_id
             WHERE m.id = ?
             LIMIT 1
         ", [$matriculaId]);
 
-        $tutorId = (int) ($seccion['tutor_id'] ?? 0);
-        if (!$tutorId) {
+        if (!$seccion) {
             return null;
         }
 
-        $persona = $this->queryOne("
-            SELECT p.apellido_paterno, p.apellido_materno, p.nombres, p.sexo
-            FROM usuarios u
-            INNER JOIN personas p ON p.id = u.persona_id
-            WHERE u.id = ?
-            LIMIT 1
-        ", [$tutorId]);
+        $tutor = (new TutorPeriodoModel())->tutorDe((int) $seccion['seccion_id'], $periodoId);
 
-        if (!$persona || empty($persona['apellido_paterno'])) {
-            return null;
-        }
-
-        return [
-            'nombre' => $persona['apellido_paterno'] . ' '
-                      . $persona['apellido_materno'] . ', '
-                      . $persona['nombres'],
-            'sexo'   => $persona['sexo'],
+        return $tutor === null ? null : [
+            'nombre' => $tutor['nombre'],
+            'sexo'   => $tutor['sexo'],
         ];
     }
 }

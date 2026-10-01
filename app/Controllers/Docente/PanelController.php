@@ -172,7 +172,7 @@ class PanelController extends BaseController
                 ->ultimoPeriodoPublicadoPorNivel($anioT)[(int) $seccionTutor['nivel_id']] ?? null;
             $riesgoTutor = ['seccion' => $seccionTutor, 'periodo' => $ultimo, 'resumen' => null];
             if ($ultimo) {
-                $fila = array_column((new SeccionModel())->seccionesDelAnio($anioT), null, 'id')[(int) $seccionTutor['id']];
+                $fila = array_column((new SeccionModel())->seccionesDelAnio($anioT, (int) $ultimo['id']), null, 'id')[(int) $seccionTutor['id']];
                 $riesgoTutor['resumen'] = (new SituacionFinalModel())
                     ->deSeccion((int) $ultimo['id'], $fila)['stats']['resumen'];
             }

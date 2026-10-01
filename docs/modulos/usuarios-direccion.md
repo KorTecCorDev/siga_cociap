@@ -1537,6 +1537,10 @@ mérito **no vuelva a calcular el riesgo**. Ver § «Verificación» de la secci
 
 El informe se lleva **a los tutores de cada sección**. No hay rol «tutor»: es un `docente`
 en `secciones.tutor_id` (23 secciones, 23 tutores, **solo el tutor ACTUAL**, sin historial).
+> **Actualización 01/10/2026 (migración 071):** el ACCESO sigue siendo del tutor actual,
+> pero el RÓTULO del informe («Tutor(a) del bimestre», antes «Tutor(a) actual») nombra al
+> tutor congelado al cerrar ese bimestre: `seccionesDelAnio($anio, $periodo)`. Ver
+> `admin.md` § «Cambiar de tutor a mitad de año».
 Decisiones del usuario:
 
 - **Dos canales.** (1) Dirección filtra por **sección** e imprime un **lote** (una sección por

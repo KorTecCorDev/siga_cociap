@@ -116,7 +116,7 @@ $sel = $riesgo ? $riesgo['secciones_ids'] : [];
           // Formulario GET con «Aplicar»: las casillas no recargan solas, para
           // poder marcar varias secciones de una vez. Sin marcar = todas. El
           // rótulo del grado y los atajos son enlaces (funcionan sin JS). El
-          // `title` nombra a su tutor actual. ?>
+          // `title` nombra a su tutor del bimestre (congelado al cerrarlo). ?>
     <form method="GET" action="<?= url('admin/cuadros/acompanamiento') ?>" class="cuadros-riesgo__filtros cuadros-riesgo__form">
         <input type="hidden" name="periodo_id" value="<?= (int) $periodo['id'] ?>">
 

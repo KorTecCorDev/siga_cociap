@@ -7,6 +7,7 @@ use App\Models\AnioAcademicoModel;
 use App\Models\ControlOperativoModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\PublicacionBoletaModel;
+use App\Models\TutorPeriodoModel;
 use Core\Session;
 
 /**
@@ -194,6 +195,10 @@ class PeriodoController extends BaseController
             // (respeta los cierres que el tutor ya hizo).
             $this->model->crearCierresTransversalesPendientes($id, $usuarioId);
             $this->model->setEstadoPeriodo($id, 'cerrado');
+            // TUTOR DEL BIMESTRE (071): congela el tutor de cada sección para los
+            // documentos de este bimestre. Inmutable: un re-cierre tras reabrir
+            // conserva el primero. Mismo PDO singleton → misma transacción.
+            (new TutorPeriodoModel())->congelarPeriodo($id, $usuarioId);
             // Cierre de boletas: deja la boleta en estado OFICIAL. El flag asegura
             // que, si luego se REABRE, vuelva a BORRADOR hasta re-cerrar.
             $this->model->marcarBoletasAprobadas($id, $usuarioId);

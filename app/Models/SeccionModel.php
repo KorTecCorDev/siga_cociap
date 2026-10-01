@@ -7,18 +7,21 @@ class SeccionModel extends BaseModel
     protected string $table = 'secciones';
 
     /**
-     * Secciones de un año con su grado, nivel y tutor ACTUAL (23/09/2026).
+     * Secciones de un año con su grado, nivel y tutor (23/09/2026).
      *
      * Alimenta el filtro por sección del informe de estudiantes en riesgo y el
-     * bloque por tutor (lote de Dirección y panel del tutor). `secciones.tutor_id`
-     * es el tutor de HOY: no hay historial, así que un informe de un bimestre
-     * anterior nombra al tutor actual (los encabezados lo dicen).
+     * bloque por tutor (lote de Dirección y panel del tutor).
+     *  - `tutor_id` es SIEMPRE el tutor de HOY (`secciones.tutor_id`): es el dato
+     *    de FUNCIÓN (quién opera la sección).
+     *  - `tutor_nombre` es el que se ROTULA: con $periodoId, el tutor DEL BIMESTRE
+     *    (congelado al cerrarlo, `TutorPeriodoModel`, 01/10/2026); sin él, o con
+     *    el bimestre en curso, el de hoy.
      *
      * @return array<int, array{id:int, grado_id:int, nombre:string, grado_numero:int,
      *         grado_nombre:string, nivel_id:int, nivel_nombre:string, nivel_codigo:string,
      *         tutor_id:?int, tutor_nombre:?string}>
      */
-    public function seccionesDelAnio(int $anioId): array
+    public function seccionesDelAnio(int $anioId, ?int $periodoId = null): array
     {
         $filas = $this->query("
             SELECT s.id, s.grado_id, s.nombre,
@@ -38,7 +41,7 @@ class SeccionModel extends BaseModel
             ORDER BY n.id, g.numero, s.nombre
         ", [$anioId]);
 
-        return array_map(static fn(array $r): array => [
+        $secciones = array_map(static fn(array $r): array => [
             'id'           => (int) $r['id'],
             'grado_id'     => (int) $r['grado_id'],
             'nombre'       => (string) $r['nombre'],
@@ -52,6 +55,22 @@ class SeccionModel extends BaseModel
                 ? trim($r['apellido_paterno'] . ' ' . $r['apellido_materno'] . ', ' . $r['nombres'])
                 : null,
         ], $filas);
+
+        if ($periodoId === null || empty($secciones)) {
+            return $secciones;
+        }
+
+        $delPeriodo = (new TutorPeriodoModel())->tutoresDeSecciones(
+            array_column($secciones, 'id'),
+            $periodoId
+        );
+        foreach ($secciones as &$s) {
+            $tutor = $delPeriodo[$s['id']] ?? null;
+            $s['tutor_nombre'] = $tutor !== null ? trim($tutor['nombre']) : null;
+        }
+        unset($s);
+
+        return $secciones;
     }
 
     public function listarConTutor(): array
