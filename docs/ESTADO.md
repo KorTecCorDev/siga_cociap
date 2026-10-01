@@ -16,9 +16,14 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
-## 🆕 PLANILLA DE ASISTENCIA CON LAS SIGLAS DEL SISTEMA — EN `dev`, LISTA PARA EL MERGE (30/09 y 01/10/2026)
+## 🟢 PLANILLA DE ASISTENCIA — DESPLEGADA el 01/10/2026 (sin cambio de versión: sigue v1.0.5)
 
-> **Listo para el merge `dev` → `main` (01/10/2026), cuando el usuario lo pida.**
+**Deploy del 01/10/2026:** merge `dev` → `main` con `--no-ff`. `origin/main` pasó de `5c28193`
+a `f71714f`. Producción sirve el `print-fit.js` nuevo, comprobado con curl. Sin migraciones.
+- [ ] Revisar en `sigacociap.net` el PDF de 5.° B de secundaria (`seccion=23`): el auxiliar
+      PALOMINO VILLANUEVA sale entero, sin «…», y la leyenda solo con F/FJ/T/TJ.
+
+> **Lo que se preparó para el merge (histórico):**
 > - **Sin migraciones.** No hay que aplicar nada en producción antes del push.
 > - Viajan:
 >   - `c31cff4`: siglas F/FJ/T/TJ;
@@ -38,7 +43,7 @@ del sistema; punto único `PlanillaAsistenciaModel::LEYENDA`. La plantilla Excel
 `AC8:AF8` y `A46` y el código las escribe. Además, `verif_direccion_solo_lectura.php` entiende
 los `if` partidos en varias líneas (falso positivo en `matriculas/show.php`). Batería 55/55.
 Detalle en `docs/modulos/auxiliares.md`.
-- [ ] Merge a `main` «para el final» (decisión del usuario, 30/09/2026; la ratificó el 01/10).
+- [x] Merge a `main`: lo pidió el usuario el 01/10/2026 (`f71714f`).
 - [ ] Abrir un Excel y un PDF generados para verlos impresos (en local no hay Excel ni sesión).
 
 **01/10/2026 — nombres que no caben (COMMITEADO en `dev`, aprobado por el usuario).**

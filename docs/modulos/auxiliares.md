@@ -1,9 +1,11 @@
 # Módulo AUXILIAR ACADÉMICO
 
 > **ESTADO: DESPLEGADO en v1.0.5 (30/09/2026).** Migraciones `065` a `070` aplicadas a mano
-> en producción antes del push. Fases F0–F6, repaso final y seis rondas de ajustes. Quedan
-> los pendientes posteriores al deploy de `docs/ESTADO.md` (usuarios reales de los
-> auxiliares, revisión en producción, docs finales).
+> en producción antes del push. Fases F0–F6, repaso final y seis rondas de ajustes.
+> **01/10/2026, desplegado sin cambio de versión:** planilla con siglas F/FJ/T/TJ, nombres
+> completos ajustados al ancho y leyenda sin «En blanco = asistió» (§6). Lo que queda tras
+> el despliegue está en `docs/ESTADO.md`: usuarios reales de los auxiliares, panel del tutor
+> y feriados.
 >
 > Este doc sustituye al plan que vivía fuera del repo
 > (`~/.claude/plans/buen-d-a-en-el-floofy-minsky.md`, solo en la máquina de la
