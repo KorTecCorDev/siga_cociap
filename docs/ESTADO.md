@@ -231,7 +231,8 @@ impersonales, Usuarios solo para admin, grillas sin columna Estado, imprimible c
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 
 **Al retomar EN CASA, antes de probar nada:**
-- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 070**: aplicarlas a
+- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 071** (la **071**,
+      tutor del bimestre, se sumó el 01/10: sin ella falla el cierre de bimestre): aplicarlas a
       mano en orden. Sin la 068 y la 069 el código nuevo falla (`conducta_confirmaciones`,
       `inasistencias.confirmado_en`, `asistencia_incidencias`,
       `periodos.asistencia_por_fechas`). Tampoco tiene auxiliares de prueba (ver punto 1).
