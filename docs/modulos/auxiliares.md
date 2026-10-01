@@ -510,10 +510,14 @@ con conducta: hoy la asistencia sale en la boleta **sin** exigir el bloqueo
 
 - La asignación auxiliar ↔ sección por bimestre (F1) es exactamente el alcance que
   usará el escáner.
-- `inasistencias` sigue siendo el **consolidado oficial** que lee la boleta. En 2027,
+- `inasistencias` sigue siendo el **consolidado oficial** que lee la boleta. ~~En 2027,
   una tabla diaria (`asistencia_diaria`) + `justificaciones` alimentarían esos 4
-  contadores por un punto único de escritura (`AsistenciaModel::guardar`), sin tocar la
-  boleta ni los cierres.
+  contadores por un punto único de escritura (`AsistenciaModel::guardar`).~~ **Superado
+  por la asistencia por fechas (migraciones 069 y 070):** la tabla diaria ya existe
+  (`asistencia_incidencias`), el escáner escribiría por `AsistenciaModel::marcarDia` y los
+  contadores seguirían saliendo de `recalcularContadores`, sin tocar boleta ni cierres.
 - El QR del estudiante **NUNCA** reusará `matriculas.token_acceso` (abre la boleta):
   tendrá un identificador propio.
-- Registrar estos principios en `docs/decisiones-diferidas.md` al cerrar el módulo.
+- **El diseño acordado el 30/09/2026** (presunción invertida, hora límite, cierre del
+  ingreso, suplantación) vive en `docs/decisiones-diferidas.md` § «Asistencia por fechas
+  — lo que queda para después». Leerlo allí; no se duplica aquí.

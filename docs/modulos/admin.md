@@ -174,9 +174,13 @@ sin depender de nadie**.
 
 ### Conducta en el panel del director (gestión nueva)
 - **Dos etapas** (igual que el flujo real): **auxiliar académico** registra/bloquea
-  (etapa 1) → **tutor** cierra (etapa 2). Hoy la etapa 1 la hace el rol
-  `registro_academico`, pero en la UI se etiqueta **"auxiliar académico"** (rol futuro;
-  NO se creó el rol todavía).
+  (etapa 1) → **tutor** cierra (etapa 2). ~~Hoy la etapa 1 la hace el rol
+  `registro_academico` (rol futuro; NO se creó el rol todavía).~~ **Desde v1.0.5
+  (30/09/2026) el rol `auxiliar_academico` existe**: registra y bloquea la etapa 1 solo en
+  las secciones que tiene asignadas en el bimestre, y RA/admin siguen pudiendo hacerlo como
+  respaldo. Conducta y asistencia llevan además autoguardado + «Confirmar» y la asistencia
+  va POR FECHAS. Ver `docs/modulos/auxiliares.md` y
+  `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 - `$conducta[]` con `estado` ∈ `pendiente_auxiliar` (rojo) / `pendiente_tutor` (ámbar) /
   `cerrada` (verde) + columna "Calificados X/Y".
 - **El director tiene control total:** forzar etapa 1, forzar etapa 2, o **reabrir**
@@ -308,7 +312,8 @@ Todos los bloques de firma (con y sin imagen) tienen un contenedor de **altura f
 
 ## Conducta: grilla de criterios en SOLO LECTURA para el tutor (07/07/2026)
 
-El tutor puede consultar la matriz Si/No que registraron los auxiliares (RA),
+El tutor puede consultar la matriz Si/No que registraron los auxiliares (desde v1.0.5 con
+su propio rol; antes la tecleaba RA),
 ademas de la nota derivada que ya veia en su panel:
 
 - **Ruta:** `GET /docente/conducta/{periodo_id}/criterios`
@@ -453,8 +458,9 @@ y `/admin/asistencia`, con copia imprimible firmable. Migracion `043_cierres_asi
   `.tabla-registro` (criterios ✓/✗ + nota RA en conducta; 4 contadores en
   asistencia), leyenda de criterios, traza del cierre (quien/cuando) y
   `.reporte-footer` con DOS lineas de firma EN BLANCO tituladas
-  **"Auxiliar Responsable"** y **"Personal de Registro Académico"** (el rol
-  auxiliar_academico aun no existe como usuario; se firma a mano).
+  **"Auxiliar Responsable"** y **"Personal de Registro Académico"** (se firma a mano;
+  el rol `auxiliar_academico` existe desde v1.0.5 y también imprime sus secciones, D12 de
+  `docs/modulos/auxiliares.md`).
 - SASS: `resources/sass/pages/_registro-cierre.scss` (pantalla + print).
 
 ### Panel del director (`/director/bloqueos`)
