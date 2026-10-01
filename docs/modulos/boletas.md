@@ -284,8 +284,10 @@ aparecía columna cuando había datos.
 4. **Aplica a TODAS las boletas** (builder único): digital, imprimible, token e interna.
 
 ### Implementación (sin migración, sin cambio de vista)
-- `BoletaModel::getUltimoBimestreDelAnio(int $anioId): ?array` — `ORDER BY numero
-  DESC LIMIT 1` (id/numero/estado).
+- `AnioAcademicoModel::ultimoPeriodoDelAnio(int $anioId): ?array` — `ORDER BY numero
+  DESC LIMIT 1` (id/numero/estado). Es el **ancla única del periodo final** desde el
+  01/10/2026; antes era el privado `BoletaModel::getUltimoBimestreDelAnio`, con una
+  copia en `BoletaPublicaController`. Ver `calificaciones.md` § «Implementación (01/10/2026)».
 - `armar()` deriva `$ultimoBimestreId` + `$ultimoCerrado = estado==='cerrado'` y los
   pasa a `buildAreasConBimestres(..., $ultimoBimestreId, $ultimoCerrado)`.
 - `buildAreasConBimestres`: `literal_final = $comp['bimestres'][$ultimoBimestreId]

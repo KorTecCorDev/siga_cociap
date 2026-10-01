@@ -234,7 +234,8 @@ Cuatro trampas que costaron una corrección cada una y no hay que repetir:
 
 ## REGLA DE NEGOCIO — autonomía del docente y periodo final (10/08/2026)
 
-> Regla del colegio, confirmada por el usuario. **Aprobada, SIN IMPLEMENTAR.**
+> Regla del colegio, confirmada por el usuario. **IMPLEMENTADA el 01/10/2026**, en `dev`
+> (ver § «Implementación» al final de esta sección; estado del despliegue en `docs/ESTADO.md`).
 > Fecha tope: antes del **05/10/2026** (inicio del IV Bimestre).
 
 **En los periodos NO finales (B1, B2, B3) el docente es AUTÓNOMO**: elige qué competencias
@@ -256,9 +257,11 @@ las transversales las sigue registrando cada docente en su carga y aprobando el 
   (la de competencia y la de estudiante) y ninguna sustituye a la otra.
 - **Se hace cumplir en DOS sitios** (decisión del usuario): (1) **impedir el bloqueo** de
   una competencia vacía en el periodo final —el docente se entera en su propia pantalla,
-  cuando todavía puede actuar— y (2) **abortar el cierre** como red de seguridad. Solo lo
+  cuando todavía puede actuar— y (2) **detener el cierre** como red de seguridad. Solo lo
   segundo llega tarde; solo lo primero deja pasar las competencias que nunca se bloquean,
   porque el cierre forzado las bloquea igual.
+  - ⚠️ **(2) cambió el 01/10/2026:** el cierre ya **no aborta**; se detiene y pide
+    **confirmación explícita** (ver «Válvula: resuelta» abajo).
 - **Válvula: REGISTRO ACADÉMICO, con motivo específico** (decisión del usuario; no el
   director). No hay que inventarla: es lo que ya hace la **calificación extraordinaria**
   (migración 042, en producción desde el 16/07), cuya fila de auditoría con el motivo es
@@ -271,6 +274,18 @@ las transversales las sigue registrando cada docente en su carga y aprobando el 
     del IV Bimestre no se podría cerrar nunca. El usuario decidió **resolverlo al
     implementar esta regla** (antes del 05/10). Opciones ya planteadas: excepción en el
     periodo final, o que su cierre admita competencias vacías y RA las complete después.
+  - ✅ **Válvula: RESUELTA el 01/10/2026 (decisión del usuario): el cierre ADMITE vacías,
+    con confirmación explícita.** La primera vez se detiene y muestra qué queda vacío y
+    cuántos estudiantes quedarían en `PEND` o sin datos. «Cerrar igual» cierra, y RA las
+    completa después con la extraordinaria, que en un bimestre cerrado ya funciona.
+    Por qué, y no la «excepción con plazo vencido»:
+    - **La situación final no puede salir errada** con ninguna opción: en el periodo final
+      lo que falta da `PEND`, nunca PRO/RR/PER.
+    - **La prevención real es el sitio (1):** en B2, las 59 vacías fueron «No se evaluó» del
+      propio docente (0 del cierre forzado).
+    - **Abortar** dejaba a todo el colegio rehén de un docente ausente.
+    - **Costo aceptado:** esas notas **no entran al mérito del IV**, porque el mérito excluye
+      las extraordinarias por invariante.
 
 ### Por qué existe: cierra el punto ciego del logro anual
 El logro anual sale **solo del último periodo**. Sin esta regla, una competencia que el
@@ -309,6 +324,45 @@ Si B2 fuera el periodo final, el guard **abortaría el cierre**:
    Pasó al medir esta misma regla.
 3. **El cierre forzado bloquea lo que el docente no bloqueó**, así que un guard puesto solo
    en el bloqueo del docente no ve nada: por eso hacen falta los dos puntos.
+
+### Implementación (01/10/2026)
+- **ANCLA ÚNICA `AnioAcademicoModel::ultimoPeriodoDelAnio()`** (mayor `numero` del año), y
+  `esPeriodoFinal()` delega en ella. La consumen también el logro anual (`BoletaModel` y la
+  copia dormida `BoletaPublicaController`) y `SituacionFinalModel::datosPeriodo`. Las 3
+  consultas que antes estaban escritas a mano se unificaron el 01/10/2026.
+  `verif_periodo_final.php` § 6 falla si renace un `MAX(numero) FROM periodos` fuera del ancla.
+- **Plazo estricto en `bloquear()`** (decisión del usuario, 01/10/2026):
+  - Vencido `limite_notas`, el docente **ya no aprueba**; antes solo dejaba de editar.
+  - Lo que quedó sin aprobar lo bloquea el cierre forzado.
+  - Si hace falta más tiempo, se amplía el plazo.
+  - Además, el endpoint exige que la carga sea del docente (`validarCargaDocente`). Hasta
+    entonces solo lo filtraban las pantallas.
+- **Sitio (1), el docente:** `CalificacionController::errorBloqueoCompetencia`.
+  - En el periodo final rechaza «No se evaluó» (`sin_calificaciones=1`) en académicas y
+    transversales.
+  - **Excepción:** todo el roster de la carga está exonerado.
+  - La grilla oculta el botón (`$periodoFinal`) y el resumen cambia su aviso.
+  - Actúa sobre UNA competencia, así que no necesita el universo de «carga dueña».
+- **Sitio (2), el cierre:** `PeriodoController::cerrar`.
+  - **Dentro** de la transacción y **después** de `bloquearCompetenciasPendientes` llama a
+    `AnioAcademicoModel::avisoPeriodoFinal()`. En ese punto `bloqueos_competencia` ya es el
+    universo canónico de cada carga: **la trampa 1 se esquiva sin escribir una 5.ª copia**.
+  - El aviso tiene dos partes:
+    - `competenciasVaciasDelPeriodo()`: bloqueos sin ninguna nota de un estudiante
+      **vigente** (`matriculas_vigentes()`). Las notas de trasladados y retirados no se
+      borran, y no deben dar por evaluada una competencia. Fuera las cargas con TODO el
+      roster exonerado del área; la exoneración no exime de TIC/GAMA.
+    - Los estudiantes `PEND` / ND, de `SituacionFinalModel` + `riesgo_resumen()`. Es el
+      mismo PDO, así que ve lo que el cierre va a oficializar.
+  - Sin `confirmar_vacias=1`: ROLLBACK, guarda el detalle en la sesión (`cierre_vacias`) y
+    `director/anios/{id}` lo muestra con el botón «Cerrar igual».
+- **Hito A** (`ControlOperativoController::aprobarBimestre`): solo añade el aviso al
+  mensaje. No aborta.
+- **Cerrar el año** exige la situación final **definitiva**. Ver `promocion-de-grado.md` § 6.2.
+- **Verificación:**
+  - `database/verificaciones/verif_periodo_final.php`: dos ramas por guarda, en transacción
+    con ROLLBACK que simula B2 como final.
+  - Cuadra 59 vacías con una copia de control; con B2 como final, 240 estudiantes en `PEND`.
 
 ## Módulo soft-delete de criterios (sesión 7)
 - **Migración:** `006_soft_delete_criterios.sql` — agrega `eliminado_en DATETIME NULL` y

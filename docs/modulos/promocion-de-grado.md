@@ -8,7 +8,7 @@
 > 🔴 **REGLA OFICIAL DEL COLEGIO desde el 27/09/2026** (decisión del usuario): este algoritmo
 > define la **situación final de cada estudiante al terminar el año académico**. Ver § 6.2.
 >
-> **Vigente al 24/09/2026** (commit `c07e423`). El diario de cambios, las mediciones y los
+> **Vigente al 01/10/2026** (versión final de la regla, § 6.2; antes `c07e423`). El diario de cambios, las mediciones y los
 > detalles de pantalla del informe viven en `docs/modulos/usuarios-direccion.md`
 > § «Riesgo académico = situación final del MINEDU». Si este documento y el código discrepan,
 > **manda el código**, y este documento se corrige.
@@ -216,6 +216,20 @@ académico**, y así se evalúa de aquí en adelante.
 - Es **definitiva** cuando no queda ninguna competencia sin evaluar ni ningún estudiante sin datos
   (`riesgo_resumen()['definitiva']`). Mientras falte algo, el estudiante queda en `PEND`: no se le
   asigna una situación que los datos todavía no sostienen.
+  - ⚠️ Hasta el 01/10/2026 el código **no miraba los «sin datos»** (solo PEND y parciales). Se
+    corrigió para que cumpla lo que dice este documento (decisión del usuario).
+  - **Trasladados y retirados no entran** (`matriculas_vigentes()`, § 5.3): no tienen situación
+    final aquí y no impiden la definitiva.
+- **Cómo se garantizan los datos** (regla del periodo final, implementada el 01/10/2026; detalle en
+  `docs/modulos/calificaciones.md`):
+  1. En el último bimestre **el docente no puede marcar «No se evaluó»**.
+  2. **El cierre de ese bimestre admite competencias vacías solo con confirmación explícita**, y
+     las lista junto con los estudiantes que quedarían en `PEND` o sin datos.
+  3. Registro Académico las completa después con la **calificación extraordinaria**, que **sí
+     cuenta** para la situación final (§ 5.1) y no para el mérito.
+- **Cerrar el año académico exige la situación final definitiva**: el último bimestre cerrado, 0
+  `PEND` y 0 sin datos (`AnioAcademicoController::cerrar`). Es irreversible, así que no se cierra
+  sobre una situación incompleta.
 - Punto único: `situacion_final_analisis()` / `situacion_final_proyectar()` (`helpers.php`) y
   `SituacionFinalModel`. Ninguna pantalla, informe o documento nuevo que hable de promoción de
   grado calcula la situación por su cuenta.
@@ -271,6 +285,9 @@ SIGA muestra en los bimestres I a III es proyección; la comparación real se ha
 | `situacion_final_proyectar()` | `app/Helpers/helpers.php` | Certeza (mejor y peor caso contra el plan) y `PEND` en el último bimestre. |
 | `situacion_efecto_competencia()` | `app/Helpers/helpers.php` | Chip de cada competencia en el informe (⚠ PER, ⚠ RR, «En el límite»). |
 | `SituacionFinalModel` | `app/Models/SituacionFinalModel.php` | Los datos: roster, notas, plan, retorno de grado y talleres (`areasQueCuentan()`). |
+| `AnioAcademicoModel::ultimoPeriodoDelAnio()` / `esPeriodoFinal()` | `app/Models/AnioAcademicoModel.php` | **Ancla única** del último periodo del año. La usan esta regla, el logro anual y `SituacionFinalModel`. |
+| `AnioAcademicoModel::avisoPeriodoFinal()` | `app/Models/AnioAcademicoModel.php` | Lo que deja pendiente el cierre del último periodo: competencias vacías, `PEND` y sin datos. |
+| Compuerta de «Cerrar año» | `Director\AnioAcademicoController::cerrar` | Exige `riesgo_resumen()['definitiva']` del último periodo. |
 
 **Ningún umbral se escribe a mano fuera de estas funciones.** Las únicas copias deliberadas son las
 de control de las verificaciones, que existen precisamente para detectar si la regla cambia.
@@ -281,6 +298,7 @@ de control de las verificaciones, que existen precisamente para detectar si la r
 |---|---|
 | `database/verificaciones/verif_situacion_final.php` | La regla pura: convenciones de «la mitad» y «más de la mitad», un caso por rama de cada cuadro, la frontera entre «la mitad o más» y «más de la mitad», la monotonía de la proyección (3 000 casos aleatorios) y los chips. |
 | `database/verificaciones/verif_riesgo_situacion_bd.php` | Contra la BD: recalcula cada situación con una copia de control escrita a mano, más talleres, último nivel registrado, retorno de grado y certeza. |
+| `database/verificaciones/verif_periodo_final.php` | La regla del periodo final: punto único, guarda del docente, competencias vacías (trasladados, retirados y exonerados) y `PEND` con un periodo final simulado (ROLLBACK). |
 
 ---
 
@@ -297,3 +315,4 @@ de control de las verificaciones, que existen precisamente para detectar si la r
 | 25/09/2026 | Revisión de los tres filtros (§ 4.5): «la mitad o más» sigue siendo `ceil(n/2)`: en las áreas impares es la mitad entera más una (5 → 3) y en las pares, la mitad exacta (4 → 2). El **acompañamiento** pasa a aplicarse a **todos** (también RR/PER). |
 | 27/09/2026 | **Este algoritmo pasa a ser la regla oficial de la situación final al cerrar el año académico** (§ 6.2). |
 | 27/09/2026 | Se deroga la ampliación del 25/09: **riesgo y seguimiento son disjuntos**; su suma es el total de acompañamiento pedagógico, que el resumen del informe muestra. |
+| 01/10/2026 | **Versión final de la regla:** `definitiva` exige también 0 sin datos; en el último bimestre no existe «No se evaluó»; su cierre admite vacías solo con confirmación (RA las completa con la extraordinaria); **cerrar el año exige la situación definitiva**. |

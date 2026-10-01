@@ -16,6 +16,62 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
+## 🆕 REGLA DEL PERIODO FINAL + SITUACIÓN FINAL DEFINITIVA — EN `dev` (commit del 01/10/2026), SIN DESPLEGAR
+
+El pendiente con tope **05/10/2026** (regla del 10/08). Sin migración. Detalle en
+`calificaciones.md` § «REGLA DE NEGOCIO — autonomía del docente y periodo final» y
+`promocion-de-grado.md` § 6.2.
+- **Decisiones del usuario (01/10, no re-preguntar):**
+  - La válvula rota del 18/09 se resuelve así: **el cierre del periodo final ADMITE vacías, con
+    confirmación explícita**. RA las completa después con la extraordinaria. Deroga «abortar
+    el cierre».
+  - Esas notas **no entran al mérito del IV** (invariante intacto).
+  - El **Hito A solo avisa**.
+  - `definitiva` exige además **0 ND**.
+  - **Cerrar año exige la situación definitiva.**
+- **Implementado:**
+  - Punto único `AnioAcademicoModel::esPeriodoFinal` (`MAX(numero)`).
+  - Guarda en `CalificacionController::errorBloqueoCompetencia`: no existe «No se evaluó» en
+    el periodo final, salvo que todo el roster esté exonerado. Botón oculto en la grilla.
+  - `competenciasVaciasDelPeriodo` + `avisoPeriodoFinal`, contados DESPUÉS del bloqueo forzado.
+    Así no nace una 5.ª copia de «carga dueña»; trasladados y retirados no cuentan.
+  - `PeriodoController::cerrar` se detiene y muestra el detalle en `director/anios/{id}`;
+    «Cerrar igual» envía `confirmar_vacias=1`.
+  - `aprobarBimestre` avisa.
+  - `riesgo_resumen()['definitiva']` mira `sin_datos`.
+  - `AnioAcademicoController::cerrar` exige el periodo final cerrado y la situación definitiva.
+- **Verificado:**
+  - `verif_periodo_final.php` nuevo: 27 comprobaciones, dos ramas por guarda, en transacción
+    con ROLLBACK simulando B2 como final (59 vacías, 240 PEND). Caen 2 mutantes.
+  - `verif_situacion_final.php` § 7: `definitiva` con ND. Cae 1 mutante.
+  - Render de `director/anios/show` con el aviso.
+  - **Batería 56/56.**
+- [ ] **Probar en navegador**: botón «No se evaluó» y cierre detenido / «Cerrar igual» (hace
+      falta simular un periodo final o esperar al IV).
+- [x] Commit y push a `dev` (01/10/2026, pedido del usuario).
+- [ ] **Deploy a `main`** (decisión del usuario, preguntar antes). El IV abre el **05/10**:
+      conviene que esté en producción ANTES de que los docentes empiecen a bloquear. Sin
+      migración.
+- [x] **Ancla única del periodo final** (pedido del usuario, mismo día):
+      `AnioAcademicoModel::ultimoPeriodoDelAnio()`. Ahora la consumen `esPeriodoFinal()`,
+      `BoletaModel` (logro anual), la copia dormida `BoletaPublicaController` y
+      `SituacionFinalModel::datosPeriodo`. Se borraron los dos `getUltimoBimestreDelAnio`.
+      El verificador falla si renace un `MAX(numero) FROM periodos` fuera del ancla.
+      `AuxiliarSeccionModel::vigentesSql` también hace un `MAX(numero)`, pero responde otra
+      pregunta (la asignación vigente) y queda fuera a propósito. Lo mismo vale para
+      `EstudianteModel` y `PublicacionBoletaModel` (activo, último cerrado, último publicado).
+- [x] **`bloquear()` con las dos guardas** (pedido del usuario):
+      - Dueño de la carga (`validarCargaDocente`).
+      - **Plazo estricto** (decisión del usuario): vencido `limite_notas`, el docente ya no
+        aprueba. Lo pendiente lo bloquea el cierre, que `/admin/control` cuenta como olvido.
+        Si el docente no aprobó sus TIC/GAMA, el tutor queda esperando hasta que se amplíe
+        el plazo o se cierre.
+      - El resumen oculta «Aprobar y bloquear» con un aviso.
+      - Probado con el controlador REAL en subproceso (transacción sin commit).
+      - Verificador: 3 mutantes nuevos caen. Batería 56/56.
+- [ ] ⚠️ **Avisar a los docentes del plazo estricto** antes del IV: hasta ahora podían aprobar
+      después del plazo.
+
 ## 🟢 PLANILLA DE ASISTENCIA — DESPLEGADA el 01/10/2026 (sin cambio de versión: sigue v1.0.5)
 
 **Deploy del 01/10/2026:** merge `dev` → `main` con `--no-ff`. `origin/main` pasó de `5c28193`
