@@ -50,12 +50,14 @@ $franja = [
         </div>
     </header>
 
-    <?php // Franja de datos a lo ancho. Casilla vacía = se completa a mano. ?>
+    <?php // Franja de datos a lo ancho. Casilla vacía = se completa a mano.
+          // `data-ajustar-texto` = tamaño base en pt (el de `_planilla-asistencia.scss`):
+          // print-fit.js deja la letra más grande que cabe, con ese tope. Nunca se corta. ?>
     <div class="planilla-print__franja">
         <?php foreach ($franja as [$rotulo, $valor, $mod]): ?>
             <div class="planilla-print__dato planilla-print__dato--<?= $mod ?>">
                 <span class="planilla-print__dato-rotulo"><?= e($rotulo) ?></span>
-                <span class="planilla-print__dato-valor"><?= e($valor) ?></span>
+                <span class="planilla-print__dato-valor" data-ajustar-texto="11"><?= e($valor) ?></span>
             </div>
         <?php endforeach; ?>
     </div>
@@ -89,14 +91,16 @@ $franja = [
                 <tr>
                     <td class="planilla-print__num"><?= $f + 1 ?></td>
                     <?php
-                        // Si no cabe: primer nombre + inicial del segundo (punto único
-                        // del modelo). Si ni así cabe, letra menor: nunca se corta.
-                        $nombre = Planilla::nombreQueCabe($alumnos[$f] ?? '', Planilla::MAX_NOMBRE);
+                        // Nombre COMPLETO, nunca abreviado (01/10/2026). print-fit.js
+                        // le da la letra más grande que cabe, con tope en 9 pt (la
+                        // base de la columna). El escalón por largo es el respaldo sin JS.
+                        $nombre = $alumnos[$f] ?? '';
                         $largo  = mb_strlen($nombre);
-                        $mod    = $largo > 42 ? ' planilla-print__nombre--muy-largo'
-                                : ($largo > 36 ? ' planilla-print__nombre--largo' : '');
+                        $mod    = $largo > 46 ? ' planilla-print__nombre--extra-largo'
+                                : ($largo > 42 ? ' planilla-print__nombre--muy-largo'
+                                : ($largo > Planilla::MAX_NOMBRE ? ' planilla-print__nombre--largo' : ''));
                     ?>
-                    <td class="planilla-print__nombre<?= $mod ?>"><?= e($nombre) ?></td>
+                    <td class="planilla-print__nombre<?= $mod ?>" data-ajustar-texto="9"><?= e($nombre) ?></td>
                     <?php for ($i = 0; $i < 25; $i++): ?>
                         <td class="<?= $claseDia($i) ?>"></td>
                     <?php endfor; ?>
@@ -107,11 +111,11 @@ $franja = [
         </tbody>
     </table>
 
+    <?php // Sin «En blanco = asistió» (01/10/2026): cada auxiliar llama lista a su manera. ?>
     <p class="planilla-print__leyenda">
         <?php foreach (Planilla::LEYENDA as $sigla => $texto): ?>
             <span><strong><?= e($sigla) ?></strong> = <?= e($texto) ?></span>
         <?php endforeach; ?>
-        <span>En blanco = asistió</span>
     </p>
 
     <footer class="planilla-print__pie">

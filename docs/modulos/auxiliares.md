@@ -111,7 +111,10 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
   - **Totales con las siglas DEL SISTEMA: F · FJ · T · TJ** (30/09/2026; deroga la
     F · J · T · U del SIAGIE del 28/09). El papel se transcribe en el sistema, que usa
     F/FJ/T/TJ desde la asistencia por fechas, y la «J» chocaba con la de jueves en la
-    cabecera de días. **Asistió = casilla en blanco.** Leyenda impresa bajo la grilla.
+    cabecera de días. ~~**Asistió = casilla en blanco.**~~ **Derogado el 01/10/2026:** la
+    leyenda ya NO dice «En blanco = asistió». Cada auxiliar o miembro de la comunidad
+    educativa llama lista a su manera, y la planilla no impone una regla para marcar la
+    asistencia. La leyenda va impresa bajo la grilla, solo con las 4 siglas.
     PUNTO ÚNICO: `PlanillaAsistenciaModel::LEYENDA`. El PDF la lee directo; en el Excel,
     las celdas `AC8:AF8` y `A46` están VACÍAS en la plantilla (como `L1`/`L3`) y
     `generarExcel()` las escribe desde la constante: `XlsxQuirurgico` no sobrescribe
@@ -233,12 +236,27 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
     `Y()`/`AND()` depende del idioma de Excel.
   - El PDF (`_planilla-asistencia.scss`) repite estas medidas; su alto de fila sale de
     `PlanillaAsistenciaModel::altoFilaMm()` en décimas (`planilla-print--alto-N`).
-  - **Nombre que no cabe (decisión del usuario, 28/09/2026):** apellidos + primer
-    nombre + inicial del segundo con punto («SANTAMARIA RODRIGUEZ, JAKELINE E.»).
-    Punto único `PlanillaAsistenciaModel::nombreQueCabe()` (Excel y PDF), con topes
-    `MAX_NOMBRE` 36 · `MAX_TUTOR` 32 · `MAX_AUXILIAR` 26 caracteres; vale también para
-    tutor y auxiliar de la franja. Solo si ni así cabe (o hay un único nombre) se
-    reduce la letra (PDF 8/7,5 pt; Excel «reducir hasta ajustar»): nunca se corta.
+  - **Nombre que no cabe — ESTUDIANTES (decisión del usuario, 01/10/2026; deroga la
+    abreviatura del 28/09):** salen **completos, nunca abreviados**, con letra menor.
+    Excel: la celda trae «reducir hasta ajustar». PDF: **la letra MÁS GRANDE que
+    cabe** (pedido del usuario, 01/10/2026), medida en el ancho real
+    (`data-ajustar-texto="9"` → `print-fit.js`). La búsqueda es binaria, al décimo de
+    punto, con tope en la base de 9 pt (los nombres cortos NO crecen), mínimo de 6 pt
+    y 1 px de holgura para que el redondeo de la impresión no recorte la última letra.
+    El escalón por largo (> `MAX_NOMBRE` 36 → 8 pt · > 42 → 7,5 · > 46 → 7) queda
+    solo como respaldo sin JS. Contar caracteres no basta: nombres del mismo
+    largo necesitan letras distintas (con 44, JACHILLA entra en 8 pt y ALMENDRADES
+    necesita 7,5). Medido el 01/10 en la BD local: 29 de 523 pasan de 36 y el más
+    largo tiene 47 (entra en 7 pt).
+  - **Nombre que no cabe — FRANJA (tutor y auxiliar, 28/09/2026, sigue vigente):**
+    apellidos + primer nombre + inicial del segundo («SANTAMARIA RODRIGUEZ,
+    JAKELINE E.»). Punto único `PlanillaAsistenciaModel::nombreQueCabe()`, con topes
+    `MAX_TUTOR` 32 · `MAX_AUXILIAR` 26. Si aun así no cabe, se reduce la letra. En el
+    PDF se usa el mismo ajuste exacto, con tope en 11 pt (`data-ajustar-texto="11"`);
+    en el Excel, «reducir hasta ajustar». 🔴 **Hasta el 01/10
+    el PDF la CORTABA** con puntos suspensivos: «PALOMINO VILLANUEVA, ROG…», visto en
+    producción. Con 11 pt la casilla AUXILIAR solo admite unos 25 caracteres. La casilla
+    ya no lleva `text-overflow: ellipsis`.
   - `.alert` declara `display:block`: el `hidden` va en un envoltorio sin clase.
   - Los verificadores deben FIJAR su escenario dentro de la transacción: la BD local
     trae asignaciones reales.

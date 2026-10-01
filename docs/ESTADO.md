@@ -16,15 +16,49 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
-## 🆕 PLANILLA DE ASISTENCIA CON LAS SIGLAS DEL SISTEMA — EN `dev`, sin desplegar (30/09/2026)
+## 🆕 PLANILLA DE ASISTENCIA CON LAS SIGLAS DEL SISTEMA — EN `dev`, LISTA PARA EL MERGE (30/09 y 01/10/2026)
+
+> **Listo para el merge `dev` → `main` (01/10/2026), cuando el usuario lo pida.**
+> - **Sin migraciones.** No hay que aplicar nada en producción antes del push.
+> - Viajan:
+>   - `c31cff4`: siglas F/FJ/T/TJ;
+>   - `841ce35`: docs de cierre de colas;
+>   - el commit del 01/10: nombres que no caben y leyenda sin «En blanco = asistió».
+> - `app.css` y `print-fit.js` ya van compilados en el commit.
+> - Batería 55/55.
+> - Después del deploy, abrir en `sigacociap.net` el PDF de 5.° B secundaria (`seccion=23`).
+>   Antes del arreglo salía «PALOMINO VILLANUEVA, ROG…»; el nombre del auxiliar debe salir
+>   entero, con la letra más chica.
+>   Abrir también el PDF de una sección con nombres largos y un Excel.
+> - Versión: los arreglos posteriores del 30/09 se desplegaron sin cambiar de versión
+>   (sigue v1.0.5). Que lo decida el usuario al mergear.
 
 Sin migración. La planilla manual (PDF y Excel) pasa de F/J/T/U (SIAGIE) a **F/FJ/T/TJ**, las
 del sistema; punto único `PlanillaAsistenciaModel::LEYENDA`. La plantilla Excel lleva vacías
 `AC8:AF8` y `A46` y el código las escribe. Además, `verif_direccion_solo_lectura.php` entiende
 los `if` partidos en varias líneas (falso positivo en `matriculas/show.php`). Batería 55/55.
 Detalle en `docs/modulos/auxiliares.md`.
-- [ ] Merge a `main` «para el final» (decisión del usuario, 30/09/2026).
+- [ ] Merge a `main` «para el final» (decisión del usuario, 30/09/2026; la ratificó el 01/10).
 - [ ] Abrir un Excel y un PDF generados para verlos impresos (en local no hay Excel ni sesión).
+
+**01/10/2026 — nombres que no caben (COMMITEADO en `dev`, aprobado por el usuario).**
+El usuario los vio en producción. Sin migración. Detalle en `auxiliares.md` §6.
+- AUXILIAR cortado con «…» en el PDF: ahora se achica la letra midiendo el ancho real.
+- Los estudiantes salen con el nombre COMPLETO en el PDF y en el Excel; deroga la abreviatura
+  del 28/09. En el PDF, cada nombre lleva la letra más grande que cabe, medida al décimo de
+  punto (tope 9 pt; franja 11 pt). Visto en local con admin: 3.° A sec. y 4.° B prim., 0
+  cortados.
+- La leyenda ya no dice «En blanco = asistió» (PDF y Excel). Cada auxiliar llama lista a su
+  manera y la planilla no impone cómo se marca la asistencia.
+- Batería 55/55.
+- [x] Ver en local (admin) el PDF de una sección con nombres largos. Hecho el 01/10 con
+      sesión de admin y aprobado por el usuario:
+      - 3.° A de secundaria (`seccion=18`): SANTAMARIA RODRIGUEZ (47 caracteres) en 7,8 pt
+        y JACHILLA PALMA (44) en 8,4 pt;
+      - 4.° B de primaria (`seccion=8`): SANTIAGO DE LA CRUZ (47) en 7,8 pt;
+      - ningún nombre cortado.
+- [ ] La franja con un auxiliar de nombre LARGO real no se vio: el de la local es corto. Se
+      revisa en producción tras el merge (ver arriba).
 
 ## 🟢 RETIRAR UNA MATRÍCULA PENDIENTE — DESPLEGADO el 30/09/2026 (sin cambio de versión: sigue v1.0.5)
 
