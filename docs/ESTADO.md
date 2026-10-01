@@ -20,8 +20,12 @@ nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace aho
 
 **Deploy del 01/10/2026:** merge `dev` → `main` con `--no-ff`. `origin/main` pasó de `5c28193`
 a `f71714f`. Producción sirve el `print-fit.js` nuevo, comprobado con curl. Sin migraciones.
-- [ ] Revisar en `sigacociap.net` el PDF de 5.° B de secundaria (`seccion=23`): el auxiliar
-      PALOMINO VILLANUEVA sale entero, sin «…», y la leyenda solo con F/FJ/T/TJ.
+- [x] Revisar en `sigacociap.net` el PDF de 5.° B de secundaria (`seccion=23`). Hecho el
+      01/10 con sesión de ADMIN:
+      - el auxiliar sale «PALOMINO VILLANUEVA, ROGER P.» entero, en 10,1 pt, sin «…»;
+      - la tutora sale entera en 11 pt;
+      - ningún nombre cortado;
+      - la leyenda y los totales solo con F/FJ/T/TJ.
 
 > **Lo que se preparó para el merge (histórico):**
 > - **Sin migraciones.** No hay que aplicar nada en producción antes del push.
