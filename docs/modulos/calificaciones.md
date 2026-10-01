@@ -234,8 +234,8 @@ Cuatro trampas que costaron una corrección cada una y no hay que repetir:
 
 ## REGLA DE NEGOCIO — autonomía del docente y periodo final (10/08/2026)
 
-> Regla del colegio, confirmada por el usuario. **IMPLEMENTADA el 01/10/2026**, en `dev`
-> (ver § «Implementación» al final de esta sección; estado del despliegue en `docs/ESTADO.md`).
+> Regla del colegio, confirmada por el usuario. **IMPLEMENTADA y DESPLEGADA el 01/10/2026**
+> (merge `d7a677e`; ver § «Implementación» al final de esta sección y `docs/ESTADO.md`).
 > Fecha tope: antes del **05/10/2026** (inicio del IV Bimestre).
 
 **En los periodos NO finales (B1, B2, B3) el docente es AUTÓNOMO**: elige qué competencias

@@ -5,7 +5,7 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🆕 TUTOR DEL BIMESTRE EN LOS DOCUMENTOS — EN `dev` (01/10/2026), SIN DESPLEGAR
+## 🟢 TUTOR DEL BIMESTRE EN LOS DOCUMENTOS — DESPLEGADO el 01/10/2026 (merge `d7a677e`, sin cambio de versión: sigue v1.0.5)
 
 Nació del análisis «cambiar al tutor de 3.º A sec. con el III activo». Detalle y decisiones
 en `admin.md` § «Cambiar de tutor a mitad de año». Resumen: el cierre del bimestre congela
@@ -18,14 +18,12 @@ acompañamiento nombran al del bimestre; las funciones siguen con el tutor actua
       (A4 y digital), acta de mérito del II y acompañamiento del II siguen con ZAMBRANO;
       la vista previa del III nombra al tutor nuevo; `/admin/secciones` al de hoy.
       Revertido. La vista previa del III de 3.º A sale vacía en local (0 bloqueos en el III).
-- [ ] Pruebas que requieren al usuario: cambiar el tutor desde el modal de
-      `/admin/secciones` y entrar como DOCENTE (saliente sin tutoría; entrante con panel,
-      conducta y acompañamiento cuyo rótulo es el del bimestre).
-- [ ] 🔴 **Producción: ANTES del push, correr el PREVIEW de la 071** (cierres hechos por un
-      docente que no es el tutor actual) y luego aplicar la 071 a mano. Si el preview
-      devuelve filas, corregir esa fila de `secciones_tutor_periodo` tras el relleno.
-- [ ] Si se cambia de tutor en 3.º A: es independiente de este cambio, pero hacerlo
-      DESPUÉS de desplegar la 071 para que I y II queden congelados con Zambrano.
+- [x] Pruebas del usuario en desarrollo (01/10): cambio de tutor desde el modal, sesiones
+      de docente saliente y entrante, y Reemplazo de la TOE de 3.º A a MONTES (local).
+- [x] 🔴 **Producción (01/10, el usuario):** PREVIEW de la 071 con 0 filas, 071 aplicada a
+      mano ANTES del push y comprobación de I y II congelados. Luego merge `dev` → `main`.
+- [ ] **Producción:** cambiar el tutor de 3.º A a MONTES y Reemplazo de su carga TOE (como
+      en desarrollo); comprobar que la boleta de 3.º A sigue firmada por ZAMBRANO.
 - Fuera de alcance (decisión del usuario): encadenar el cambio de tutor con la carga
   TOE/Ética y relajar la regla «la TOE solo la dicta el tutor».
 
@@ -40,7 +38,7 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
-## 🆕 REGLA DEL PERIODO FINAL + SITUACIÓN FINAL DEFINITIVA — EN `dev` (commit del 01/10/2026), SIN DESPLEGAR
+## 🟢 REGLA DEL PERIODO FINAL + SITUACIÓN FINAL DEFINITIVA — DESPLEGADO el 01/10/2026 (merge `d7a677e`, sin cambio de versión: sigue v1.0.5)
 
 El pendiente con tope **05/10/2026** (regla del 10/08). Sin migración. Detalle en
 `calificaciones.md` § «REGLA DE NEGOCIO — autonomía del docente y periodo final» y
@@ -73,9 +71,8 @@ El pendiente con tope **05/10/2026** (regla del 10/08). Sin migración. Detalle 
 - [ ] **Probar en navegador**: botón «No se evaluó» y cierre detenido / «Cerrar igual» (hace
       falta simular un periodo final o esperar al IV).
 - [x] Commit y push a `dev` (01/10/2026, pedido del usuario).
-- [ ] **Deploy a `main`** (decisión del usuario, preguntar antes). El IV abre el **05/10**:
-      conviene que esté en producción ANTES de que los docentes empiecen a bloquear. Sin
-      migración.
+- [x] **Deploy a `main`** el 01/10/2026 (merge `d7a677e`), antes de que abra el IV (05/10).
+      Sin migración propia (salió junto con la 071 del tutor del bimestre).
 - [x] **Ancla única del periodo final** (pedido del usuario, mismo día):
       `AnioAcademicoModel::ultimoPeriodoDelAnio()`. Ahora la consumen `esPeriodoFinal()`,
       `BoletaModel` (logro anual), la copia dormida `BoletaPublicaController` y
