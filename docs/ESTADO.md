@@ -22,7 +22,7 @@ acompañamiento nombran al del bimestre; las funciones siguen con el tutor actua
       de docente saliente y entrante, y Reemplazo de la TOE de 3.º A a MONTES (local).
 - [x] 🔴 **Producción (01/10, el usuario):** PREVIEW de la 071 con 0 filas, 071 aplicada a
       mano ANTES del push y comprobación de I y II congelados. Luego merge `dev` → `main`.
-- [ ] **Producción:** cambiar el tutor de 3.º A a MONTES y Reemplazo de su carga TOE (como
+- [x] ✅ 01/10: cambio hecho en producción por el usuario, con éxito. — **Producción:** cambiar el tutor de 3.º A a MONTES y Reemplazo de su carga TOE (como
       en desarrollo); comprobar que la boleta de 3.º A sigue firmada por ZAMBRANO.
 - Fuera de alcance (decisión del usuario): encadenar el cambio de tutor con la carga
   TOE/Ética y relajar la regla «la TOE solo la dicta el tutor».
@@ -90,7 +90,7 @@ El pendiente con tope **05/10/2026** (regla del 10/08). Sin migración. Detalle 
       - El resumen oculta «Aprobar y bloquear» con un aviso.
       - Probado con el controlador REAL en subproceso (transacción sin commit).
       - Verificador: 3 mutantes nuevos caen. Batería 56/56.
-- [ ] ⚠️ **Avisar a los docentes del plazo estricto** antes del IV: hasta ahora podían aprobar
+- [x] ✅ 01/10: los docentes ya lo saben (usuario). — ⚠️ **Avisar a los docentes del plazo estricto** antes del IV: hasta ahora podían aprobar
       después del plazo.
 
 ## 🟢 PLANILLA DE ASISTENCIA — DESPLEGADA el 01/10/2026 (sin cambio de versión: sigue v1.0.5)
@@ -179,10 +179,10 @@ POR FECHAS, lista del día y días no lectivos, y las seis rondas de ajustes.
       En `/admin/asistencia` solo 2.° A sec. tiene confirmaciones del III (25/26); el resto
       está en 0 %, lo esperable sin auxiliares reales.
 - [ ] Panel del tutor (`/docente/conducta`) en producción: pide una sesión de TUTOR.
-- [ ] Usuarios reales de los auxiliares y sus secciones (sin ellos nadie entra como auxiliar).
+- [x] ✅ 01/10: usuarios auxiliares creados y secciones asignadas en producción (usuario). — Usuarios reales de los auxiliares y sus secciones (sin ellos nadie entra como auxiliar).
       **Los crea el usuario en producción** (`/admin/usuarios/crear` + `/admin/auxiliares`);
       se marca cuando lo confirme (01/10/2026).
-- [ ] Declarar en `/admin/asistencia/no-lectivos` los feriados que decida el colegio antes de
+- [x] ✅ 01/10: sin feriados por ahora; el usuario los declarará cuando corresponda. — Declarar en `/admin/asistencia/no-lectivos` los feriados que decida el colegio antes de
       bloquear el III (el bloqueo exige lista en todo día lectivo). **Fecha tope: antes de
       bloquear el III, que termina el 09/10.** Candidato: el 08/10 (Combate de Angamos).
       Al 01/10 el colegio aún no decide.
@@ -299,7 +299,7 @@ impersonal + nombre real), `asistencia.js` conserva lo tecleado y marca la celda
 - [x] **Confirmar + autoguardado (B2) y asistencia POR FECHAS** implementados y probados en
       local el 29/09/2026 (sin commit). Detalle y avance por fases en
       `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
-- [ ] Usuarios reales de los auxiliares: DNI, apellidos, nombres, sexo, celular, correo y
+- [x] ✅ 01/10: usuarios auxiliares creados y secciones asignadas en producción (usuario). — Usuarios reales de los auxiliares: DNI, apellidos, nombres, sexo, celular, correo y
       sus secciones (pedírselos al usuario).
 - [x] Merge `dev` → `main` (con `--no-ff`), pedido por el usuario el 30/09/2026 (v1.0.5).
 
@@ -449,7 +449,7 @@ commit de docs). **Sin desplegar a `main`** (el usuario lo deja para el final). 
       `talleres_aprobacion`, `talleres_resolucion`) — aplicada por el usuario el 27/09/2026; los dos
       talleres de secundaria quedaron con `tipo = 'taller'`. Sin ella, el dashboard de todo tutor
       falla (la card de riesgo consulta `talleres_aprobacion`): por eso va ANTES del merge.
-- [ ] Avisar a Dirección al desplegar: la cifra de riesgo de B1 pasa de 199 (regla vieja) a
+- [x] ✅ 01/10: comunicado y reportes de acompañamiento repartidos (usuario). — Avisar a Dirección al desplegar: la cifra de riesgo de B1 pasa de 199 (regla vieja) a
       **136**, y ahora significa «no sería promovido» (situación final del MINEDU).
 - [x] Sesión de **docente tutor** (3.° A sec) el 24/09: card, `/docente/tutoria/acompanamiento`
       B1 y B2, redirección desde `/riesgo`, A4 y bloque de seguimiento (2 en B1), bien.
@@ -545,7 +545,7 @@ Análisis pedido por el usuario sobre las áreas que no tienen todas sus compete
       Guardas nuevas con mutante que cae: `verif_riesgo_situacion_bd.php` § 7b y el aserto
       «sin casos en …» de `verif_direccion_superficies.php`. **Batería 47/47.**
 - [x] **Commiteado y pusheado a `dev`** (24/09/2026), dentro de `c31881d`.
-- [ ] Al desplegar: avisar a Dirección de que la cifra de riesgo **baja** (199 → 144 en B1) y
+- [x] ✅ 01/10: comunicado y reportes de acompañamiento repartidos (usuario). — Al desplegar: avisar a Dirección de que la cifra de riesgo **baja** (199 → 144 en B1) y
       de que ahora significa otra cosa (no «acumula notas bajas» sino «no sería promovido»).
 
 > Lo que YA está verificado sin navegador, para no repetirlo: render real de las vistas en
@@ -632,7 +632,7 @@ sección «bimestres CERRADOS» de `usuarios-direccion.md`); **las otras siete l
 desde antes de la v1.0.1** — el hueco de proceso que advierte CLAUDE.md.
 
 **Pendiente de producción:**
-- [ ] Confirmar que se corrió `php database/reparar_notas_externas_truncadas.php --confirmar`
+- [x] ✅ 01/10: script confirmado por el usuario. — Confirmar que se corrió `php database/reparar_notas_externas_truncadas.php --confirmar`
       (primero sin `--confirmar`, que solo simula).
 - [x] Revisar en `https://sigacociap.net`: login, la campana, una boleta y
       `/matriculas/{id}/notas-externas`. **01/10/2026, sesión de ADMIN:** login correcto,
@@ -850,7 +850,7 @@ con sesión de director.
 - [x] `/traslados/999999/imprimir`
 
 **§7 — Regresión general**
-- [ ] Login y dashboard con cada rol; la campana solo para docente, RA, admin y directores. ⚠️ 22/09: probado con admin, director y docente; RA no.
+- [x] ✅ 01/10: Director académico y RA con usuario y probados por el usuario. — Login y dashboard con cada rol; la campana solo para docente, RA, admin y directores. ⚠️ 22/09: probado con admin, director y docente; RA no.
 - [x] Un docente registra y guarda una nota por el flujo normal.
 - [ ] Boleta digital e imprimible de un alumno cualquiera, igual que en producción. ⚠️ 22/09: sin errores y sin fuga de notas de origen; no se comparó contra producción.
 - [ ] Orden de mérito de un grado, igual que en producción. ⚠️ 22/09: `/director/orden-merito` carga sin errores; no se comparó contra producción.
@@ -2582,7 +2582,7 @@ pregunta siempre antes.
 2. El siguiente hito con fecha: la **regla del periodo final** (tope **05/10/2026**),
    con sus 4 decisiones ya cerradas. ⚠️ Sería la **5.ª copia** de «carga dueña»:
    extraer el punto único ANTES de implementarla.
-3. **Usuarios de Dirección sigue sin probarse en navegador CON UN DIRECTOR.** El
+3. ✅ **01/10: cerrado** — Director académico y RA con usuario y probados por el usuario. ~~**Usuarios de Dirección sigue sin probarse en navegador CON UN DIRECTOR.**~~ El
    04/09 se recorrió `/admin/cuadros` y su A4 en navegador, pero **con sesión de
    administrador**, así que no dice nada del acceso de los tres roles directivos.
    Sigue faltando el DNI y el nombre del **Director académico de prueba**; sin ese
