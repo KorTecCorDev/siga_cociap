@@ -5,6 +5,30 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🆕 TUTOR DEL BIMESTRE EN LOS DOCUMENTOS — EN `dev` (01/10/2026), SIN DESPLEGAR
+
+Nació del análisis «cambiar al tutor de 3.º A sec. con el III activo». Detalle y decisiones
+en `admin.md` § «Cambiar de tutor a mitad de año». Resumen: el cierre del bimestre congela
+el tutor de cada sección (`TutorPeriodoModel`, inmutable) y boleta, acta de mérito y
+acompañamiento nombran al del bimestre; las funciones siguen con el tutor actual.
+- [x] Migración **071** `secciones_tutor_periodo` aplicada en la BD local (relleno I y II:
+      2 × 23 secciones). `verif_tutor_periodo.php` verde (17 asertos, rollback).
+- [x] Navegador con sesión admin (01/10, local): con el tutor de 3.º A cambiado en BD (y
+      el de la sección 13, que sí tiene bloqueos en el III), lote del II, boleta por token
+      (A4 y digital), acta de mérito del II y acompañamiento del II siguen con ZAMBRANO;
+      la vista previa del III nombra al tutor nuevo; `/admin/secciones` al de hoy.
+      Revertido. La vista previa del III de 3.º A sale vacía en local (0 bloqueos en el III).
+- [ ] Pruebas que requieren al usuario: cambiar el tutor desde el modal de
+      `/admin/secciones` y entrar como DOCENTE (saliente sin tutoría; entrante con panel,
+      conducta y acompañamiento cuyo rótulo es el del bimestre).
+- [ ] 🔴 **Producción: ANTES del push, correr el PREVIEW de la 071** (cierres hechos por un
+      docente que no es el tutor actual) y luego aplicar la 071 a mano. Si el preview
+      devuelve filas, corregir esa fila de `secciones_tutor_periodo` tras el relleno.
+- [ ] Si se cambia de tutor en 3.º A: es independiente de este cambio, pero hacerlo
+      DESPUÉS de desplegar la 071 para que I y II queden congelados con Zambrano.
+- Fuera de alcance (decisión del usuario): encadenar el cambio de tutor con la carga
+  TOE/Ética y relajar la regla «la TOE solo la dicta el tutor».
+
 ## ⏸ DIFERIDO (29/09/2026) — Reapertura ESCALONADA de conducta y transversales
 
 Decisión del usuario: hoy «Reabrir» en `/director/bloqueos` anula el cierre ENTERO de
@@ -16,9 +40,74 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
-## 🆕 PLANILLA DE ASISTENCIA CON LAS SIGLAS DEL SISTEMA — EN `dev`, LISTA PARA EL MERGE (30/09 y 01/10/2026)
+## 🆕 REGLA DEL PERIODO FINAL + SITUACIÓN FINAL DEFINITIVA — EN `dev` (commit del 01/10/2026), SIN DESPLEGAR
 
-> **Listo para el merge `dev` → `main` (01/10/2026), cuando el usuario lo pida.**
+El pendiente con tope **05/10/2026** (regla del 10/08). Sin migración. Detalle en
+`calificaciones.md` § «REGLA DE NEGOCIO — autonomía del docente y periodo final» y
+`promocion-de-grado.md` § 6.2.
+- **Decisiones del usuario (01/10, no re-preguntar):**
+  - La válvula rota del 18/09 se resuelve así: **el cierre del periodo final ADMITE vacías, con
+    confirmación explícita**. RA las completa después con la extraordinaria. Deroga «abortar
+    el cierre».
+  - Esas notas **no entran al mérito del IV** (invariante intacto).
+  - El **Hito A solo avisa**.
+  - `definitiva` exige además **0 ND**.
+  - **Cerrar año exige la situación definitiva.**
+- **Implementado:**
+  - Punto único `AnioAcademicoModel::esPeriodoFinal` (`MAX(numero)`).
+  - Guarda en `CalificacionController::errorBloqueoCompetencia`: no existe «No se evaluó» en
+    el periodo final, salvo que todo el roster esté exonerado. Botón oculto en la grilla.
+  - `competenciasVaciasDelPeriodo` + `avisoPeriodoFinal`, contados DESPUÉS del bloqueo forzado.
+    Así no nace una 5.ª copia de «carga dueña»; trasladados y retirados no cuentan.
+  - `PeriodoController::cerrar` se detiene y muestra el detalle en `director/anios/{id}`;
+    «Cerrar igual» envía `confirmar_vacias=1`.
+  - `aprobarBimestre` avisa.
+  - `riesgo_resumen()['definitiva']` mira `sin_datos`.
+  - `AnioAcademicoController::cerrar` exige el periodo final cerrado y la situación definitiva.
+- **Verificado:**
+  - `verif_periodo_final.php` nuevo: 27 comprobaciones, dos ramas por guarda, en transacción
+    con ROLLBACK simulando B2 como final (59 vacías, 240 PEND). Caen 2 mutantes.
+  - `verif_situacion_final.php` § 7: `definitiva` con ND. Cae 1 mutante.
+  - Render de `director/anios/show` con el aviso.
+  - **Batería 56/56.**
+- [ ] **Probar en navegador**: botón «No se evaluó» y cierre detenido / «Cerrar igual» (hace
+      falta simular un periodo final o esperar al IV).
+- [x] Commit y push a `dev` (01/10/2026, pedido del usuario).
+- [ ] **Deploy a `main`** (decisión del usuario, preguntar antes). El IV abre el **05/10**:
+      conviene que esté en producción ANTES de que los docentes empiecen a bloquear. Sin
+      migración.
+- [x] **Ancla única del periodo final** (pedido del usuario, mismo día):
+      `AnioAcademicoModel::ultimoPeriodoDelAnio()`. Ahora la consumen `esPeriodoFinal()`,
+      `BoletaModel` (logro anual), la copia dormida `BoletaPublicaController` y
+      `SituacionFinalModel::datosPeriodo`. Se borraron los dos `getUltimoBimestreDelAnio`.
+      El verificador falla si renace un `MAX(numero) FROM periodos` fuera del ancla.
+      `AuxiliarSeccionModel::vigentesSql` también hace un `MAX(numero)`, pero responde otra
+      pregunta (la asignación vigente) y queda fuera a propósito. Lo mismo vale para
+      `EstudianteModel` y `PublicacionBoletaModel` (activo, último cerrado, último publicado).
+- [x] **`bloquear()` con las dos guardas** (pedido del usuario):
+      - Dueño de la carga (`validarCargaDocente`).
+      - **Plazo estricto** (decisión del usuario): vencido `limite_notas`, el docente ya no
+        aprueba. Lo pendiente lo bloquea el cierre, que `/admin/control` cuenta como olvido.
+        Si el docente no aprobó sus TIC/GAMA, el tutor queda esperando hasta que se amplíe
+        el plazo o se cierre.
+      - El resumen oculta «Aprobar y bloquear» con un aviso.
+      - Probado con el controlador REAL en subproceso (transacción sin commit).
+      - Verificador: 3 mutantes nuevos caen. Batería 56/56.
+- [ ] ⚠️ **Avisar a los docentes del plazo estricto** antes del IV: hasta ahora podían aprobar
+      después del plazo.
+
+## 🟢 PLANILLA DE ASISTENCIA — DESPLEGADA el 01/10/2026 (sin cambio de versión: sigue v1.0.5)
+
+**Deploy del 01/10/2026:** merge `dev` → `main` con `--no-ff`. `origin/main` pasó de `5c28193`
+a `f71714f`. Producción sirve el `print-fit.js` nuevo, comprobado con curl. Sin migraciones.
+- [x] Revisar en `sigacociap.net` el PDF de 5.° B de secundaria (`seccion=23`). Hecho el
+      01/10 con sesión de ADMIN:
+      - el auxiliar sale «PALOMINO VILLANUEVA, ROGER P.» entero, en 10,1 pt, sin «…»;
+      - la tutora sale entera en 11 pt;
+      - ningún nombre cortado;
+      - la leyenda y los totales solo con F/FJ/T/TJ.
+
+> **Lo que se preparó para el merge (histórico):**
 > - **Sin migraciones.** No hay que aplicar nada en producción antes del push.
 > - Viajan:
 >   - `c31cff4`: siglas F/FJ/T/TJ;
@@ -38,7 +127,7 @@ del sistema; punto único `PlanillaAsistenciaModel::LEYENDA`. La plantilla Excel
 `AC8:AF8` y `A46` y el código las escribe. Además, `verif_direccion_solo_lectura.php` entiende
 los `if` partidos en varias líneas (falso positivo en `matriculas/show.php`). Batería 55/55.
 Detalle en `docs/modulos/auxiliares.md`.
-- [ ] Merge a `main` «para el final» (decisión del usuario, 30/09/2026; la ratificó el 01/10).
+- [x] Merge a `main`: lo pidió el usuario el 01/10/2026 (`f71714f`).
 - [ ] Abrir un Excel y un PDF generados para verlos impresos (en local no hay Excel ni sesión).
 
 **01/10/2026 — nombres que no caben (COMMITEADO en `dev`, aprobado por el usuario).**

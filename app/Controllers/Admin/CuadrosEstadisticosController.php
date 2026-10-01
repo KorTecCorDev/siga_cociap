@@ -263,7 +263,7 @@ class CuadrosEstadisticosController extends BaseController
     private function componerRiesgo(array $periodo): array
     {
         $porGrado  = $this->situacionModel->porGrado((int) $periodo['id']);
-        $secciones = $this->seccionModel->seccionesDelAnio((int) $periodo['anio_id']);
+        $secciones = $this->seccionModel->seccionesDelAnio((int) $periodo['anio_id'], (int) $periodo['id']);
 
         // ?secciones[] llega de la URL y se VALIDA contra las secciones del año
         // del bimestre. `query()` entrega `$_GET` en crudo: un escalar o un

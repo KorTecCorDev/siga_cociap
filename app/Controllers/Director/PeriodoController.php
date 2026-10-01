@@ -7,6 +7,7 @@ use App\Models\AnioAcademicoModel;
 use App\Models\ControlOperativoModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\PublicacionBoletaModel;
+use App\Models\TutorPeriodoModel;
 use Core\Session;
 
 /**
@@ -160,14 +161,44 @@ class PeriodoController extends BaseController
         $usuarioId   = (int) (Session::user()['id'] ?? 0);
         $tipoRanking = 'oficial';
 
+        // REGLA DEL PERIODO FINAL (decisión del usuario, 01/10/2026): el cierre
+        // del último periodo del año ADMITE competencias vacías, pero solo con
+        // confirmación explícita. La primera vez se detiene y muestra qué queda
+        // vacío y cuántos estudiantes quedarían con la situación final PENDIENTE;
+        // RA las completa después con la calificación extraordinaria.
+        $periodoFinal   = $this->model->esPeriodoFinal($id);
+        $confirmaVacias = $this->input('confirmar_vacias') === '1';
+        $avisoFinal     = null;
+
         try {
             $this->model->beginTransaction();
             // Bloquea competencias propias + transversales (TIC/GAMA) de cada carga.
             $this->model->bloquearCompetenciasPendientes($id, $usuarioId);
+            // El conteo va DESPUÉS del bloqueo forzado: desde aquí
+            // `bloqueos_competencia` es el universo canónico de cada carga (sin
+            // una quinta copia de la regla de «carga dueña»), y la situación
+            // final —mismo PDO— ya lee lo que este cierre va a oficializar.
+            if ($periodoFinal) {
+                $avisoFinal = $this->model->avisoPeriodoFinal($id);
+                if (!$confirmaVacias && $avisoFinal !== null) {
+                    $this->model->rollback();
+                    Session::flash('cierre_vacias', ['periodo_id' => $id] + $avisoFinal);
+                    $this->redirectWithError(
+                        $volverUrl,
+                        "No se cerró el {$periodo['nombre_display']}: es el último bimestre del año "
+                        . 'y quedan competencias sin evaluar. Revisa el detalle y confirma el cierre '
+                        . 'si quieres continuar.'
+                    );
+                }
+            }
             // Cierra las transversales por seccion para que agreguen en boleta
             // (respeta los cierres que el tutor ya hizo).
             $this->model->crearCierresTransversalesPendientes($id, $usuarioId);
             $this->model->setEstadoPeriodo($id, 'cerrado');
+            // TUTOR DEL BIMESTRE (071): congela el tutor de cada sección para los
+            // documentos de este bimestre. Inmutable: un re-cierre tras reabrir
+            // conserva el primero. Mismo PDO singleton → misma transacción.
+            (new TutorPeriodoModel())->congelarPeriodo($id, $usuarioId);
             // Cierre de boletas: deja la boleta en estado OFICIAL. El flag asegura
             // que, si luego se REABRE, vuelva a BORRADOR hasta re-cerrar.
             $this->model->marcarBoletasAprobadas($id, $usuarioId);
@@ -196,9 +227,14 @@ class PeriodoController extends BaseController
             ? ' El orden de mérito oficial NO cambió (bimestre ya publicado); se registró'
               . ' una versión rectificada en el Centro de control.'
             : '';
+        $notaFinal = $avisoFinal !== null
+            ? ' ' . AnioAcademicoModel::textoAvisoPeriodoFinal($avisoFinal)
+              . ' Regístralas con la calificación extraordinaria (Rectificaciones).'
+            : '';
         $this->redirectWithSuccess(
             url('director/anios/' . $periodo['anio_id']) . '?cerrado=' . $id,
-            "{$periodo['nombre_display']} cerrado. Las competencias pendientes quedaron bloqueadas." . $notaRanking
+            "{$periodo['nombre_display']} cerrado. Las competencias pendientes quedaron bloqueadas."
+            . $notaRanking . $notaFinal
         );
     }
 

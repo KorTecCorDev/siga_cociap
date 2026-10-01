@@ -7,6 +7,7 @@ use App\Models\CalificacionModel;
 use App\Models\DesempateMeritoModel;
 use App\Models\DirectorEbrModel;
 use App\Models\OrdenMeritoModel;
+use App\Models\TutorPeriodoModel;
 use Core\Session;
 use Core\View;
 
@@ -343,7 +344,7 @@ class OrdenMeritoController extends BaseController
                 'conteos'     => $this->getConteosGrado($grado['id'], $periodoId),
                 'general'     => $this->calcularRanking($grado['id'], $periodoId),
                 'por_seccion' => $this->calcularRankingPorSeccion($grado['id'], $periodoId),
-                'tutores'     => $this->getTutoresPorGrado($grado['id']),
+                'tutores'     => $this->getTutoresPorGrado($grado['id'], $periodoId),
             ];
         }
 
@@ -508,41 +509,32 @@ class OrdenMeritoController extends BaseController
      * Retorna array [seccion_nombre => [top-N estudiantes con puesto]].
      */
     /**
-     * Devuelve el nombre del tutor por sección para el grado dado.
-     * Clave: seccion_nombre → string|null.
+     * Devuelve el tutor por sección para el grado dado, el DEL BIMESTRE del acta
+     * (congelado al cerrarlo, `TutorPeriodoModel`; en curso → el actual).
+     * Clave: seccion_nombre → {nombre, sexo}|null.
      */
-    private function getTutoresPorGrado(int $gradoId): array
+    private function getTutoresPorGrado(int $gradoId, int $periodoId): array
     {
         $secciones = $this->calModel->query("
-            SELECT s.nombre AS seccion_nombre, s.tutor_id
+            SELECT s.id, s.nombre AS seccion_nombre
             FROM secciones s
             INNER JOIN grados g ON g.id = s.grado_id
             WHERE g.id = ?
             ORDER BY s.nombre
         ", [$gradoId]);
 
+        $delPeriodo = (new TutorPeriodoModel())->tutoresDeSecciones(
+            array_column($secciones, 'id'),
+            $periodoId
+        );
+
         $tutores = [];
         foreach ($secciones as $sec) {
-            $tutorId = (int) ($sec['tutor_id'] ?? 0);
-            if (!$tutorId) {
-                $tutores[$sec['seccion_nombre']] = null;
-                continue;
-            }
-
-            $persona = $this->calModel->queryOne("
-                SELECT p.apellido_paterno, p.apellido_materno, p.nombres, p.sexo
-                FROM usuarios u
-                INNER JOIN personas p ON p.id = u.persona_id
-                WHERE u.id = ?
-                LIMIT 1
-            ", [$tutorId]);
-
-            $tutores[$sec['seccion_nombre']] = ($persona && !empty($persona['apellido_paterno']))
-                ? [
-                    'nombre' => $persona['apellido_paterno'] . ' ' . $persona['apellido_materno'] . ', ' . $persona['nombres'],
-                    'sexo'   => $persona['sexo'] ?? null,
-                ]
-                : null;
+            $tutor = $delPeriodo[(int) $sec['id']] ?? null;
+            $tutores[$sec['seccion_nombre']] = $tutor === null ? null : [
+                'nombre' => $tutor['nombre'],
+                'sexo'   => $tutor['sexo'] ?? null,
+            ];
         }
 
         return $tutores;

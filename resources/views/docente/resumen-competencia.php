@@ -75,6 +75,15 @@ $esTransversal = !empty($competencia['es_transversal']);
                     Esta competencia fue bloqueada sin calificaciones registradas
                     (no se trabajó en el <?= e($periodo['nombre_display']) ?>).
                 </p>
+            <?php elseif (!empty($periodoFinal)
+                && count(array_diff(array_map('intval', array_column($alumnos, 'matricula_id')), array_map('intval', $exonerados ?? []))) > 0): ?>
+                <?php // Periodo final: no existe "no se trabajó" (regla del 10/08/2026). ?>
+                <div class="flash flash--warning">
+                    No se registraron criterios ni calificaciones para esta competencia
+                    en el <?= e($periodo['nombre_display']) ?>.
+                    En el último bimestre del año todas las competencias deben evaluarse:
+                    registra sus criterios y notas en la grilla.
+                </div>
             <?php else: ?>
                 <div class="flash flash--warning">
                     No se registraron criterios ni calificaciones para esta competencia
@@ -254,6 +263,14 @@ $esTransversal = !empty($competencia['es_transversal']);
                         Guardar conclusiones
                     </button>
                 <?php endif; ?>
+                <?php // Plazo estricto (01/10/2026): vencido el plazo no se aprueba;
+                      // el servidor lo revalida en CalificacionController::bloquear. ?>
+                <?php if (!empty($plazoVencido)): ?>
+                    <span class="text-muted">
+                        El plazo para registrar calificaciones venció: ya no se puede aprobar.
+                        Comunícate con Registro Académico.
+                    </span>
+                <?php else: ?>
                 <button class="btn btn--success btn--aprobar"
                         id="btn-aprobar-bloquear"
                         data-carga-id="<?= $carga['id'] ?>"
@@ -262,6 +279,7 @@ $esTransversal = !empty($competencia['es_transversal']);
                     <span class="btn-icon btn-icon--upload" aria-hidden="true"></span>
                     Aprobar y bloquear
                 </button>
+                <?php endif; ?>
                 <span id="resumen-status"></span>
             </div>
         <?php endif; ?>

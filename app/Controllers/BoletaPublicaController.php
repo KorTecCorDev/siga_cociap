@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\AnioAcademicoModel;
 use App\Models\BoletaPublicaModel;
 use App\Models\CalificacionModel;
 use App\Models\ConductaModel;
@@ -137,8 +138,8 @@ class BoletaPublicaController extends BaseController
 
         $anioId = (int) $periodo['anio_id'];
         // Logro anual = nota del ULTIMO bimestre del anio, visible solo si esta
-        // cerrado (paridad con BoletaModel; ver getUltimoBimestreDelAnio).
-        $ultimoBim        = $this->getUltimoBimestreDelAnio($anioId);
+        // cerrado (ancla unica: AnioAcademicoModel::ultimoPeriodoDelAnio).
+        $ultimoBim        = (new AnioAcademicoModel())->ultimoPeriodoDelAnio($anioId);
         $ultimoBimestreId = $ultimoBim ? (int) $ultimoBim['id'] : 0;
         $ultimoCerrado    = $ultimoBim !== null && $ultimoBim['estado'] === 'cerrado';
         $areas  = $this->buildAreasConBimestres($datosPorPeriodo, $periodos, $ultimoBimestreId, $ultimoCerrado);
@@ -246,21 +247,6 @@ class BoletaPublicaController extends BaseController
             FROM periodos
             WHERE anio_id = ? AND estado = 'cerrado'
             ORDER BY numero
-        ", [$anioId]);
-    }
-
-    /**
-     * Ultimo bimestre del anio (mayor `numero`, dinamico). Su cierre habilita el
-     * logro anual. Paridad con BoletaModel::getUltimoBimestreDelAnio().
-     */
-    private function getUltimoBimestreDelAnio(int $anioId): ?array
-    {
-        return $this->calModel->queryOne("
-            SELECT id, numero, estado
-            FROM periodos
-            WHERE anio_id = ?
-            ORDER BY numero DESC
-            LIMIT 1
         ", [$anioId]);
     }
 

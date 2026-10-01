@@ -232,6 +232,12 @@ class ControlOperativoController extends BaseController
         try {
             $this->anioModel->beginTransaction();
             $incidencias = $this->anioModel->aprobarBoletasBimestre($periodoId, $usuarioId);
+            // PERIODO FINAL (01/10/2026): el Hito A solo AVISA de lo que queda
+            // vacío (no aborta); el cierre es el que pide confirmación. Va tras
+            // el bloqueo forzado, igual que en `PeriodoController::cerrar`.
+            $avisoFinal = $this->anioModel->esPeriodoFinal($periodoId)
+                ? $this->anioModel->avisoPeriodoFinal($periodoId)
+                : null;
             $this->anioModel->commit();
         } catch (\Exception $e) {
             $this->anioModel->rollback();
@@ -242,6 +248,10 @@ class ControlOperativoController extends BaseController
         $msg = 'Bimestre aprobado: las boletas BORRADOR ya estan disponibles para los docentes.';
         if ($incidencias > 0) {
             $msg .= ' Se forzo el bloqueo de ' . $incidencias . ' competencia(s) pendiente(s).';
+        }
+        if ($avisoFinal !== null) {
+            $msg .= ' Último bimestre del año: ' . AnioAcademicoModel::textoAvisoPeriodoFinal($avisoFinal)
+                  . ' Para que el docente las evalúe, desbloquéalas desde el panel de bloqueos.';
         }
         $this->redirectWithSuccess($volver, $msg);
     }

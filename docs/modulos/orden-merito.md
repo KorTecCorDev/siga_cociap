@@ -377,6 +377,11 @@ camino maneja las transversales—, que es una diferencia consciente con el dise
 > A4 vertical a una columna · una hoja por sección · en cada hoja de sección firman
 > Director EBR **y** tutor · hojas agrupadas por grado · «Distinción» como distintivo
 > junto al nombre, no como columna.
+>
+> **El tutor que firma es el DEL BIMESTRE del acta** (01/10/2026, migración 071):
+> `getTutoresPorGrado($grado, $periodo)` lee `TutorPeriodoModel` (congelado al cerrar;
+> en curso → el actual). Antes leía `secciones.tutor_id` y un cambio de tutor reescribía
+> las actas viejas. Ver `admin.md` § «Cambiar de tutor a mitad de año».
 
 `GET /director/orden-merito/{periodo}/imprimir` →
 `Director\OrdenMeritoController::imprimir` + `resources/views/director/reporte-merito.php`

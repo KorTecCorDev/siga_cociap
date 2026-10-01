@@ -3,6 +3,7 @@
 namespace App\Controllers\Docente;
 
 use App\Controllers\BaseController;
+use App\Models\AnioAcademicoModel;
 use App\Models\CalificacionModel;
 use App\Models\CriterioModel;
 use App\Models\ExoneracionModel;
@@ -373,6 +374,7 @@ class CalificacionController extends BaseController
             'bloqueos'         => $bloqueos,
             'exonerados'       => $exonerados,
             'permiteNoEvaluar' => $permiteNoEvaluar,
+            'periodoFinal'     => $this->periodoEsFinal((int) $periodo['id']),
             'page_scripts'     => ['calificaciones'],
         ]);
     }
@@ -558,6 +560,7 @@ class CalificacionController extends BaseController
             'bloqueos'        => $bloqueos,
             'exonerados'      => $exonerados,
             'permiteNoEvaluar' => $permiteNoEvaluar,
+            'periodoFinal'    => $this->periodoEsFinal((int) $periodo['id']),
             'extraordinariasPorComp' => $this->extraordinariasPorCompetencia($competencias, $cargaId, (int) $periodo['id']),
             'page_scripts'    => ['calificaciones'],
         ]);
@@ -1580,6 +1583,8 @@ class CalificacionController extends BaseController
             'exonerados'      => $exonerados,
             'extraordinarias' => $extraordinarias,
             'volverUrl'       => $volverUrl,
+            'periodoFinal'    => $this->periodoEsFinal((int) $periodo['id']),
+            'plazoVencido'    => $this->calModel->periodoEstaBloqueado((int) $periodo['id']),
             'page_scripts'    => ['resumen'],
         ]);
     }
@@ -1653,6 +1658,24 @@ class CalificacionController extends BaseController
             $this->json(['success' => false, 'mensaje' => 'Sin periodo activo.'], 400);
         }
 
+        // La carga debe ser del docente en sesión (01/10/2026). Antes solo lo
+        // filtraban las pantallas; el endpoint aceptaba cualquier carga_id.
+        if (!$this->validarCargaDocente($cargaId)) {
+            $this->json(['success' => false, 'mensaje' => 'Carga no encontrada.'], 403);
+        }
+
+        // PLAZO ESTRICTO (decisión del usuario, 01/10/2026): pasado
+        // `limite_notas` tampoco se aprueba, igual que ya no se guardan notas ni
+        // criterios. Lo pendiente lo bloquea el cierre; si el colegio necesita
+        // más tiempo, se amplía el plazo del bimestre.
+        if ($this->calModel->periodoEstaBloqueado((int) $periodo['id'])) {
+            $this->json([
+                'success' => false,
+                'mensaje' => 'El plazo para registrar calificaciones venció: ya no se puede '
+                           . 'aprobar. Comunícate con Registro Académico.',
+            ], 403);
+        }
+
         $confirmaSinNotas = !empty($this->input('sin_calificaciones'));
 
         // Validar la competencia que se quiere bloquear (propia o transversal).
@@ -1691,6 +1714,16 @@ class CalificacionController extends BaseController
 
         $sinCriterios = empty($resumen['criterios']);
         if ($sinCriterios && $confirmaSinNotas) {
+            // REGLA DEL PERIODO FINAL (10/08/2026, implementada el 01/10/2026):
+            // en el último periodo del año no existe "No se evaluó". Todas las
+            // competencias de la carga —académicas y transversales— deben tener
+            // nivel de logro, o el estudiante queda con la situación final
+            // PENDIENTE. Única excepción: que todo el roster esté exonerado.
+            if ($this->periodoEsFinal((int) $periodo['id'])
+                && !$this->todosExonerados($cargaId, $periodo, $resumen['alumnos'] ?? [])) {
+                return 'En el último bimestre del año todas las competencias deben '
+                     . 'evaluarse: registra sus criterios y notas antes de aprobarla.';
+            }
             // Paso 2 (integridad): "No se evaluó" crea un bloqueo SIN criterios.
             // Si la competencia todavía tiene calificaciones (huérfanas, porque no
             // hay criterio vivo), bloquear aquí produciría el estado fantasma
@@ -1746,5 +1779,29 @@ class CalificacionController extends BaseController
         }
 
         return null;
+    }
+
+    /** ¿El periodo es el último del año? Delega en el punto único. */
+    private function periodoEsFinal(int $periodoId): bool
+    {
+        return (new AnioAcademicoModel())->esPeriodoFinal($periodoId);
+    }
+
+    /**
+     * ¿Todo el roster de la carga está exonerado? Entonces no hay a quién
+     * evaluar y "No se evaluó" sigue siendo legítimo en el periodo final.
+     */
+    private function todosExonerados(int $cargaId, array $periodo, array $alumnos): bool
+    {
+        if (empty($alumnos)) {
+            return false;
+        }
+        $exonerados = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        foreach ($alumnos as $a) {
+            if (!in_array((int) $a['matricula_id'], $exonerados, true)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

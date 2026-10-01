@@ -186,6 +186,163 @@ class AnioAcademicoModel extends BaseModel
         return $fila !== null;
     }
 
+    /**
+     * ¿Es el PERIODO FINAL de su año? PUNTO ÚNICO de la regla del periodo final
+     * (01/10/2026): el ÚLTIMO periodo del año = mayor `numero`, nunca el 4
+     * literal (mismo anclaje que el logro anual y la situación final).
+     *
+     * En ese periodo el docente pierde la autonomía de B1-B3: todas las
+     * competencias de su carga deben evaluarse. Ver `docs/modulos/calificaciones.md`
+     * § «REGLA DE NEGOCIO — autonomía del docente y periodo final».
+     *
+     * Delega en `ultimoPeriodoDelAnio()`, el ANCLA única de «cuál es el último».
+     */
+    public function esPeriodoFinal(int $periodoId): bool
+    {
+        $fila = $this->queryOne("SELECT anio_id FROM periodos WHERE id = ?", [$periodoId]);
+        if ($fila === null) {
+            return false;
+        }
+        $ultimo = $this->ultimoPeriodoDelAnio((int) $fila['anio_id']);
+
+        return $ultimo !== null && (int) $ultimo['id'] === $periodoId;
+    }
+
+    /**
+     * ANCLA ÚNICA del PERIODO FINAL (01/10/2026): el periodo de mayor `numero`
+     * del año —dinámico, nunca el 4 literal—, o `null` si el año no tiene
+     * periodos. La consumen `esPeriodoFinal()`, el logro anual de la boleta
+     * (`BoletaModel`, y su copia dormida `BoletaPublicaController`) y la
+     * situación final (`SituacionFinalModel`). Antes eran tres consultas
+     * escritas a mano; ninguna regla nueva vuelve a escribir el `MAX(numero)`.
+     *
+     * @return array{id:int|string, numero:int|string, estado:string}|null
+     */
+    public function ultimoPeriodoDelAnio(int $anioId): ?array
+    {
+        return $this->queryOne("
+            SELECT id, numero, estado
+            FROM periodos
+            WHERE anio_id = ?
+            ORDER BY numero DESC
+            LIMIT 1
+        ", [$anioId]);
+    }
+
+    /**
+     * Competencias VACÍAS del periodo: bloqueadas sin ninguna nota de una
+     * matrícula vigente. Solo tiene sentido DESPUÉS del bloqueo forzado del
+     * cierre (`bloquearCompetenciasPendientes`), cuando `bloqueos_competencia`
+     * ya es el universo canónico de cada carga —así no se escribe una QUINTA
+     * copia de la regla de «carga dueña» de las transversales—. Fuera las cargas
+     * en que TODO el roster vigente está exonerado del área: ahí no hay nada
+     * que evaluar.
+     *
+     * Las notas de trasladados y retirados NO cuentan (`matriculas_vigentes()`):
+     * sus filas no se borran, y una competencia evaluada solo a ellos está vacía
+     * para quien sigue en el colegio.
+     *
+     * @return array filas con carga_id, competencia_id, competencia, area, seccion, docente
+     */
+    public function competenciasVaciasDelPeriodo(int $periodoId): array
+    {
+        return $this->query("
+            SELECT bc.carga_id, bc.competencia_id,
+                   comp.nombre_corto AS competencia,
+                   COALESCE(sa.nombre, a.nombre) AS area,
+                   CONCAT(g.nombre_display, ' ', s.nombre, ' — ', n.nombre) AS seccion,
+                   CONCAT(pd.nombres, ' ', pd.apellido_paterno) AS docente
+            FROM bloqueos_competencia bc
+            INNER JOIN cargas_academicas ca ON ca.id = bc.carga_id
+            INNER JOIN competencias comp    ON comp.id = bc.competencia_id
+            INNER JOIN secciones s          ON s.id = ca.seccion_id
+            INNER JOIN grados g             ON g.id = s.grado_id
+            INNER JOIN niveles n            ON n.id = g.nivel_id
+            LEFT JOIN subareas sa           ON sa.id = ca.subarea_id
+            LEFT JOIN areas a               ON a.id = COALESCE(ca.area_id, sa.area_id)
+            LEFT JOIN subareas comp_sa      ON comp_sa.id = comp.subarea_id
+            LEFT JOIN areas comp_area       ON comp_area.id = COALESCE(comp.area_id, comp_sa.area_id)
+            LEFT JOIN usuarios ud           ON ud.id = ca.docente_id
+            LEFT JOIN personas pd           ON pd.id = ud.persona_id
+            WHERE bc.periodo_id = ?
+              AND ca.estado = 'activa'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM calificaciones k
+                  INNER JOIN matriculas m ON m.id = k.matricula_id
+                  WHERE k.carga_id       = bc.carga_id
+                    AND k.competencia_id = bc.competencia_id
+                    AND k.periodo_id     = bc.periodo_id
+                    " . matriculas_vigentes('m') . "
+              )
+              -- Alguien del roster vigente debe esa competencia. La exoneración
+              -- del área (mismo patrón que RectificacionModel::sqlInsertables)
+              -- no exime de las transversales TIC/GAMA.
+              AND EXISTS (
+                  SELECT 1
+                  FROM matriculas m
+                  INNER JOIN periodos per ON per.id = bc.periodo_id AND per.anio_id = m.anio_id
+                  WHERE m.seccion_id = ca.seccion_id
+                    " . matriculas_vigentes('m') . "
+                    AND (
+                        comp_area.tipo = 'transversal'
+                        OR NOT EXISTS (
+                            SELECT 1 FROM exoneraciones ex
+                            WHERE ex.matricula_id = m.id
+                              AND ex.anio_id      = m.anio_id
+                              AND ex.revocado_en  IS NULL
+                              AND (
+                                  (ex.area_id    IS NOT NULL AND ex.area_id    = a.id)
+                                  OR (ex.subarea_id IS NOT NULL AND ex.subarea_id = ca.subarea_id)
+                              )
+                        )
+                    )
+              )
+            ORDER BY n.id, g.numero, s.nombre, area, comp.orden
+        ", [$periodoId]);
+    }
+
+    /**
+     * Qué deja pendiente el cierre del PERIODO FINAL, o `null` si nada. Lo usan
+     * el cierre del bimestre (que se detiene y pide confirmación) y la
+     * aprobación de boletas del Hito A (que solo avisa). Debe llamarse DESPUÉS de
+     * `bloquearCompetenciasPendientes`, dentro de la misma transacción.
+     *
+     * - `vacias`: `competenciasVaciasDelPeriodo()`.
+     * - `pendientes` / `sin_datos`: estudiantes cuya situación final quedaría
+     *   PEND o ND, del punto único `SituacionFinalModel` + `riesgo_resumen()`.
+     *   Trasladados y retirados no entran (`matriculas_vigentes()`).
+     *
+     * @return array{vacias:array, total_vacias:int, pendientes:int, sin_datos:int}|null
+     */
+    public function avisoPeriodoFinal(int $periodoId): ?array
+    {
+        $vacias  = $this->competenciasVaciasDelPeriodo($periodoId);
+        $resumen = riesgo_resumen((new SituacionFinalModel())->porGrado($periodoId));
+
+        if (empty($vacias) && $resumen['pendiente_final'] === 0 && $resumen['sin_datos'] === 0) {
+            return null;
+        }
+
+        return [
+            // La sesión guarda solo una muestra; el total va aparte.
+            'vacias'       => array_slice($vacias, 0, 40),
+            'total_vacias' => count($vacias),
+            'pendientes'   => (int) $resumen['pendiente_final'],
+            'sin_datos'    => (int) $resumen['sin_datos'],
+        ];
+    }
+
+    /** Una línea legible del aviso del periodo final. */
+    public static function textoAvisoPeriodoFinal(array $aviso): string
+    {
+        return sprintf(
+            'Quedaron %d competencia(s) sin ninguna nota; %d estudiante(s) con la situación '
+            . 'final pendiente y %d sin datos.',
+            $aviso['total_vacias'], $aviso['pendientes'], $aviso['sin_datos']
+        );
+    }
+
     /** Actualiza las fechas y la fecha límite de notas de un bimestre. */
     public function actualizarFechasPeriodo(
         int $id,

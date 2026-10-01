@@ -115,8 +115,7 @@ class RiesgoTutorController extends BaseController
             $this->redirectWithError(url('docente/inicio'), 'No eres tutor(a) de ninguna sección este año.');
         }
 
-        $anioId  = (int) $propia['anio_id'];
-        $seccion = array_column($this->seccionModel->seccionesDelAnio($anioId), null, 'id')[(int) $propia['id']];
+        $anioId = (int) $propia['anio_id'];
 
         $publicados = $this->publicacionModel->periodosPublicados($anioId, (int) $propia['nivel_id']);
         $periodos   = array_values(array_filter(
@@ -135,6 +134,14 @@ class RiesgoTutorController extends BaseController
 
         // Por defecto, el último publicado (`getPeriodos` ordena por número ASC).
         $periodo ??= $periodos ? $periodos[count($periodos) - 1] : null;
+
+        // Después de elegir el bimestre: el rótulo nombra al tutor DE ESE bimestre
+        // (01/10/2026). La sección sigue saliendo de `tutor_id` (arriba).
+        $seccion = array_column(
+            $this->seccionModel->seccionesDelAnio($anioId, $periodo ? (int) $periodo['id'] : null),
+            null,
+            'id'
+        )[(int) $propia['id']];
 
         return [$seccion, $periodos, $periodo, $noPublicado];
     }

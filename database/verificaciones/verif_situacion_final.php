@@ -382,5 +382,28 @@ $chk("1.o de primaria: nunca chip",
 $chk("rotulos de los chips", situacion_efecto_rotulo(EFECTO_PER) === "PER"
     && situacion_efecto_rotulo(EFECTO_RR) === "RR" && situacion_efecto_rotulo(EFECTO_LIMITE) === "En el límite");
 
+// ── `definitiva` en el periodo final (01/10/2026) ───────────────────────
+// Definitiva = periodo final SIN pendientes NI estudiantes sin datos (doc
+// promocion-de-grado.md § 6.2). Antes el código no miraba `sin_datos`. Es la
+// compuerta de «Cerrar año».
+echo "\n7. riesgo_resumen()['definitiva']\n";
+$fila = static fn(bool $final, int $sinDatos, int $pend, int $parciales = 0): array => [
+    'grado'           => ['nivel_id' => 1, 'nivel_nombre' => 'Primaria', 'nivel_codigo' => 'prim'],
+    'evaluados'       => 20,
+    'sin_datos'       => $sinDatos,
+    'pendiente_final' => array_fill(0, $pend, ['situacion' => SITUACION_PENDIENTE]),
+    'periodo_final'   => $final,
+    'en_riesgo'       => [],
+    'seguimiento'     => [],
+    'cobertura'       => ['min' => 5, 'plan' => 5, 'parciales' => $parciales],
+];
+$chk("periodo final completo -> definitiva", riesgo_resumen([$fila(true, 0, 0)])["definitiva"] === true);
+$chk("periodo final con 1 estudiante SIN DATOS -> NO definitiva", riesgo_resumen([$fila(true, 1, 0)])["definitiva"] === false);
+$chk("periodo final con 1 PEND -> NO definitiva", riesgo_resumen([$fila(true, 0, 1)])["definitiva"] === false);
+$chk("periodo final con 1 parcial -> NO definitiva", riesgo_resumen([$fila(true, 0, 0, 1)])["definitiva"] === false);
+$chk("fuera del periodo final nunca es definitiva", riesgo_resumen([$fila(false, 0, 0)])["definitiva"] === false);
+$chk("ND en OTRO grado del colegio tambien la impide",
+    riesgo_resumen([$fila(true, 0, 0), $fila(true, 2, 0)])["definitiva"] === false);
+
 echo "\n", $ok ? "TODO OK\n" : "HAY FALLAS\n";
 exit($ok ? 0 : 1);

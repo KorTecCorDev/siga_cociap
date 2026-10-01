@@ -37,7 +37,7 @@ $riesgo = [
             <?= e($sec['grado_nombre'] . ' ' . $sec['nombre'] . ' de ' . $sec['nivel_nombre']) ?>
         </h2>
         <p class="riesgo-seccion__tutor">
-            Tutor(a) actual:
+            Tutor(a) del bimestre:
             <strong><?= $sec['tutor_nombre'] !== null ? e($sec['tutor_nombre']) : 'sin tutor asignado' ?></strong>
         </p>
     </div>
