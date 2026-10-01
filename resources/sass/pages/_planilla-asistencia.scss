@@ -91,12 +91,13 @@ $planilla-borde: 2px solid #000;
         color: #444;
     }
 
+    // Sin puntos suspensivos (01/10/2026): un nombre que no cabe se achica
+    // (`data-ajustar-texto` → print-fit.js), nunca se corta.
     &__dato-valor {
         font-size: 11pt;
         font-weight: 700;
         white-space: nowrap;
         overflow: hidden;
-        text-overflow: ellipsis;
         min-height: 1.2em;
     }
 
@@ -144,10 +145,13 @@ $planilla-borde: 2px solid #000;
         padding: 0 1.5mm !important;
         font-size: 9pt;
     }
-    // Último recurso, si ni abreviado cabe (`nombreQueCabe`): letra menor en vez
-    // de cortarlo (en el Excel lo hace «reducir hasta ajustar»).
-    &__nombre--largo     { font-size: 8pt; }
-    &__nombre--muy-largo { font-size: 7.5pt; letter-spacing: -0.1pt; }
+    // Nombre completo que no cabe (01/10/2026): escalón de letra por largo, SOLO
+    // como respaldo sin JS. Con JS manda print-fit.js: la letra más grande que
+    // cabe, al décimo de punto, con tope en la base de 9 pt (`data-ajustar-texto`).
+    // En el Excel lo hace «reducir hasta ajustar».
+    &__nombre--largo       { font-size: 8pt; }
+    &__nombre--muy-largo   { font-size: 7.5pt; letter-spacing: -0.1pt; }
+    &__nombre--extra-largo { font-size: 7pt; letter-spacing: -0.1pt; }
     &__dia     { width: 6mm; }
     &__dia--sin { background: #d9d9d9; }
     &__total   { width: 8mm; font-size: 11pt; }

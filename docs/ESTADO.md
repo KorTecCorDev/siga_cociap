@@ -1,7 +1,7 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **30/09/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **01/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
@@ -16,13 +16,58 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
+## 🆕 PLANILLA DE ASISTENCIA CON LAS SIGLAS DEL SISTEMA — EN `dev`, LISTA PARA EL MERGE (30/09 y 01/10/2026)
+
+> **Listo para el merge `dev` → `main` (01/10/2026), cuando el usuario lo pida.**
+> - **Sin migraciones.** No hay que aplicar nada en producción antes del push.
+> - Viajan:
+>   - `c31cff4`: siglas F/FJ/T/TJ;
+>   - `841ce35`: docs de cierre de colas;
+>   - el commit del 01/10: nombres que no caben y leyenda sin «En blanco = asistió».
+> - `app.css` y `print-fit.js` ya van compilados en el commit.
+> - Batería 55/55.
+> - Después del deploy, abrir en `sigacociap.net` el PDF de 5.° B secundaria (`seccion=23`).
+>   Antes del arreglo salía «PALOMINO VILLANUEVA, ROG…»; el nombre del auxiliar debe salir
+>   entero, con la letra más chica.
+>   Abrir también el PDF de una sección con nombres largos y un Excel.
+> - Versión: los arreglos posteriores del 30/09 se desplegaron sin cambiar de versión
+>   (sigue v1.0.5). Que lo decida el usuario al mergear.
+
+Sin migración. La planilla manual (PDF y Excel) pasa de F/J/T/U (SIAGIE) a **F/FJ/T/TJ**, las
+del sistema; punto único `PlanillaAsistenciaModel::LEYENDA`. La plantilla Excel lleva vacías
+`AC8:AF8` y `A46` y el código las escribe. Además, `verif_direccion_solo_lectura.php` entiende
+los `if` partidos en varias líneas (falso positivo en `matriculas/show.php`). Batería 55/55.
+Detalle en `docs/modulos/auxiliares.md`.
+- [ ] Merge a `main` «para el final» (decisión del usuario, 30/09/2026; la ratificó el 01/10).
+- [ ] Abrir un Excel y un PDF generados para verlos impresos (en local no hay Excel ni sesión).
+
+**01/10/2026 — nombres que no caben (COMMITEADO en `dev`, aprobado por el usuario).**
+El usuario los vio en producción. Sin migración. Detalle en `auxiliares.md` §6.
+- AUXILIAR cortado con «…» en el PDF: ahora se achica la letra midiendo el ancho real.
+- Los estudiantes salen con el nombre COMPLETO en el PDF y en el Excel; deroga la abreviatura
+  del 28/09. En el PDF, cada nombre lleva la letra más grande que cabe, medida al décimo de
+  punto (tope 9 pt; franja 11 pt). Visto en local con admin: 3.° A sec. y 4.° B prim., 0
+  cortados.
+- La leyenda ya no dice «En blanco = asistió» (PDF y Excel). Cada auxiliar llama lista a su
+  manera y la planilla no impone cómo se marca la asistencia.
+- Batería 55/55.
+- [x] Ver en local (admin) el PDF de una sección con nombres largos. Hecho el 01/10 con
+      sesión de admin y aprobado por el usuario:
+      - 3.° A de secundaria (`seccion=18`): SANTAMARIA RODRIGUEZ (47 caracteres) en 7,8 pt
+        y JACHILLA PALMA (44) en 8,4 pt;
+      - 4.° B de primaria (`seccion=8`): SANTIAGO DE LA CRUZ (47) en 7,8 pt;
+      - ningún nombre cortado.
+- [ ] La franja con un auxiliar de nombre LARGO real no se vio: el de la local es corto. Se
+      revisa en producción tras el merge (ver arriba).
+
 ## 🟢 RETIRAR UNA MATRÍCULA PENDIENTE — DESPLEGADO el 30/09/2026 (sin cambio de versión: sigue v1.0.5)
 
 Sin migración. «Desactivar matrícula» se muestra también a las `pendiente` en la ficha de
 matrícula, para poder marcarlas después como retiradas (la 045 exige `desactivado`). Solo
 cambió la vista; `desactivar()` ya lo soportaba. Detalle en `docs/modulos/matriculas.md`.
-- [ ] Revisar en producción la ficha de una matrícula `pendiente` (no se vio en navegador
-      antes del deploy: la sesión de Chrome se había cerrado).
+- [x] Revisar en producción la ficha de una matrícula `pendiente`. **01/10/2026, sesión de
+      ADMIN en sigacociap.net:** la única `pendiente` de 2026 (matrícula 696, registro
+      provisional) muestra «Desactivar matrícula» con su botón. No se pulsó.
 
 ## 🟢 MÓDULO AUXILIAR ACADÉMICO + ASISTENCIA POR FECHAS — DESPLEGADO en v1.0.5 (30/09/2026)
 
@@ -37,17 +82,41 @@ POR FECHAS, lista del día y días no lectivos, y las seis rondas de ajustes.
   hábil del III hasta la víspera.
 
 **Pendiente tras el deploy:**
-- [ ] Revisar en producción: una boleta del I o II con su asistencia, `/admin/conducta/{id}`
-      y `/admin/asistencia/{id}` del III, y el panel del tutor.
+- [x] Revisar en producción con sesión de **ADMIN** (01/10/2026, solo lectura):
+      - boleta de la matrícula 230 (2.° A sec.): asistencia del I y del II con cifras, que
+        coinciden con la grilla bloqueada del II (3 FJ), y guion en el III y el IV;
+      - `/admin/asistencia/16` del III, con el estilo del I/II: lista tomada hasta el 29/09
+        (relleno de la 070); el 30/09 y el 01/10 «Sin tomar», como estaba previsto;
+      - `/admin/conducta/16` del III, con la tabla, «Marcar Sí» y «Confirmar todo»;
+      - la vista del II es de solo lectura, con el aviso de bloqueo y «Imprimir registro»;
+      - el pie dice v1.0.5.
+      En `/admin/asistencia` solo 2.° A sec. tiene confirmaciones del III (25/26); el resto
+      está en 0 %, lo esperable sin auxiliares reales.
+- [ ] Panel del tutor (`/docente/conducta`) en producción: pide una sesión de TUTOR.
 - [ ] Usuarios reales de los auxiliares y sus secciones (sin ellos nadie entra como auxiliar).
+      **Los crea el usuario en producción** (`/admin/usuarios/crear` + `/admin/auxiliares`);
+      se marca cuando lo confirme (01/10/2026).
 - [ ] Declarar en `/admin/asistencia/no-lectivos` los feriados que decida el colegio antes de
-      bloquear el III (el bloqueo exige lista en todo día lectivo).
-- [ ] Docs finales: `admin.md` (conducta y asistencia también las registra el auxiliar) y
-      `decisiones-diferidas.md` (asistencia por QR 2027, §8 de `auxiliares.md`).
+      bloquear el III (el bloqueo exige lista en todo día lectivo). **Fecha tope: antes de
+      bloquear el III, que termina el 09/10.** Candidato: el 08/10 (Combate de Angamos).
+      Al 01/10 el colegio aún no decide.
+- [ ] Imprimible de asistencia del III: vista previa de impresión (el «Detalle de
+      incidencias» sale en hoja aparte, con las firmas al final). Traído de 0b.
+- [ ] Bloque «Justificaciones» de `/admin/cuadros` con sesión de DIRECTOR: solo se puede ver
+      cuando el III esté cerrado (Dirección ve solo bimestres cerrados). Traído de 0b.
+- [x] Docs finales (01/10/2026): `admin.md` (el auxiliar registra y bloquea la etapa 1 de
+      sus secciones; RA/admin de respaldo) y §8 de `auxiliares.md` (apunta al diseño del QR
+      2027, que ya estaba en `decisiones-diferidas.md` desde el 30/09).
 
 Historial del desarrollo (se conserva como referencia):
 
 ### 🔜 RETOMAR AQUÍ (30/09/2026) — PENDIENTE INMEDIATO: repaso final y cierre del módulo
+
+> **01/10/2026 — HISTÓRICO, NO SON PENDIENTES.** Las casillas 1, 2 y 3 de abajo quedaron
+> cubiertas por el repaso con todos los roles del 29-30/09 (párrafos siguientes). De 0b, las
+> dos que no consta que se hayan visto (vista previa de impresión del imprimible de asistencia
+> y el bloque «Justificaciones» de Cuadros con el director) **se trasladaron** a «Pendiente
+> tras el deploy», más arriba. Lo único que sigue vivo del módulo está en esa lista.
 
 Detalle completo en `docs/modulos/auxiliares.md` §7 y, para lo del 29/09, en
 `docs/modulos/confirmacion-y-asistencia-por-fechas.md` (cabeceras de ronda y «AVANCE»).
@@ -479,8 +548,10 @@ desde antes de la v1.0.1** — el hueco de proceso que advierte CLAUDE.md.
 **Pendiente de producción:**
 - [ ] Confirmar que se corrió `php database/reparar_notas_externas_truncadas.php --confirmar`
       (primero sin `--confirmar`, que solo simula).
-- [ ] Revisar en `https://sigacociap.net`: login, la campana, una boleta y
-      `/matriculas/{id}/notas-externas`.
+- [x] Revisar en `https://sigacociap.net`: login, la campana, una boleta y
+      `/matriculas/{id}/notas-externas`. **01/10/2026, sesión de ADMIN:** login correcto,
+      `/notificaciones` abre (bandeja vacía), boleta de la matrícula 230 completa y
+      `/matriculas/204/notas-externas` con el aviso y el importador de la currícula.
 
 
 ## ✅ CONCLUSIÓN EN NOTAS DE ORIGEN + BARRIDO DE TEXTOS (22/09/2026) — desplegado en v1.0.2
@@ -823,7 +894,10 @@ el `.htaccess` no negaba `.csv`. Salen del repo, entran al `.gitignore` y los do
 `.htaccess` los niegan.
 
 **Pendiente del usuario (NO lo hace el deploy):**
-- [ ] Comprobar en producción qué responden `/matriculados.csv` y `/hash.php`.
+- [x] Comprobar en producción qué responden `/matriculados.csv` y `/hash.php`. **01/10/2026:
+      los dos dan 403**, así que ya no se sirven. ⚠️ Eso NO prueba que se hayan borrado: un
+      `.csv` inexistente también da 403 (regla del `.htaccess`), mientras que un `.php`
+      inexistente da 404. Por eso sigue abierta la casilla de abajo.
 - [ ] **Borrarlos a mano del servidor**: el auto-deploy solo los retira al mergear a `main`.
 - [ ] Repo de GitHub **era público** → pasarlo a privado; el historial conserva los archivos.
 - [ ] Decidir si se reescribe el historial (y, si el colegio lo exige, el aviso por la

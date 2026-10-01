@@ -71,6 +71,61 @@
 })();
 
 /**
+ * Texto que NUNCA se corta: `[data-ajustar-texto]` (01/10/2026).
+ *
+ * Cada casilla lleva la letra MAS GRANDE que cabe, con tope en el tamano base
+ * que trae el atributo (`data-ajustar-texto="9"`, en pt): lo que cabe sale en
+ * el base y lo largo se achica JUSTO hasta el borde, al decimo de punto
+ * (decision del usuario, 01/10/2026). Es el «reducir hasta ajustar» del Excel.
+ * Se mide el ancho REAL porque contar caracteres no basta: dos nombres del
+ * mismo largo necesitan letras distintas (la M es mas ancha que la I). El
+ * escalon por largo del CSS queda solo como respaldo sin JS. Hoy lo usa la
+ * planilla de asistencia (`documentos/planilla-asistencia-imprimir.php`).
+ */
+(function () {
+    var LETRA_MIN_PT = 6;
+    // 1 px de holgura (~0,26 mm): el redondeo de la impresion no recorta la ultima letra.
+    var HOLGURA_PX = 1;
+    var nodos = document.querySelectorAll('[data-ajustar-texto]');
+    if (!nodos.length) { return; }
+
+    // Ancho del TEXTO contra el espacio util (ancho menos relleno). No sirve
+    // `scrollWidth`: nunca es menor que `clientWidth`, asi que no admite holgura.
+    function cabe(el, decimas) {
+        el.style.fontSize = (decimas / 10) + 'pt';
+        var estilo = window.getComputedStyle(el);
+        var util = el.clientWidth - parseFloat(estilo.paddingLeft) - parseFloat(estilo.paddingRight);
+        var rango = document.createRange();
+        rango.selectNodeContents(el);
+        return rango.getBoundingClientRect().width <= util - HOLGURA_PX;
+    }
+
+    function ajustarTexto() {
+        Array.prototype.forEach.call(nodos, function (el) {
+            var base = parseFloat(el.getAttribute('data-ajustar-texto'));
+            if (!(base > LETRA_MIN_PT)) { return; }
+            // Casilla sin ancho (oculta o sin maquetar): no hay nada que medir;
+            // sin esto, la busqueda la hundiria al minimo.
+            if (el.clientWidth === 0) { el.style.removeProperty('font-size'); return; }
+
+            // Busqueda binaria en decimas de punto: el mayor tamano que cabe.
+            var lo = LETRA_MIN_PT * 10;
+            var hi = Math.round(base * 10);
+            if (cabe(el, hi)) { return; }
+            while (lo < hi) {
+                var medio = Math.ceil((lo + hi) / 2);
+                if (cabe(el, medio)) { lo = medio; } else { hi = medio - 1; }
+            }
+            cabe(el, lo);
+        });
+    }
+
+    ajustarTexto();
+    window.addEventListener('load', ajustarTexto);
+    window.addEventListener('beforeprint', ajustarTexto);
+})();
+
+/**
  * Boton "Cerrar" del documento.
  *
  * Las boletas/reportes A4 se abren en ventana nueva por script (window.open en

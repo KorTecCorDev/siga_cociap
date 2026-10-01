@@ -266,16 +266,30 @@ $chk('filas: 21 estudiantes → 24 filas; 25 → 27; 28 → 28 (sin libres, nadi
     $P::filasGrilla(21) === 24 && $P::filasGrilla(25) === 27 && $P::filasGrilla(28) === 28);
 $chk('alto de fila: llena la hoja con tope de 9 mm',
     $P::altoFilaMm(10) === $P::ALTO_MAX_MM && abs($P::altoFilaMm(27) - 136 / 27) < 0.001);
-// Nombre que no cabe: primer nombre + inicial del segundo (decisión 28/09/2026).
+// Nombre que no cabe en la FRANJA (tutor, auxiliar): primer nombre + inicial del
+// segundo (decisión 28/09/2026).
 $largo = 'SANTAMARIA RODRIGUEZ, JAKELINE ERLINDA MILAGROS';
-$chk('nombre largo → primer nombre e inicial del segundo («JAKELINE E.»)',
-    $P::nombreQueCabe($largo, $P::MAX_NOMBRE) === 'SANTAMARIA RODRIGUEZ, JAKELINE E.');
+$chk('franja: nombre largo → primer nombre e inicial del segundo («JAKELINE E.»)',
+    $P::nombreQueCabe($largo, $P::MAX_TUTOR) === 'SANTAMARIA RODRIGUEZ, JAKELINE E.');
 $chk('nombre que cabe, o con un solo nombre, no se toca',
-    $P::nombreQueCabe('LOPEZ LUNA, GAEL EDIEL', $P::MAX_NOMBRE) === 'LOPEZ LUNA, GAEL EDIEL'
+    $P::nombreQueCabe('LOPEZ LUNA, GAEL EDIEL', $P::MAX_AUXILIAR) === 'LOPEZ LUNA, GAEL EDIEL'
     && $P::nombreQueCabe('APELLIDOMUYLARGO OTROAPELLIDOLARGO, MARGARITA', 20)
         === 'APELLIDOMUYLARGO OTROAPELLIDOLARGO, MARGARITA');
 $chk('las tildes y la ñ no se rompen al abreviar',
     $P::nombreQueCabe('NUÑEZ OSORIO, ÁNGEL ÉMILE', 10) === 'NUÑEZ OSORIO, ÁNGEL É.');
+// Los ESTUDIANTES salen con su nombre completo (01/10/2026, deroga la abreviatura
+// del 28/09): ni el PDF ni el Excel les aplican nombreQueCabe.
+$vistaPlanilla  = file_get_contents(ROOT_PATH . '/resources/views/documentos/planilla-asistencia-imprimir.php');
+$modeloPlanilla = file_get_contents(ROOT_PATH . '/app/Models/PlanillaAsistenciaModel.php');
+$chk('estudiantes con nombre completo: nombreQueCabe solo para tutor y auxiliar',
+    substr_count($vistaPlanilla, 'nombreQueCabe(') === 2
+    && substr_count($modeloPlanilla, 'self::nombreQueCabe(') === 2
+    && !str_contains($vistaPlanilla . $modeloPlanilla, 'nombreQueCabe($alumnos')
+    && !str_contains($modeloPlanilla, 'nombreQueCabe($nombre, self::MAX_NOMBRE)'));
+$chk('PDF: letra más grande que cabe, medida (estudiantes tope 9 pt, franja 11 pt)',
+    str_contains($vistaPlanilla, 'data-ajustar-texto="9"')
+    && str_contains($vistaPlanilla, 'data-ajustar-texto="11"')
+    && str_contains(file_get_contents(ROOT_PATH . '/resources/js/print-fit.js'), '[data-ajustar-texto]'));
 $chk('meses del periodo: de su mes de inicio al de fin',
     array_keys($P::mesesDelPeriodo(['fecha_inicio' => '2026-08-10', 'fecha_fin' => '2026-10-16']))
         === ['2026-08', '2026-09', '2026-10']);
@@ -321,11 +335,21 @@ if (!class_exists('ZipArchive')) {
         ($c[9]['G'] ?? '') === '01' && ($c[10]['G'] ?? '') === 'J' && !isset($c[9]['D']) && !isset($c[9]['F']));
     $chk('Excel: los días que no existen se sombrean solos (formato condicional sobre el MES)',
         str_contains($xml, '<conditionalFormatting sqref="D9:AB45">') && str_contains($xml, '($D$6&lt;&gt;"")*(D$9="")'));
-    $chk('Excel: siglas del SIAGIE F · J · T · U y leyenda bajo la grilla',
-        ($c[8]['AC'] ?? '') === 'F' && ($c[8]['AD'] ?? '') === 'J' && ($c[8]['AE'] ?? '') === 'T'
-        && ($c[8]['AF'] ?? '') === 'U' && str_contains($c[46]['A'] ?? '', 'U = Tardanza justificada'));
+    // Siglas DEL SISTEMA (30/09/2026; derogan la F/J/T/U del SIAGIE), escritas
+    // desde LEYENDA, el mismo punto que usa el PDF.
+    $chk('Excel: siglas del sistema F · FJ · T · TJ y leyenda bajo la grilla',
+        ($c[8]['AC'] ?? '') === 'F' && ($c[8]['AD'] ?? '') === 'FJ' && ($c[8]['AE'] ?? '') === 'T'
+        && ($c[8]['AF'] ?? '') === 'TJ' && str_contains($c[46]['A'] ?? '', 'FJ = Falta justificada')
+        && str_contains($c[46]['A'] ?? '', 'TJ = Tardanza justificada') && !str_contains($c[46]['A'] ?? '', 'U = '));
+    $chk('Excel y PDF leen la misma leyenda (LEYENDA = F/FJ/T/TJ)',
+        array_keys($P::LEYENDA) === ['F', 'FJ', 'T', 'TJ']);
+    // 01/10/2026: la planilla no impone cómo se marca la asistencia.
+    $chk('Excel y PDF sin «En blanco = asistió»',
+        !str_contains($c[46]['A'] ?? '', 'En blanco')
+        && !str_contains(file_get_contents(ROOT_PATH . '/resources/views/documentos/planilla-asistencia-imprimir.php'), '<span>En blanco'));
     $chk('Excel: estudiantes desde B11 en orden', ($c[11]['B'] ?? '') === $alumnos[0] && ($c[12]['B'] ?? '') === $alumnos[1]);
-    $chk('Excel: el nombre que no cabe sale abreviado', ($c[13]['B'] ?? '') === 'SANTAMARIA RODRIGUEZ, JAKELINE E.');
+    // 01/10/2026: completo, sin abreviar; la celda lo achica («reducir hasta ajustar»).
+    $chk('Excel: el nombre largo sale COMPLETO', ($c[13]['B'] ?? '') === 'SANTAMARIA RODRIGUEZ, JAKELINE ERLINDA MILAGROS');
     $filasG = $P::filasGrilla(count($alumnos));
     $chk("Excel: {$filasG} filas visibles con alto fijado; el resto ocultas",
         str_contains($fila($xml, 11), 'customHeight="1"') && !str_contains($fila($xml, 10 + $filasG), 'hidden')

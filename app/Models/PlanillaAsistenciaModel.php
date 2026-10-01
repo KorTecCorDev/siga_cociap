@@ -47,14 +47,30 @@ class PlanillaAsistenciaModel extends BaseModel
 
     /**
      * Caracteres que caben en cada casilla de nombre (medido en la hoja impresa,
-     * Arial). Por encima, el nombre se abrevia con `nombreQueCabe()`.
+     * Arial). Por encima, el tutor y el auxiliar se abrevian con `nombreQueCabe()`.
+     * Los ESTUDIANTES nunca se abrevian (01/10/2026, deroga la del 28/09): salen
+     * completos y, si no caben, con letra menor (PDF: `MAX_NOMBRE` es el primer
+     * escalón y luego se mide el ancho real; Excel: «reducir hasta ajustar»).
      */
     public const MAX_NOMBRE   = 36;   // columna de estudiantes (80 mm, 9 pt)
     public const MAX_TUTOR    = 32;   // casilla TUTOR(A) (84 mm, 11 pt negrita)
     public const MAX_AUXILIAR = 26;   // casilla AUXILIAR (~63 mm, 11 pt negrita)
 
-    /** Leyenda del SIAGIE (confirmada por el usuario el 28/09/2026). */
-    public const LEYENDA = ['F' => 'Falta', 'J' => 'Falta justificada', 'T' => 'Tardanza', 'U' => 'Tardanza justificada'];
+    /**
+     * Leyenda de la planilla = las siglas DEL SISTEMA (F/FJ/T/TJ, las de la
+     * asistencia por fechas): el papel se transcribe en el sistema (decisión del
+     * usuario, 30/09/2026; deroga la F/J/T/U del SIAGIE del 28/09, que además
+     * chocaba con la «J» de jueves en la cabecera de días). PUNTO ÚNICO para el
+     * PDF y el Excel: la plantilla trae la vieja escrita y `generarExcel()` la
+     * sobrescribe desde aquí.
+     */
+    public const LEYENDA = ['F' => 'Falta', 'FJ' => 'Falta justificada', 'T' => 'Tardanza', 'TJ' => 'Tardanza justificada'];
+    /** Columnas de totales de la plantilla (fila 8), en el orden de LEYENDA. */
+    private const COLUMNAS_TOTAL = ['AC', 'AD', 'AE', 'AF'];
+    /** Celda combinada de la leyenda al pie de la grilla (A46:AG46). */
+    private const CELDA_LEYENDA = 'A46';
+    /** Separador de la leyenda, el mismo que trae la plantilla. */
+    private const SEP_LEYENDA = '     ·     ';
     public const ABREV = [1 => 'L', 2 => 'Mar.', 3 => 'Mié.', 4 => 'J', 5 => 'V'];
     public const MESES = [1 => 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
                           'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -92,11 +108,13 @@ class PlanillaAsistenciaModel extends BaseModel
     }
 
     /**
-     * Nombre que cabe en su casilla (decisión del usuario, 28/09/2026). Si
+     * Nombre que cabe en su casilla de la franja: TUTOR(A) y AUXILIAR (decisión
+     * del usuario, 28/09/2026; desde el 01/10 ya no se usa con los estudiantes). Si
      * «APELLIDOS, Nombres» pasa de $max caracteres, se deja el primer nombre y la
      * inicial del segundo con punto: «SANTAMARIA RODRIGUEZ, JAKELINE E.». Los
      * apellidos no se tocan. Si aun así no cabe, o hay un solo nombre, vuelve tal
-     * cual: el documento reduce la letra antes que cortarlo.
+     * cual: el documento reduce la letra antes que cortarlo (PDF: midiendo el
+     * ancho real en `print-fit.js`; Excel: «reducir hasta ajustar»).
      * PUNTO ÚNICO para el Excel y el PDF.
      */
     public static function nombreQueCabe(string $nombre, int $max): string
@@ -248,9 +266,21 @@ class PlanillaAsistenciaModel extends BaseModel
                 }
             }
 
+            // Nombre COMPLETO (01/10/2026): la celda trae «reducir hasta ajustar».
             foreach (array_values($alumnos) as $i => $nombre) {
-                $x->escribir($hoja, 'B' . (self::PRIMERA_FILA + $i), self::nombreQueCabe($nombre, self::MAX_NOMBRE));
+                $x->escribir($hoja, 'B' . (self::PRIMERA_FILA + $i), $nombre);
             }
+
+            // Leyenda (30/09/2026): encabezados de totales y pie desde LEYENDA,
+            // el mismo punto que usa el PDF (la plantilla trae la del SIAGIE).
+            // Sin «En blanco = asistió» (01/10/2026): cada auxiliar llama lista a
+            // su manera; la planilla no impone cómo se marca la asistencia.
+            $partes = [];
+            foreach (array_keys(self::LEYENDA) as $i => $sigla) {
+                $x->escribir($hoja, self::COLUMNAS_TOTAL[$i] . '8', $sigla);
+                $partes[] = $sigla . ' = ' . self::LEYENDA[$sigla];
+            }
+            $x->escribir($hoja, self::CELDA_LEYENDA, implode(self::SEP_LEYENDA, $partes));
 
             // Filas: las de la grilla con el alto que llena la hoja; el resto,
             // ocultas (no se imprimen).
