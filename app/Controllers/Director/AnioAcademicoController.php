@@ -4,6 +4,8 @@ namespace App\Controllers\Director;
 
 use App\Controllers\BaseController;
 use App\Models\AnioAcademicoModel;
+use App\Models\SituacionFinalModel;
+use Core\Session;
 
 /**
  * AnioAcademicoController
@@ -122,6 +124,9 @@ class AnioAcademicoController extends BaseController
             'periodoCerrado'    => $periodoCerrado,
             'statsCierre'       => $statsCierre,
             'reaperturasCierre' => $reaperturasCierre,
+            // Cierre del PERIODO FINAL detenido por competencias vacías: el
+            // detalle y el botón de confirmación (PeriodoController::cerrar).
+            'cierreVacias'      => Session::getFlash('cierre_vacias'),
         ]);
     }
 
@@ -174,6 +179,36 @@ class AnioAcademicoController extends BaseController
                 url('director/anios/' . $id),
                 'No se puede cerrar el año: aún hay un bimestre activo. Ciérralo primero.'
             );
+        }
+
+        // SITUACIÓN FINAL DEFINITIVA (decisión del usuario, 01/10/2026): cerrar
+        // el año es irreversible, así que exige que la situación final de TODOS
+        // los estudiantes vigentes sea definitiva —ninguno en PEND ni sin datos
+        // en el periodo final—. Punto único: `riesgo_resumen()['definitiva']`
+        // sobre `SituacionFinalModel`. Lo pendiente se completa con la
+        // calificación extraordinaria (Rectificaciones).
+        $periodos = $this->model->getPeriodos($id);
+        $final    = $periodos ? $periodos[array_key_last($periodos)] : null;
+        if ($final !== null) {
+            if ($final['estado'] !== 'cerrado') {
+                $this->redirectWithError(
+                    url('director/anios/' . $id),
+                    "No se puede cerrar el año: el {$final['nombre_display']} aún no está cerrado."
+                );
+            }
+            $resumen = riesgo_resumen((new SituacionFinalModel())->porGrado((int) $final['id']));
+            if (!$resumen['definitiva']) {
+                $this->redirectWithError(
+                    url('director/anios/' . $id),
+                    sprintf(
+                        'No se puede cerrar el año: la situación final aún no es definitiva '
+                        . '(%d estudiante(s) con la situación final pendiente y %d sin datos en el %s). '
+                        . 'Complétalas con la calificación extraordinaria y revísalas en '
+                        . 'Cuadros › Acompañamiento pedagógico.',
+                        $resumen['pendiente_final'], $resumen['sin_datos'], $final['nombre_display']
+                    )
+                );
+            }
         }
 
         $this->model->cerrarAnio($id);

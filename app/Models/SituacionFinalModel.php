@@ -691,13 +691,6 @@ class SituacionFinalModel extends BaseModel
     }
 
     /**
-     * El `numero` del periodo y si es el FINAL de su año (mayor `numero`). Mismo
-     * anclaje que el logro anual y la regla del periodo final: nunca el número 4
-     * literal.
-     *
-     * @return array{0:int, 1:bool}
-     */
-    /**
      * Matrículas del año SIN ninguna nota hasta este bimestre y CON notas en uno
      * posterior: se incorporaron después (24/09/2026). Se ancla en el DATO, no
      * en `fecha_registro`: los bimestres se solapan, y hay matrículas
@@ -745,15 +738,21 @@ class SituacionFinalModel extends BaseModel
         ", [$periodoId]);
     }
 
+    /**
+     * El `numero` del periodo y si es el FINAL de su año. «Final» sale del ANCLA
+     * única `AnioAcademicoModel::esPeriodoFinal()` (01/10/2026): mismo criterio
+     * que el logro anual y la regla del periodo final, nunca el número 4 literal.
+     *
+     * @return array{0:int, 1:bool}
+     */
     private function datosPeriodo(int $periodoId): array
     {
-        $f = $this->query("
-            SELECT p.numero,
-                   p.numero = (SELECT MAX(p2.numero) FROM periodos p2 WHERE p2.anio_id = p.anio_id) AS es_final
-            FROM periodos p WHERE p.id = ?
-        ", [$periodoId]);
+        $f = $this->query("SELECT numero FROM periodos WHERE id = ?", [$periodoId]);
 
-        return [(int) ($f[0]['numero'] ?? 0), (bool) ($f[0]['es_final'] ?? false)];
+        return [
+            (int) ($f[0]['numero'] ?? 0),
+            (new AnioAcademicoModel())->esPeriodoFinal($periodoId),
+        ];
     }
 
     /**

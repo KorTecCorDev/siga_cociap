@@ -5,6 +5,7 @@
  * @var int        $cerradoId       id del bimestre recién cerrado (0 si no aplica)
  * @var array|null $periodoCerrado  datos del bimestre recién cerrado
  * @var array|null $statsCierre     indicadores del cierre para el modal
+ * @var array|null $cierreVacias    cierre del periodo final detenido (vacias, total_vacias, pendientes, sin_datos)
  */
 
 $badgePeriodo = fn(string $estado): string => match ($estado) {
@@ -62,6 +63,63 @@ $toLocalInput = function (?string $dt): string {
         <?php endif; ?>
     </div>
 </div>
+
+<?php
+// Cierre del PERIODO FINAL detenido (01/10/2026): quedan competencias sin
+// ninguna nota. Se muestra el detalle y el cierre se confirma aparte; RA las
+// completa después con la calificación extraordinaria.
+$cv = $cierreVacias ?? null;
+$cvPeriodo = null;
+if (is_array($cv)) {
+    foreach ($periodos as $p) {
+        if ((int) $p['id'] === (int) $cv['periodo_id'] && $p['estado'] === 'activo') { $cvPeriodo = $p; break; }
+    }
+}
+?>
+<?php if ($cvPeriodo && $puedeEscribir): ?>
+<div class="card mb-lg">
+    <div class="card__header">
+        <h2 class="card__title">Cierre del <?= e($cvPeriodo['nombre_display']) ?>: quedan competencias sin evaluar</h2>
+    </div>
+    <div class="card__body">
+        <div class="flash flash--warning">
+            Es el último bimestre del año. <?= e(\App\Models\AnioAcademicoModel::textoAvisoPeriodoFinal($cv)) ?>
+            Si cierras igual, esos estudiantes quedan con la situación final pendiente hasta que
+            Registro Académico registre la calificación extraordinaria, y esas notas no entran
+            al orden de mérito. Para que el docente las evalúe, amplía el plazo y desbloquéalas
+            desde el panel de bloqueos.
+        </div>
+        <?php if (!empty($cv['vacias'])): ?>
+        <div class="tabla-responsive">
+            <table class="tabla-ranking">
+                <thead>
+                    <tr><th>Sección</th><th>Área</th><th>Competencia</th><th>Docente</th></tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($cv['vacias'] as $v): ?>
+                    <tr>
+                        <td><?= e($v['seccion']) ?></td>
+                        <td><?= e($v['area']) ?></td>
+                        <td><?= e($v['competencia']) ?></td>
+                        <td><?= e($v['docente'] ?? '—') ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php if ((int) $cv['total_vacias'] > count($cv['vacias'])): ?>
+            <p class="text-muted">Se muestran <?= count($cv['vacias']) ?> de <?= (int) $cv['total_vacias'] ?>.</p>
+        <?php endif; ?>
+        <?php endif; ?>
+        <form method="POST" action="<?= url('director/periodos/' . $cvPeriodo['id'] . '/cerrar') ?>"
+              data-confirm="¿Cerrar el <?= e($cvPeriodo['nombre_display']) ?> dejando estas competencias sin evaluar? Quedarán pendientes de la calificación extraordinaria.">
+            <?= csrf_field() ?>
+            <input type="hidden" name="confirmar_vacias" value="1">
+            <button type="submit" class="btn btn--sm btn--warning">Cerrar igual el <?= e($cvPeriodo['nombre_display']) ?></button>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="bimestres-grid">
     <?php foreach ($periodos as $p):

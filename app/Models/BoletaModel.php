@@ -160,7 +160,7 @@ class BoletaModel extends BaseModel
         // Logro anual = nota del ULTIMO bimestre del anio (mayor numero), visible
         // SOLO cuando ese bimestre esta cerrado. NO es el ultimo bimestre CERRADO
         // ni un promedio: es el nivel alcanzado al final del anio (competencias).
-        $ultimoBim        = $this->getUltimoBimestreDelAnio($anioId);
+        $ultimoBim        = (new AnioAcademicoModel())->ultimoPeriodoDelAnio($anioId);
         $ultimoBimestreId = $ultimoBim ? (int) $ultimoBim['id'] : 0;
         $ultimoCerrado    = $ultimoBim !== null && $ultimoBim['estado'] === 'cerrado';
 
@@ -380,26 +380,10 @@ class BoletaModel extends BaseModel
     }
 
     /**
-     * Ultimo bimestre del anio: el periodo de mayor `numero` (dinamico, no
-     * hardcodea la cantidad). Su cierre habilita el logro anual. Retorna
-     * id/numero/estado o null si el anio no tiene periodos.
-     */
-    private function getUltimoBimestreDelAnio(int $anioId): ?array
-    {
-        return $this->queryOne("
-            SELECT id, numero, estado
-            FROM periodos
-            WHERE anio_id = ?
-            ORDER BY numero DESC
-            LIMIT 1
-        ", [$anioId]);
-    }
-
-    /**
      * Reorganiza los datos planos por periodo en una estructura
      * areas[nombre_area][comp_id] = { nombre, bimestres[periodo_id], literal_final }.
      * `literal_final` (logro anual) sale de la nota del ULTIMO bimestre del anio,
-     * solo si ese bimestre esta cerrado (ver getUltimoBimestreDelAnio).
+     * solo si ese bimestre esta cerrado (ver AnioAcademicoModel::ultimoPeriodoDelAnio).
      */
     private function buildAreasConBimestres(
         array $datosPorPeriodo,

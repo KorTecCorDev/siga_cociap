@@ -135,9 +135,13 @@
         // ofrece si dejaría la carga sin ninguna calificación (piso de carga):
         // el docente debe evaluar al menos una competencia. El servidor lo
         // revalida; el director puede forzarlo desde el panel de bloqueos.
+        // En el PERIODO FINAL no existe "No se evaluó" (regla del 10/08/2026):
+        // todas las competencias deben evaluarse, salvo que no haya a quién
+        // (todo el roster exonerado). El servidor lo revalida.
         $mostrarNoEvaluo   = !$esTransversal && !$compBloqueada
             && !$tieneCriterios && !$bloqueado
-            && ($permiteNoEvaluar ?? true);
+            && ($permiteNoEvaluar ?? true)
+            && (empty($periodoFinal) || $totalAlumnos === 0);
 
         // Estado inicial del card transversal: verde si ya tiene notas
         // guardadas en alguno de sus criterios (sin parpadeo al cargar; el JS

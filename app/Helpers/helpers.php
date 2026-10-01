@@ -1509,10 +1509,13 @@ function riesgo_resumen(array $porGrado): array
         'incorporados'    => $incorporados,
         'trasladados'     => $trasladados,
         'retirados'       => $retirados,
-        // Periodo final: ahí ya no se proyecta. `definitiva` = sin pendientes.
+        // Periodo final: ahí ya no se proyecta. `definitiva` = sin pendientes NI
+        // estudiantes sin datos (01/10/2026: así lo define promocion-de-grado.md
+        // § 6.2; antes el código no miraba `sin_datos`). Es la compuerta de
+        // «Cerrar año» (`AnioAcademicoController::cerrar`).
         'pendiente_final' => $pendFinal,
         'periodo_final'   => $periodoFinal,
-        'definitiva'      => $periodoFinal && $parciales === 0 && $pendFinal === 0,
+        'definitiva'      => $periodoFinal && $parciales === 0 && $pendFinal === 0 && $sinDatos === 0,
         'cobertura'    => [
             'min'       => $cobMin ?? 0,
             'plan'      => $cobPlan,
