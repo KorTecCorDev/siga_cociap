@@ -193,7 +193,7 @@ if ($periodo) {
     $chk('pantalla y A4 del tutor renderizan sin avisos, con su tutor y sus filas',
         $eI === [] && $eP === []
             && substr_count($hI, 'data-riesgo-fila') === $filasEsp && substr_count($hP, 'data-riesgo-fila') === $filasEsp
-            && str_contains($hI, 'Tutor(a) actual:') && str_contains($hP, 'Tutor(a) actual:'),
+            && str_contains($hI, 'Tutor(a) del bimestre:') && str_contains($hP, 'Tutor(a) del bimestre:'),
         ($eI[0] ?? $eP[0] ?? "$filasEsp fila(s) en cada una ($esperado de riesgo)"));
     // La regla es la del MINEDU y es UNA: el informe habla de situacion final,
     // no de umbrales de conteo, y no ofrece variantes de lectura.

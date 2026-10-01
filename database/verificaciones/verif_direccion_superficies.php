@@ -1483,7 +1483,7 @@ foreach ($todos as $pr) {
     $chk("el lote por tutor de $etqR: una hoja por sección elegida, con su tutor y SOLO sus estudiantes",
         array_map('intval', $mS[1]) === $selIds
             && substr_count($hL, 'class="riesgo-lote__hoja"') === count($selIds)
-            && substr_count($hL, 'Tutor(a) actual:') === count($selIds)
+            && substr_count($hL, 'Tutor(a) del bimestre:') === count($selIds)
             && $ajenas === 0 && $sumaL === $esperado && $tutOk && $eL === [],
         count($bL) . " hoja(s) · $sumaL estudiante(s) · $ajenas fila(s) ajena(s)");
 
