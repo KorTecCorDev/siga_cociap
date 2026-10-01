@@ -13,8 +13,14 @@ el tutor de cada sección (`TutorPeriodoModel`, inmutable) y boleta, acta de mé
 acompañamiento nombran al del bimestre; las funciones siguen con el tutor actual.
 - [x] Migración **071** `secciones_tutor_periodo` aplicada en la BD local (relleno I y II:
       2 × 23 secciones). `verif_tutor_periodo.php` verde (17 asertos, rollback).
-- [ ] Navegador: cambiar tutor de una sección → boleta y acta del II siguen con el
-      anterior; vista previa del III y acompañamiento rotulan como corresponde. Revertir.
+- [x] Navegador con sesión admin (01/10, local): con el tutor de 3.º A cambiado en BD (y
+      el de la sección 13, que sí tiene bloqueos en el III), lote del II, boleta por token
+      (A4 y digital), acta de mérito del II y acompañamiento del II siguen con ZAMBRANO;
+      la vista previa del III nombra al tutor nuevo; `/admin/secciones` al de hoy.
+      Revertido. La vista previa del III de 3.º A sale vacía en local (0 bloqueos en el III).
+- [ ] Pruebas que requieren al usuario: cambiar el tutor desde el modal de
+      `/admin/secciones` y entrar como DOCENTE (saliente sin tutoría; entrante con panel,
+      conducta y acompañamiento cuyo rótulo es el del bimestre).
 - [ ] 🔴 **Producción: ANTES del push, correr el PREVIEW de la 071** (cierres hechos por un
       docente que no es el tutor actual) y luego aplicar la 071 a mano. Si el preview
       devuelve filas, corregir esa fila de `secciones_tutor_periodo` tras el relleno.
