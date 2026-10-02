@@ -316,8 +316,8 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   en secundaria. Deroga la regla del 04/08 que la sacaba de 5.º —aquella listaba «Ética y
   Valores» y «Educación Religiosa» como áreas distintas, siendo la misma—.
   El **vínculo Ética↔Ed. Religiosa vive en 3 sitios y ninguno es un dato estructural**:
-  excepción de hoja SIAGIE (`035-EREL`), excepción del mérito y `alias_boleta` del área;
-  al tocar uno, revisar los otros dos. Se identifica por `nombre_boleta`
+  `EQUIVALENCIAS_ACTA_SIAGIE` (hoja `035-EREL`, que leen el acta **y la situación final**),
+  excepción del mérito y `alias_boleta` del área; al tocar uno, revisar los otros dos. Se identifica por `nombre_boleta`
   (`AREA_ETICA_NOMBRE_BOLETA`), **NUNCA por id** (difiere entre entornos; el id 57 es GAMA
   y el código C57 es Ética). ⚠️ El área *Ed. Religiosa* de secundaria debe seguir **sin
   cargas**: si recibiera notas, el mismo curso contaría dos veces (guard en
@@ -382,6 +382,11 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   `mas_de_la_mitad()`) — NO se deriva de `ceil(n/2)`. **1.º de primaria: promoción automática**, nunca en riesgo (se
   lista aparte como seguimiento). Las **transversales NO cuentan** (numeral 5.1.3.9);
   las **extraordinarias SÍ** (el mérito no: son filtros distintos a propósito).
+  🔴 **Cuenta LO QUE VA EN EL ACTA SIAGIE** (02/10/2026): punto único
+  `EQUIVALENCIAS_ACTA_SIAGIE` (`helpers.php`), que leen el llenador y
+  `SituacionFinalModel`. Ética cuenta como **Ed. Religiosa de 2 competencias** en toda
+  secundaria y, **solo en 5.º, GAMA cuenta como EPT (1) y Arte y Cultura (2)**: es la
+  única vía por la que una transversal entra. Ver `docs/modulos/promocion-de-grado.md` § 5.1.
   **Competencias pendientes** (24/09/2026): la sigla sale de lo evaluado y
   `situacion_final_proyectar()` la prueba contra el PLAN completo de cada área →
   riesgo **seguro** o **proyectado**. Cada competencia usa su **último nivel registrado**

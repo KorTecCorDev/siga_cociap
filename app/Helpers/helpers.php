@@ -555,6 +555,77 @@ function roster_evaluacion(string $alias = 'm'): string
 const AREA_ETICA_NOMBRE_BOLETA = 'Ética y Valores';
 
 /**
+ * EQUIVALENCIAS DEL ACTA SIAGIE — PUNTO ÚNICO (02/10/2026; antes
+ * `LlenadorSiagie::EXCEPCIONES_HOJA`, del 27/07/2026). Hojas del acta cuya
+ * área oficial NO es la que evalúa esa competencia en SIGA, y qué nota las
+ * llena. Las leen DOS consumidores, y por eso viven aquí:
+ *
+ *  · el LLENADOR de actas (`LlenadorSiagie`), que escribe esas hojas;
+ *  · la SITUACIÓN FINAL (`SituacionFinalModel`), que cuenta lo que va en el
+ *    acta, porque el SIAGIE calcula la promoción con el acta (decisión del
+ *    usuario, 02/10/2026). Ver `docs/modulos/promocion-de-grado.md` § 5.1.
+ *
+ * Reglas del colegio:
+ *
+ *  - **035-EREL ← Ética y Valores, TODOS los grados de secundaria.** El área
+ *    Educación Religiosa no tiene cargas: quien evalúa esa dimensión es el
+ *    tutor, en el área de tutoría cuyo `nombre_boleta` es 'Ética y Valores'
+ *    (una sola competencia). Su nota se DUPLICA en las dos columnas de EREL
+ *    (`columnas => null` = todas). Los exonerados de religión están
+ *    registrados contra esa misma área, así que el acta los detecta solos (EXO).
+ *
+ *  - **032 ← GAMA, SOLO 5° de secundaria.** En 5° no se dicta Educación para
+ *    el Trabajo (sus horas las ocupa el Taller de Pre-Cálculo, que no se
+ *    reporta al SIAGIE): esa acta lleva la competencia transversal 'Gestiona su
+ *    aprendizaje de manera autónoma' (promedio final + conclusión del tutor, vía
+ *    getTransversalesAgregadas). En 1°-4° EPT se dicta y la hoja NO se toca.
+ *    VERIFICADO contra un acta real de 5° (29/07/2026): el tab es '032-ETRA',
+ *    con UNA columna cuya leyenda es la de EPT (C53); sin la regla el mapeo por
+ *    texto daría C53, que en 5° no tiene cargas, y la columna quedaría en blanco.
+ *
+ *  - **0001 ← GAMA, SOLO 5° de secundaria (02/10/2026).** En 5° tampoco se
+ *    dicta Arte y Cultura; el colegio llena sus DOS columnas con GAMA duplicada
+ *    (hasta ese día, a mano).
+ *
+ * 🔴 CONSECUENCIA EN LA PROMOCIÓN: en 5.º GAMA cuenta TRES veces (EPT 1 + Arte
+ * 2) y Ética cuenta como Ed. Religiosa de DOS competencias, en toda secundaria.
+ * Es la única vía por la que una transversal entra a la situación final.
+ *
+ * `buscar` NUNCA usa ids: el id del área difiere entre entornos y, peor, el
+ * id 57 es GAMA mientras que el código C57 es la competencia de Ética. La hoja
+ * se resuelve a su área por `areas.codigo_siagie`.
+ */
+const EQUIVALENCIAS_ACTA_SIAGIE = [
+    [
+        'nivel_codigo' => 'sec',
+        'codigo_hoja'  => '035',
+        'grados'       => null,                       // todos
+        'columnas'     => null,                       // todas las columnas
+        'buscar'       => ['nombre_boleta' => AREA_ETICA_NOMBRE_BOLETA],
+        'etiqueta'     => AREA_ETICA_NOMBRE_BOLETA,   // «curso» de la fila en el desglose
+        'motivo'       => 'Ética y Valores (la evalúa el tutor; Ed. Religiosa no tiene cargas)',
+    ],
+    [
+        'nivel_codigo' => 'sec',
+        'codigo_hoja'  => '032',
+        'grados'       => [5],
+        'columnas'     => null,
+        'buscar'       => ['codigo_minedu' => 'CT4'],  // GAMA
+        'etiqueta'     => 'GAMA',
+        'motivo'       => 'GAMA (en 5° no se dicta Educación para el Trabajo)',
+    ],
+    [
+        'nivel_codigo' => 'sec',
+        'codigo_hoja'  => '0001',
+        'grados'       => [5],
+        'columnas'     => null,                       // GAMA duplicada en las 2
+        'buscar'       => ['codigo_minedu' => 'CT4'],  // GAMA
+        'etiqueta'     => 'GAMA',
+        'motivo'       => 'GAMA (en 5° no se dicta Arte y Cultura)',
+    ],
+];
+
+/**
  * Leyenda del documento EN BORRADOR — PUNTO ÚNICO del texto.
  * La usan la marca de agua de la boleta impresa (`boleta/_marca-borrador.php`,
  * que la reciben por igual la vista previa de RA, el ZIP de borradores y la

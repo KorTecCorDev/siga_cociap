@@ -1,9 +1,30 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **01/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **02/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+
+## 🟡 SITUACIÓN FINAL = LO QUE VA EN EL ACTA SIAGIE — en `dev`, SIN DESPLEGAR (02/10/2026, sin migración)
+
+Nació del análisis «riesgo académico en secundaria / 5.º / Actas SIAGIE». Regla y decisiones en
+`promocion-de-grado.md` § 5.1.1. Resumen: Ética cuenta como Ed. Religiosa de 2 competencias en
+toda secundaria y, en 5.º, GAMA como EPT (1) y Arte y Cultura (2). Punto único nuevo
+`EQUIVALENCIAS_ACTA_SIAGIE` (`helpers.php`), que leen el llenador y `SituacionFinalModel`; el
+llenador gana la hoja `0001` de 5.º (antes RA la llenaba a mano).
+- [x] Verificadores verdes en local: `verif_situacion_final`, `verif_riesgo_situacion_bd` (con
+      asertos nuevos y prueba de las dos ramas: con la sustitución anulada fallan),
+      `verif_periodo_final`, `verif_riesgo_tutor`, `verif_direccion_superficies`,
+      `verif_universo_merito`, `verif_plan_completo_boleta`.
+- [x] Medido: 0 cambios de sigla y cobertura idéntica en B1 y B2 (5.º sigue 24 y 22 en riesgo).
+- [ ] `php scripts/siagie/llenar-siagie.php --simular` sobre un **acta real de 5.º**: la hoja
+      `0001` debe salir `[EXCEPCIÓN …]` con sus 2 columnas = GAMA; `032` y `035` sin cambios.
+- [ ] Navegador: `/admin/actas-siagie/vinculos` (Arte 5.º «reemplazada») y
+      `/admin/cuadros/acompanamiento` (desglose con «Educación Religiosa · Ética y Valores»).
+- [ ] Merge `dev` → `main` (preguntar antes).
+- Recomendación no implementada: en el IV, una sección de 5.º sin cierre de transversales deja
+  Arte y EPT pendientes (`PEND`) y bloquea la situación definitiva; `avisoPeriodoFinal()` no lo
+  explica (lista las vacías por cargas).
 
 ## 🟢 TUTOR DEL BIMESTRE EN LOS DOCUMENTOS — DESPLEGADO el 01/10/2026 (merge `d7a677e`, sin cambio de versión: sigue v1.0.5)
 

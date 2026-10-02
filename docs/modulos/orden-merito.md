@@ -628,7 +628,7 @@ No existe columna, FK ni configuración que diga "el área 24 reemplaza a la 14"
 
 | Dónde | Cómo |
 |---|---|
-| SIAGIE | `LlenadorSiagie::EXCEPCIONES_HOJA` → hoja `035-EREL`, `buscar` por `nombre_boleta` |
+| SIAGIE | `EQUIVALENCIAS_ACTA_SIAGIE` (`helpers.php`; antes `LlenadorSiagie::EXCEPCIONES_HOJA`) → hoja `035-EREL`, `buscar` por `nombre_boleta`. La lee también la situación final |
 | Orden de mérito | la excepción de arriba, en las 2 queries |
 | Boleta | `areas.alias_boleta` del área 24 = `(Educación Religiosa)` |
 
@@ -766,7 +766,7 @@ Pre-Cálculo** (exclusivo del grado). Competencias que entran: **1.º-4.º = 27 
 (una más que antes en cada tramo, por Ética).
 
 > **Ojo al leer el acta SIAGIE de 5.º:** `032-EPT` se nutre de **GAMA**, una competencia
-> transversal que **no** cuenta para el mérito (`LlenadorSiagie:77`, solo 5.º,
+> transversal que **no** cuenta para el mérito (`EQUIVALENCIAS_ACTA_SIAGIE`, solo 5.º,
 > precisamente porque el grado no lleva el curso de EPT). Y en sentido contrario, los dos
 > **talleres** (Raz. Matemático y Pre-Cálculo) **sí** cuentan para el mérito y **no**
 > llegan al acta, porque no tienen hoja en el SIAGIE. `035-EREL` ← Ética ya no es una

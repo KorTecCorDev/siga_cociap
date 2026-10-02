@@ -179,6 +179,91 @@ $areasControl = static function (int $pid) use ($pdo): array {
 };
 
 /**
+ * EQUIVALENCIAS DEL ACTA SIAGIE (02/10/2026), escritas AQUÍ a mano — sin leer
+ * `EQUIVALENCIAS_ACTA_SIAGIE` ni el modelo. La situación final cuenta lo que
+ * va en el acta:
+ *   · secundaria, todos los grados: Ética y Valores → Educación Religiosa
+ *     (hoja 035), duplicada en sus competencias;
+ *   · secundaria 5.º: GAMA (CT4) → EPT (hoja 032) y Arte y Cultura (hoja 0001),
+ *     duplicada en las competencias de cada una.
+ * Las áreas se identifican aquí por su `codigo_siagie` y el `nombre_boleta`.
+ */
+$areaSec = static function (string $where, string $valor) use ($pdo): ?array {
+    $st = $pdo->prepare("
+        SELECT a.id,
+               (SELECT COUNT(*) FROM competencias c LEFT JOIN subareas s ON s.id = c.subarea_id
+                WHERE COALESCE(s.area_id, c.area_id) = a.id) AS comps
+        FROM areas a JOIN niveles n ON n.id = a.nivel_id
+        WHERE n.codigo = 'sec' AND $where = ?");
+    $st->execute([$valor]);
+    $f = $st->fetchAll(PDO::FETCH_ASSOC);
+    return count($f) === 1 ? ['id' => (int) $f[0]['id'], 'comps' => (int) $f[0]['comps']] : null;
+};
+$actaEtica = $areaSec('a.nombre_boleta', AREA_ETICA_NOMBRE_BOLETA);
+$actaErel  = $areaSec('a.codigo_siagie', '035');
+$actaEpt   = $areaSec('a.codigo_siagie', '032');
+$actaArte  = $areaSec('a.codigo_siagie', '0001');
+
+/** GAMA del acta por matrícula: promedio de cargas bloqueadas con cierre vigente; último registrado. */
+$gamaControl = static function (int $pid) use ($pdo): array {
+    $pp = $pdo->prepare("SELECT anio_id, numero,
+                                numero = (SELECT MAX(numero) FROM periodos x WHERE x.anio_id = p.anio_id) AS fin
+                         FROM periodos p WHERE id = ?");
+    $pp->execute([$pid]);
+    $per = $pp->fetch(PDO::FETCH_ASSOC);
+
+    $st = $pdo->prepare("
+        SELECT cal.matricula_id AS mid, pe.numero AS num, cal.nota_numerica AS nota
+        FROM calificaciones cal
+        JOIN competencias comp ON comp.id = cal.competencia_id AND comp.codigo_minedu = 'CT4'
+        JOIN bloqueos_competencia bc
+          ON bc.carga_id = cal.carga_id AND bc.competencia_id = cal.competencia_id
+         AND bc.periodo_id = cal.periodo_id
+        JOIN periodos pe   ON pe.id = cal.periodo_id AND pe.anio_id = ?
+        JOIN matriculas mm ON mm.id = cal.matricula_id
+        WHERE pe.numero <= ?
+          AND (SELECT COUNT(*) FROM cierres_transversales ct
+               WHERE ct.seccion_id = mm.seccion_id AND ct.periodo_id = cal.periodo_id
+                 AND ct.anulado_en IS NULL) > 0
+    ");
+    $st->execute([(int) $per['anio_id'], (int) $per['numero']]);
+
+    $suma = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        if ($per['fin'] && (int) $r['num'] !== (int) $per['numero']) { continue; }
+        $suma[(int) $r['mid']][(int) $r['num']][] = (int) $r['nota'];
+    }
+    $out = [];
+    foreach ($suma as $mid => $porNum) {
+        krsort($porNum);
+        $notas = reset($porNum);
+        $out[$mid] = (int) round(array_sum($notas) / count($notas));
+    }
+    return $out;
+};
+
+/** Aplica a mano las equivalencias del acta a los conteos por área de UNA matrícula. */
+$actaControl = static function (array $areas, string $nivel, int $gnum, ?int $gama)
+    use ($actaEtica, $actaErel, $actaEpt, $actaArte): array {
+    if ($nivel !== 'sec') { return $areas; }
+    $repetir = static fn(array $x, int $k): array =>
+        ['n' => $x['n'] * $k, 'ab' => $x['ab'] * $k, 'b' => $x['b'] * $k, 'c' => $x['c'] * $k];
+
+    if ($actaEtica && $actaErel && isset($areas[$actaEtica['id']])) {
+        $areas[$actaErel['id']] = $repetir($areas[$actaEtica['id']], $actaErel['comps']);
+        unset($areas[$actaEtica['id']]);
+    }
+    if ($gnum === 5 && $gama !== null) {
+        $una = ['n' => 1, 'ab' => $gama >= NOTA_MIN_A ? 1 : 0,
+                'b' => $gama >= NOTA_MIN_B && $gama < NOTA_MIN_A ? 1 : 0, 'c' => $gama < NOTA_MIN_B ? 1 : 0];
+        foreach ([$actaEpt, $actaArte] as $dest) {
+            if ($dest) { $areas[$dest['id']] = $repetir($una, $dest['comps']); }
+        }
+    }
+    return $areas;
+};
+
+/**
  * La regla del MINEDU, escrita AQUÍ a mano. Devuelve 'PRO', 'RR', 'PER' o 'ND'.
  * Es la copia de control: si `situacion_final()` se desvía, aquí no se desvía
  * con ella.
@@ -252,6 +337,13 @@ foreach ($periodos as $p) {
 
     $roster = $rosterControl($pid);
     $areas  = $areasControl($pid);
+    $gamas  = $gamaControl($pid);
+    // Grado y nivel de cada grado DESTINO (la regla del acta usa el OFICIAL).
+    $gradoDe = [];
+    foreach ($pdo->query("SELECT g.id, g.numero, n.codigo FROM grados g JOIN niveles n ON n.id = g.nivel_id")
+             ->fetchAll(PDO::FETCH_ASSOC) as $gx) {
+        $gradoDe[(int) $gx['id']] = ['gnum' => (int) $gx['numero'], 'nivel' => (string) $gx['codigo']];
+    }
 
     // Incorporados DESPUÉS del bimestre, escritos a mano con otra forma (el
     // primer bimestre con notas de la matrícula es posterior a este): el modelo
@@ -270,7 +362,8 @@ foreach ($periodos as $p) {
         $gid = isset($oficialDe[$mid]) ? $oficialDe[$mid]['gid'] : $r['gid'];
         $sec = isset($oficialDe[$mid]) ? $oficialDe[$mid]['sec'] : $r['sec'];
         // El grado y el nivel de la regla son los del grado DESTINO.
-        $espPorGrado[$gid][$mid] = ['sec' => $sec, 'areas' => $areas[$mid] ?? []];
+        $espPorGrado[$gid][$mid] = ['sec' => $sec, 'areas' => $actaControl(
+            $areas[$mid] ?? [], $gradoDe[$gid]['nivel'], $gradoDe[$gid]['gnum'], $gamas[$mid] ?? null)];
     }
 
     foreach ($porGrado as $g) {
@@ -454,6 +547,132 @@ $ok($filasDetalle > 0,  'el desglose es observable en estos datos', "$filasDetal
 $ok($perMedidos > 0,    'la rama PERMANENCIA es observable en estos datos', "$perMedidos caso(s)");
 $ok($oficialDe === [] || $reubicados > 0, 'la reubicacion del retorno es observable',
     count($oficialDe) . " retorno(s) · $reubicados fila(s)");
+
+// ── 7f. Equivalencias del ACTA SIAGIE (02/10/2026) ───────────────────────────
+// (1) El GAMA que el modelo lee en lote es, alumno por alumno, el que escribe el
+// llenador del acta (`CalificacionModel::getTransversalesAgregadas`). (2) Las
+// ramas que los datos de hoy NO ejercen —ninguna GAMA ni Ética en C entre los
+// evaluados— se SIMULAN con una TRANSACCIÓN CON ROLLBACK: nada queda escrito.
+echo "\n== Equivalencias del acta SIAGIE ==\n";
+$ok($actaEtica && $actaErel && $actaEpt && $actaArte, 'las 4 areas del acta se identifican de forma unica',
+    'Etica · EREL ' . ($actaErel['comps'] ?? '?') . ' · EPT ' . ($actaEpt['comps'] ?? '?') . ' · Arte ' . ($actaArte['comps'] ?? '?'));
+
+$refl = static function (object $obj, string $metodo, ...$args) {
+    $r = new ReflectionMethod($obj, $metodo);
+    $r->setAccessible(true);
+    return $r->invoke($obj, ...$args);
+};
+$gamaId = (int) $pdo->query("SELECT c.id FROM competencias c JOIN areas a ON a.id = c.area_id
+                             JOIN niveles n ON n.id = a.nivel_id
+                             WHERE n.codigo = 'sec' AND c.codigo_minedu = 'CT4'")->fetchColumn();
+$cal = new App\Models\CalificacionModel();
+$comparados = $distintos = 0;
+foreach ($periodos as $p) {
+    $sfm  = new SituacionFinalModel();
+    [, $fin] = $refl($sfm, 'datosPeriodo', (int) $p['id']);
+    foreach ($refl($sfm, 'transversalesDelActa', (int) $p['id'], $fin) as $mid => $porComp) {
+        $f = $porComp[$gamaId] ?? null;
+        if ($f === null || $f['periodo_numero'] !== (int) $p['numero']) { continue; }
+        $acta = null;
+        foreach ($refl($cal, 'getTransversalesAgregadas', (int) $mid, (int) $p['id']) as $t) {
+            if ((int) $t['competencia_id'] === $gamaId) { $acta = (int) $t['nota_numerica']; }
+        }
+        $comparados++;
+        if ($acta !== $f['nota']) { $distintos++; }
+    }
+}
+$ok($comparados > 0 && $distintos === 0, 'GAMA en lote = GAMA del acta (getTransversalesAgregadas)',
+    "$comparados alumno-periodo(s)" . ($distintos ? ", $distintos distinto(s)" : ''));
+
+// Simulación: un 5.º, un 4.º y un 3.º de secundaria, fuera del riesgo hoy.
+$pSim2 = (int) $pdo->query("SELECT p.id FROM periodos p WHERE p.estado = 'cerrado'
+                            AND EXISTS (SELECT 1 FROM cierres_transversales ct WHERE ct.periodo_id = p.id AND ct.anulado_en IS NULL)
+                            ORDER BY p.anio_id DESC, p.numero DESC LIMIT 1")->fetchColumn();
+$filaDe = static function (int $pid, int $mid): ?array {
+    foreach ((new SituacionFinalModel())->porGrado($pid) as $g) {
+        foreach (array_merge($g['en_riesgo'], $g['seguimiento']) as $al) {
+            if ((int) $al['matricula_id'] === $mid) { return $al; }
+        }
+    }
+    return null;
+};
+$candidato = static function (int $gnum, string $donde) use ($pdo, $pSim2, $filaDe): ?int {
+    $st = $pdo->prepare("
+        SELECT cal.matricula_id
+        FROM calificaciones cal
+        JOIN competencias comp ON comp.id = cal.competencia_id
+        LEFT JOIN subareas sa  ON sa.id = comp.subarea_id
+        JOIN areas a           ON a.id = COALESCE(sa.area_id, comp.area_id)
+        JOIN matriculas m      ON m.id = cal.matricula_id AND m.tipo NOT IN ('trasladado', 'retirado')
+        JOIN secciones s       ON s.id = m.seccion_id
+        JOIN grados g          ON g.id = s.grado_id AND g.numero = ?
+        JOIN niveles n         ON n.id = g.nivel_id AND n.codigo = 'sec'
+        WHERE cal.periodo_id = ? AND $donde
+          AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado)
+          AND m.id NOT IN (SELECT matricula_oficial_id FROM retornos_grado)
+        GROUP BY cal.matricula_id ORDER BY cal.matricula_id");
+    $st->execute([$gnum, $pSim2, AREA_ETICA_NOMBRE_BOLETA]);
+    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+        if ($filaDe($pSim2, (int) $mid) === null) { return (int) $mid; }   // PRO y sin seguimiento
+    }
+    return null;
+};
+$conGama  = "comp.codigo_minedu = 'CT4' AND ? <> ''";
+$conEtica = "a.nombre_boleta = ?";
+$m5 = $pSim2 ? $candidato(5, $conGama) : null;
+$m4 = $pSim2 ? $candidato(4, $conGama) : null;
+$m3 = $pSim2 ? $candidato(3, $conEtica) : null;
+
+if (!$m5 || !$m4 || !$m3) {
+    $ok(false, 'hay estudiantes para simular las equivalencias', 'sin caso: la rama queda SIN MEDIR');
+} else {
+    $pdo->beginTransaction();
+    try {
+        $bajar = $pdo->prepare("
+            UPDATE calificaciones cal
+            JOIN competencias comp ON comp.id = cal.competencia_id
+            LEFT JOIN subareas sa  ON sa.id = comp.subarea_id
+            JOIN areas a           ON a.id = COALESCE(sa.area_id, comp.area_id)
+            SET cal.nota_numerica = 5
+            WHERE cal.matricula_id = ? AND cal.periodo_id = ? AND $conGama");
+        $bajar->execute([$m5, $pSim2, 'x']);
+        $bajar->execute([$m4, $pSim2, 'x']);
+        $pdo->prepare("
+            UPDATE calificaciones cal
+            JOIN competencias comp ON comp.id = cal.competencia_id
+            LEFT JOIN subareas sa  ON sa.id = comp.subarea_id
+            JOIN areas a           ON a.id = COALESCE(sa.area_id, comp.area_id)
+            SET cal.nota_numerica = 5
+            WHERE cal.matricula_id = ? AND cal.periodo_id = ? AND $conEtica")
+            ->execute([$m3, $pSim2, AREA_ETICA_NOMBRE_BOLETA]);
+
+        // (A) 5.º con GAMA en C: RR, y GAMA entra como EPT (1) + Arte (2).
+        $f5 = $filaDe($pSim2, $m5);
+        $g5 = array_values(array_filter($f5['detalle'] ?? [], static fn($d) => $d['curso'] === 'GAMA'));
+        $porArea = array_count_values(array_map('intval', array_column($g5, 'area_id')));
+        $ok($f5 !== null && situacion_es_riesgo($f5['situacion'])
+            && ($porArea[$actaEpt['id']] ?? 0) === $actaEpt['comps']
+            && ($porArea[$actaArte['id']] ?? 0) === $actaArte['comps']
+            && !in_array(null, array_column($g5, 'efecto'), true),
+            '5.º: una GAMA en C ya no promueve (EPT + Arte, con chip)',
+            $f5 ? $f5['situacion'] . ' · ' . count($g5) . ' fila(s) GAMA' : 'sigue PRO');
+
+        // (B) 4.º con GAMA en C: la equivalencia es SOLO de 5.º.
+        $ok($filaDe($pSim2, $m4) === null, '4.º: una GAMA en C no cuenta (la regla es solo de 5.º)');
+
+        // (C) 3.º con Ética en C: cuenta como Ed. Religiosa de 2 competencias.
+        $f3 = $filaDe($pSim2, $m3);
+        $e3 = array_values(array_filter($f3['detalle'] ?? [], static fn($d) => (int) $d['area_id'] === $actaErel['id']));
+        $ok($f3 !== null && $f3['situacion'] === SITUACION_RR
+            && count($e3) === $actaErel['comps']
+            && count(array_unique(array_column($e3, 'codigo'))) === $actaErel['comps']
+            && ($e3[0]['curso'] ?? null) === AREA_ETICA_NOMBRE_BOLETA,
+            '3.º: Etica en C cuenta como Ed. Religiosa (2 competencias)',
+            $f3 ? $f3['situacion'] . ' · ' . count($e3) . ' fila(s) EREL' : 'sigue PRO');
+    } finally {
+        $pdo->rollBack();
+    }
+}
 
 // ── 7b. Las ramas del retorno que los datos de hoy NO ejercen ────────────────
 // El único retorno real tiene la MISMA letra de sección en los dos grados, no

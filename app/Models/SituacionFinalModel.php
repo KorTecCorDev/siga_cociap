@@ -190,6 +190,9 @@ class SituacionFinalModel extends BaseModel
         $plan     = $this->planPorMatricula($periodoId);
         $oficial  = $this->ubicacionOficialRetornos();
         $incorp   = $this->incorporadosDespues($periodoId);
+        // Equivalencias del ACTA SIAGIE (02/10/2026): la situación final cuenta
+        // lo que va en el acta. Ver `aplicarActa()`.
+        $transv   = $this->transversalesDelActa($periodoId, $final);
 
         $porGrado   = [];
         $porSeccion = [];
@@ -264,7 +267,10 @@ class SituacionFinalModel extends BaseModel
                 'cobertura_seccion' => [],
             ];
 
-            $fila = $this->componerFila($m, $notas[$mid] ?? [], $plan, $retorno, $final, $numeroActual);
+            // Sustitución por ACTA, con el grado ya reubicado en la OFICIAL.
+            [$susNotas, $plan[$mid]] = $this->aplicarActa($m, $notas[$mid] ?? [], $plan[$mid] ?? [], $transv[$mid] ?? []);
+
+            $fila = $this->componerFila($m, $susNotas, $plan, $retorno, $final, $numeroActual);
             $sec  = (string) $m['seccion_nombre'];
             $porGrado[$gid]['cobertura_seccion'][$sec] ??= self::COBERTURA_VACIA;
 
@@ -488,6 +494,168 @@ class SituacionFinalModel extends BaseModel
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Equivalencias del ACTA SIAGIE (02/10/2026)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Equivalencias ya resueltas, por nivel (caché de la instancia). */
+    private array $actaResuelta = [];
+
+    /**
+     * Las EQUIVALENCIAS DEL ACTA (`EQUIVALENCIAS_ACTA_SIAGIE`, helpers.php) de un
+     * nivel, resueltas a datos: el área DESTINO (la de la hoja, por
+     * `codigo_siagie`) con sus competencias, y la competencia FUENTE (la nota con
+     * que se llena), con las MISMAS búsquedas únicas que usa el llenador.
+     *
+     * 🔴 DEGRADACIÓN SEGURA, igual que el acta: si la fuente o el destino no se
+     * identifican de forma única, la equivalencia NO se aplica y el estudiante
+     * se calcula sin ella. El llenador hace lo mismo con la hoja.
+     *
+     * @return array<int, array{grados:?array, transversal:bool, fuente:array, destino:array}>
+     */
+    private function equivalenciasActa(int $nivelId, string $nivelCodigo): array
+    {
+        if (isset($this->actaResuelta[$nivelId])) {
+            return $this->actaResuelta[$nivelId];
+        }
+
+        $siagie = new SiagieExportModel();
+        $out    = [];
+        foreach (EQUIVALENCIAS_ACTA_SIAGIE as $regla) {
+            if ($regla['nivel_codigo'] !== nivel_clave($nivelCodigo)) {
+                continue;
+            }
+
+            $fuente = null;
+            if (isset($regla['buscar']['nombre_boleta'])) {
+                $comps  = $siagie->competenciasDeAreaPorNombreBoleta($nivelId, $regla['buscar']['nombre_boleta']);
+                $fuente = count($comps) === 1 ? $comps[0] : null;
+            } elseif (isset($regla['buscar']['codigo_minedu'])) {
+                $fuente = $siagie->competenciaPorCodigoMinedu($nivelId, $regla['buscar']['codigo_minedu']);
+            }
+
+            $area    = $siagie->areaPorCodigoSiagie($nivelId, $regla['codigo_hoja']);
+            $destino = $area !== null ? $this->competenciasDestino((int) $area['id']) : [];
+
+            if ($fuente === null || $destino === []) {
+                continue;
+            }
+
+            $out[] = [
+                'grados'      => $regla['grados'],
+                'transversal' => $fuente['area_tipo'] === 'transversal',
+                'fuente'      => [
+                    'competencia_id' => (int) $fuente['competencia_id'],
+                    'area_id'        => (int) $fuente['area_id'],
+                    'etiqueta'       => (string) $regla['etiqueta'],
+                ],
+                'destino'     => [
+                    'area_id'      => (int) $area['id'],
+                    'area'         => (string) $area['nombre'],
+                    'competencias' => $destino,
+                ],
+            ];
+        }
+
+        return $this->actaResuelta[$nivelId] = $out;
+    }
+
+    /**
+     * Competencias del área DESTINO de una hoja, en orden y con el mismo nombre
+     * que pinta el desglose (`nombre_corto`, o el completo si falta).
+     */
+    private function competenciasDestino(int $areaId): array
+    {
+        return $this->query("
+            SELECT c.id AS competencia_id, c.codigo_minedu AS codigo,
+                   COALESCE(NULLIF(c.nombre_corto, ''), c.nombre_completo) AS competencia
+            FROM competencias c
+            LEFT JOIN subareas s ON s.id = c.subarea_id
+            WHERE COALESCE(s.area_id, c.area_id) = ?
+            ORDER BY c.orden, c.id
+        ", [$areaId]);
+    }
+
+    /**
+     * Aplica las equivalencias del acta a UN estudiante: devuelve sus notas y su
+     * plan tal como los ve el SIAGIE (decisión del usuario, 02/10/2026).
+     *
+     *  · El área DESTINO se reemplaza entera, como la hoja del acta: se quitan
+     *    sus notas y su plan propios (hoy no tiene: 0 cargas) y entra una fila
+     *    por cada competencia suya con la nota de la FUENTE, duplicada si el área
+     *    tiene varias (EREL 2, Arte 2, EPT 1).
+     *  · Fuente NO transversal (Ética): su nota ya está entre las que cuentan;
+     *    su área deja de contarse como propia y pasa a ser la de la hoja. Sin
+     *    Ética en su plan (exonerado de religión) no entra nada.
+     *  · Fuente TRANSVERSAL (GAMA en 5.º): la nota sale de
+     *    `transversalesDelActa()`. El plan del destino entra siempre —el acta lo
+     *    exige—, así que sin nota la competencia queda PENDIENTE.
+     *
+     * El grado es el de la matrícula OFICIAL (la fila ya viene reubicada).
+     *
+     * @param  array $m       fila del roster, ya reubicada
+     * @param  array $notas   filas de `notasPorMatricula()` del estudiante
+     * @param  array $plan    su entrada de `planPorMatricula()` (area_id → nombre, plan)
+     * @param  array $transv  competencia_id → nota agregada (`transversalesDelActa()`)
+     * @return array{0:array, 1:array}  [notas, plan]
+     */
+    private function aplicarActa(array $m, array $notas, array $plan, array $transv): array
+    {
+        $grado = (int) $m['grado_numero'];
+
+        foreach ($this->equivalenciasActa((int) $m['nivel_id'], (string) $m['nivel_codigo']) as $eq) {
+            if ($eq['grados'] !== null && !in_array($grado, $eq['grados'], true)) {
+                continue;
+            }
+
+            $fuente  = $eq['fuente'];
+            $did     = $eq['destino']['area_id'];
+            $nota    = null;
+
+            if ($eq['transversal']) {
+                $nota     = $transv[$fuente['competencia_id']] ?? null;
+                $tienePlan = true;
+            } else {
+                foreach ($notas as $n) {
+                    if ((int) $n['competencia_id'] === $fuente['competencia_id']) {
+                        $nota = $n;
+                        break;
+                    }
+                }
+                $tienePlan = isset($plan[$fuente['area_id']]) || $nota !== null;
+                unset($plan[$fuente['area_id']]);
+                $notas = array_values(array_filter($notas,
+                    static fn(array $n): bool => (int) $n['area_id'] !== $fuente['area_id']));
+            }
+
+            // El destino se reemplaza entero, como la hoja del acta.
+            $notas = array_values(array_filter($notas,
+                static fn(array $n): bool => (int) $n['area_id'] !== $did));
+            unset($plan[$did]);
+
+            if (!$tienePlan) {
+                continue;
+            }
+            $plan[$did] = ['nombre' => $eq['destino']['area'], 'plan' => count($eq['destino']['competencias'])];
+
+            if ($nota === null) {
+                continue;
+            }
+            foreach ($eq['destino']['competencias'] as $c) {
+                $notas[] = [
+                    'competencia_id' => (int) $c['competencia_id'],
+                    'area_id'        => $did,
+                    'area'           => $eq['destino']['area'],
+                    'curso'          => $fuente['etiqueta'],
+                    'competencia'    => (string) $c['competencia'],
+                    'codigo'         => $c['codigo'] !== null ? (string) $c['codigo'] : null,
+                ] + $nota;
+            }
+        }
+
+        return [$notas, $plan];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Consultas
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -602,6 +770,7 @@ class SituacionFinalModel extends BaseModel
                           . ($f['nombres'] !== null ? ', ' . $f['nombres'] : ''));
 
             $out[$mid][] = [
+                'competencia_id' => $cid,
                 'periodo_numero' => (int) $f['periodo_numero'],
                 'periodo'     => (string) $f['periodo'],
                 'area_id'     => (int) $f['area_id'],
@@ -684,6 +853,78 @@ class SituacionFinalModel extends BaseModel
             $out[(int) $f['matricula_id']][(int) $f['area_id']] = [
                 'nombre' => (string) $f['area'],
                 'plan'   => (int) $f['plan'],
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * La nota de las competencias TRANSVERSALES que el acta usa como fuente
+     * (GAMA en 5.º), por matrícula. UNA consulta para el colegio entero.
+     *
+     * 🔴 MISMA FÓRMULA QUE EL ACTA: `CalificacionModel::getTransversalesAgregadas`
+     * —la que lee el llenador vía `getBoletaAlumno`—: `ROUND(AVG(nota_numerica))`
+     * de las filas BLOQUEADAS de todas las cargas, solo con el cierre de
+     * transversales VIGENTE de la sección en ese periodo. Si cambia allá, cambia
+     * aquí: lo vigila `verif_riesgo_situacion_bd.php`, alumno por alumno.
+     *
+     * Mismo criterio de periodo que `notasPorMatricula()`: último bimestre
+     * registrado hasta el elegido; en el periodo final, solo ese.
+     *
+     * @return array<int, array<int, array>>  matricula_id → competencia_id → fila
+     */
+    private function transversalesDelActa(int $periodoId, bool $periodoFinal): array
+    {
+        $ids = [];
+        foreach ($this->query("SELECT id, codigo FROM niveles") as $niv) {
+            foreach ($this->equivalenciasActa((int) $niv['id'], (string) $niv['codigo']) as $eq) {
+                if ($eq['transversal']) {
+                    $ids[$eq['fuente']['competencia_id']] = true;
+                }
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+        $ids = array_keys($ids);
+        $in  = implode(',', array_fill(0, count($ids), '?'));
+
+        $filas = $this->query("
+            SELECT cal.matricula_id,
+                   cal.competencia_id,
+                   per.numero         AS periodo_numero,
+                   per.nombre_display AS periodo,
+                   ROUND(AVG(cal.nota_numerica)) AS nota
+            FROM calificaciones cal
+            INNER JOIN bloqueos_competencia bc
+                    ON bc.carga_id       = cal.carga_id
+                   AND bc.competencia_id = cal.competencia_id
+                   AND bc.periodo_id     = cal.periodo_id
+            INNER JOIN matriculas m  ON m.id = cal.matricula_id
+            INNER JOIN periodos per  ON per.id  = cal.periodo_id
+            INNER JOIN periodos pact ON pact.id = ?
+                                    AND per.anio_id = pact.anio_id
+                                    AND per.numero <= pact.numero
+            WHERE cal.competencia_id IN ($in)
+              " . ($periodoFinal ? 'AND per.id = pact.id' : '') . "
+              AND EXISTS (SELECT 1 FROM cierres_transversales ct
+                          WHERE ct.seccion_id = m.seccion_id
+                            AND ct.periodo_id = cal.periodo_id
+                            AND ct.anulado_en IS NULL)
+            GROUP BY cal.matricula_id, cal.competencia_id, per.id, per.numero, per.nombre_display
+            ORDER BY per.numero DESC
+        ", array_merge([$periodoId], $ids));
+
+        $out = [];
+        foreach ($filas as $f) {
+            // El bimestre más reciente llega primero; el resto se descarta.
+            $out[(int) $f['matricula_id']][(int) $f['competencia_id']] ??= [
+                'periodo_numero' => (int) $f['periodo_numero'],
+                'periodo'        => (string) $f['periodo'],
+                'nota'           => (int) $f['nota'],
+                // Promedio de varias cargas: no tiene UN docente.
+                'docente'        => '—',
             ];
         }
 
