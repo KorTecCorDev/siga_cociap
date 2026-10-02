@@ -5,6 +5,32 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🟡 CONCLUSIONES DE RÉPLICA DEL ACTA SIAGIE — en `dev`, SIN DESPLEGAR (02/10/2026, migración 072)
+
+GAMA en 5.º llena también las actas de EPT (`032`) y Arte y Cultura (`0001`). Con GAMA en C,
+el tutor escribe una conclusión por área destino (card «Conclusiones descriptivas
+requeridas»); el cierre del tutor y del director las exige; el lote extraordinario las pide;
+el llenador las escribe y, si faltan, copia la de GAMA con aviso. No salen en la boleta.
+Detalle: `calificaciones.md` (Vista del tutor) y `export-siagie.md` (`032-ETRA`).
+- [x] Migración **072** `conclusiones_replica_acta` aplicada en la BD local.
+- [x] `verif_conclusion_replica.php` verde (helper, destinos, simulación con rollback de las
+      dos ramas) + verificadores de transversales, extraordinaria, situación final y tutor.
+- [x] Vista del tutor renderizada por CLI con datos simulados (editable y cerrada; texto escapado).
+- [x] Navegador (02/10, sesión admin, sin enviar): lote de la matrícula 281 (5.º, II Bimestre).
+      GAMA 08 → aparecen y se exigen EPT y Arte y Cultura; 15 → se ocultan y dejan de ser
+      `required`; vacía → todo oculto. La fila de TIC no lleva réplicas. Estilo igual al existente.
+- [x] Navegador (02/10) con sesión de **tutora de Secundaria 5.º A**, con GAMA en C simulada en
+      la BD local (matrícula 236, II Bimestre, cierre 144 anulado y después restaurado; todo
+      devuelto a su valor exacto). Card visible con EPT y Arte requeridas; cierre rechazado con
+      3 pendientes → guardadas por el botón → 1 pendiente; recarga conserva el texto; borrar
+      elimina la fila; editar re-deshabilita «Aprobar»; con el cierre vigente, solo lectura.
+      Guardas del endpoint: área no destino (400), más de 500 caracteres (400), alumno ajeno
+      (403). `SiagieExportModel::conclusionesReplica` lee el dato real.
+- [x] Navegador con tutora de **Primaria 5.º A**: con C en TIC/GAMA, la card NO aparece.
+- [ ] 🔴 Producción: aplicar la **072** ANTES del merge (sin ella, el control de cierre del
+      tutor falla al leer la tabla).
+- [ ] Merge `dev` → `main` (preguntar antes).
+
 ## 🟡 SITUACIÓN FINAL = LO QUE VA EN EL ACTA SIAGIE — en `dev`, SIN DESPLEGAR (02/10/2026, sin migración)
 
 Nació del análisis «riesgo académico en secundaria / 5.º / Actas SIAGIE». Regla y decisiones en
@@ -19,8 +45,10 @@ llenador gana la hoja `0001` de 5.º (antes RA la llenaba a mano).
 - [x] Medido: 0 cambios de sigla y cobertura idéntica en B1 y B2 (5.º sigue 24 y 22 en riesgo).
 - [ ] `php scripts/siagie/llenar-siagie.php --simular` sobre un **acta real de 5.º**: la hoja
       `0001` debe salir `[EXCEPCIÓN …]` con sus 2 columnas = GAMA; `032` y `035` sin cambios.
-- [ ] Navegador: `/admin/actas-siagie/vinculos` (Arte 5.º «reemplazada») y
-      `/admin/cuadros/acompanamiento` (desglose con «Educación Religiosa · Ética y Valores»).
+- [x] Navegador (02/10, sesión admin): `/admin/actas-siagie/vinculos` OK — Arte 5.º
+      «reemplazada en 5°», Transversales con `032, 0001`. `/admin/cuadros/acompanamiento` carga
+      sin errores en B1-B3; las filas «Ética y Valores» / «GAMA» no aparecen porque hoy no hay
+      ninguna en C (Ética mínima 11) — el caso lo cubre la simulación del verificador.
 - [ ] Merge `dev` → `main` (preguntar antes).
 - Recomendación no implementada: en el IV, una sección de 5.º sin cierre de transversales deja
   Arte y EPT pendientes (`PEND`) y bloquea la situación definitiva; `avisoPeriodoFinal()` no lo
@@ -252,9 +280,9 @@ impersonales, Usuarios solo para admin, grillas sin columna Estado, imprimible c
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 
 **Al retomar EN CASA, antes de probar nada:**
-- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 071** (la **071**,
-      tutor del bimestre, se sumó el 01/10: sin ella falla el cierre de bimestre): aplicarlas a
-      mano en orden. Sin la 068 y la 069 el código nuevo falla (`conducta_confirmaciones`,
+- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 072** (la **071**,
+      tutor del bimestre, se sumó el 01/10: sin ella falla el cierre de bimestre; la **072**,
+      réplicas del acta, el 02/10): aplicarlas a mano en orden. Sin la 068 y la 069 el código nuevo falla (`conducta_confirmaciones`,
       `inasistencias.confirmado_en`, `asistencia_incidencias`,
       `periodos.asistencia_por_fechas`). Tampoco tiene auxiliares de prueba (ver punto 1).
 

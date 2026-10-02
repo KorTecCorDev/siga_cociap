@@ -341,6 +341,15 @@ estables, no configuración por bimestre. El reporte marca cada hoja afectada co
   promedio final + conclusión del tutor, vía `getTransversalesAgregadas`. En 1°-4° EPT
   se dicta normalmente y la hoja **no se toca**. GAMA queda escrita **dos veces** en
   5°: en su hoja transversal `0007` y en la `032` (comportamiento esperado).
+  - **Conclusión de RÉPLICA (02/10/2026, migración 072).** En las hojas `032` y `0001`
+    de 5.º, si la conclusión de GAMA es **obligatoria** (C), el llenador escribe la
+    conclusión **propia del área** (`conclusiones_replica_acta`, la escribe el tutor),
+    repetida en todas las columnas de la hoja. Con GAMA aprobatoria escribe la de GAMA,
+    como antes. **Si falta** (cierre de bimestre forzado o retorno de grado con grado
+    oficial distinto), escribe la de GAMA y lo avisa en el reporte: *«falta la conclusión
+    de réplica de … — se escribe la de la nota de origen»*. Lectura:
+    `SiagieExportModel::conclusionesReplica` (une las fuentes del retorno). La `035` de
+    Ética no cambia: no es réplica.
   - **VERIFICADO contra un acta real de 5° (29/07/2026, `S5B.xlsx`, lectura pura del
     zip).** Los tres datos que faltaban:
     1. El libro **sí trae la hoja**, y su tab real es **`032-ETRA`** (no `032-EPT`,

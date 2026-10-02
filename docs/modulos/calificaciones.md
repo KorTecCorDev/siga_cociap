@@ -458,6 +458,26 @@ competencia se queda sin tabla.
   mientras quedara alguna carga aportando.
 - `cerrar` valida en servidor: **todas las competencias TRANSVERSALES de la
   sección bloqueadas** + 0 conclusiones obligatorias pendientes.
+- **Conclusiones de RÉPLICA del acta SIAGIE (02/10/2026, migración 072).** En 5.º de
+  secundaria la nota de GAMA también llena las actas de EPT (`032`) y Arte y Cultura
+  (`0001`). Con GAMA en C (conclusión obligatoria), el tutor escribe además **una
+  conclusión por área destino** en la card **«Conclusiones descriptivas requeridas»**,
+  debajo de la tabla; se repite en todas las columnas de esa área. Con GAMA aprobatoria
+  no se piden: el acta lleva la de GAMA. **No salen en la boleta.**
+  - Tabla `conclusiones_replica_acta` (estudiante + bimestre + área destino). Punto único
+    `ConclusionReplicaModel`; qué es réplica lo decide `replicas_conclusion_acta()`
+    (`helpers.php`): una fuente que llena **más de un** área en el grado. Ética → `035`
+    **no** es réplica (una fuente, un área: decisión del usuario).
+  - Endpoint `POST /docente/tutoria/{periodo_id}/conclusion-replica`, con las mismas
+    guardas que `/conclusion` más «el área es destino de la sección». Los textareas
+    comparten clase con los de GAMA: el mismo botón los guarda y el mismo control los exige.
+  - Las suma `conclusionesObligatoriasPendientes`, así que también las exigen el cierre
+    del **director** y la card del panel docente.
+  - En el **lote extraordinario**, la fila de GAMA de 5.º pide las réplicas cuando la nota
+    es C (mismo POST, misma transacción).
+  - Las réplicas se resuelven por la sección que **evalúa**; en un retorno de grado cuyo
+    grado oficial difiera, vale el aviso del llenador (`export-siagie.md`).
+  - Protegido por `verif_conclusion_replica.php` (simulación con rollback, las dos ramas).
   ⚠️ **Desde el 06/08/2026 las ACADÉMICAS ya no condicionan el cierre**: no
   participan del promedio que se congela (`getPromediosSeccion` filtra
   `tipo='transversal'`), así que exigirlas hacía esperar al tutor por notas que
@@ -1002,6 +1022,12 @@ En la grilla, esas filas llevan el chip **«Transversal»** y una línea que dic
 salen. Verificado en `verif_extraordinaria_lote.php` §5b (9 comprobaciones: las dos ramas
 de la guarda, que la ordinaria sigue excluyéndolas, la conclusión en su tabla y la celda
 —con su conclusión— saliendo en la boleta).
+
+**Réplicas del acta (02/10/2026, migración 072):** en 5.º de secundaria, la fila de GAMA
+lleva además un bloque oculto con una conclusión por área destino del acta (EPT y Arte y
+Cultura). El JS lo muestra y lo vuelve `required` solo cuando el literal exige conclusión;
+el servidor lo revalida y las escribe con `ConclusionReplicaModel::guardar` dentro de la
+misma transacción del lote. Ver «Vista del tutor» más arriba.
 
 ### Ajustes tras las pruebas en navegador (18/09/2026)
 

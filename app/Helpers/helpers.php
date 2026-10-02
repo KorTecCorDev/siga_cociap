@@ -626,6 +626,45 @@ const EQUIVALENCIAS_ACTA_SIAGIE = [
 ];
 
 /**
+ * RÉPLICAS DE CONCLUSIÓN en el acta SIAGIE — PUNTO ÚNICO (02/10/2026).
+ *
+ * Una nota se REPLICA cuando la MISMA fuente llena las hojas de MÁS DE UN área
+ * en un grado: hoy, GAMA en 5.º de secundaria → `032` (EPT) y `0001` (Arte y
+ * Cultura). Para esas áreas el tutor escribe una conclusión PROPIA por área
+ * (`conclusiones_replica_acta`, migración 072), que se repite en todas las
+ * columnas de su hoja.
+ *
+ * Ética → `035` NO es réplica: una fuente, un área (decisión del usuario). Por
+ * eso el criterio es «la fuente aparece en más de una regla», no «toda regla».
+ *
+ * Solo se exigen cuando la conclusión de la fuente es OBLIGATORIA; con nota
+ * aprobatoria se replica la de la fuente. No salen en la boleta.
+ *
+ * @return list<array> reglas de EQUIVALENCIAS_ACTA_SIAGIE que son réplica
+ */
+function replicas_conclusion_acta(string $nivelCodigo, int $gradoNumero): array
+{
+    $porFuente = [];
+    foreach (EQUIVALENCIAS_ACTA_SIAGIE as $regla) {
+        if ($regla['nivel_codigo'] !== nivel_clave($nivelCodigo)) {
+            continue;
+        }
+        if ($regla['grados'] !== null && !in_array($gradoNumero, $regla['grados'], true)) {
+            continue;
+        }
+        $porFuente[json_encode($regla['buscar'])][] = $regla;
+    }
+
+    $out = [];
+    foreach ($porFuente as $reglas) {
+        if (count($reglas) > 1) {
+            array_push($out, ...$reglas);
+        }
+    }
+    return $out;
+}
+
+/**
  * Leyenda del documento EN BORRADOR — PUNTO ÚNICO del texto.
  * La usan la marca de agua de la boleta impresa (`boleta/_marca-borrador.php`,
  * que la reciben por igual la vista previa de RA, el ZIP de borradores y la

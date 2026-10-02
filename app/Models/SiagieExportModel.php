@@ -190,6 +190,18 @@ class SiagieExportModel extends BaseModel
     }
 
     /**
+     * Conclusiones de RÉPLICA del acta (migración 072): [area_id => texto]
+     * del alumno en el periodo. Une las fuentes del retorno de grado como
+     * `notasOficiales`. El llenador las usa solo cuando la conclusión de la
+     * fuente es obligatoria (ver `ConclusionReplicaModel`).
+     */
+    public function conclusionesReplica(int $matriculaId, int $periodoId): array
+    {
+        $ctx = $this->calModel->boletaContexto($matriculaId);
+        return (new ConclusionReplicaModel())->paraExport($ctx['fuentes'], $periodoId);
+    }
+
+    /**
      * Notas AUTORIZADAS por dirección (solo SIAGIE) del alumno en el periodo.
      * Rellenan la celda que quedaría en blanco por ausencia justificada. No
      * salen de `calificaciones` (nunca tocan boleta ni mérito); son el "informe

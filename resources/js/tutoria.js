@@ -27,14 +27,22 @@ async function guardarConclusionesTransversales(periodoId) {
             continue; // sin cambios
         }
 
-        const formData = new FormData();
-        formData.append('_csrf_token',    CSRF);
-        formData.append('matricula_id',   ta.dataset.matriculaId);
-        formData.append('competencia_id', ta.dataset.competenciaId);
-        formData.append('conclusion',     texto);
+        // Las conclusiones de RÉPLICA del acta SIAGIE (data-area-id, card
+        // «Conclusiones descriptivas requeridas») van a su propio endpoint.
+        const esReplica = ta.dataset.areaId !== undefined;
+        const formData  = new FormData();
+        formData.append('_csrf_token',  CSRF);
+        formData.append('matricula_id', ta.dataset.matriculaId);
+        if (esReplica) {
+            formData.append('area_id', ta.dataset.areaId);
+        } else {
+            formData.append('competencia_id', ta.dataset.competenciaId);
+        }
+        formData.append('conclusion', texto);
+        const destino = esReplica ? 'conclusion-replica' : 'conclusion';
 
         try {
-            const res  = await fetch(`${BASE}/docente/tutoria/${periodoId}/conclusion`,
+            const res  = await fetch(`${BASE}/docente/tutoria/${periodoId}/${destino}`,
                 { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {

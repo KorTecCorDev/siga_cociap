@@ -10,6 +10,7 @@ use App\Models\OrdenMeritoModel;
 use App\Models\TransversalModel;
 use App\Models\AsistenciaModel;
 use App\Models\ConductaModel;
+use App\Models\ConclusionReplicaModel;
 use Core\Session;
 
 /**
@@ -419,6 +420,11 @@ class RectificacionController extends BaseController
         // solo C. El JS revela el campo usando esta lista.
         $literalesConclusion = $this->literalesConclusion((string) $info['nivel_codigo']);
 
+        // Réplicas del acta SIAGIE (02/10/2026, migración 072): GAMA en 5.º
+        // también llena otras áreas del acta; si su conclusión es obligatoria,
+        // se pide una por área destino. Vacío en los demás grados.
+        $replicasPorComp = $this->replicasPorCompetencia((int) $info['seccion_id']);
+
         $this->view('rectificaciones/extraordinaria-lote', [
             'titulo'       => 'Calificación extraordinaria en lote',
             'info'         => $info,
@@ -438,6 +444,7 @@ class RectificacionController extends BaseController
             'topeAsistencia' => AsistenciaModel::TOPE_MAX,
             'total'        => count($items) + (int) $pend['conducta'] + (int) $pend['asistencia'],
             'literalesConclusion' => $literalesConclusion,
+            'replicasPorComp'     => $replicasPorComp,
             'old'          => Session::getFlash('lote_old'),
             'page_scripts' => ['rectificaciones-lote'],
         ]);
@@ -467,6 +474,8 @@ class RectificacionController extends BaseController
         $motivo       = trim((string) $this->input('motivo', ''));
         $notas        = (array) $this->input('nota', []);
         $conclusiones = (array) $this->input('conclusion', []);
+        // [clave => [area_id => texto]] — réplicas del acta SIAGIE (migración 072).
+        $replicasIn   = (array) $this->input('conclusion_replica', []);
         // Filas de conducta y asistencia (migración 063): opcionales, como una
         // competencia vacía.
         $conductaLit  = strtoupper(trim((string) $this->input('conducta_literal', '')));
@@ -478,6 +487,7 @@ class RectificacionController extends BaseController
         $volverLista = url('rectificaciones/matricula/' . $matriculaId);
         $entrada     = [
             'motivo' => $motivo, 'notas' => $notas, 'conclusiones' => $conclusiones,
+            'replicas' => $replicasIn,
             'conducta' => $conductaLit, 'asistencia' => $asistRaw,
         ];
 
@@ -505,6 +515,7 @@ class RectificacionController extends BaseController
 
         $nivel = (string) $info['nivel_codigo'];
         $filas = [];
+        $replicasPorComp = $this->replicasPorCompetencia((int) $info['seccion_id']);
 
         // ── Validación COMPLETA antes de escribir nada ───────────
         foreach ($notas as $clave => $notaRaw) {
@@ -548,12 +559,30 @@ class RectificacionController extends BaseController
                     . ' en este nivel: ' . $etiqueta . '.', 'lote_old', $entrada);
             }
 
+            // Réplicas del acta: solo cuando la conclusión es obligatoria (con
+            // nota aprobatoria se replica la de la fuente y no se piden).
+            $replicas = [];
+            if ($esTransversal && isset($replicasPorComp[$competenciaId])
+                && CalificacionModel::conclusionObligatoria($literal, $nivel)) {
+                $entradaRep = (array) ($replicasIn[$clave] ?? []);
+                foreach ($replicasPorComp[$competenciaId] as $d) {
+                    $texto = trim((string) ($entradaRep[$d['area_id']] ?? ''));
+                    if ($texto === '' || mb_strlen($texto) > 500) {
+                        $this->volverConEntrada($volverForm,
+                            'Falta la conclusión de ' . $d['area_nombre'] . ' para el acta SIAGIE'
+                            . ' (máximo 500 caracteres): ' . $etiqueta . '.', 'lote_old', $entrada);
+                    }
+                    $replicas[(int) $d['area_id']] = $texto;
+                }
+            }
+
             $filas[] = [
                 'carga_id'       => $cargaId,
                 'competencia_id' => $competenciaId,
                 'nota'           => $nota,
                 'conclusion'     => $conclusion,
                 'transversal'    => $esTransversal,
+                'replicas'       => $replicas,
             ];
         }
 
@@ -609,6 +638,7 @@ class RectificacionController extends BaseController
 
         // ── Escritura atómica del lote completo ──────────────────
         // Notas, conducta y asistencia en UNA transacción: entra todo o nada.
+        $replicaModel = new ConclusionReplicaModel();
         $this->model->beginTransaction();
         try {
             foreach ($filas as $f) {
@@ -616,6 +646,11 @@ class RectificacionController extends BaseController
                     $matriculaId, $f['carga_id'], $f['competencia_id'], $periodoId,
                     $f['nota'], $f['conclusion'], $motivo, $usuarioId, $f['transversal']
                 );
+                foreach ($f['replicas'] as $areaId => $texto) {
+                    if (!$replicaModel->guardar($matriculaId, $areaId, $periodoId, $texto, $usuarioId)) {
+                        throw new \RuntimeException('No se pudo guardar la conclusión de réplica.');
+                    }
+                }
             }
             if ($conductaLit !== '') {
                 $conductaModel->registrarLiteralExtraordinario(
@@ -662,6 +697,20 @@ class RectificacionController extends BaseController
         }
         $this->redirectWithSuccess($volverLista, implode(' ', $partes) . $extraAviso);
     }
+    /**
+     * Áreas destino de réplica del acta SIAGIE agrupadas por competencia
+     * fuente: [competencia_id => [{area_id, area_nombre, ...}]]. Vacío si el
+     * grado de la sección no tiene réplicas (ver `ConclusionReplicaModel`).
+     */
+    private function replicasPorCompetencia(int $seccionId): array
+    {
+        $out = [];
+        foreach ((new ConclusionReplicaModel())->destinosDeSeccion($seccionId) as $d) {
+            $out[$d['competencia_id']][] = $d;
+        }
+        return $out;
+    }
+
     /**
      * Literales que EXIGEN conclusión descriptiva en un nivel. Sale del mismo
      * punto único que valida el POST (conclusionObligatoria): primaria B y C,

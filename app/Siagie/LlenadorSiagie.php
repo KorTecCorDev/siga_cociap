@@ -113,6 +113,7 @@ class LlenadorSiagie
         $notasCache       = [];   // matricula_id => notas por competencia
         $exoCache         = [];   // matricula_id => set exoneradas
         $autCache         = [];   // matricula_id => notas autorizadas por direccion
+        $repCache         = [];   // matricula_id => [area_id => conclusion de réplica] (migración 072)
         $advertencias     = [];
         $blancos          = [];
         $autorizadas      = [];   // celdas llenadas con nota autorizada (informe aparte)
@@ -185,6 +186,20 @@ class LlenadorSiagie
             // leyenda, porque el texto acertaría el área oficial —que no tiene
             // cargas— y dejaría el acta en blanco. Ver EQUIVALENCIAS_ACTA_SIAGIE (helpers.php).
             $excepcion = $this->excepcionDeHoja($codigoHoja, $destino, $reporte);
+
+            // RÉPLICA (02/10/2026, migración 072): si la nota de esta hoja también
+            // llena otras áreas (GAMA en 5.º → 032 y 0001), con conclusión
+            // OBLIGATORIA se escribe la conclusión PROPIA del área, no la de GAMA.
+            // Ver replicas_conclusion_acta() (helpers.php).
+            $areaReplica = null;
+            if ($excepcion !== null && $areaHoja !== null) {
+                foreach (replicas_conclusion_acta((string) $destino['nivel_codigo'], (int) $destino['grado_numero']) as $r) {
+                    if ($r['codigo_hoja'] === $codigoHoja) {
+                        $areaReplica = $areaHoja;
+                        break;
+                    }
+                }
+            }
 
             $mapa = []; // numero => competencia (fila del catálogo)
             $sinEquivalente = [];
@@ -387,6 +402,20 @@ class LlenadorSiagie
                     }
                     // Regla 3: TODAS las conclusiones existentes
                     $conclusion = $nota['conclusion'];
+                    if ($areaReplica !== null) {
+                        $nivelLargo = nivel_clave((string) $destino['nivel_codigo']) === 'prim' ? 'primaria' : 'secundaria';
+                        if (conclusion_es_obligatoria(nota_a_literal((int) $nota['nota_numerica']), $nivelLargo)) {
+                            $repCache[$mid] ??= $this->modelo->conclusionesReplica($mid, $destino['periodo_id']);
+                            $propia = $repCache[$mid][(int) $areaReplica['id']] ?? '';
+                            if ($propia !== '') {
+                                $conclusion = $propia;
+                            } else {
+                                // Cierre forzado o dato anterior a la 072: se escribe la
+                                // de la nota de origen, como hasta el 02/10/2026, y se avisa.
+                                $advertencias[] = "{$hoja} {$refCo}: falta la conclusión de réplica de {$areaReplica['nombre']} — se escribe la de la nota de origen ({$mm['nombre']})";
+                            }
+                        }
+                    }
                     if ($conclusion !== null && $conclusion !== '') {
                         $len = mb_strlen($conclusion);
                         if ($len < 10 || $len > 500) {
