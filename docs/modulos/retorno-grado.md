@@ -6,8 +6,9 @@
 > `RetornoGradoController` + `retornos_grado`.
 >
 > **Desde el 05/10/2026 (migración 073) el retorno guarda su TRAMO y tiene PUNTO ÚNICO de
-> consulta: `app/Models/RetornoGradoModel.php`.** En `dev`, sin desplegar: el estado vivo
-> está en `docs/ESTADO.md`.
+> consulta: `app/Models/RetornoGradoModel.php`.** **Desplegado el 05/10/2026** (merge
+> `c3d1bdc`, 073 aplicada en producción). En producción el retorno #1 se había revertido
+> con el código viejo y se corrigió a mano: ver `docs/ESTADO.md`.
 
 ## El TRAMO y el punto único (05/10/2026, migración 073)
 
