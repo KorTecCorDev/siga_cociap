@@ -5,35 +5,24 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🟡 CHECK DE `asistencia_incidencias` QUE FALTABAN EN PRODUCCIÓN — migración 074 (05/10/2026)
+## ⚪ FALSA ALARMA (05/10/2026): los CHECK de `asistencia_incidencias` SÍ están en producción
 
-En la copia de producción del 05/10/2026 `asistencia_incidencias` no tenía ninguno de sus dos
-CHECK: `chk_motivo_solo_justificada` (069: F/T nunca con motivo) y `chk_justificada_con_motivo`
-(070: FJ/TJ siempre con motivo). La regla solo la aplicaba `AsistenciaModel::marcarDia`.
-- La tabla se había creado por otra vía (colación `utf8mb4_general_ci`) y la 069 la encontró hecha.
-- La **074** añade solo los CHECK que falten. No se re-corre la 070: además desconfirma filas y
-  rellena listas del día.
-- [x] 0 filas que los violen (554 en la copia de producción).
-- [x] Local (copia de producción): aplicada dos veces (la segunda, sin cambios). Las dos ramas
-      de cada CHECK probadas con transacción revertida: las válidas entran; FJ sin motivo y F
-      con motivo se rechazan.
-- [x] La única escritura de la app (`marcarDia`) ya cumple las dos reglas.
-- [x] `verif_asistencia_jornadas`: el aserto del CHECK pasa. El fallo restante es de su
-      preparación de prueba (no encuentra caso en los datos de producción), igual que con el
-      código de antes.
-- 🔴 **Causa probable de que faltaran:** en el phpMyAdmin de Hostinger, un `PREPARE` de
-  `ALTER TABLE ... ADD CONSTRAINT ... CHECK` falla con `#1044 Acceso denegado ... a la base de
-  datos 'information_schema'`. La primera 074 (con `PREPARE`, como la 070) falló así dos veces
-  en producción sin cambiar nada. Los `PREPARE` de columnas y FK (067, 068, 069, 073) sí
-  funcionan. **Regla para migraciones futuras: un CHECK se añade con `ALTER TABLE` DIRECTO,
-  nunca preparado.** El relleno de la 070 sí está en producción (851 listas `migracion`).
-- La 074 se reescribió: un solo `ALTER TABLE` directo con los dos CHECK (los dos o ninguno).
-  Re-ejecutarla da `#1826 Duplicate CHECK constraint name` sin cambiar nada. Probada en local
-  desde el mismo estado que producción (sin CHECK): importada sin error, los dos CHECK creados.
-- [ ] **Producción** (no necesita deploy: no cambia código), con la base del sistema seleccionada:
-  1. correr el PREVIEW de la 074; debe dar 0 y 0;
-  2. importar la 074;
-  3. en otro envío, la consulta de verificación del final del archivo: deben salir los dos CHECK.
+En la copia local de producción del 05/10/2026 `asistencia_incidencias` aparecía SIN sus dos
+CHECK (`chk_motivo_solo_justificada` de la 069, `chk_justificada_con_motivo` de la 070) y con
+colación `utf8mb4_general_ci`. Se escribió una migración 074 para reponerlos.
+- Al aplicarla en producción dio `#1826 Duplicate CHECK constraint`.
+- `SHOW CREATE TABLE` en producción mostró **los dos CHECK** y la colación
+  `utf8mb4_unicode_ci`: la tabla estaba bien desde la 069/070.
+- **La 074 se retiró del repo**: además de innecesaria, falla en toda base que haya pasado por
+  la 069 y la 070, también en un setup desde cero.
+- La primera versión de la 074, con `PREPARE` como la 070, había fallado antes con
+  `#1044 Acceso denegado ... 'information_schema'`, sin cambiar nada. La causa no se aclaró y
+  ya no importa. La 070 sí había creado su CHECK en producción.
+- 🔴 **Lección: la exportación de producción NO trae los CHECK con nombre de tabla y cambia
+  la colación de alguna tabla.** Una copia local sirve para medir DATOS, no para auditar
+  restricciones ni colaciones: eso se mira en producción con `SHOW CREATE TABLE` (en
+  phpMyAdmin, «+ Opciones» → «Textos completos»). El CHECK `recreo_bloques` sí llega porque
+  es de COLUMNA (`json_valid` de una columna JSON).
 
 ## 🟢 RETORNO DE GRADO: TRAMO GUARDADO Y PUNTO ÚNICO — DESPLEGADO el 05/10/2026 (merge `c3d1bdc`, migración 073; sin cambio de versión: sigue v1.0.5)
 
@@ -96,8 +85,8 @@ en local y en producción (ver «Corrección en producción» abajo). Detalle en
     - mérito: I en 2.°, II en 1.°;
     - alerta limpia y situación final en 2.° B;
     - batería sin fallos nuevos: 3 fallan igual con el código anterior (`d7a677e`).
-  - Hallazgo aparte: en la copia de producción **no existe el CHECK
-    `chk_justificada_con_motivo`** (migración 070); hoy hay 0 FJ/TJ sin motivo.
+  - Un supuesto hallazgo aparte (CHECK de la 070 ausente) resultó ser un artefacto de la
+    exportación: ver «FALSA ALARMA» arriba.
 - [ ] Pendiente en producción:
   - la auxiliar de 2.° B confirma la asistencia y la conducta del III de la estudiante (borrador);
   - los docentes de 2.° B la evalúan en el III;
