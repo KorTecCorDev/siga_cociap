@@ -7,22 +7,33 @@
 --
 --   chk_motivo_solo_justificada  (069, dentro del CREATE TABLE)
 --                                F/T NUNCA llevan motivo.
---   chk_justificada_con_motivo   (070, ALTER TABLE condicional)
+--   chk_justificada_con_motivo   (070, ALTER TABLE preparado)
 --                                FJ/TJ SIEMPRE llevan motivo.
 --
--- La tabla se creó por otra vía (su colación es utf8mb4_general_ci, la 069 la
--- crea en utf8mb4_unicode_ci) y la 069 la encontró ya hecha. Sin los CHECK la
--- regla solo la aplica `AsistenciaModel`: un INSERT directo podría guardar una
--- FJ sin motivo y la boleta la contaría como justificada. Hoy hay 0 filas que
--- los violen (medido en la copia de producción: 554 filas).
+-- Sin los CHECK la regla solo la aplica `AsistenciaModel::marcarDia`: un INSERT
+-- directo podría guardar una FJ sin motivo y la boleta la contaría como
+-- justificada. Hoy hay 0 filas que los violen (copia de producción: 554 filas).
 --
--- NO se vuelve a correr la 070: además del CHECK recuenta y DESCONFIRMA filas y
--- rellena listas del día. Esta migración SOLO añade los CHECK que falten.
+-- 🔴 POR QUÉ ESTA MIGRACIÓN NO USA `PREPARE` (a diferencia de las demás).
+-- En el phpMyAdmin de Hostinger, `PREPARE` de un `ALTER TABLE ... ADD CONSTRAINT
+-- ... CHECK` falla con «#1044 Acceso denegado ... a la base de datos
+-- 'information_schema'». La primera versión de esta 074 lo hacía y falló así dos
+-- veces. Es el mismo patrón de la 070, y es el CHECK que falta en producción.
+-- Los PREPARE que añaden columnas o FOREIGN KEY (067, 068, 069, 073) sí funcionan.
+-- Por eso aquí va un ALTER TABLE DIRECTO.
 --
--- ⚠️ EN PRODUCCIÓN: correr el PREVIEW primero. Si da algo > 0, el ALTER fallaría:
--- detenerse y corregir esas filas antes (no las corrige esta migración).
+-- ⚠️ NO es idempotente en el sentido estricto: es UNA sola sentencia con los dos
+-- CHECK, así que se crean los dos o ninguno. Re-ejecutarla da
+-- «#1826 Duplicate CHECK constraint name» y NO cambia nada. No se usa
+-- `ADD CONSTRAINT IF NOT EXISTS` porque solo existe en MariaDB.
 --
--- Idempotente. Ejecutar después de 073_retornos_grado_tramo.sql.
+-- NO se vuelve a correr la 070: además del CHECK recuenta y DESCONFIRMA filas.
+--
+-- ⚠️ EN PRODUCCIÓN: correr el PREVIEW primero. Si da algo > 0, el ALTER fallaría
+-- (sin cambiar nada): corregir esas filas antes (no lo hace esta migración).
+--
+-- Ejecutar después de 073_retornos_grado_tramo.sql, con la base del sistema
+-- seleccionada en phpMyAdmin.
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -32,27 +43,12 @@ SET NAMES utf8mb4;
 --          SUM(tipo IN ('FJ','TJ') AND motivo_id IS NULL)     AS viola_justificada_con_motivo
 --     FROM asistencia_incidencias;
 
--- 1) F/T nunca llevan motivo (el de la 069).
-SET @falta := (SELECT COUNT(*) = 0 FROM information_schema.TABLE_CONSTRAINTS
-               WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'asistencia_incidencias'
-                 AND CONSTRAINT_NAME = 'chk_motivo_solo_justificada');
-SET @sql := IF(@falta = 1,
-    'ALTER TABLE asistencia_incidencias ADD CONSTRAINT chk_motivo_solo_justificada CHECK (motivo_id IS NULL OR tipo IN (''FJ'',''TJ''))',
-    'SELECT "074: chk_motivo_solo_justificada ya existe, no se toca" AS aviso');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+-- 1) Los dos CHECK, en UNA sola sentencia (los dos o ninguno).
+ALTER TABLE asistencia_incidencias
+    ADD CONSTRAINT chk_motivo_solo_justificada CHECK (motivo_id IS NULL OR tipo IN ('FJ', 'TJ')),
+    ADD CONSTRAINT chk_justificada_con_motivo  CHECK (tipo IN ('F', 'T') OR motivo_id IS NOT NULL);
 
--- 2) FJ/TJ siempre llevan motivo (el de la 070).
-SET @falta := (SELECT COUNT(*) = 0 FROM information_schema.TABLE_CONSTRAINTS
-               WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'asistencia_incidencias'
-                 AND CONSTRAINT_NAME = 'chk_justificada_con_motivo');
-SET @sql := IF(@falta = 1,
-    'ALTER TABLE asistencia_incidencias ADD CONSTRAINT chk_justificada_con_motivo CHECK (tipo IN (''F'',''T'') OR motivo_id IS NOT NULL)',
-    'SELECT "074: chk_justificada_con_motivo ya existe, no se toca" AS aviso');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-
--- 3) Verificación: deben salir las DOS filas.
-SELECT CONSTRAINT_NAME
-FROM information_schema.TABLE_CONSTRAINTS
-WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'asistencia_incidencias'
-  AND CONSTRAINT_TYPE = 'CHECK'
-ORDER BY CONSTRAINT_NAME;
+-- 2) Verificación (en otro envío también vale): deben salir las DOS filas.
+--   SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+--   WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'asistencia_incidencias'
+--     AND CONSTRAINT_TYPE = 'CHECK';

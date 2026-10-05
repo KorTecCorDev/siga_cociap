@@ -21,9 +21,19 @@ CHECK: `chk_motivo_solo_justificada` (069: F/T nunca con motivo) y `chk_justific
 - [x] `verif_asistencia_jornadas`: el aserto del CHECK pasa. El fallo restante es de su
       preparación de prueba (no encuentra caso en los datos de producción), igual que con el
       código de antes.
-- [ ] **Producción** (no necesita deploy: no cambia código):
+- 🔴 **Causa probable de que faltaran:** en el phpMyAdmin de Hostinger, un `PREPARE` de
+  `ALTER TABLE ... ADD CONSTRAINT ... CHECK` falla con `#1044 Acceso denegado ... a la base de
+  datos 'information_schema'`. La primera 074 (con `PREPARE`, como la 070) falló así dos veces
+  en producción sin cambiar nada. Los `PREPARE` de columnas y FK (067, 068, 069, 073) sí
+  funcionan. **Regla para migraciones futuras: un CHECK se añade con `ALTER TABLE` DIRECTO,
+  nunca preparado.** El relleno de la 070 sí está en producción (851 listas `migracion`).
+- La 074 se reescribió: un solo `ALTER TABLE` directo con los dos CHECK (los dos o ninguno).
+  Re-ejecutarla da `#1826 Duplicate CHECK constraint name` sin cambiar nada. Probada en local
+  desde el mismo estado que producción (sin CHECK): importada sin error, los dos CHECK creados.
+- [ ] **Producción** (no necesita deploy: no cambia código), con la base del sistema seleccionada:
   1. correr el PREVIEW de la 074; debe dar 0 y 0;
-  2. ejecutar la 074 completa en un solo envío; al final deben salir los dos nombres de CHECK.
+  2. importar la 074;
+  3. en otro envío, la consulta de verificación del final del archivo: deben salir los dos CHECK.
 
 ## 🟢 RETORNO DE GRADO: TRAMO GUARDADO Y PUNTO ÚNICO — DESPLEGADO el 05/10/2026 (merge `c3d1bdc`, migración 073; sin cambio de versión: sigue v1.0.5)
 
