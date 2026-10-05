@@ -49,7 +49,7 @@ en local y en producción (ver «Corrección en producción» abajo). Detalle en
   la 072) nunca se había pusheado. Antes del push: **072** ya estaba aplicada en producción;
   **073** aplicada por el usuario tras su PREVIEW (retorno #1 con datos propios en II y III →
   desde = II).
-- [ ] 🔴 **Corrección del retorno #1 en producción: PENDIENTE.** El retorno #1 se había
+- [x] **Corrección del retorno #1 en producción: HECHA el 05/10/2026** (script ejecutado por el usuario; en un envío nuevo `periodo_hasta_id = 2` y la boleta de la 190 muestra el II). El retorno #1 se había
   **revertido con el código VIEJO** (después de la 073 y antes del push): `periodo_hasta_id`
   quedó NULL (tramo vacío → **la boleta pierde el II**, que se lee de la 190) y la asistencia
   del III quedó en la 692. El primer intento a mano por phpMyAdmin **NO se guardó**: el
