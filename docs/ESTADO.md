@@ -1,9 +1,33 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **02/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **05/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+
+## 🔜 RETOMAR AQUÍ (05/10/2026, fin del turno tarde en la laptop → escritorio de casa)
+
+**Producción al cierre del turno:** código `c3d1bdc` (retorno de grado con tramo + lotes 072).
+Migraciones aplicadas allí: **072 y 073**. **No existe ninguna 074** (se escribió y se retiró:
+ver «FALSA ALARMA»). Retorno #1 revertido y corregido (tramo II–II); la boleta de la 190
+muestra el II.
+
+**Al abrir el escritorio, antes de medir nada:**
+1. `git pull` en `dev` y en `main`.
+2. **La BD local de casa necesita una copia fresca de producción** (o, como mínimo, la **072** y
+   la **073** aplicadas). Sin la 073, `RetornoGradoModel` falla al leer el tramo. Huella para
+   comprobarla: `SHOW COLUMNS FROM retornos_grado LIKE 'periodo_hasta_id'` existe y
+   `SELECT periodo_hasta_id FROM retornos_grado WHERE id = 1` da **2**.
+3. ⚠️ La copia exportada de producción **no trae los CHECK con nombre de tabla** ni respeta
+   alguna colación: no auditar esquema con ella (ver «FALSA ALARMA»).
+
+**Pendientes, en orden:**
+- [ ] Colegio (no es código): la auxiliar de 2.° B **confirma** la asistencia del III de la
+      estudiante (quedó como borrador) y los docentes de 2.° B la evalúan en el III.
+- [ ] Comprobar en producción: `/admin/control` sin la 692; lote del II de 2.° B con 19.
+- [ ] `php scripts/siagie/llenar-siagie.php --simular` sobre un acta real de 5.º (lote 072/
+      situación final según el acta).
+- [ ] Las pruebas en producción del módulo auxiliar (ver su sección más abajo).
 
 ## ⚪ FALSA ALARMA (05/10/2026): los CHECK de `asistencia_incidencias` SÍ están en producción
 
