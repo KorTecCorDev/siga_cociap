@@ -162,6 +162,8 @@
 >      FJ… nunca llegaba a T.
 > 3. **FJ/TJ SIEMPRE con motivo:** el modelo las rechaza sin él y hay un CHECK
 >    `chk_justificada_con_motivo`.
+>    - Los dos CHECK están en producción (comprobado con `SHOW CREATE TABLE`, 05/10/2026).
+>      La copia local exportada de producción NO los trae: no sirve para auditarlos.
 >    - La 070 convirtió las existentes sin motivo a F/T (1 en local), las recontó y las
 >      desconfirmó.
 >    - Se retiraron la marca «!», el borde discontinuo, «Falta motivo (n)» y

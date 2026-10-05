@@ -1,15 +1,58 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **02/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **05/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🟡 RETORNO DE GRADO: TRAMO GUARDADO Y PUNTO ÚNICO — en `dev`, SIN DESPLEGAR (05/10/2026, migración 073)
+## 🔜 RETOMAR AQUÍ (05/10/2026, fin del turno tarde en la laptop → escritorio de casa)
+
+**Producción al cierre del turno:** código `c3d1bdc` (retorno de grado con tramo + lotes 072).
+Migraciones aplicadas allí: **072 y 073**. **No existe ninguna 074** (se escribió y se retiró:
+ver «FALSA ALARMA»). Retorno #1 revertido y corregido (tramo II–II); la boleta de la 190
+muestra el II.
+
+**Al abrir el escritorio, antes de medir nada:**
+1. `git pull` en `dev` y en `main`.
+2. **La BD local de casa necesita una copia fresca de producción** (o, como mínimo, la **072** y
+   la **073** aplicadas). Sin la 073, `RetornoGradoModel` falla al leer el tramo. Huella para
+   comprobarla: `SHOW COLUMNS FROM retornos_grado LIKE 'periodo_hasta_id'` existe y
+   `SELECT periodo_hasta_id FROM retornos_grado WHERE id = 1` da **2**.
+3. ⚠️ La copia exportada de producción **no trae los CHECK con nombre de tabla** ni respeta
+   alguna colación: no auditar esquema con ella (ver «FALSA ALARMA»).
+
+**Pendientes, en orden:**
+- [ ] Colegio (no es código): la auxiliar de 2.° B **confirma** la asistencia del III de la
+      estudiante (quedó como borrador) y los docentes de 2.° B la evalúan en el III.
+- [ ] Comprobar en producción: `/admin/control` sin la 692; lote del II de 2.° B con 19.
+- [ ] `php scripts/siagie/llenar-siagie.php --simular` sobre un acta real de 5.º (lote 072/
+      situación final según el acta).
+- [ ] Las pruebas en producción del módulo auxiliar (ver su sección más abajo).
+
+## ⚪ FALSA ALARMA (05/10/2026): los CHECK de `asistencia_incidencias` SÍ están en producción
+
+En la copia local de producción del 05/10/2026 `asistencia_incidencias` aparecía SIN sus dos
+CHECK (`chk_motivo_solo_justificada` de la 069, `chk_justificada_con_motivo` de la 070) y con
+colación `utf8mb4_general_ci`. Se escribió una migración 074 para reponerlos.
+- Al aplicarla en producción dio `#1826 Duplicate CHECK constraint`.
+- `SHOW CREATE TABLE` en producción mostró **los dos CHECK** y la colación
+  `utf8mb4_unicode_ci`: la tabla estaba bien desde la 069/070.
+- **La 074 se retiró del repo**: además de innecesaria, falla en toda base que haya pasado por
+  la 069 y la 070, también en un setup desde cero.
+- La primera versión de la 074, con `PREPARE` como la 070, había fallado antes con
+  `#1044 Acceso denegado ... 'information_schema'`, sin cambiar nada. La causa no se aclaró y
+  ya no importa. La 070 sí había creado su CHECK en producción.
+- 🔴 **Lección: la exportación de producción NO trae los CHECK con nombre de tabla y cambia
+  la colación de alguna tabla.** Una copia local sirve para medir DATOS, no para auditar
+  restricciones ni colaciones: eso se mira en producción con `SHOW CREATE TABLE` (en
+  phpMyAdmin, «+ Opciones» → «Textos completos»). El CHECK `recreo_bloques` sí llega porque
+  es de COLUMNA (`json_valid` de una columna JSON).
+
+## 🟢 RETORNO DE GRADO: TRAMO GUARDADO Y PUNTO ÚNICO — DESPLEGADO el 05/10/2026 (merge `c3d1bdc`, migración 073; sin cambio de versión: sigue v1.0.5)
 
 Nació del caso real de BALTAZAR PINTO (retorno #1, oficial 190 en 2.° B y operativa 692 en
-1.° B primaria). Volvió a 2.° B al inicio del III y se comunicó recién el 05/10. En local ya
-está **revertido** (lo hizo el usuario el 05/10, con «como borrador»). Detalle en
+1.° B primaria). Volvió a 2.° B al inicio del III y se comunicó recién el 05/10. Revertido
+en local y en producción (ver «Corrección en producción» abajo). Detalle en
 `retorno-grado.md` § «El TRAMO y el punto único» y § Reversión.
 - **Reversión con bimestre en curso:** `revertir()` mueve la asistencia y la conducta de
   los bimestres sin cerrar, con la casilla «como borrador»; 3 guardas; la pantalla lista lo
@@ -37,17 +80,44 @@ está **revertido** (lo hizo el usuario el 05/10, con «como borrador»). Detall
       `verif_stats_competencia` y `verif_asistencia_sin_registro` fallaban por asertos
       escritos para la regla anterior (copia del roster viejo y borrador contado como
       registro); se adaptaron al tramo.
-- [ ] Navegador (admin, local):
+- [x] Navegador (admin, local; el usuario lo dio por bueno el 05/10/2026):
   - `/admin/buscar-estudiante` «BALTAZAR» (una tarjeta);
   - `/matriculas` y la nómina detallada de 1.° B;
   - `/matriculas/692`, que redirige;
   - `/admin/cuadros` y acompañamiento del II y del III;
   - lote de boletas del II de 2.° B;
   - la boleta de la 190.
-- [ ] Merge `dev` → `main` (preguntar antes).
-- [ ] **Producción, en este orden.** ⚠️ El merge local `353cf70` (lote de la 072) nunca se
-  pusheó: este deploy lleva **los dos lotes** y exige **072 y 073** aplicadas antes del push
-  (la 073 se probó idempotente en local el 05/10/2026).
+- [x] **Deploy del 05/10/2026:** merge `dev` → `main` con `--no-ff` (`c3d1bdc`), `origin/main`
+  de `d7a677e` a `c3d1bdc`. Lleva **los dos lotes**, porque el merge local `353cf70` (lote de
+  la 072) nunca se había pusheado. Antes del push: **072** ya estaba aplicada en producción;
+  **073** aplicada por el usuario tras su PREVIEW (retorno #1 con datos propios en II y III →
+  desde = II).
+- [x] **Corrección del retorno #1 en producción: HECHA el 05/10/2026** (script ejecutado por el usuario; en un envío nuevo `periodo_hasta_id = 2` y la boleta de la 190 muestra el II). El retorno #1 se había
+  **revertido con el código VIEJO** (después de la 073 y antes del push): `periodo_hasta_id`
+  quedó NULL (tramo vacío → **la boleta pierde el II**, que se lee de la 190) y la asistencia
+  del III quedó en la 692. El primer intento a mano por phpMyAdmin **NO se guardó**: el
+  bloque iba en una transacción sin `COMMIT` en el mismo envío; el `SELECT` de comprobación
+  la vio porque compartía conexión, y se deshizo al cerrarla. Lo destapó el usuario: la
+  boleta no mostraba el II, y la copia de producción del 05/10 lo confirmó (hasta NULL,
+  asistencia del III aún en la 692).
+  - Corrección: **`database/reparar_retorno_1_tramo.sql`**, en UN solo envío, con su
+    `COMMIT` y su comprobación final. Idempotente.
+  - Probado sobre la copia de producción del 05/10/2026:
+    - tramo II–II; la 692 vacía en III/IV; 1 fila de asistencia en la 190 como borrador;
+    - boleta con 22 notas del I y 25 del II en los 4 modos;
+    - lote del II de 2.° B = 19;
+    - mérito: I en 2.°, II en 1.°;
+    - alerta limpia y situación final en 2.° B;
+    - batería sin fallos nuevos: 3 fallan igual con el código anterior (`d7a677e`).
+  - Un supuesto hallazgo aparte (CHECK de la 070 ausente) resultó ser un artefacto de la
+    exportación: ver «FALSA ALARMA» arriba.
+- [ ] Pendiente en producción:
+  - la auxiliar de 2.° B confirma la asistencia y la conducta del III de la estudiante (borrador);
+  - los docentes de 2.° B la evalúan en el III;
+  - `/admin/control` sin la 692; lote del II de 2.° B con 19; buscador con «cursó el II
+    Bimestre en 1° "B"».
+
+  Secuencia prevista originalmente (ya cumplida por otra vía en los pasos 4-5):
   0. aplicar `072_conclusiones_replica_acta.sql` si aún no está (`SHOW TABLES LIKE
      'conclusiones_replica_acta';`);
   1. correr el PREVIEW de la 073 y comprobar que el retorno #1 sale con datos propios solo
@@ -66,7 +136,7 @@ está **revertido** (lo hizo el usuario el 05/10, con «como borrador»). Detall
   ⚠️ Revertir **antes** de que 1.° B registre notas del III para ella: la guarda lo
   impediría hasta el cierre del III.
 
-## 🟡 CONCLUSIONES DE RÉPLICA DEL ACTA SIAGIE — en `dev`, SIN DESPLEGAR (02/10/2026, migración 072)
+## 🟢 CONCLUSIONES DE RÉPLICA DEL ACTA SIAGIE — DESPLEGADO el 05/10/2026 (merge `c3d1bdc`, migración 072)
 
 GAMA en 5.º llena también las actas de EPT (`032`) y Arte y Cultura (`0001`). Con GAMA en C,
 el tutor escribe una conclusión por área destino (card «Conclusiones descriptivas
@@ -88,11 +158,10 @@ Detalle: `calificaciones.md` (Vista del tutor) y `export-siagie.md` (`032-ETRA`)
       Guardas del endpoint: área no destino (400), más de 500 caracteres (400), alumno ajeno
       (403). `SiagieExportModel::conclusionesReplica` lee el dato real.
 - [x] Navegador con tutora de **Primaria 5.º A**: con C en TIC/GAMA, la card NO aparece.
-- [ ] 🔴 Producción: aplicar la **072** ANTES del merge (sin ella, el control de cierre del
-      tutor falla al leer la tabla).
-- [ ] Merge `dev` → `main` (preguntar antes).
+- [x] Producción: la **072** ya estaba aplicada antes del push (confirmado el 05/10/2026).
+- [x] Deploy del 05/10/2026 junto con el retorno de grado (merge `c3d1bdc`).
 
-## 🟡 SITUACIÓN FINAL = LO QUE VA EN EL ACTA SIAGIE — en `dev`, SIN DESPLEGAR (02/10/2026, sin migración)
+## 🟢 SITUACIÓN FINAL = LO QUE VA EN EL ACTA SIAGIE — DESPLEGADO el 05/10/2026 (merge `c3d1bdc`, sin migración)
 
 Nació del análisis «riesgo académico en secundaria / 5.º / Actas SIAGIE». Regla y decisiones en
 `promocion-de-grado.md` § 5.1.1. Resumen: Ética cuenta como Ed. Religiosa de 2 competencias en
@@ -110,7 +179,7 @@ llenador gana la hoja `0001` de 5.º (antes RA la llenaba a mano).
       «reemplazada en 5°», Transversales con `032, 0001`. `/admin/cuadros/acompanamiento` carga
       sin errores en B1-B3; las filas «Ética y Valores» / «GAMA» no aparecen porque hoy no hay
       ninguna en C (Ética mínima 11) — el caso lo cubre la simulación del verificador.
-- [ ] Merge `dev` → `main` (preguntar antes).
+- [x] Deploy del 05/10/2026 junto con el retorno de grado (merge `c3d1bdc`).
 - Recomendación no implementada: en el IV, una sección de 5.º sin cierre de transversales deja
   Arte y EPT pendientes (`PEND`) y bloquea la situación definitiva; `avisoPeriodoFinal()` no lo
   explica (lista las vacías por cargas).
