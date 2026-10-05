@@ -28,58 +28,13 @@ class LlenadorSiagie
     /** Hojas de metadata del libro que no llevan notas. */
     private const HOJAS_META = ['Generalidades', 'Parametros'];
 
-    /**
-     * EXCEPCIONES DE HOJA — casos donde el área que el SIAGIE espera en una hoja
-     * NO es la que evalúa esa competencia en SIGA. Se aplican DESPUÉS de resolver
-     * la hoja y ANTES del mapeo por leyenda, porque el mapeo por texto acertaría
-     * el área "oficial" (que no tiene notas) y dejaría el acta en blanco.
-     *
-     * Reglas del colegio (confirmadas por el usuario el 27/07/2026):
-     *
-     *  - **035-EREL ← Ética y Valores, TODOS los grados de secundaria.** El área
-     *    Educación Religiosa no tiene cargas: quien evalúa esa dimensión es el
-     *    tutor, en el área de tutoría cuyo `nombre_boleta` es 'Ética y Valores'
-     *    (una sola competencia). Su nota se DUPLICA en las dos columnas de EREL
-     *    (`columnas => null` = todas). Los exonerados de religión están
-     *    registrados contra esa misma área, así que `competenciasExoneradas` los
-     *    detecta solo y la celda sale EXO sin traducción extra.
-     *
-     *  - **032 ← GAMA, SOLO 5° de secundaria.** En 5° no se dicta Educación
-     *    para el Trabajo (sus horas las ocupa el Taller de Pre-Cálculo, que no
-     *    se reporta al SIAGIE): esa acta lleva la competencia transversal
-     *    'Gestiona su aprendizaje de manera autónoma' (promedio final +
-     *    conclusión del tutor, vía getTransversalesAgregadas). En 1°-4° EPT se
-     *    dicta normalmente y la hoja NO se toca.
-     *    VERIFICADO contra un acta real de 5° (29/07/2026): el tab se llama
-     *    '032-ETRA' —no '032-EPT'—, pero eso da igual porque la regla matchea
-     *    por el CÓDIGO del tab ('032'), nunca por la abreviatura. La hoja trae
-     *    UNA sola columna (GAMA no se duplica ahí, a diferencia de EREL) y su
-     *    leyenda es 'Gestiona proyectos de emprendimiento económico o social',
-     *    es decir la competencia de EPT (C53). Por eso la excepción es
-     *    NECESARIA: sin ella el mapeo por texto daría C53, que en 5° no tiene
-     *    cargas, y la columna quedaría en blanco en silencio.
-     *
-     * `buscar` NUNCA usa ids: el id del área difiere entre entornos y, peor, el
-     * id 57 es GAMA mientras que el código C57 es la competencia de Ética.
+    /*
+     * EXCEPCIONES DE HOJA: viven en `EQUIVALENCIAS_ACTA_SIAGIE` (helpers.php)
+     * desde el 02/10/2026, porque la situacion final tambien las lee (cuenta lo
+     * que va en el acta). Se aplican DESPUES de resolver la hoja y ANTES del
+     * mapeo por leyenda: el mapeo por texto acertaria el area "oficial" (que
+     * no tiene notas) y dejaria el acta en blanco.
      */
-    private const EXCEPCIONES_HOJA = [
-        [
-            'nivel_codigo' => 'sec',
-            'codigo_hoja'  => '035',
-            'grados'       => null,                       // todos
-            'columnas'     => null,                       // todas las columnas
-            'buscar'       => ['nombre_boleta' => AREA_ETICA_NOMBRE_BOLETA],
-            'motivo'       => 'Ética y Valores (la evalúa el tutor; Ed. Religiosa no tiene cargas)',
-        ],
-        [
-            'nivel_codigo' => 'sec',
-            'codigo_hoja'  => '032',
-            'grados'       => [5],
-            'columnas'     => null,
-            'buscar'       => ['codigo_minedu' => 'CT4'],  // GAMA
-            'motivo'       => 'GAMA (en 5° no se dicta Educación para el Trabajo)',
-        ],
-    ];
 
     private SiagieExportModel $modelo;
 
@@ -158,6 +113,7 @@ class LlenadorSiagie
         $notasCache       = [];   // matricula_id => notas por competencia
         $exoCache         = [];   // matricula_id => set exoneradas
         $autCache         = [];   // matricula_id => notas autorizadas por direccion
+        $repCache         = [];   // matricula_id => [area_id => conclusion de réplica] (migración 072)
         $advertencias     = [];
         $blancos          = [];
         $autorizadas      = [];   // celdas llenadas con nota autorizada (informe aparte)
@@ -228,8 +184,22 @@ class LlenadorSiagie
             // EXCEPCIÓN DE HOJA: el área que el SIAGIE espera aquí no es la que
             // evalúa en SIGA (EREL ← Ética; EPT de 5° ← GAMA). Manda sobre la
             // leyenda, porque el texto acertaría el área oficial —que no tiene
-            // cargas— y dejaría el acta en blanco. Ver EXCEPCIONES_HOJA.
+            // cargas— y dejaría el acta en blanco. Ver EQUIVALENCIAS_ACTA_SIAGIE (helpers.php).
             $excepcion = $this->excepcionDeHoja($codigoHoja, $destino, $reporte);
+
+            // RÉPLICA (02/10/2026, migración 072): si la nota de esta hoja también
+            // llena otras áreas (GAMA en 5.º → 032 y 0001), con conclusión
+            // OBLIGATORIA se escribe la conclusión PROPIA del área, no la de GAMA.
+            // Ver replicas_conclusion_acta() (helpers.php).
+            $areaReplica = null;
+            if ($excepcion !== null && $areaHoja !== null) {
+                foreach (replicas_conclusion_acta((string) $destino['nivel_codigo'], (int) $destino['grado_numero']) as $r) {
+                    if ($r['codigo_hoja'] === $codigoHoja) {
+                        $areaReplica = $areaHoja;
+                        break;
+                    }
+                }
+            }
 
             $mapa = []; // numero => competencia (fila del catálogo)
             $sinEquivalente = [];
@@ -432,6 +402,20 @@ class LlenadorSiagie
                     }
                     // Regla 3: TODAS las conclusiones existentes
                     $conclusion = $nota['conclusion'];
+                    if ($areaReplica !== null) {
+                        $nivelLargo = nivel_clave((string) $destino['nivel_codigo']) === 'prim' ? 'primaria' : 'secundaria';
+                        if (conclusion_es_obligatoria(nota_a_literal((int) $nota['nota_numerica']), $nivelLargo)) {
+                            $repCache[$mid] ??= $this->modelo->conclusionesReplica($mid, $destino['periodo_id']);
+                            $propia = $repCache[$mid][(int) $areaReplica['id']] ?? '';
+                            if ($propia !== '') {
+                                $conclusion = $propia;
+                            } else {
+                                // Cierre forzado o dato anterior a la 072: se escribe la
+                                // de la nota de origen, como hasta el 02/10/2026, y se avisa.
+                                $advertencias[] = "{$hoja} {$refCo}: falta la conclusión de réplica de {$areaReplica['nombre']} — se escribe la de la nota de origen ({$mm['nombre']})";
+                            }
+                        }
+                    }
                     if ($conclusion !== null && $conclusion !== '') {
                         $len = mb_strlen($conclusion);
                         if ($len < 10 || $len > 500) {
@@ -689,7 +673,7 @@ class LlenadorSiagie
     public function excepcionesDeclaradas(string $nivelCodigo, int $nivelId): array
     {
         $out = [];
-        foreach (self::EXCEPCIONES_HOJA as $regla) {
+        foreach (EQUIVALENCIAS_ACTA_SIAGIE as $regla) {
             if ($regla['nivel_codigo'] !== $nivelCodigo) {
                 continue;
             }
@@ -717,7 +701,7 @@ class LlenadorSiagie
 
     /**
      * Excepción de hoja aplicable a este destino, ya resuelta a una competencia
-     * concreta, o null si no hay ninguna. Ver EXCEPCIONES_HOJA.
+     * concreta, o null si no hay ninguna. Ver EQUIVALENCIAS_ACTA_SIAGIE (helpers.php).
      *
      * Si la regla existe pero su competencia no se puede identificar de forma
      * ÚNICA (área ausente o renombrada, con más de una competencia, o código
@@ -729,7 +713,7 @@ class LlenadorSiagie
      */
     private function excepcionDeHoja(string $codigoHoja, array $destino, array &$reporte): ?array
     {
-        foreach (self::EXCEPCIONES_HOJA as $regla) {
+        foreach (EQUIVALENCIAS_ACTA_SIAGIE as $regla) {
             if ($regla['nivel_codigo'] !== ($destino['nivel_codigo'] ?? null)
                 || $regla['codigo_hoja'] !== $codigoHoja) {
                 continue;

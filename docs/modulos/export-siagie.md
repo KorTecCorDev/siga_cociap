@@ -123,8 +123,8 @@ hacerse: **¿qué notas de SIGA NO están llegando al acta oficial?**
   desaparecían de la vista justo cuando hacía falta verlas.
 - **Estados del vínculo** (`ActasSiagieController::estadoVinculo`): `vinculada`,
   `vinculada + excepción` (tiene hoja propia y ADEMÁS recibe otra: Transversales con
-  `0006,0007` + la `032` en 5°), `recibe por excepción` (Ética con la `035`),
-  `reemplazada [en N°]` (su hoja la llena otra área: Ed. Religiosa y EPT de 5°),
+  `0006,0007` + la `032` y la `0001` en 5°, acumuladas desde el 02/10/2026), `recibe por excepción` (Ética con la `035`),
+  `reemplazada [en N°]` (su hoja la llena otra área: Ed. Religiosa, y EPT y Arte y Cultura de 5°),
   `sin destino` (tiene notas y no llega al acta → rojo) y `no se exporta` (sin código
   y sin notas → gris, situación legítima).
   - El índice de hojas ocupadas se clavetea por **nivel + código**: las excepciones son
@@ -314,9 +314,18 @@ con nóminas reales (S1A, S5B; primaria 4°A). Puntos propios:
 Casos donde el área que el SIAGIE espera en una hoja **no es la que evalúa esa
 competencia en SIGA**. Se aplican DESPUÉS de resolver la hoja y ANTES del mapeo por
 leyenda: el texto acertaría el área "oficial" —que no tiene cargas— y dejaría el acta
-en blanco. Declaradas en `LlenadorSiagie::EXCEPCIONES_HOJA` (decisión: regla en el
-llenador, no tabla de datos — son reglas curriculares estables, no configuración por
-bimestre). El reporte marca cada hoja afectada con `[EXCEPCIÓN: …]`.
+en blanco. Declaradas en la constante **`EQUIVALENCIAS_ACTA_SIAGIE` de `helpers.php`**
+(hasta el 02/10/2026, `LlenadorSiagie::EXCEPCIONES_HOJA`; se movió porque **la situación
+final también la lee**: cuenta lo que va en el acta, ver `docs/modulos/promocion-de-grado.md`
+§ 5.1.1). Sigue siendo una regla en código, no una tabla de datos: son reglas curriculares
+estables, no configuración por bimestre. El reporte marca cada hoja afectada con
+`[EXCEPCIÓN: …]`.
+
+- **`0001-ART Y CULT` ← GAMA, SOLO 5° de secundaria (02/10/2026).** En 5° tampoco se dicta
+  Arte y Cultura (0 cargas). El colegio llena sus **dos** columnas con GAMA duplicada; hasta
+  ese día lo hacía Registro Académico **a mano**, porque el llenador la dejaba en blanco. Usa
+  el mismo mecanismo que EREL (`columnas => null` = todas). Pendiente: correr `--simular` sobre
+  un acta real de 5° para confirmar la hoja.
 
 - **`035-EREL` ← Ética y Valores, TODOS los grados de secundaria.** El área Educación
   Religiosa (id 14, código `035`) tiene 2 competencias y **0 cargas**: nadie la
@@ -332,6 +341,15 @@ bimestre). El reporte marca cada hoja afectada con `[EXCEPCIÓN: …]`.
   promedio final + conclusión del tutor, vía `getTransversalesAgregadas`. En 1°-4° EPT
   se dicta normalmente y la hoja **no se toca**. GAMA queda escrita **dos veces** en
   5°: en su hoja transversal `0007` y en la `032` (comportamiento esperado).
+  - **Conclusión de RÉPLICA (02/10/2026, migración 072).** En las hojas `032` y `0001`
+    de 5.º, si la conclusión de GAMA es **obligatoria** (C), el llenador escribe la
+    conclusión **propia del área** (`conclusiones_replica_acta`, la escribe el tutor),
+    repetida en todas las columnas de la hoja. Con GAMA aprobatoria escribe la de GAMA,
+    como antes. **Si falta** (cierre de bimestre forzado o retorno de grado con grado
+    oficial distinto), escribe la de GAMA y lo avisa en el reporte: *«falta la conclusión
+    de réplica de … — se escribe la de la nota de origen»*. Lectura:
+    `SiagieExportModel::conclusionesReplica` (une las fuentes del retorno). La `035` de
+    Ética no cambia: no es réplica.
   - **VERIFICADO contra un acta real de 5° (29/07/2026, `S5B.xlsx`, lectura pura del
     zip).** Los tres datos que faltaban:
     1. El libro **sí trae la hoja**, y su tab real es **`032-ETRA`** (no `032-EPT`,

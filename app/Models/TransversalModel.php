@@ -414,7 +414,8 @@ class TransversalModel extends BaseModel
 
     /**
      * Conclusiones obligatorias FALTANTES según el literal agregado:
-     * primaria exige en B y C; secundaria solo en C.
+     * primaria exige en B y C; secundaria solo en C. Suma las de RÉPLICA del
+     * acta SIAGIE (`ConclusionReplicaModel`, 02/10/2026).
      */
     public function conclusionesObligatoriasPendientes(
         int $seccionId,
@@ -437,6 +438,13 @@ class TransversalModel extends BaseModel
                 }
             }
         }
+
+        // Réplicas del acta SIAGIE (migración 072): con GAMA en C en 5.º, una
+        // conclusión más por área destino. Mismo control, así que también la
+        // exigen el cierre del director y el panel del docente.
+        $pendientes += (new ConclusionReplicaModel())
+            ->pendientes($seccionId, $periodoId, $nivelCodigo, $promedios);
+
         return $pendientes;
     }
 

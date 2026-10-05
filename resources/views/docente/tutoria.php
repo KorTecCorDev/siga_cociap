@@ -12,6 +12,9 @@
  * @var array      $alumnos
  * @var array      $promedios     [matricula_id => [competencia_id => nota]]
  * @var array      $conclusiones  [matricula_id => [competencia_id => texto]]
+ * @var array      $replicas      [matricula_id => [competencia_id => {literal, destinos[]}]]
+ *                                réplicas del acta SIAGIE que exigen conclusión (02/10/2026)
+ * @var array      $textosReplica [matricula_id => [area_id => texto]]
  */
 
 $nivel    = $seccion['nivel_codigo'] === 'prim' ? 'primaria' : 'secundaria';
@@ -332,5 +335,106 @@ $editable = !$cerrado && $listo;
         </div>
     <?php endif; ?>
 </div>
+
+<?php
+// RÉPLICAS DEL ACTA SIAGIE (02/10/2026, migración 072). En 5.º de secundaria la
+// nota de GAMA también llena las actas de otras áreas (EQUIVALENCIAS_ACTA_SIAGIE).
+// Cuando su conclusión es OBLIGATORIA, el tutor escribe una por área destino.
+// Solo con promedio definitivo: en estado provisional el literal puede cambiar.
+// Los textareas comparten clase con los de arriba, así que el mismo botón los
+// guarda y el mismo control de obligatorias los exige.
+$nombresComp = array_column($competencias, 'nombre_corto', 'id');
+$filasReplica = [];
+if ($replicas !== [] && ($editable || $cerrado)) {
+    foreach ($alumnos as $al) {
+        $mid = (int) $al['matricula_id'];
+        foreach ($replicas[$mid] ?? [] as $compId => $req) {
+            $filasReplica[] = ['alumno' => $al, 'comp_id' => (int) $compId, 'req' => $req];
+        }
+    }
+}
+?>
+<?php if ($filasReplica !== []): ?>
+<div class="card mb-lg">
+    <div class="card__header">
+        <h2 class="card__title">Conclusiones descriptivas requeridas</h2>
+    </div>
+    <div class="card__body">
+        <p class="text-sm text-muted">
+            En el acta del SIAGIE, la nota de estas competencias también se registra en
+            otras áreas. Escribe una conclusión para cada área: se usa solo en el acta,
+            no sale en la boleta.
+        </p>
+    </div>
+    <div class="tabla-notas-wrapper">
+        <table class="tabla-resumen tutoria-tabla">
+            <thead>
+                <tr>
+                    <th class="col-num">N°</th>
+                    <th class="col-nombre">Apellidos y nombres</th>
+                    <th class="col-literal col-resultado text-center">Competencia</th>
+                    <th class="col-conclusion">Conclusiones descriptivas</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($filasReplica as $i => $fila): ?>
+                    <?php
+                    $alumno  = $fila['alumno'];
+                    $matId   = (int) $alumno['matricula_id'];
+                    $literal = $fila['req']['literal'];
+                    $nombreFuente = $nombresComp[$fila['comp_id']] ?? '';
+                    ?>
+                    <tr>
+                        <td class="col-num"><?= $i + 1 ?></td>
+                        <td class="col-nombre"><?= e($alumno['apellido_paterno'] . ' ' . $alumno['apellido_materno'] . ', ' . $alumno['nombres']) ?></td>
+                        <td class="col-literal col-resultado text-center">
+                            <?= e($nombreFuente) ?>
+                            <span class="nota-literal nota-literal--<?= strtolower($literal) ?>"><?= $literal ?></span>
+                        </td>
+                        <td class="col-conclusion">
+                            <?php foreach ($fila['req']['destinos'] as $d): ?>
+                                <?php
+                                $areaId = (int) $d['area_id'];
+                                $texto  = $textosReplica[$matId][$areaId] ?? '';
+                                ?>
+                                <?php if ($editable): ?>
+                                    <?php $replicaId = 'concl-rep-' . $matId . '-' . $areaId; ?>
+                                    <div class="tutoria-conclusion">
+                                        <div class="tutoria-conclusion__campo">
+                                            <label class="tutoria-conclusion__label" for="<?= $replicaId ?>">
+                                                <?= e($d['area_nombre']) ?>
+                                                <small class="obligatorio">* Requerida (<?= $literal ?>)</small>
+                                            </label>
+                                            <textarea
+                                                id="<?= $replicaId ?>"
+                                                class="form-input textarea-conclusion-transversal"
+                                                rows="2"
+                                                maxlength="500"
+                                                data-matricula-id="<?= $matId ?>"
+                                                data-area-id="<?= $areaId ?>"
+                                                data-obligatorio="1"
+                                                placeholder="* Obligatoria"><?= e($texto) ?></textarea>
+                                        </div>
+                                    </div>
+                                <?php elseif ($texto !== ''): ?>
+                                    <p class="conclusion-texto">
+                                        <strong><?= e($d['area_nombre']) ?>:</strong>
+                                        <?= e($texto) ?>
+                                    </p>
+                                <?php else: ?>
+                                    <p class="conclusion-texto text-muted">
+                                        <strong><?= e($d['area_nombre']) ?>:</strong>
+                                        — sin conclusión
+                                    </p>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php endif; ?>

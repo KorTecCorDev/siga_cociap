@@ -230,7 +230,10 @@ class ActasSiagieController extends BaseController
         foreach ($excepciones as $exc) {
             if (!empty($exc['competencia']['area_id'])) {
                 $areaId = (int) $exc['competencia']['area_id'];
-                $recibePorExcepcion[$areaId] = $exc['codigo_hoja'];
+                // Se ACUMULAN: GAMA llena dos hojas en 5° (032 y 0001, 02/10/2026).
+                $recibePorExcepcion[$areaId] = isset($recibePorExcepcion[$areaId])
+                    ? $recibePorExcepcion[$areaId] . ', ' . $exc['codigo_hoja']
+                    : $exc['codigo_hoja'];
                 $hojaTomada[$exc['nivel_id'] . '|' . $exc['codigo_hoja']] = [
                     'area_id'     => $areaId,
                     'area_nombre' => $exc['competencia']['area_nombre'] ?? '',

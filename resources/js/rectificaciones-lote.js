@@ -13,6 +13,9 @@
  *   4. Cuenta las filas con dato y habilita el botón de registrar.
  *   5. Filas de CONDUCTA (literal en vivo) y ASISTENCIA (solo dígitos, tope
  *      que llega en data-tope) — migración 063. Cuentan como una fila más.
+ *   6. RÉPLICAS del acta SIAGIE (migración 072): en la fila de GAMA de 5.º,
+ *      muestra y exige una conclusión por área destino solo cuando el
+ *      literal exige conclusión. Ocultas, nunca son `required`.
  *
  * ⚠️ Los umbrales de la escala y los literales que exigen conclusión NO se
  * escriben aquí: llegan en data-* desde PHP, que los saca de las constantes de
@@ -77,6 +80,15 @@
         var marca = bloqueConclusion
             ? bloqueConclusion.querySelector('[data-concl-obligatoria]')
             : null;
+        var replicas = bloqueConclusion
+            ? bloqueConclusion.querySelector('[data-concl-replicas]')
+            : null;
+
+        function mostrarReplicas(si) {
+            if (!replicas) return;
+            replicas.hidden = !si;
+            replicas.querySelectorAll('textarea').forEach(function (t) { t.required = si; });
+        }
 
         var n = notaDe(input);
 
@@ -89,6 +101,7 @@
                 bloqueConclusion.hidden = true;
                 if (textarea) textarea.required = false;
             }
+            mostrarReplicas(false);
             return;
         }
 
@@ -106,6 +119,7 @@
             if (textarea) textarea.required = exige;
             if (marca)    marca.hidden = !exige;
         }
+        mostrarReplicas(exige);
     }
 
     /** Al salir del campo: recorta a 0-20 con dos dígitos (como el docente). */

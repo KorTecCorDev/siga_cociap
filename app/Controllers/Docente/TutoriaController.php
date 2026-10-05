@@ -4,6 +4,7 @@ namespace App\Controllers\Docente;
 
 use App\Controllers\BaseController;
 use App\Models\CalificacionModel;
+use App\Models\ConclusionReplicaModel;
 use App\Models\TransversalModel;
 use Core\Session;
 
@@ -26,12 +27,14 @@ class TutoriaController extends BaseController
 {
     private TransversalModel  $transModel;
     private CalificacionModel $calModel;
+    private ConclusionReplicaModel $replicaModel;
 
     public function __construct()
     {
         $this->requireRole(['docente', 'admin']);
         $this->transModel = new TransversalModel();
         $this->calModel   = new CalificacionModel();
+        $this->replicaModel = new ConclusionReplicaModel();
     }
 
     /**
@@ -94,6 +97,11 @@ class TutoriaController extends BaseController
         $promedios    = $this->transModel->getPromediosSeccion($sid, $pid);
         $conclusiones = $this->transModel->getConclusionesSeccion($sid, $pid);
 
+        // Réplicas del acta SIAGIE (02/10/2026): con GAMA en C en 5.º, una
+        // conclusión por área destino. Vacío en los demás grados.
+        $replicas      = $this->replicaModel->requeridas($sid, (string) $seccion['nivel_codigo'], $promedios);
+        $textosReplica = $replicas !== [] ? $this->replicaModel->getSeccion($sid, $pid) : [];
+
         $this->view('docente/tutoria', [
             'titulo'       => 'Tutoría — Sección ' . $seccion['nombre'],
             'seccion'      => $seccion,
@@ -106,6 +114,8 @@ class TutoriaController extends BaseController
             'alumnos'      => $alumnos,
             'promedios'    => $promedios,
             'conclusiones' => $conclusiones,
+            'replicas'     => $replicas,
+            'textosReplica' => $textosReplica,
             'page_scripts' => ['tutoria'],
         ]);
     }
@@ -166,6 +176,70 @@ class TutoriaController extends BaseController
 
         $ok = $this->transModel->guardarConclusion(
             $matriculaId, $competenciaId, $periodoId, $conclusion, (int) $user['id']
+        );
+
+        $this->json([
+            'success' => $ok,
+            'mensaje' => $ok ? 'Conclusión guardada.' : 'Error al guardar.',
+        ]);
+    }
+
+    /**
+     * POST /docente/tutoria/{periodo_id}/conclusion-replica
+     * Guarda la conclusión de RÉPLICA de UN alumno para UN área destino del
+     * acta SIAGIE (AJAX). Mismas guardas que `guardarConclusion` más una: el
+     * área debe ser destino de réplica de la sección.
+     */
+    public function guardarConclusionReplica(string $periodoId): void
+    {
+        $this->validateCsrf();
+
+        $user    = Session::user();
+        $seccion = $this->transModel->getSeccionDelTutor((int) $user['id']);
+        if (!$seccion) {
+            $this->json(['success' => false, 'mensaje' => 'No eres tutor(a) de una sección.'], 403);
+        }
+
+        $periodoId   = (int) $periodoId;
+        $sid         = (int) $seccion['id'];
+        $matriculaId = (int) $this->input('matricula_id');
+        $areaId      = (int) $this->input('area_id');
+        $conclusion  = trim($this->input('conclusion', ''));
+
+        if (!$matriculaId || !$areaId) {
+            $this->json(['success' => false, 'mensaje' => 'Datos incompletos.'], 400);
+        }
+        if (mb_strlen($conclusion) > 500) {
+            $this->json(['success' => false, 'mensaje' => 'La conclusión no puede pasar de 500 caracteres.'], 400);
+        }
+
+        $pertenece = $this->calModel->queryOne("
+            SELECT id FROM matriculas WHERE id = ? AND seccion_id = ?
+        ", [$matriculaId, $sid]);
+        if (!$pertenece) {
+            $this->json(['success' => false, 'mensaje' => 'El alumno no pertenece a tu sección.'], 403);
+        }
+
+        if (!in_array($areaId, array_column($this->replicaModel->destinosDeSeccion($sid), 'area_id'), true)) {
+            $this->json(['success' => false, 'mensaje' => 'Esa área no recibe réplica en tu sección.'], 400);
+        }
+
+        if ($this->transModel->getCierreVigente($sid, $periodoId)) {
+            $this->json(['success' => false, 'mensaje' => 'El bimestre transversal ya está cerrado.'], 403);
+        }
+
+        // Promedio DEFINITIVO, como en `guardarConclusion`: la réplica describe
+        // la misma nota y no se escribe sobre un promedio que aún puede cambiar.
+        $estado = $this->transModel->estadoCargasSeccion($sid, $periodoId);
+        if ($estado['total'] === 0 || $estado['bloqueadas'] < $estado['total']) {
+            $this->json([
+                'success' => false,
+                'mensaje' => 'Aún no puedes registrar conclusiones: el promedio todavía puede cambiar.',
+            ], 403);
+        }
+
+        $ok = $this->replicaModel->guardar(
+            $matriculaId, $areaId, $periodoId, $conclusion, (int) $user['id']
         );
 
         $this->json([

@@ -1,11 +1,60 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **01/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **02/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🆕 TUTOR DEL BIMESTRE EN LOS DOCUMENTOS — EN `dev` (01/10/2026), SIN DESPLEGAR
+## 🟡 CONCLUSIONES DE RÉPLICA DEL ACTA SIAGIE — en `dev`, SIN DESPLEGAR (02/10/2026, migración 072)
+
+GAMA en 5.º llena también las actas de EPT (`032`) y Arte y Cultura (`0001`). Con GAMA en C,
+el tutor escribe una conclusión por área destino (card «Conclusiones descriptivas
+requeridas»); el cierre del tutor y del director las exige; el lote extraordinario las pide;
+el llenador las escribe y, si faltan, copia la de GAMA con aviso. No salen en la boleta.
+Detalle: `calificaciones.md` (Vista del tutor) y `export-siagie.md` (`032-ETRA`).
+- [x] Migración **072** `conclusiones_replica_acta` aplicada en la BD local.
+- [x] `verif_conclusion_replica.php` verde (helper, destinos, simulación con rollback de las
+      dos ramas) + verificadores de transversales, extraordinaria, situación final y tutor.
+- [x] Vista del tutor renderizada por CLI con datos simulados (editable y cerrada; texto escapado).
+- [x] Navegador (02/10, sesión admin, sin enviar): lote de la matrícula 281 (5.º, II Bimestre).
+      GAMA 08 → aparecen y se exigen EPT y Arte y Cultura; 15 → se ocultan y dejan de ser
+      `required`; vacía → todo oculto. La fila de TIC no lleva réplicas. Estilo igual al existente.
+- [x] Navegador (02/10) con sesión de **tutora de Secundaria 5.º A**, con GAMA en C simulada en
+      la BD local (matrícula 236, II Bimestre, cierre 144 anulado y después restaurado; todo
+      devuelto a su valor exacto). Card visible con EPT y Arte requeridas; cierre rechazado con
+      3 pendientes → guardadas por el botón → 1 pendiente; recarga conserva el texto; borrar
+      elimina la fila; editar re-deshabilita «Aprobar»; con el cierre vigente, solo lectura.
+      Guardas del endpoint: área no destino (400), más de 500 caracteres (400), alumno ajeno
+      (403). `SiagieExportModel::conclusionesReplica` lee el dato real.
+- [x] Navegador con tutora de **Primaria 5.º A**: con C en TIC/GAMA, la card NO aparece.
+- [ ] 🔴 Producción: aplicar la **072** ANTES del merge (sin ella, el control de cierre del
+      tutor falla al leer la tabla).
+- [ ] Merge `dev` → `main` (preguntar antes).
+
+## 🟡 SITUACIÓN FINAL = LO QUE VA EN EL ACTA SIAGIE — en `dev`, SIN DESPLEGAR (02/10/2026, sin migración)
+
+Nació del análisis «riesgo académico en secundaria / 5.º / Actas SIAGIE». Regla y decisiones en
+`promocion-de-grado.md` § 5.1.1. Resumen: Ética cuenta como Ed. Religiosa de 2 competencias en
+toda secundaria y, en 5.º, GAMA como EPT (1) y Arte y Cultura (2). Punto único nuevo
+`EQUIVALENCIAS_ACTA_SIAGIE` (`helpers.php`), que leen el llenador y `SituacionFinalModel`; el
+llenador gana la hoja `0001` de 5.º (antes RA la llenaba a mano).
+- [x] Verificadores verdes en local: `verif_situacion_final`, `verif_riesgo_situacion_bd` (con
+      asertos nuevos y prueba de las dos ramas: con la sustitución anulada fallan),
+      `verif_periodo_final`, `verif_riesgo_tutor`, `verif_direccion_superficies`,
+      `verif_universo_merito`, `verif_plan_completo_boleta`.
+- [x] Medido: 0 cambios de sigla y cobertura idéntica en B1 y B2 (5.º sigue 24 y 22 en riesgo).
+- [ ] `php scripts/siagie/llenar-siagie.php --simular` sobre un **acta real de 5.º**: la hoja
+      `0001` debe salir `[EXCEPCIÓN …]` con sus 2 columnas = GAMA; `032` y `035` sin cambios.
+- [x] Navegador (02/10, sesión admin): `/admin/actas-siagie/vinculos` OK — Arte 5.º
+      «reemplazada en 5°», Transversales con `032, 0001`. `/admin/cuadros/acompanamiento` carga
+      sin errores en B1-B3; las filas «Ética y Valores» / «GAMA» no aparecen porque hoy no hay
+      ninguna en C (Ética mínima 11) — el caso lo cubre la simulación del verificador.
+- [ ] Merge `dev` → `main` (preguntar antes).
+- Recomendación no implementada: en el IV, una sección de 5.º sin cierre de transversales deja
+  Arte y EPT pendientes (`PEND`) y bloquea la situación definitiva; `avisoPeriodoFinal()` no lo
+  explica (lista las vacías por cargas).
+
+## 🟢 TUTOR DEL BIMESTRE EN LOS DOCUMENTOS — DESPLEGADO el 01/10/2026 (merge `d7a677e`, sin cambio de versión: sigue v1.0.5)
 
 Nació del análisis «cambiar al tutor de 3.º A sec. con el III activo». Detalle y decisiones
 en `admin.md` § «Cambiar de tutor a mitad de año». Resumen: el cierre del bimestre congela
@@ -18,14 +67,12 @@ acompañamiento nombran al del bimestre; las funciones siguen con el tutor actua
       (A4 y digital), acta de mérito del II y acompañamiento del II siguen con ZAMBRANO;
       la vista previa del III nombra al tutor nuevo; `/admin/secciones` al de hoy.
       Revertido. La vista previa del III de 3.º A sale vacía en local (0 bloqueos en el III).
-- [ ] Pruebas que requieren al usuario: cambiar el tutor desde el modal de
-      `/admin/secciones` y entrar como DOCENTE (saliente sin tutoría; entrante con panel,
-      conducta y acompañamiento cuyo rótulo es el del bimestre).
-- [ ] 🔴 **Producción: ANTES del push, correr el PREVIEW de la 071** (cierres hechos por un
-      docente que no es el tutor actual) y luego aplicar la 071 a mano. Si el preview
-      devuelve filas, corregir esa fila de `secciones_tutor_periodo` tras el relleno.
-- [ ] Si se cambia de tutor en 3.º A: es independiente de este cambio, pero hacerlo
-      DESPUÉS de desplegar la 071 para que I y II queden congelados con Zambrano.
+- [x] Pruebas del usuario en desarrollo (01/10): cambio de tutor desde el modal, sesiones
+      de docente saliente y entrante, y Reemplazo de la TOE de 3.º A a MONTES (local).
+- [x] 🔴 **Producción (01/10, el usuario):** PREVIEW de la 071 con 0 filas, 071 aplicada a
+      mano ANTES del push y comprobación de I y II congelados. Luego merge `dev` → `main`.
+- [x] ✅ 01/10: cambio hecho en producción por el usuario, con éxito. — **Producción:** cambiar el tutor de 3.º A a MONTES y Reemplazo de su carga TOE (como
+      en desarrollo); comprobar que la boleta de 3.º A sigue firmada por ZAMBRANO.
 - Fuera de alcance (decisión del usuario): encadenar el cambio de tutor con la carga
   TOE/Ética y relajar la regla «la TOE solo la dicta el tutor».
 
@@ -40,7 +87,7 @@ Propuesta ya presentada: historial de reaperturas (etapa, quién, cuándo, motiv
 migración nueva. Pendiente de decidir: si durante «Pendiente tutor» la boleta muestra la
 nota del tutor en vivo (como hoy) o congela la última cerrada. **NO se hace ahora.**
 
-## 🆕 REGLA DEL PERIODO FINAL + SITUACIÓN FINAL DEFINITIVA — EN `dev` (commit del 01/10/2026), SIN DESPLEGAR
+## 🟢 REGLA DEL PERIODO FINAL + SITUACIÓN FINAL DEFINITIVA — DESPLEGADO el 01/10/2026 (merge `d7a677e`, sin cambio de versión: sigue v1.0.5)
 
 El pendiente con tope **05/10/2026** (regla del 10/08). Sin migración. Detalle en
 `calificaciones.md` § «REGLA DE NEGOCIO — autonomía del docente y periodo final» y
@@ -73,9 +120,8 @@ El pendiente con tope **05/10/2026** (regla del 10/08). Sin migración. Detalle 
 - [ ] **Probar en navegador**: botón «No se evaluó» y cierre detenido / «Cerrar igual» (hace
       falta simular un periodo final o esperar al IV).
 - [x] Commit y push a `dev` (01/10/2026, pedido del usuario).
-- [ ] **Deploy a `main`** (decisión del usuario, preguntar antes). El IV abre el **05/10**:
-      conviene que esté en producción ANTES de que los docentes empiecen a bloquear. Sin
-      migración.
+- [x] **Deploy a `main`** el 01/10/2026 (merge `d7a677e`), antes de que abra el IV (05/10).
+      Sin migración propia (salió junto con la 071 del tutor del bimestre).
 - [x] **Ancla única del periodo final** (pedido del usuario, mismo día):
       `AnioAcademicoModel::ultimoPeriodoDelAnio()`. Ahora la consumen `esPeriodoFinal()`,
       `BoletaModel` (logro anual), la copia dormida `BoletaPublicaController` y
@@ -93,7 +139,7 @@ El pendiente con tope **05/10/2026** (regla del 10/08). Sin migración. Detalle 
       - El resumen oculta «Aprobar y bloquear» con un aviso.
       - Probado con el controlador REAL en subproceso (transacción sin commit).
       - Verificador: 3 mutantes nuevos caen. Batería 56/56.
-- [ ] ⚠️ **Avisar a los docentes del plazo estricto** antes del IV: hasta ahora podían aprobar
+- [x] ✅ 01/10: los docentes ya lo saben (usuario). — ⚠️ **Avisar a los docentes del plazo estricto** antes del IV: hasta ahora podían aprobar
       después del plazo.
 
 ## 🟢 PLANILLA DE ASISTENCIA — DESPLEGADA el 01/10/2026 (sin cambio de versión: sigue v1.0.5)
@@ -182,10 +228,10 @@ POR FECHAS, lista del día y días no lectivos, y las seis rondas de ajustes.
       En `/admin/asistencia` solo 2.° A sec. tiene confirmaciones del III (25/26); el resto
       está en 0 %, lo esperable sin auxiliares reales.
 - [ ] Panel del tutor (`/docente/conducta`) en producción: pide una sesión de TUTOR.
-- [ ] Usuarios reales de los auxiliares y sus secciones (sin ellos nadie entra como auxiliar).
+- [x] ✅ 01/10: usuarios auxiliares creados y secciones asignadas en producción (usuario). — Usuarios reales de los auxiliares y sus secciones (sin ellos nadie entra como auxiliar).
       **Los crea el usuario en producción** (`/admin/usuarios/crear` + `/admin/auxiliares`);
       se marca cuando lo confirme (01/10/2026).
-- [ ] Declarar en `/admin/asistencia/no-lectivos` los feriados que decida el colegio antes de
+- [x] ✅ 01/10: sin feriados por ahora; el usuario los declarará cuando corresponda. — Declarar en `/admin/asistencia/no-lectivos` los feriados que decida el colegio antes de
       bloquear el III (el bloqueo exige lista en todo día lectivo). **Fecha tope: antes de
       bloquear el III, que termina el 09/10.** Candidato: el 08/10 (Combate de Angamos).
       Al 01/10 el colegio aún no decide.
@@ -234,8 +280,9 @@ impersonales, Usuarios solo para admin, grillas sin columna Estado, imprimible c
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 
 **Al retomar EN CASA, antes de probar nada:**
-- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 070**: aplicarlas a
-      mano en orden. Sin la 068 y la 069 el código nuevo falla (`conducta_confirmaciones`,
+- [ ] 🔴 La BD de casa probablemente NO tiene las migraciones **065 a 072** (la **071**,
+      tutor del bimestre, se sumó el 01/10: sin ella falla el cierre de bimestre; la **072**,
+      réplicas del acta, el 02/10): aplicarlas a mano en orden. Sin la 068 y la 069 el código nuevo falla (`conducta_confirmaciones`,
       `inasistencias.confirmado_en`, `asistencia_incidencias`,
       `periodos.asistencia_por_fechas`). Tampoco tiene auxiliares de prueba (ver punto 1).
 
@@ -302,7 +349,7 @@ impersonal + nombre real), `asistencia.js` conserva lo tecleado y marca la celda
 - [x] **Confirmar + autoguardado (B2) y asistencia POR FECHAS** implementados y probados en
       local el 29/09/2026 (sin commit). Detalle y avance por fases en
       `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
-- [ ] Usuarios reales de los auxiliares: DNI, apellidos, nombres, sexo, celular, correo y
+- [x] ✅ 01/10: usuarios auxiliares creados y secciones asignadas en producción (usuario). — Usuarios reales de los auxiliares: DNI, apellidos, nombres, sexo, celular, correo y
       sus secciones (pedírselos al usuario).
 - [x] Merge `dev` → `main` (con `--no-ff`), pedido por el usuario el 30/09/2026 (v1.0.5).
 
@@ -452,7 +499,7 @@ commit de docs). **Sin desplegar a `main`** (el usuario lo deja para el final). 
       `talleres_aprobacion`, `talleres_resolucion`) — aplicada por el usuario el 27/09/2026; los dos
       talleres de secundaria quedaron con `tipo = 'taller'`. Sin ella, el dashboard de todo tutor
       falla (la card de riesgo consulta `talleres_aprobacion`): por eso va ANTES del merge.
-- [ ] Avisar a Dirección al desplegar: la cifra de riesgo de B1 pasa de 199 (regla vieja) a
+- [x] ✅ 01/10: comunicado y reportes de acompañamiento repartidos (usuario). — Avisar a Dirección al desplegar: la cifra de riesgo de B1 pasa de 199 (regla vieja) a
       **136**, y ahora significa «no sería promovido» (situación final del MINEDU).
 - [x] Sesión de **docente tutor** (3.° A sec) el 24/09: card, `/docente/tutoria/acompanamiento`
       B1 y B2, redirección desde `/riesgo`, A4 y bloque de seguimiento (2 en B1), bien.
@@ -548,7 +595,7 @@ Análisis pedido por el usuario sobre las áreas que no tienen todas sus compete
       Guardas nuevas con mutante que cae: `verif_riesgo_situacion_bd.php` § 7b y el aserto
       «sin casos en …» de `verif_direccion_superficies.php`. **Batería 47/47.**
 - [x] **Commiteado y pusheado a `dev`** (24/09/2026), dentro de `c31881d`.
-- [ ] Al desplegar: avisar a Dirección de que la cifra de riesgo **baja** (199 → 144 en B1) y
+- [x] ✅ 01/10: comunicado y reportes de acompañamiento repartidos (usuario). — Al desplegar: avisar a Dirección de que la cifra de riesgo **baja** (199 → 144 en B1) y
       de que ahora significa otra cosa (no «acumula notas bajas» sino «no sería promovido»).
 
 > Lo que YA está verificado sin navegador, para no repetirlo: render real de las vistas en
@@ -635,7 +682,7 @@ sección «bimestres CERRADOS» de `usuarios-direccion.md`); **las otras siete l
 desde antes de la v1.0.1** — el hueco de proceso que advierte CLAUDE.md.
 
 **Pendiente de producción:**
-- [ ] Confirmar que se corrió `php database/reparar_notas_externas_truncadas.php --confirmar`
+- [x] ✅ 01/10: script confirmado por el usuario. — Confirmar que se corrió `php database/reparar_notas_externas_truncadas.php --confirmar`
       (primero sin `--confirmar`, que solo simula).
 - [x] Revisar en `https://sigacociap.net`: login, la campana, una boleta y
       `/matriculas/{id}/notas-externas`. **01/10/2026, sesión de ADMIN:** login correcto,
@@ -853,7 +900,7 @@ con sesión de director.
 - [x] `/traslados/999999/imprimir`
 
 **§7 — Regresión general**
-- [ ] Login y dashboard con cada rol; la campana solo para docente, RA, admin y directores. ⚠️ 22/09: probado con admin, director y docente; RA no.
+- [x] ✅ 01/10: Director académico y RA con usuario y probados por el usuario. — Login y dashboard con cada rol; la campana solo para docente, RA, admin y directores. ⚠️ 22/09: probado con admin, director y docente; RA no.
 - [x] Un docente registra y guarda una nota por el flujo normal.
 - [ ] Boleta digital e imprimible de un alumno cualquiera, igual que en producción. ⚠️ 22/09: sin errores y sin fuga de notas de origen; no se comparó contra producción.
 - [ ] Orden de mérito de un grado, igual que en producción. ⚠️ 22/09: `/director/orden-merito` carga sin errores; no se comparó contra producción.
@@ -2585,7 +2632,7 @@ pregunta siempre antes.
 2. El siguiente hito con fecha: la **regla del periodo final** (tope **05/10/2026**),
    con sus 4 decisiones ya cerradas. ⚠️ Sería la **5.ª copia** de «carga dueña»:
    extraer el punto único ANTES de implementarla.
-3. **Usuarios de Dirección sigue sin probarse en navegador CON UN DIRECTOR.** El
+3. ✅ **01/10: cerrado** — Director académico y RA con usuario y probados por el usuario. ~~**Usuarios de Dirección sigue sin probarse en navegador CON UN DIRECTOR.**~~ El
    04/09 se recorrió `/admin/cuadros` y su A4 en navegador, pero **con sesión de
    administrador**, así que no dice nada del acceso de los tres roles directivos.
    Sigue faltando el DNI y el nombre del **Director académico de prueba**; sin ese

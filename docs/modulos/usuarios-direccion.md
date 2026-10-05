@@ -1456,6 +1456,13 @@ El **desglose** de cada estudiante lista sus competencias **no aprobatorias del 
 —esa se cuenta por área, y el **motivo** de la franja la resume—: es lo que el tutor tiene
 que remontar.
 
+**Como en el acta SIAGIE** (02/10/2026; `docs/modulos/promocion-de-grado.md` § 5.1.1): en
+secundaria la Ética sale como **«Educación Religiosa · Ética y Valores»**, una fila por cada
+competencia de EREL (2), y en 5.º la GAMA sale como **«Arte y Cultura · GAMA»** (2 filas) y
+**«Educación para el Trabajo · GAMA»** (1), con docente «—» (es el promedio de varias cargas).
+Por eso una C de Ética suma 2 al conteo de C, y una de GAMA en 5.º suma 3. Las vistas no
+cambiaron: pintan `área · curso` como siempre.
+
 El **motivo** va como **nota lateral** (27/09/2026; antes, cursiva gris que casi no se
 leía): rótulo «MOTIVO», borde izquierdo y fondo tenue en el color de la situación (rojo PER,
 ámbar RR) y el texto en color de lectura —el ámbar sobre claro no llega a AA en un

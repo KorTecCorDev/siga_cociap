@@ -17,6 +17,8 @@
  * @var int   $topeAsistencia      tope por contador (AsistenciaModel::TOPE_MAX)
  * @var int   $total               filas del lote: competencias + conducta + asistencia
  * @var array $literalesConclusion literales que EXIGEN conclusión en este nivel
+ * @var array $replicasPorComp     [competencia_id => [{area_id, area_nombre}]]
+ *                                 réplicas del acta SIAGIE (migración 072)
  * @var array|null $old            lo escrito antes de un rechazo del servidor
  *                                 (motivo, notas[clave], conclusiones[clave],
  *                                 conducta, asistencia[campo])
@@ -25,6 +27,7 @@ $volver     = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
 $old        = is_array($old ?? null) ? $old : null;
 $oldNotas   = is_array($old['notas'] ?? null) ? $old['notas'] : [];
 $oldConcl   = is_array($old['conclusiones'] ?? null) ? $old['conclusiones'] : [];
+$oldRepl    = is_array($old['replicas'] ?? null) ? $old['replicas'] : [];
 $oldCond    = (string) ($old['conducta'] ?? '');
 $oldAsist   = is_array($old['asistencia'] ?? null) ? $old['asistencia'] : [];
 
@@ -222,6 +225,29 @@ $obligatoriaTxt = $literalesConclusion === []
                                           class="form-input" rows="2"
                                           placeholder="Describe el nivel de logro alcanzado."><?= e((string) ($oldConcl[$clave] ?? '')) ?></textarea>
                                 <p class="text-sm text-muted"><?= e($obligatoriaTxt) ?></p>
+                                <?php // Réplicas del acta SIAGIE (02/10/2026): el JS las
+                                      // muestra y exige solo cuando el literal exige
+                                      // conclusión. No salen en la boleta. ?>
+                                <?php if ($esTransversal && !empty($replicasPorComp[(int) $c['competencia_id']])): ?>
+                                    <div data-concl-replicas hidden>
+                                        <p class="text-sm text-muted">
+                                            En el acta del SIAGIE esta nota también se registra en otras
+                                            áreas: escribe una conclusión para cada una. No sale en la boleta.
+                                        </p>
+                                        <?php foreach ($replicasPorComp[(int) $c['competencia_id']] as $d):
+                                            $idRep = 'concl_rep_' . str_replace('-', '_', $clave) . '_' . (int) $d['area_id'];
+                                        ?>
+                                            <label class="form-label" for="<?= e($idRep) ?>">
+                                                Conclusión para <?= e($d['area_nombre']) ?>
+                                                <span class="text-danger">*</span>
+                                            </label>
+                                            <textarea id="<?= e($idRep) ?>"
+                                                      name="conclusion_replica[<?= e($clave) ?>][<?= (int) $d['area_id'] ?>]"
+                                                      class="form-input" rows="2" maxlength="500"
+                                                      placeholder="Describe el nivel de logro alcanzado."><?= e((string) ($oldRepl[$clave][(int) $d['area_id']] ?? '')) ?></textarea>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>

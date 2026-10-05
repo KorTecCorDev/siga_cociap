@@ -8,7 +8,7 @@
 > 🔴 **REGLA OFICIAL DEL COLEGIO desde el 27/09/2026** (decisión del usuario): este algoritmo
 > define la **situación final de cada estudiante al terminar el año académico**. Ver § 6.2.
 >
-> **Vigente al 01/10/2026** (versión final de la regla, § 6.2; antes `c07e423`). El diario de cambios, las mediciones y los
+> **Vigente al 02/10/2026** (versión final de la regla, § 6.2, más el conteo por acta, § 5.1.1). El diario de cambios, las mediciones y los
 > detalles de pantalla del informe viven en `docs/modulos/usuarios-direccion.md`
 > § «Riesgo académico = situación final del MINEDU». Si este documento y el código discrepan,
 > **manda el código**, y este documento se corrige.
@@ -151,7 +151,7 @@ condición de C**, igual que el SIAGIE.
 
 | Cuenta | No cuenta |
 |---|---|
-| Competencias de las **áreas curriculares** | **Competencias transversales** (TIC y GAMA): la norma las excluye (5.1.3, p. 9) |
+| Competencias de las **áreas curriculares** | **Competencias transversales** (TIC y GAMA): la norma las excluye (5.1.3, p. 9). **Excepción:** GAMA en 5.º, por el acta (§ 5.1.1) |
 | **Ética y Valores** (secundaria): es el área-curso Educación Religiosa, que evalúa el tutor | **Tutoría (TOE)**: no tiene competencias |
 | **Notas extraordinarias** (alta tardía en bimestre cerrado): son notas oficiales de boleta y SIAGIE | **Áreas o subáreas exoneradas**: no entran ni al numerador ni al denominador |
 | **Talleres**, **solo** en los años y grados que la **UGEL aprobó** (`talleres_aprobacion`) | Talleres **no aprobados**: en 2026 ninguno, así que el Taller de Razonamiento Matemático y el de Pre-Cálculo **no cuentan** |
@@ -160,6 +160,33 @@ condición de C**, igual que el SIAGIE.
 > Las exclusiones son **distintas** a las del orden de mérito a propósito: el mérito ignora las
 > extraordinarias y sí incluye los talleres. Competir por un puesto y ser promovido son preguntas
 > distintas.
+
+### 5.1.1 Se cuenta lo que va en el ACTA SIAGIE (02/10/2026)
+
+**Decisión del usuario:** el SIAGIE calcula la situación final con el acta, así que SIGA cuenta
+**las áreas y competencias tal como el acta las lleva**, aunque en SIGA las evalúe otra área.
+Punto único: `EQUIVALENCIAS_ACTA_SIAGIE` (`helpers.php`), la MISMA lista que usa el llenador
+de actas para escribir esas hojas.
+
+| Hoja del acta | Grados | Se llena con | Cuenta como |
+|---|---|---|---|
+| `035-EREL` Educación Religiosa | toda secundaria | Ética y Valores (1 competencia), duplicada | Ed. Religiosa, **2 competencias** |
+| `032-ETRA` Educación para el Trabajo | **solo 5.º** | GAMA (transversal) | EPT, **1 competencia** |
+| `0001-ART Y CULT` Arte y Cultura | **solo 5.º** | GAMA, duplicada | Arte y Cultura, **2 competencias** |
+
+- En 5.º **GAMA cuenta tres veces** (y en C, dos áreas a la vez). Es la única vía por la que una
+  transversal entra a la situación final; el resto de transversales sigue fuera (5.1.3.9).
+- La nota de GAMA es **la misma del acta**: `ROUND(AVG)` de las cargas, bloqueadas, con el
+  cierre de transversales vigente (`CalificacionModel::getTransversalesAgregadas`). Sin cierre,
+  las competencias de EPT y Arte quedan **pendientes** (en el último bimestre, `PEND`).
+- Ética con duplicación da la misma sigla que sin ella (1/1 ≡ 2/2 en las tres medidas); lo que
+  cambia son los conteos de C/B y el desglose, que la muestra como el acta: «Educación Religiosa
+  · Ética y Valores». GAMA sale como «Arte y Cultura · GAMA» y «Educación para el Trabajo · GAMA».
+- **Degradación segura**, igual que el acta: si un área o la fuente no se identifican de forma
+  única, la equivalencia no se aplica.
+- Medido al implementarla (B1 y B2 de 2026, BD local): **0 estudiantes cambian de sigla** —ninguna
+  GAMA en C y ningún RR sin C en 5.º—. Es un cierre estructural: con una GAMA en A/AD aporta dos
+  áreas en A/AD; con una GAMA en C, el estudiante de 5.º deja de ser promovido.
 
 ### 5.2 Nivel de logro final de cada competencia
 
@@ -265,9 +292,9 @@ AD.
 | Último nivel registrado | Sí: la misma regla (RVM 048-2024). |
 | Transversales, exoneradas, extraordinarias | Sí. |
 | Talleres | Sí: cuentan solo si están en el plan del SIAGIE (aprobados por la UGEL). |
-| **Ética y Valores → Educación Religiosa** | Sí. El exportador duplica la nota de Ética en las 2 columnas de EREL. Con la lectura vigente de «más de la mitad», 1 de 1 y 2 de 2 dan el mismo resultado en las tres reglas. |
+| **Ética y Valores → Educación Religiosa** | Sí. El acta duplica la nota de Ética en las 2 columnas de EREL, y desde el 02/10/2026 la situación final la cuenta igual (§ 5.1.1). |
 | **«Más de la mitad» con n impar** | **Por confirmar.** La norma no lo define y el manual del SIAGIE no es público. Se contrastará con la situación final del SIAGIE al cierre del IV bimestre de 2026. |
-| ⚠️ **5.º de secundaria: EPT ← GAMA** | **Divergencia conocida.** En 5.º no se dicta EPT, y su acta en el SIAGIE (`032-ETRA`) se llena con la transversal GAMA. Para el SIAGIE, 5.º tiene un área más: una GAMA en C daría RR. SIGA no la cuenta. Hoy no afecta a nadie (0 GAMA en C). |
+| **5.º de secundaria: EPT y Arte ← GAMA** | **Sí, desde el 02/10/2026** (§ 5.1.1). Antes era una divergencia: SIGA no contaba GAMA y el acta la llevaba en `032-ETRA` (y, a mano, en `0001-ART Y CULT`). Ahora el llenador escribe las dos hojas y la situación final las cuenta, con la misma regla. |
 
 **Momento del cálculo:** el SIAGIE solo determina la situación final al cierre del año. Todo lo que
 SIGA muestra en los bimestres I a III es proyección; la comparación real se hace en el IV bimestre.
@@ -285,6 +312,7 @@ SIGA muestra en los bimestres I a III es proyección; la comparación real se ha
 | `situacion_final_proyectar()` | `app/Helpers/helpers.php` | Certeza (mejor y peor caso contra el plan) y `PEND` en el último bimestre. |
 | `situacion_efecto_competencia()` | `app/Helpers/helpers.php` | Chip de cada competencia en el informe (⚠ PER, ⚠ RR, «En el límite»). |
 | `SituacionFinalModel` | `app/Models/SituacionFinalModel.php` | Los datos: roster, notas, plan, retorno de grado y talleres (`areasQueCuentan()`). |
+| `EQUIVALENCIAS_ACTA_SIAGIE` | `app/Helpers/helpers.php` | Hojas del acta que llena otra área (§ 5.1.1). La aplican `SituacionFinalModel::aplicarActa()` y `LlenadorSiagie`. |
 | `AnioAcademicoModel::ultimoPeriodoDelAnio()` / `esPeriodoFinal()` | `app/Models/AnioAcademicoModel.php` | **Ancla única** del último periodo del año. La usan esta regla, el logro anual y `SituacionFinalModel`. |
 | `AnioAcademicoModel::avisoPeriodoFinal()` | `app/Models/AnioAcademicoModel.php` | Lo que deja pendiente el cierre del último periodo: competencias vacías, `PEND` y sin datos. |
 | Compuerta de «Cerrar año» | `Director\AnioAcademicoController::cerrar` | Exige `riesgo_resumen()['definitiva']` del último periodo. |
@@ -297,7 +325,7 @@ de control de las verificaciones, que existen precisamente para detectar si la r
 | Script | Qué protege |
 |---|---|
 | `database/verificaciones/verif_situacion_final.php` | La regla pura: convenciones de «la mitad» y «más de la mitad», un caso por rama de cada cuadro, la frontera entre «la mitad o más» y «más de la mitad», la monotonía de la proyección (3 000 casos aleatorios) y los chips. |
-| `database/verificaciones/verif_riesgo_situacion_bd.php` | Contra la BD: recalcula cada situación con una copia de control escrita a mano, más talleres, último nivel registrado, retorno de grado y certeza. |
+| `database/verificaciones/verif_riesgo_situacion_bd.php` | Contra la BD: recalcula cada situación con una copia de control escrita a mano, más talleres, último nivel registrado, retorno de grado y certeza. Desde el 02/10/2026, también las **equivalencias del acta**: GAMA en lote = GAMA del acta alumno por alumno, y simulación con rollback (GAMA en C en 5.º y en 4.º, Ética en C en 3.º). |
 | `database/verificaciones/verif_periodo_final.php` | La regla del periodo final: punto único, guarda del docente, competencias vacías (trasladados, retirados y exonerados) y `PEND` con un periodo final simulado (ROLLBACK). |
 
 ---
@@ -316,3 +344,4 @@ de control de las verificaciones, que existen precisamente para detectar si la r
 | 27/09/2026 | **Este algoritmo pasa a ser la regla oficial de la situación final al cerrar el año académico** (§ 6.2). |
 | 27/09/2026 | Se deroga la ampliación del 25/09: **riesgo y seguimiento son disjuntos**; su suma es el total de acompañamiento pedagógico, que el resumen del informe muestra. |
 | 01/10/2026 | **Versión final de la regla:** `definitiva` exige también 0 sin datos; en el último bimestre no existe «No se evaluó»; su cierre admite vacías solo con confirmación (RA las completa con la extraordinaria); **cerrar el año exige la situación definitiva**. |
+| 02/10/2026 | **Se cuenta lo que va en el acta SIAGIE** (§ 5.1.1): Ética como Ed. Religiosa de 2 competencias (toda secundaria) y, en 5.º, GAMA como EPT (1) y Arte y Cultura (2). El llenador gana la hoja `0001` de 5.º. |

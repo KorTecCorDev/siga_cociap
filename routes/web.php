@@ -448,6 +448,7 @@ $router->get( '/docente/tutoria/acompanamiento',          'Docente\RiesgoTutorCo
 $router->get( '/docente/tutoria/riesgo/imprimir',         'Docente\RiesgoTutorController@rutaAnterior');
 $router->get( '/docente/tutoria/riesgo',                  'Docente\RiesgoTutorController@rutaAnterior');
 $router->post('/docente/tutoria/{periodo_id}/conclusion',  'Docente\TutoriaController@guardarConclusion');
+$router->post('/docente/tutoria/{periodo_id}/conclusion-replica', 'Docente\TutoriaController@guardarConclusionReplica');
 $router->post('/docente/tutoria/{periodo_id}/cerrar',      'Docente\TutoriaController@cerrar');
 $router->get( '/docente/tutoria/{periodo_id}',             'Docente\TutoriaController@index');
 
