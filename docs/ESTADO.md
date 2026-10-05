@@ -49,15 +49,25 @@ en local y en producción (ver «Corrección en producción» abajo). Detalle en
   la 072) nunca se había pusheado. Antes del push: **072** ya estaba aplicada en producción;
   **073** aplicada por el usuario tras su PREVIEW (retorno #1 con datos propios en II y III →
   desde = II).
-- [x] **Corrección en producción (05/10/2026, SQL a mano).** El retorno #1 se había
+- [ ] 🔴 **Corrección del retorno #1 en producción: PENDIENTE.** El retorno #1 se había
   **revertido con el código VIEJO** (después de la 073 y antes del push): `periodo_hasta_id`
-  quedó NULL (tramo vacío → el II se habría leído de la 190) y la asistencia del III se quedó
-  en la 692. Comprobadas las tres guardas (0 evaluación de la 692 en el III, 0 filas propias
-  de la 190, sin cierres vigentes), se hizo a mano lo mismo que la reversión nueva:
-  `periodo_hasta_id = 2`, se movieron las 5 tablas del III de la 692 a la 190 y quedaron como
-  borrador. Resultado: tramo II–II, 0 filas en la 692, 1 fila de asistencia en la 190.
-  ⚠️ En phpMyAdmin cada envío es una conexión: un `START TRANSACTION` sin `COMMIT` en el mismo
-  envío no se puede confirmar después (aquí el autocommit lo guardó).
+  quedó NULL (tramo vacío → **la boleta pierde el II**, que se lee de la 190) y la asistencia
+  del III quedó en la 692. El primer intento a mano por phpMyAdmin **NO se guardó**: el
+  bloque iba en una transacción sin `COMMIT` en el mismo envío; el `SELECT` de comprobación
+  la vio porque compartía conexión, y se deshizo al cerrarla. Lo destapó el usuario: la
+  boleta no mostraba el II, y la copia de producción del 05/10 lo confirmó (hasta NULL,
+  asistencia del III aún en la 692).
+  - Corrección: **`database/reparar_retorno_1_tramo.sql`**, en UN solo envío, con su
+    `COMMIT` y su comprobación final. Idempotente.
+  - Probado sobre la copia de producción del 05/10/2026:
+    - tramo II–II; la 692 vacía en III/IV; 1 fila de asistencia en la 190 como borrador;
+    - boleta con 22 notas del I y 25 del II en los 4 modos;
+    - lote del II de 2.° B = 19;
+    - mérito: I en 2.°, II en 1.°;
+    - alerta limpia y situación final en 2.° B;
+    - batería sin fallos nuevos: 3 fallan igual con el código anterior (`d7a677e`).
+  - Hallazgo aparte: en la copia de producción **no existe el CHECK
+    `chk_justificada_con_motivo`** (migración 070); hoy hay 0 FJ/TJ sin motivo.
 - [ ] Pendiente en producción:
   - la auxiliar de 2.° B confirma la asistencia y la conducta del III de la estudiante (borrador);
   - los docentes de 2.° B la evalúan en el III;
