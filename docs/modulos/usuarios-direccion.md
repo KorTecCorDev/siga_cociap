@@ -1080,13 +1080,17 @@ se eliminaron. Competir por el mérito y ser promovido de grado son preguntas di
 
 #### El roster: ni el de evaluación ni el del mérito
 
-`SituacionFinalModel::ROSTER_SITUACION` son **dos** condiciones:
+`SituacionFinalModel::rosterSituacion()` son **dos** condiciones:
 
 1. `matriculas_vigentes()` — fuera trasladados y retirados. **No filtra por `estado`**:
    `pendiente` y `desactivado` siguen asistiendo, se califican y serán promovidos o no.
-2. **Anclaje por bimestre del retorno de grado** — se excluye la matrícula OFICIAL en los
-   periodos que cubrió su OPERATIVA (siempre si el retorno está `activo`; solo en los
-   bimestres con notas si está `revertido`). Es el mismo anclaje del ranking en vivo.
+2. **Anclaje por bimestre del retorno de grado** — de las dos matrículas entra SOLO la que
+   cursó el bimestre según el TRAMO guardado (migración 073, 05/10/2026;
+   `RetornoGradoModel::sqlCursoElPeriodo`, el mismo del ranking en vivo). Hasta esa fecha
+   era `ROSTER_SITUACION`, una media copia que deducía el tramo de las notas y no excluía
+   la operativa revertida: el retorno #1 salía DOS veces en el III.
+   Las **notas** se agrupan por identidad: cada bimestre de la matrícula que lo cursó, bajo
+   la oficial (antes la oficial no veía las del II y salía en RR con las del I).
 
 | No se usa | Por qué |
 |---|---|

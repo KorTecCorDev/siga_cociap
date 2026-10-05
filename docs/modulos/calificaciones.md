@@ -427,6 +427,11 @@ de 22. `PanelController::notas` ahora indexa por `competencia_id` —el mismo mo
 el grado que el alumno cursa. Si la competencia solo existe en la oficial, esa se usa y
 no se pierde el dato.
 
+> **Desde el 05/10/2026 (migración 073) ya no se une:** el bimestre se lee ENTERO de la
+> matrícula que lo cursó (`RetornoGradoModel::matriculaDelPeriodo`), igual que la boleta,
+> y la conducta también. La indexación por `competencia_id` se conserva como defensa. Ver
+> `docs/modulos/retorno-grado.md` § «El TRAMO y el punto único».
+
 Además **descarta los criterios sin nota**: `getBoletaAlumno` devuelve todos los
 criterios definidos en la carga, tengan nota del alumno o no, y la vista los pinta como
 `—`. En un retorno la operativa trae los criterios de la carga del grado oficial SIN
