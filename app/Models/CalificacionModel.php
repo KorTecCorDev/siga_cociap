@@ -310,13 +310,15 @@ class CalificacionModel extends BaseModel
      * Devuelve:
      *   - 'identidad': matrícula con la que se rotula la boleta (encabezado,
      *      tutor, director). Es la OFICIAL si participa de un retorno.
-     *   - 'fuentes': matrículas de las que se leen las notas, ordenadas
-     *      [operativa, oficial] para que, al fusionar por periodo, la oficial
-     *      gane ante un eventual choque del mismo periodo.
+     *   - 'fuentes': las matrículas que componen al estudiante [operativa,
+     *      oficial]. Solo para lo que es del estudiante COMPLETO (exoneraciones,
+     *      omisiones, «¿existe el dato?»). Los datos de un BIMESTRE se leen de
+     *      la matrícula que lo cursó (`RetornoGradoModel::matriculaDelPeriodo`),
+     *      sin fusionar ni sumar fuentes (05/10/2026).
      *   - 'evaluacion': matrícula de la que sale el PLAN DE ESTUDIOS del
-     *      documento (estructuraCompetenciasSeccion). Es la OPERATIVA en un
-     *      retorno: se evalúa donde se cursa (Regla A). Las competencias de la
-     *      sección anterior que ya tengan nota no se pierden — el builder de la
+     *      documento (estructuraCompetenciasSeccion): la de HOY (operativa si el
+     *      retorno está activo, oficial si se revirtió). Las competencias de la
+     *      otra sección que ya tengan nota no se pierden — el builder de la
      *      boleta crea su fila al superponer las notas sobre el esqueleto.
      *
      * Si la matrícula no participa de ningún retorno (caso normal) devuelve
@@ -325,29 +327,16 @@ class CalificacionModel extends BaseModel
      */
     public function boletaContexto(int $matriculaId): array
     {
-        $r = $this->queryOne("
-            SELECT matricula_oficial_id, matricula_operativa_id
-            FROM retornos_grado
-            WHERE matricula_oficial_id = ? OR matricula_operativa_id = ?
-            ORDER BY id DESC
-            LIMIT 1
-        ", [$matriculaId, $matriculaId]);
-
-        if (!$r) {
-            return [
-                'identidad'  => $matriculaId,
-                'fuentes'    => [$matriculaId],
-                'evaluacion' => $matriculaId,
-            ];
-        }
-
-        $oficial   = (int) $r['matricula_oficial_id'];
-        $operativa = (int) $r['matricula_operativa_id'];
-
+        // Delega en el PUNTO ÚNICO del retorno (05/10/2026). `evaluacion` es la
+        // matrícula de HOY: el plan del grado donde el estudiante TERMINA el año.
+        // Hasta esa fecha era siempre la operativa, también tras revertir: la
+        // boleta de un retorno revertido salía con el plan del grado inferior.
+        // Para LEER un bimestre, usar RetornoGradoModel::matriculaDelPeriodo().
+        $r = new RetornoGradoModel();
         return [
-            'identidad'  => $oficial,
-            'fuentes'    => [$operativa, $oficial],
-            'evaluacion' => $operativa,
+            'identidad'  => $r->identidad($matriculaId),
+            'fuentes'    => $r->fuentes($matriculaId),
+            'evaluacion' => $r->matriculaDeHoy($matriculaId),
         ];
     }
 
@@ -369,13 +358,8 @@ class CalificacionModel extends BaseModel
      */
     public static function sqlFuentesBoleta(string $m = 'm'): string
     {
-        return "(
-                    SELECT {$m}.id
-                    UNION SELECT rgf.matricula_oficial_id   FROM retornos_grado rgf
-                          WHERE rgf.matricula_operativa_id = {$m}.id
-                    UNION SELECT rgf.matricula_operativa_id FROM retornos_grado rgf
-                          WHERE rgf.matricula_oficial_id   = {$m}.id
-                )";
+        // Delega en el punto único del retorno (05/10/2026); mismo SQL que antes.
+        return RetornoGradoModel::sqlFuentes($m);
     }
 
     /**
@@ -1025,10 +1009,10 @@ class CalificacionModel extends BaseModel
             -- Es un universo distinto; unificarlo cambiaría a quién se exige
             -- conclusión antes de bloquear. Si algún día se decide igualarlos,
             -- se hace aquí y se borra este comentario.
-            AND m.estado IN ('aprobada', 'pendiente')
-            AND m.tipo  NOT IN ('trasladado', 'retirado')
-            AND m.id NOT IN (SELECT matricula_oficial_id   FROM retornos_grado WHERE estado = 'activo')
-            AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'revertido')
+            -- Retorno de grado (05/10/2026): roster DEL BIMESTRE por el tramo, y la
+            -- operativa revertida (`desactivado`) cuenta en los bimestres que cursó.
+            AND (m.estado IN ('aprobada', 'pendiente') OR " . RetornoGradoModel::sqlOperativaRevertida('m') . ")
+            " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             ORDER BY " . orden_alfabetico('p', 2) . "
         ", [$cargaId, $competenciaId, $periodoId, $cargaId]);
 

@@ -2,7 +2,8 @@
 /**
  * @var array $matricula  matrícula OFICIAL (grado/sección SIAGIE)
  * @var array $retorno    retorno activo (incluye grado_destino, seccion_destino)
- * @var array $periodos   bimestres cerrados con notas en el grado operativo
+ * @var array $periodos   bimestres cerrados CURSADOS en el grado operativo (con criterios)
+ * @var array $registros  asistencia y conducta del bimestre en curso que se mueven a la oficial
  */
 $mid = (int) $matricula['id'];
 ?>
@@ -39,14 +40,46 @@ $mid = (int) $matricula['id'];
             </ul>
         <?php endif; ?>
 
+        <p class="form-section-title">Asistencia y conducta del bimestre en curso</p>
+        <?php if (empty($registros)): ?>
+            <p class="text-muted">El grado operativo no tiene asistencia ni conducta registradas en el bimestre en curso; no hay nada que mover.</p>
+        <?php else: ?>
+            <p class="text-muted">Pasan a la matrícula oficial; el estudiante termina el bimestre en su sección oficial.</p>
+            <ul class="mat-pendientes__list">
+                <?php foreach ($registros as $r): ?>
+                    <li>
+                        <?= e($r['nombre_display']) ?>:
+                        conducta <?= (int) $r['conducta'] > 0
+                            ? ((int) $r['conducta_confirmada'] > 0 ? '(confirmada)' : '(borrador)')
+                            : '(sin registro)' ?>
+                        · asistencia <?= (int) $r['incidencias'] ?> incidencia(s)
+                        <?= (int) $r['asistencia_confirmada'] > 0 ? '(confirmada)' : '' ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+
         <form method="POST" action="<?= url('matriculas/' . $mid . '/retorno/revertir') ?>">
             <?= csrf_field() ?>
             <div class="form-grid">
                 <div class="form-group form-group--full">
                     <label class="form-label" for="motivo">Motivo de la reversión <span class="text-danger">*</span></label>
                     <textarea id="motivo" name="motivo" class="form-input" rows="4" required
-                              placeholder="Describe por qué el estudiante vuelve a su grado oficial..."></textarea>
+                              placeholder="Describe por qué el estudiante vuelve a su grado oficial y desde cuándo (por ejemplo: retornó al inicio del III Bimestre)..."></textarea>
                 </div>
+                <?php if (!empty($registros)): ?>
+                    <div class="form-group form-group--full">
+                        <label class="form-check">
+                            <input type="checkbox" name="como_borrador" value="1">
+                            <span>
+                                El estudiante <strong>ya no estaba</strong> en el grado operativo cuando se
+                                registraron estos datos (la reversión se comunica tarde): moverlos
+                                <strong>como borrador</strong>, para que el personal de su sección oficial
+                                los revise y los confirme. No se borra ninguna respuesta ni ninguna fecha.
+                            </span>
+                        </label>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="btn-group form-actions">
                 <button type="submit" class="btn btn--danger"

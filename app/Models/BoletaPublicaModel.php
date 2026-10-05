@@ -32,8 +32,8 @@ class BoletaPublicaModel extends BaseModel
 
     /**
      * Candidata a boleta = tiene al menos UNA competencia BLOQUEADA en el
-     * periodo, mirando la propia matricula Y —si tiene un retorno activo— la
-     * operativa vinculada.
+     * periodo, en la matricula que CURSO ese periodo: la propia o —si participa
+     * de un retorno de grado y el tramo cubre el periodo— la operativa.
      *
      * POR QUE LA UNION: el retorno reparte las notas por bimestre entre dos
      * matriculas de SECCIONES DISTINTAS (antes del retorno, la oficial; desde
@@ -42,31 +42,33 @@ class BoletaPublicaModel extends BaseModel
      * que es justo lo que pasaba con el II Bimestre (medido el 05/08/2026:
      * 2° B mostraba 18 aprobables en vez de 19).
      *
+     * Hasta el 05/10/2026 solo seguia a la operativa de un retorno ACTIVO: al
+     * revertirlo, el estudiante desaparecia del lote de los bimestres que curso
+     * en el grado operativo (2° B, II Bimestre: 19 -> 18). Ahora decide el TRAMO
+     * guardado (`RetornoGradoModel`, migracion 073).
+     *
      * Reemplaza al INNER JOIN calificaciones+bloqueos que habia antes; el
      * EXISTS no multiplica filas, asi que tampoco depende del DISTINCT.
      * Lleva UN parametro posicional: el periodo.
      *
      * Requiere que la tabla de matriculas este aliasada como `m`.
      */
-    private const SQL_TIENE_BLOQUEOS = "
+    private static function sqlTieneBloqueos(): string
+    {
+        return "
               EXISTS (
                   SELECT 1
                   FROM calificaciones cal
+                  INNER JOIN matriculas mcal ON mcal.id = cal.matricula_id
                   INNER JOIN bloqueos_competencia bc
                           ON bc.carga_id       = cal.carga_id
                          AND bc.competencia_id = cal.competencia_id
                          AND bc.periodo_id     = cal.periodo_id
                   WHERE cal.periodo_id = ?
-                    AND (
-                          cal.matricula_id = m.id
-                       OR cal.matricula_id IN (
-                              SELECT r.matricula_operativa_id
-                              FROM retornos_grado r
-                              WHERE r.matricula_oficial_id = m.id
-                                AND r.estado = 'activo'
-                          )
-                    )
+                    AND cal.matricula_id IN " . RetornoGradoModel::sqlFuentes('m') . "
+                    " . RetornoGradoModel::sqlCursoElPeriodo('mcal', 'cal.periodo_id') . "
               )";
+    }
 
     /**
      * Genera un código único con formato COCIAP-{anio}-B{bimestre}-XXXXXX.
@@ -143,7 +145,7 @@ class BoletaPublicaModel extends BaseModel
      *
      * RETORNO DE GRADO: lista SIEMPRE la matrícula oficial (y en su sección
      * oficial), nunca la operativa. Ver sqlExcluirOperativa() y
-     * SQL_TIENE_BLOQUEOS.
+     * sqlTieneBloqueos().
      */
     public function getMatriculasAprobadasParaBoleta(int $periodoId, ?int $seccionId = null): array
     {
@@ -168,7 +170,7 @@ class BoletaPublicaModel extends BaseModel
             INNER JOIN grados g      ON g.id   = s.grado_id
             WHERE m.estado = 'aprobada'"
               . $this->sqlExcluirOperativa() . "
-              AND " . self::SQL_TIENE_BLOQUEOS . "
+              AND " . self::sqlTieneBloqueos() . "
               {$whereSeccion}
             ORDER BY g.id, s.nombre, " . orden_alfabetico('per') . "
         ", $params);
@@ -212,7 +214,7 @@ class BoletaPublicaModel extends BaseModel
             INNER JOIN niveles n     ON n.id   = g.nivel_id
             WHERE m.estado = 'aprobada'"
               . $this->sqlExcluirOperativa() . "
-              AND " . self::SQL_TIENE_BLOQUEOS . "
+              AND " . self::sqlTieneBloqueos() . "
               {$whereSeccion}
             ORDER BY n.id, g.numero, s.nombre,
                      " . orden_alfabetico('per') . "
@@ -241,7 +243,7 @@ class BoletaPublicaModel extends BaseModel
                 g.numero                                                    AS grado_numero,
                 n.id                                                        AS nivel_id,
                 n.nombre                                                    AS nivel_nombre,
-                COUNT(DISTINCT CASE WHEN " . self::SQL_TIENE_BLOQUEOS . "
+                COUNT(DISTINCT CASE WHEN " . self::sqlTieneBloqueos() . "
                                     THEN m.id END)                          AS total_aprobables,
                 COUNT(DISTINCT bp.matricula_id)                             AS total_generadas
             FROM secciones s

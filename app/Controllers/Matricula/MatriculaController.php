@@ -16,6 +16,7 @@ use App\Models\NotificacionModel;
 use App\Models\AnioAcademicoModel;
 use App\Models\RectificacionModel;
 use App\Models\BoletaModel;
+use App\Models\RetornoGradoModel;
 use Core\Session;
 use Core\View;
 
@@ -291,6 +292,14 @@ class MatriculaController extends BaseController
         ];
 
         $alumnos = $this->model->listarParaNomina($filtros);
+        // Operativa de un retorno REVERTIDO: qué bimestres cursó aquí (tramo).
+        foreach ($alumnos as &$a) {
+            if (($a['retorno_rol'] ?? null) === 'operativa' && ($a['retorno_estado'] ?? null) === 'revertido') {
+                $v = $this->retornos()->vinculo((int) $a['id']);
+                $a['retorno_tramo'] = $v ? $this->retornos()->nombresDelTramo($v) : null;
+            }
+        }
+        unset($a);
 
         // Agrupar por sección preservando el orden (nivel→grado→sección→apellidos).
         $grupos = [];
@@ -336,8 +345,9 @@ class MatriculaController extends BaseController
      * Cuadro resumen de una sección de la nómina. Cuenta las filas mostradas en
      * esa sección; el género NO contabiliza a quien no tiene registro (sexo NULL).
      * Lleva además el detalle de retorno de grado de la sección:
-     *  - cursan_aqui: filas operativas (el alumno cursa en esta aula).
-     *  - informativa: filas oficiales cuyo alumno cursa en otro grado.
+     *  - cursan_aqui: filas operativas de un retorno ACTIVO (cursa en esta aula).
+     *  - informativa: filas cuyo alumno cursa en otro grado: la oficial de un
+     *    retorno activo y la operativa de uno REVERTIDO (05/10/2026).
      */
     private function resumenSeccionNomina(array $alumnos): array
     {
@@ -353,8 +363,10 @@ class MatriculaController extends BaseController
             if (isset($r['tipo'][$a['tipo']]))     { $r['tipo'][$a['tipo']]++; }
             if (isset($r['estado'][$a['estado']])) { $r['estado'][$a['estado']]++; }
             if ($a['sexo'] === 'M' || $a['sexo'] === 'F') { $r['genero'][$a['sexo']]++; }
-            if (!empty($a['retorno_oficial_id']))   { $r['cursan_aqui']++; }
-            if (!empty($a['retorno_operativa_id'])) { $r['informativa']++; }
+            $rolR    = $a['retorno_rol'] ?? null;
+            $activoR = ($a['retorno_estado'] ?? null) === 'activo';
+            if ($rolR === 'operativa' && $activoR) { $r['cursan_aqui']++; }
+            if (($rolR === 'oficial' && $activoR) || ($rolR === 'operativa' && !$activoR)) { $r['informativa']++; }
         }
         return $r;
     }
@@ -781,12 +793,16 @@ class MatriculaController extends BaseController
     {
         $matricula  = $this->requireMatricula((int) $id);
 
-        // Si es la matrícula OPERATIVA de un retorno activo, su detalle no es
-        // accesible: es solo informativa. Toda la gestión vive en la oficial.
-        $oficialId = $this->model->oficialSiEsOperativaEnRetornoActivo((int) $id);
-        if ($oficialId !== null) {
-            $this->redirectWithError(url('matriculas/' . $oficialId),
-                'Esa es la matrícula operativa de un retorno de grado (solo informativa). La gestión se hace desde la matrícula oficial.');
+        // La matrícula OPERATIVA de un retorno —activo o REVERTIDO— no tiene
+        // detalle propio: es solo informativa y toda la gestión vive en la
+        // oficial (05/10/2026). Antes solo se redirigía la de un retorno activo,
+        // y la revertida, `desactivado`, se leía como una baja por deuda.
+        $vinculo = $this->retornos()->vinculo((int) $id);
+        if ($vinculo && $vinculo['operativa'] === (int) $id) {
+            $this->redirectWithError(url('matriculas/' . $vinculo['oficial']),
+                $vinculo['estado'] === 'activo'
+                    ? 'Esa es la matrícula operativa de un retorno de grado (solo informativa). La gestión se hace desde la matrícula oficial.'
+                    : 'Esa fue la matrícula operativa de un retorno de grado ya revertido (solo informativa). La gestión se hace desde la matrícula oficial.');
         }
 
         $retorno    = $this->model->queryOne("
@@ -855,10 +871,13 @@ class MatriculaController extends BaseController
                   )
                 : [],
             'pendientes'   => $this->pendientesParaActivar($matricula),
-            // En retorno de grado la evaluación (y las notas autorizadas) viven en
-            // la matrícula OPERATIVA; la card apunta ahí.
-            'notasAutSiagie' => $this->notasAut->getTodasPorMatricula((int) ($retorno['matricula_operativa_id'] ?? $id)),
-            'matNotasSiagie' => (int) ($retorno['matricula_operativa_id'] ?? $id),
+            // En retorno de grado las notas autorizadas viven, por bimestre, en la
+            // matrícula que lo cursó (tramo): se listan las de las dos.
+            'notasAutSiagie' => array_merge(...array_map(
+                fn(int $m): array => $this->notasAut->getTodasPorMatricula($m),
+                $this->retornos()->fuentes((int) $id)
+            )),
+            'matNotasSiagie' => (int) $id,
             'page_scripts' => ['matriculas'],
         ]);
     }
@@ -991,6 +1010,7 @@ class MatriculaController extends BaseController
         $this->validateCsrf();
         $this->requireRole(['admin', 'registro_academico']);
         $matricula = $this->requireMatricula((int) $id);
+        $this->guardaRetorno((int) $id, 'activar');
 
         // Solo se activa una matrícula COMPLETA (sin nada pendiente).
         $faltan = $this->pendientesParaActivar($matricula);
@@ -1067,6 +1087,7 @@ class MatriculaController extends BaseController
         $this->validateCsrf();
         $this->requireRole(['admin', 'registro_academico']);
         $matricula = $this->requireMatricula((int) $id);
+        $this->guardaRetorno((int) $id, 'desactivar');
         $usuarioId = (int) (Session::user()['id'] ?? 0);
 
         // El motivo de la desactivación es OBLIGATORIO (queda visible junto al
@@ -1125,6 +1146,7 @@ class MatriculaController extends BaseController
         $this->validateCsrf();
         $this->requireRole(['admin', 'registro_academico']);
         $matricula = $this->requireMatricula((int) $id);
+        $this->guardaRetorno((int) $id, 'retirar');
 
         // Solo sobre una baja administrativa (desactivado) de tipo continuador o
         // nuevo. Un trasladado ya está fuera de los rosters; un retirado ya lo está.
@@ -1166,6 +1188,7 @@ class MatriculaController extends BaseController
         $this->validateCsrf();
         $this->requireRole(['admin', 'registro_academico']);
         $matricula = $this->requireMatricula((int) $id);
+        $this->guardaRetorno((int) $id, 'revertir_retiro');
 
         if (($matricula['tipo'] ?? '') !== 'retirado') {
             $this->redirectWithError(url('matriculas/' . $id),
@@ -1459,14 +1482,15 @@ class MatriculaController extends BaseController
     /** GET /matriculas/{id}/notas-siagie — pantalla de gestión. */
     public function notasSiagie(string $id): void
     {
-        // En retorno de grado la evaluación vive en la operativa: operamos ahí.
-        $eval      = $this->matriculaEvaluacion((int) $id);
-        $matricula = $this->requireMatricula($eval);
+        // Retorno de grado (05/10/2026): la pantalla se rotula con la OFICIAL y
+        // cada bimestre opera sobre la matrícula que lo CURSÓ (tramo). Antes era
+        // siempre la operativa, también en los bimestres cursados en la oficial.
+        $ident     = $this->retornos()->identidad((int) $id);
+        $matricula = $this->requireMatricula($ident);
         if (!has_role(['admin', 'registro_academico'])) {
             $this->redirectWithError(url('matriculas/' . $id),
                 'Solo Registro académico / dirección gestiona las notas autorizadas.');
         }
-        $seccionId = (int) $matricula['seccion_id'];
 
         // Un bloque por bimestre del año con elegibles o ya registradas.
         $periodos = $this->model->query("
@@ -1477,6 +1501,7 @@ class MatriculaController extends BaseController
         $bloques = [];
         foreach ($periodos as $per) {
             $pid         = (int) $per['id'];
+            [$eval, $seccionId] = $this->matriculaCursada($ident, $pid);
             $elegibles   = $this->notasAut->competenciasElegibles($eval, $seccionId, $pid);
             $registradas = $this->notasAut->getDetalle($eval, $pid);
             if ($elegibles === [] && $registradas === []) {
@@ -1501,15 +1526,16 @@ class MatriculaController extends BaseController
     public function storeNotaSiagie(string $id): void
     {
         $this->validateCsrf();
-        $eval      = $this->matriculaEvaluacion((int) $id);
-        $matricula = $this->requireMatricula($eval);
+        $ident     = $this->retornos()->identidad((int) $id);
+        $matricula = $this->requireMatricula($ident);
         if (!has_role(['admin', 'registro_academico'])) {
             $this->redirectWithError(url('matriculas/' . $id), 'No autorizado.');
         }
-        $volver     = url('matriculas/' . $eval . '/notas-siagie');
-        $seccionId  = (int) $matricula['seccion_id'];
+        $volver     = url('matriculas/' . $ident . '/notas-siagie');
         $competencia= (int) $this->input('competencia_id');
         $periodo    = (int) $this->input('periodo_id');
+        // Se registra en la matrícula que CURSÓ el bimestre (tramo del retorno).
+        [$eval, $seccionId] = $this->matriculaCursada($ident, $periodo);
         $literal    = (string) $this->input('nota_literal');
         $conclusion = trim((string) $this->input('conclusion_descriptiva'));
         $resolucion = trim((string) $this->input('resolucion'));
@@ -1549,26 +1575,32 @@ class MatriculaController extends BaseController
     public function eliminarNotaSiagie(string $id): void
     {
         $this->validateCsrf();
-        $eval = $this->matriculaEvaluacion((int) $id);
-        $this->requireMatricula($eval);
+        $ident = $this->retornos()->identidad((int) $id);
+        $this->requireMatricula($ident);
         if (!has_role(['admin', 'registro_academico'])) {
             $this->redirectWithError(url('matriculas/' . $id), 'No autorizado.');
         }
-        $this->notasAut->eliminar((int) $this->input('reg_id'), $eval);
-        $this->redirectWithSuccess(url('matriculas/' . $eval . '/notas-siagie'),
+        // El registro puede vivir en cualquiera de las matrículas del estudiante
+        // (cada bimestre en la que lo cursó); el DELETE exige que sea suya.
+        $regId = (int) $this->input('reg_id');
+        foreach ($this->retornos()->fuentes($ident) as $fuente) {
+            $this->notasAut->eliminar($regId, $fuente);
+        }
+        $this->redirectWithSuccess(url('matriculas/' . $ident . '/notas-siagie'),
             'Nota autorizada eliminada.');
     }
 
     /** GET /matriculas/{id}/notas-siagie/informe — informe imprimible (respaldo). */
     public function informeNotaSiagie(string $id): void
     {
-        $eval      = $this->matriculaEvaluacion((int) $id);
-        $matricula = $this->requireMatricula($eval);
+        $ident     = $this->retornos()->identidad((int) $id);
+        $matricula = $this->requireMatricula($ident);
         if (!has_role(['admin', 'registro_academico'])) {
             $this->redirectWithError(url('matriculas/' . $id), 'No autorizado.');
         }
 
-        // Todas las autorizadas del alumno, agrupadas por bimestre.
+        // Todas las autorizadas del alumno, agrupadas por bimestre, cada uno de
+        // la matrícula que lo cursó (tramo del retorno de grado).
         $periodos = $this->model->query("
             SELECT id, numero, nombre_display
             FROM periodos WHERE anio_id = ? ORDER BY numero
@@ -1576,7 +1608,10 @@ class MatriculaController extends BaseController
 
         $bloques = [];
         foreach ($periodos as $per) {
-            $registradas = $this->notasAut->getDetalle($eval, (int) $per['id']);
+            $registradas = $this->notasAut->getDetalle(
+                $this->retornos()->matriculaDelPeriodo($ident, (int) $per['id']),
+                (int) $per['id']
+            );
             if ($registradas !== []) {
                 $bloques[] = ['periodo' => $per, 'registradas' => $registradas];
             }
@@ -1594,20 +1629,40 @@ class MatriculaController extends BaseController
     }
 
     /**
-     * Matrícula donde vive la EVALUACIÓN del alumno. En retorno de grado el
-     * alumno se evalúa (y sus omisiones/notas autorizadas viven) en la matrícula
-     * OPERATIVA, aunque la gestión general se haga desde la oficial. Fuera de
-     * retorno devuelve el mismo id. Espeja la unión de `boletaContexto`.
+     * Rechaza la acción si la matrícula participa de un retorno de grado que no
+     * la admite (`RetornoGradoModel::bloqueoGestion`): la operativa no se
+     * gestiona y la oficial de un retorno activo no se retira ni se traslada.
      */
-    private function matriculaEvaluacion(int $id): int
+    private function guardaRetorno(int $id, string $accion): void
     {
-        $r = $this->model->queryOne(
-            "SELECT matricula_operativa_id FROM retornos_grado
-             WHERE matricula_oficial_id = ? OR matricula_operativa_id = ?
-             ORDER BY id DESC LIMIT 1",
-            [$id, $id]
-        );
-        return $r ? (int) $r['matricula_operativa_id'] : $id;
+        $motivo = $this->retornos()->bloqueoGestion($id, $accion);
+        if ($motivo !== null) {
+            $this->redirectWithError(url('matriculas/' . $this->retornos()->identidad($id)), $motivo);
+        }
+    }
+
+    /** Punto único del retorno de grado (RetornoGradoModel), perezoso. */
+    private ?RetornoGradoModel $retornosModel = null;
+
+    private function retornos(): RetornoGradoModel
+    {
+        return $this->retornosModel ??= new RetornoGradoModel();
+    }
+
+    /**
+     * Matrícula que CURSÓ el bimestre y su sección: donde viven la evaluación,
+     * las omisiones y las notas autorizadas de ese bimestre. En un retorno de
+     * grado lo decide el tramo (05/10/2026); hasta entonces era siempre la
+     * operativa (`matriculaEvaluacion`), también en los bimestres cursados en
+     * la oficial. Fuera de retorno es la propia matrícula.
+     *
+     * @return array{0:int, 1:int}  [matricula_id, seccion_id]
+     */
+    private function matriculaCursada(int $identidad, int $periodoId): array
+    {
+        $mid = $this->retornos()->matriculaDelPeriodo($identidad, $periodoId);
+        $m   = $this->requireMatricula($mid);
+        return [$mid, (int) $m['seccion_id']];
     }
 
     /** Carga la matrícula o muestra 404 si no existe. */

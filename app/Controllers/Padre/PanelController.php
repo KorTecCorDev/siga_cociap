@@ -8,6 +8,7 @@ use App\Models\CalificacionModel;
 use App\Models\ConductaModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\PublicacionBoletaModel;
+use App\Models\RetornoGradoModel;
 use Core\Session;
 
 /**
@@ -82,31 +83,19 @@ class PanelController extends BaseController
             );
         }
 
-        // Retorno de grado: durante la nivelación las notas del periodo viven en
-        // la matrícula operativa; se leen por unión bajo la identidad oficial.
-        $fuentes = $this->calModel->boletaContexto((int) $hijo['matricula_id'])['fuentes'];
+        // Retorno de grado (05/10/2026): el bimestre se lee ENTERO de la matrícula
+        // que lo cursó (tramo, RetornoGradoModel), igual que la boleta. Antes se
+        // unían las dos y ganaba la operativa, también fuera de su tramo.
+        $cursada = (new RetornoGradoModel())->matriculaDelPeriodo(
+            (int) $hijo['matricula_id'],
+            (int) $periodo['id']
+        );
+        $notas = $this->calModel->getBoletaAlumno($cursada, (int) $periodo['id']);
 
-        $notas = [];
-        foreach ($fuentes as $mid) {
-            $notas = array_merge(
-                $notas,
-                $this->calModel->getBoletaAlumno((int) $mid, (int) $periodo['id'])
-            );
-        }
-
-        // Agrupar notas por área, UNA FILA POR COMPETENCIA. La indexación por
-        // competencia_id no es cosmética: con un retorno de grado se leen dos
-        // matrículas (operativa + oficial) y una competencia calificada en ambas
-        // llegaba repetida, mostrando la misma nota dos veces. Es lo que hace la
-        // boleta oficial en BoletaModel::buildAreasConBimestres.
-        //
-        // GANA LA PRIMERA FUENTE, que boletaContexto devuelve en orden
-        // [operativa, oficial]: manda el grado que el alumno CURSA. Si la nota de
-        // esa competencia solo existe en la oficial, esa se usa (no se pierde
-        // ningún dato). Cuando ambas la tienen, el promedio es el mismo pero el
-        // desglose por criterios puede colgar de cargas del grado oficial —de
-        // otro docente y con la nota repetida para no alterar el promedio—, y ese
-        // desglose no se le muestra a la familia.
+        // Agrupar notas por área, UNA FILA POR COMPETENCIA, como la boleta
+        // oficial en BoletaModel::buildAreasConBimestres. Hasta el 05/10/2026 se
+        // leían dos matrículas y la indexación evitaba la nota repetida; con el
+        // tramo se lee una sola, y se conserva como defensa.
         $areas = [];
         foreach ($notas as $nota) {
             $areaNombre = $nota['nombre_boleta'] ?? $nota['area_nombre'];
@@ -135,14 +124,8 @@ class PanelController extends BaseController
             $areas[$areaNombre][$compId] = $nota;
         }
 
-        // Conducta del periodo: la que tenga la fuente con cierre vigente.
-        $conducta = null;
-        foreach ($fuentes as $mid) {
-            $conducta = $this->conductaModel->getParaPeriodo((int) $mid, (int) $periodo['id']);
-            if ($conducta !== null) {
-                break;
-            }
-        }
+        // Conducta del periodo: la de la matrícula que lo cursó (tramo).
+        $conducta = $this->conductaModel->getParaPeriodo($cursada, (int) $periodo['id']);
 
         // QR/enlace permanente por token (identidad oficial): mismo enlace que el
         // padre escanea de la boleta impresa, estable todo el año.

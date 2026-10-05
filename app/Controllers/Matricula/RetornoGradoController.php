@@ -4,6 +4,7 @@ namespace App\Controllers\Matricula;
 
 use App\Controllers\BaseController;
 use App\Models\MatriculaModel;
+use App\Models\RetornoGradoModel;
 use Core\Session;
 
 /**
@@ -16,6 +17,7 @@ use Core\Session;
 class RetornoGradoController extends BaseController
 {
     private MatriculaModel $model;
+    private RetornoGradoModel $retornos;
 
     public function __construct()
     {
@@ -26,7 +28,8 @@ class RetornoGradoController extends BaseController
         // pegando la URL a mano. El retorno se consulta desde el detalle de la
         // matricula, que si ve.
         $this->requireRole(['admin', 'registro_academico']);
-        $this->model = new MatriculaModel();
+        $this->model    = new MatriculaModel();
+        $this->retornos = new RetornoGradoModel();
     }
 
     // ── GET /matriculas/{id}/retorno ─────────────────────────────
@@ -34,19 +37,14 @@ class RetornoGradoController extends BaseController
     {
         $matricula = $this->requireMatricula((int) $matriculaId);
 
-        // ¿Ya tiene un retorno activo?
-        $existente = $this->model->queryOne(
-            "SELECT id FROM retornos_grado WHERE matricula_oficial_id = ? AND estado = 'activo' LIMIT 1",
-            [(int) $matriculaId]
-        );
-        if ($existente) {
-            $this->redirectWithError(url('matriculas/' . $matriculaId),
-                'Esta matrícula ya tiene un retorno de grado activo.');
+        $yaTiene = $this->mensajeYaTieneRetorno((int) $matriculaId);
+        if ($yaTiene !== null) {
+            $this->redirectWithError(url('matriculas/' . $matriculaId), $yaTiene);
         }
 
         // CANDADO DEL BIMESTRE EN CURSO (ver el detalle en store()): se avisa ya
         // en el GET para no hacer llenar un formulario que el POST va a rechazar.
-        $bloqueo = $this->evaluacionEnBimestreActivo((int) $matriculaId);
+        $bloqueo = $this->evaluacionEnBimestreActivo((int) $matriculaId, true);
         if ($bloqueo) {
             $this->redirectWithError(url('matriculas/' . $matriculaId),
                 $this->mensajeBimestreEnCurso($bloqueo));
@@ -99,14 +97,19 @@ class RetornoGradoController extends BaseController
                 'La sección destino debe ser de un grado inferior al oficial.');
         }
 
-        // Evitar duplicado de retorno activo.
-        $yaActivo = $this->model->queryOne(
-            "SELECT id FROM retornos_grado WHERE matricula_oficial_id = ? AND estado = 'activo' LIMIT 1",
-            [(int) $matriculaId]
-        );
-        if ($yaActivo) {
+        // UN retorno por matrícula y año (decisión del usuario, 05/10/2026; los
+        // UNIQUE de retornos_grado ya lo imponían, esto da el mensaje).
+        $yaTiene = $this->mensajeYaTieneRetorno((int) $matriculaId);
+        if ($yaTiene !== null) {
+            $this->redirectWithError(url('matriculas/' . $matriculaId), $yaTiene);
+        }
+
+        // Inicio del TRAMO: el primer bimestre sin cerrar. Sin él no hay dónde
+        // cursar (año cerrado).
+        $desde = $this->retornos->primerPeriodoSinCerrar((int) $oficial['anio_id']);
+        if (!$desde) {
             $this->redirectWithError(url('matriculas/' . $matriculaId),
-                'Esta matrícula ya tiene un retorno de grado activo.');
+                'No hay ningún bimestre sin cerrar en el año: el retorno no tendría dónde cursarse.');
         }
 
         // ── CANDADO: no se puede retornar a mitad de un bimestre YA EVALUADO ──
@@ -129,7 +132,9 @@ class RetornoGradoController extends BaseController
         // OJO: no se ancla en FECHAS porque los bimestres SE SOLAPAN (B1 termina
         // el 16/06 y B2 empieza el 01/06), asi que "entre bimestres" no existe
         // como ventana. Se ancla en el DATO: que no haya evaluacion registrada.
-        $bloqueo = $this->evaluacionEnBimestreActivo((int) $matriculaId);
+        // Desde el 05/10/2026 mira TODOS los bimestres sin cerrar, que son los
+        // que el tramo cubrirá (no solo los `activo`: los bimestres se solapan).
+        $bloqueo = $this->evaluacionEnBimestreActivo((int) $matriculaId, true);
         if ($bloqueo) {
             $this->redirectWithError(url('matriculas/' . $matriculaId . '/retorno'),
                 $this->mensajeBimestreEnCurso($bloqueo));
@@ -150,15 +155,17 @@ class RetornoGradoController extends BaseController
                 'registrado_por' => $usuarioId,
             ]);
 
-            // 2) Vínculo en retornos_grado.
+            // 2) Vínculo en retornos_grado, con el INICIO del tramo (migración
+            //    073): desde aquí la operativa cubre cada bimestre hasta revertir.
             $this->model->execute("
                 INSERT INTO retornos_grado
                     (matricula_oficial_id, matricula_operativa_id, motivo,
-                     autorizado_por, fecha_retorno, estado)
-                VALUES (?, ?, ?, ?, CURDATE(), 'activo')
-            ", [(int) $matriculaId, $operativaId, $motivo, $usuarioId]);
+                     autorizado_por, fecha_retorno, periodo_desde_id, estado)
+                VALUES (?, ?, ?, ?, CURDATE(), ?, 'activo')
+            ", [(int) $matriculaId, $operativaId, $motivo, $usuarioId, (int) $desde['id']]);
 
-            // 3) Trasladar ASISTENCIA y CONDUCTA del/los bimestre(s) ACTIVO(s).
+            // 3) Trasladar ASISTENCIA y CONDUCTA de los bimestres SIN CERRAR (los
+            //    que cubre el tramo desde hoy).
             //
             //    Las CALIFICACIONES ya NO se copian (hasta el 05/08/2026 este paso
             //    era un INSERT IGNORE que duplicaba TODAS las notas de la oficial en
@@ -178,28 +185,9 @@ class RetornoGradoController extends BaseController
             //    Los bimestres CERRADOS no se tocan: son el registro historico de
             //    la seccion de origen. Sin conflicto de UNIQUE: la operativa acaba
             //    de nacer y no tiene ninguna fila.
-            $activos = array_column($this->model->query("
-                SELECT id FROM periodos
-                WHERE estado = 'activo' AND anio_id = ?
-            ", [(int) $oficial['anio_id']]), 'id');
+            $enCurso = array_column($this->periodosNoCerrados((int) $oficial['anio_id']), 'id');
 
-            if ($activos) {
-                $marcas = implode(',', array_fill(0, count($activos), '?'));
-                // `conducta_confirmaciones` (29/09/2026, migración 068) viaja con
-                // sus respuestas: sin ella, la conducta confirmada llegaría a la
-                // operativa como un BORRADOR y saldría de la boleta.
-                // `asistencia_incidencias` (migración 069) viaja con sus
-                // contadores de `inasistencias`: los contadores SON el conteo de
-                // esas fechas (invariante) y deben vivir en la misma matrícula.
-                foreach (['inasistencias', 'asistencia_incidencias', 'conducta_respuestas', 'conducta_confirmaciones', 'calificaciones_conducta'] as $tabla) {
-                    $this->model->execute("
-                        UPDATE {$tabla}
-                        SET matricula_id = ?
-                        WHERE matricula_id = ?
-                          AND periodo_id IN ({$marcas})
-                    ", array_merge([$operativaId, (int) $matriculaId], $activos));
-                }
-            }
+            $this->moverRegistrosDelBimestre((int) $matriculaId, $operativaId, $enCurso);
 
             $this->model->commit();
         } catch (\Exception $e) {
@@ -224,15 +212,21 @@ class RetornoGradoController extends BaseController
                 'Esta matrícula no tiene un retorno de grado activo que revertir.');
         }
 
-        // Bimestres en los que la matrícula operativa tiene notas: son los que se
-        // consolidarán en la boleta oficial. Deben estar cerrados para revertir.
-        $periodos = $this->periodosConNotas((int) $retorno['matricula_operativa_id']);
+        // Las guardas se avisan ya en el GET (como en create()) para no hacer
+        // llenar un formulario que el POST va a rechazar.
+        $bloqueo = $this->bloqueoReversion($oficial, $retorno);
+        if ($bloqueo !== null) {
+            $this->redirectWithError(url('matriculas/' . $matriculaId), $bloqueo);
+        }
+
+        $operativaId = (int) $retorno['matricula_operativa_id'];
 
         $this->view('matriculas/retorno-revertir', [
             'titulo'    => 'Revertir retorno de grado',
             'matricula' => $oficial,
             'retorno'   => $retorno,
-            'periodos'  => $periodos,
+            'periodos'  => $this->periodosCursadosEnOperativa($operativaId),
+            'registros' => $this->registrosDelBimestreEnCurso($operativaId),
         ]);
     }
 
@@ -255,26 +249,32 @@ class RetornoGradoController extends BaseController
                 'Esta matrícula no tiene un retorno de grado activo que revertir.');
         }
 
-        // Regla: solo se revierte con el/los bimestre(s) cursado(s) en el grado
-        // operativo CERRADOS, para congelar esas notas antes de consolidar.
-        $abiertos = $this->periodosConNotas((int) $retorno['matricula_operativa_id'], false);
-        if ($abiertos) {
-            $nombres = implode(', ', array_column($abiertos, 'nombre_display'));
-            $this->redirectWithError(url('matriculas/' . $matriculaId . '/retorno/revertir'),
-                'No se puede revertir: el/los bimestre(s) con notas en el grado operativo deben estar cerrados (' . $nombres . ').');
+        $bloqueo = $this->bloqueoReversion($oficial, $retorno);
+        if ($bloqueo !== null) {
+            $this->redirectWithError(url('matriculas/' . $matriculaId . '/retorno/revertir'), $bloqueo);
         }
+
+        $operativaId  = (int) $retorno['matricula_operativa_id'];
+        $comoBorrador = $this->input('como_borrador') === '1';
+        $enCurso      = array_column($this->periodosNoCerrados((int) $oficial['anio_id']), 'id');
+
+        // FIN del tramo (migración 073): el último bimestre CERRADO que cubrió;
+        // null = tramo vacío. Los bimestres sin cerrar vuelven a la oficial (paso 3).
+        $vinculo = $this->retornos->vinculo((int) $matriculaId);
+        $hasta   = $vinculo ? $this->retornos->finDelTramoAlRevertir($vinculo) : null;
 
         $this->model->beginTransaction();
         try {
-            // 1) Marcar el retorno como revertido (auditoría).
+            // 1) Marcar el retorno como revertido y CERRAR su tramo.
             $this->model->execute("
                 UPDATE retornos_grado
                 SET estado           = 'revertido',
                     fecha_reversion  = CURDATE(),
+                    periodo_hasta_id = ?,
                     motivo_reversion = ?,
                     revertido_por    = ?
                 WHERE id = ?
-            ", [$motivo, $usuarioId, (int) $retorno['id']]);
+            ", [$hasta, $motivo, $usuarioId, (int) $retorno['id']]);
 
             // 2) Desactivar la matrícula operativa (queda solo para auditoría).
             //    La boleta de la oficial seguirá leyendo sus notas por unión.
@@ -285,6 +285,36 @@ class RetornoGradoController extends BaseController
                 'Retorno de grado revertido — ' . $motivo
             );
 
+            // 3) Devolver a la oficial la ASISTENCIA y la CONDUCTA de los bimestres
+            //    sin cerrar: el espejo exacto del paso 3 de store(). El estudiante
+            //    termina el bimestre en su sección oficial, y sin esto esos
+            //    registros quedaban en la operativa, fuera de todo roster (05/10/2026).
+            //    Cada fila viaja con su estado de confirmación: no hace falta
+            //    bloquear ni aprobar nada antes de revertir.
+            $this->moverRegistrosDelBimestre($operativaId, (int) $matriculaId, $enCurso);
+
+            // 4) «Moverlos como borrador» (decisión del usuario, 05/10/2026): cuando
+            //    la reversión se comunica TARDE, lo que registró la sección operativa
+            //    describe a un estudiante que ya no estaba ahí. Se conservan las
+            //    respuestas y las fechas como punto de partida, pero pierden la
+            //    confirmación —la misma semántica de «editar desconfirma»— para que
+            //    el personal de la sección oficial las revise antes de que cuenten.
+            //    Solo toca lo que se acaba de mover: bloqueoReversion() garantiza
+            //    que la oficial no tenía filas propias en esos periodos.
+            if ($comoBorrador && $enCurso) {
+                $marcas = implode(',', array_fill(0, count($enCurso), '?'));
+                $params = array_merge([(int) $matriculaId], $enCurso);
+                $this->model->execute("
+                    DELETE FROM conducta_confirmaciones
+                    WHERE matricula_id = ? AND periodo_id IN ({$marcas})
+                ", $params);
+                $this->model->execute("
+                    UPDATE inasistencias
+                    SET confirmado_en = NULL, confirmado_por = NULL
+                    WHERE matricula_id = ? AND periodo_id IN ({$marcas})
+                ", $params);
+            }
+
             $this->model->commit();
         } catch (\Exception $e) {
             $this->model->rollback();
@@ -294,14 +324,217 @@ class RetornoGradoController extends BaseController
         }
 
         $this->redirectWithSuccess(url('matriculas/' . $matriculaId),
-            'Retorno de grado revertido. El estudiante vuelve a calificarse en su grado oficial.');
+            'Retorno de grado revertido. El estudiante vuelve a calificarse en su grado oficial.'
+            . ($comoBorrador ? ' La conducta y la asistencia del bimestre en curso quedaron como borrador.' : ''));
+    }
+
+    /**
+     * Tablas de ASISTENCIA y CONDUCTA que viven por matrícula y bimestre, y que
+     * un retorno (o su reversión) MUEVE de una matrícula a la otra.
+     *
+     * `conducta_confirmaciones` (29/09/2026, migración 068) viaja con sus
+     * respuestas: sin ella, la conducta confirmada llegaría como BORRADOR y
+     * saldría de la boleta. `asistencia_incidencias` (migración 069) viaja con
+     * sus contadores de `inasistencias`: los contadores SON el conteo de esas
+     * fechas (invariante) y deben vivir en la misma matrícula.
+     */
+    private const TABLAS_DEL_BIMESTRE = [
+        'inasistencias', 'asistencia_incidencias',
+        'conducta_respuestas', 'conducta_confirmaciones', 'calificaciones_conducta',
+    ];
+
+    /**
+     * MUEVE (UPDATE, no copia) la asistencia y la conducta de `$de` a `$a` en
+     * los periodos indicados. Lo usan store() (oficial → operativa) y revertir()
+     * (operativa → oficial). Mover —en vez de copiar— evita que ambas matrículas
+     * tengan fila del mismo bimestre: la unión de asistencia de la boleta SUMA
+     * campo a campo, así que un solape inflaría las faltas en silencio.
+     *
+     * No toma la lista del día (`asistencia_jornadas`) de la sección destino: eso
+     * afirmaría «asistió» para todos sus compañeros. Una incidencia que cae en un
+     * día «Sin tomar» allá espera a que se pase lista, como cualquier otra.
+     *
+     * Debe correr dentro de la transacción de quien llama.
+     */
+    private function moverRegistrosDelBimestre(int $de, int $a, array $periodos): void
+    {
+        if (!$periodos) {
+            return;
+        }
+        $marcas = implode(',', array_fill(0, count($periodos), '?'));
+        foreach (self::TABLAS_DEL_BIMESTRE as $tabla) {
+            $this->model->execute("
+                UPDATE {$tabla}
+                SET matricula_id = ?
+                WHERE matricula_id = ?
+                  AND periodo_id IN ({$marcas})
+            ", array_merge([$a, $de], $periodos));
+        }
+    }
+
+    /**
+     * GUARDAS de la reversión (05/10/2026). Devuelve el mensaje que la impide, o
+     * null si se puede revertir. Las comparten el GET y el POST.
+     *
+     *  1. EVALUACIÓN de la operativa en un bimestre sin cerrar, mirando las TRES
+     *     tablas de evaluación (como el candado de store()). Hasta el 05/10 solo
+     *     se miraba `calificaciones`: un criterio con nota sin promedio, o una
+     *     omisión, pasaba. Las notas NO se mueven entre matrículas (Regla A), así
+     *     que un bimestre evaluado en la operativa debe cerrarse antes.
+     *  2. CIERRE VIGENTE de conducta o asistencia, en la sección de origen o en
+     *     la de destino, en un bimestre sin cerrar. Mover filas fuera de un
+     *     registro ya cerrado lo altera en silencio, y meterlas en uno cerrado
+     *     añade datos que nadie revisó. Se reabre primero desde los bloqueos.
+     *  3. La OFICIAL ya tiene filas propias de asistencia o conducta en esos
+     *     bimestres: el movimiento las chocaría (UNIQUE) o, peor, la unión de la
+     *     boleta sumaría las dos. No debería pasar —la oficial está fuera del
+     *     roster mientras el retorno está activo—, así que se revisa a mano.
+     */
+    private function bloqueoReversion(array $oficial, array $retorno): ?string
+    {
+        $operativaId = (int) $retorno['matricula_operativa_id'];
+        $oficialId   = (int) $oficial['id'];
+
+        $evaluacion = $this->evaluacionEnBimestreActivo($operativaId, true);
+        if ($evaluacion) {
+            $partes = [];
+            foreach ($evaluacion as $b) {
+                $partes[] = $b['nombre_display'];
+            }
+            return 'No se puede revertir: el estudiante ya tiene evaluación en el grado operativo '
+                 . 'en un bimestre sin cerrar (' . implode(', ', $partes) . '). Las notas no se '
+                 . 'mueven entre matrículas: hay que esperar a que ese bimestre cierre.';
+        }
+
+        $periodos = $this->periodosNoCerrados((int) $oficial['anio_id']);
+        if (!$periodos) {
+            return null;
+        }
+        $ids    = array_column($periodos, 'id');
+        $marcas = implode(',', array_fill(0, count($ids), '?'));
+        $secciones = [(int) $retorno['seccion_destino_id'], (int) $oficial['seccion_id']];
+
+        $cierres = $this->model->query("
+            SELECT 'conducta' AS registro, s.nombre AS seccion, g.nombre_display AS grado,
+                   p.nombre_display AS periodo
+            FROM cierres_conducta z
+            INNER JOIN secciones s ON s.id = z.seccion_id
+            INNER JOIN grados g    ON g.id = s.grado_id
+            INNER JOIN periodos p  ON p.id = z.periodo_id
+            WHERE z.anulado_en IS NULL AND z.seccion_id IN (?, ?) AND z.periodo_id IN ({$marcas})
+            UNION ALL
+            SELECT 'asistencia', s.nombre, g.nombre_display, p.nombre_display
+            FROM cierres_asistencia z
+            INNER JOIN secciones s ON s.id = z.seccion_id
+            INNER JOIN grados g    ON g.id = s.grado_id
+            INNER JOIN periodos p  ON p.id = z.periodo_id
+            WHERE z.anulado_en IS NULL AND z.seccion_id IN (?, ?) AND z.periodo_id IN ({$marcas})
+        ", array_merge($secciones, $ids, $secciones, $ids));
+        if ($cierres) {
+            $partes = array_map(
+                fn($c) => "{$c['registro']} de {$c['grado']} \"{$c['seccion']}\" ({$c['periodo']})",
+                $cierres
+            );
+            return 'No se puede revertir: hay registros cerrados en el bimestre en curso — '
+                 . implode('; ', $partes) . '. La reversión mueve la asistencia y la conducta '
+                 . 'del bimestre a la matrícula oficial; reabre esos cierres desde los bloqueos y vuelve a intentarlo.';
+        }
+
+        foreach (self::TABLAS_DEL_BIMESTRE as $tabla) {
+            $propias = $this->model->queryOne("
+                SELECT COUNT(*) AS n FROM {$tabla}
+                WHERE matricula_id = ? AND periodo_id IN ({$marcas})
+            ", array_merge([$oficialId], $ids));
+            if ((int) ($propias['n'] ?? 0) > 0) {
+                return 'No se puede revertir: la matrícula oficial ya tiene registros propios de '
+                     . 'asistencia o conducta en el bimestre en curso (' . $tabla . '). Moverlos '
+                     . 'duplicaría el dato en la boleta; hay que revisarlo a mano antes.';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * UN retorno por matrícula y año (decisión del usuario, 05/10/2026), en las
+     * dos direcciones: ni una oficial que ya tuvo retorno (activo o revertido)
+     * ni una matrícula que ES la operativa de otro retorno. Devuelve el mensaje
+     * que lo impide, o null.
+     */
+    private function mensajeYaTieneRetorno(int $matriculaId): ?string
+    {
+        $v = $this->retornos->vinculo($matriculaId);
+        if (!$v) {
+            return null;
+        }
+        if ($v['operativa'] === $matriculaId) {
+            return 'Esta es la matrícula operativa de un retorno de grado: la gestión se hace desde la matrícula oficial.';
+        }
+        return $v['estado'] === 'activo'
+            ? 'Esta matrícula ya tiene un retorno de grado activo.'
+            : 'Esta matrícula ya tuvo un retorno de grado este año (revertido). Solo se admite uno por año.';
+    }
+
+    /** Periodos del año que aún NO están cerrados (en curso o por empezar). */
+    private function periodosNoCerrados(int $anioId): array
+    {
+        return $this->model->query("
+            SELECT id, numero, nombre_display FROM periodos
+            WHERE anio_id = ? AND estado <> 'cerrado'
+            ORDER BY numero
+        ", [$anioId]);
+    }
+
+    /**
+     * Bimestres CERRADOS que el estudiante cursó en el grado operativo: los que
+     * tienen evaluación POR CRITERIO en la operativa. Son los que la boleta de la
+     * oficial sigue leyendo por unión. No se mira `calificaciones` a secas porque
+     * el retorno #1 arrastra en el I Bimestre 22 promedios COPIADOS por el
+     * `INSERT IGNORE` anterior al 05/08/2026 (sin criterios), y la pantalla
+     * anunciaba consolidar un bimestre que se cursó en la oficial.
+     */
+    private function periodosCursadosEnOperativa(int $operativaId): array
+    {
+        return $this->model->query("
+            SELECT DISTINCT p.id, p.numero, p.nombre_display
+            FROM calificaciones_criterio cc
+            INNER JOIN criterios k ON k.id = cc.criterio_id AND k.eliminado_en IS NULL
+            INNER JOIN periodos p  ON p.id = k.periodo_id
+            WHERE cc.matricula_id = ? AND p.estado = 'cerrado'
+            ORDER BY p.numero
+        ", [$operativaId]);
+    }
+
+    /**
+     * Lo que la reversión MUEVE a la oficial, por bimestre sin cerrar: para que
+     * la pantalla de confirmación diga qué viaja y en qué estado.
+     */
+    private function registrosDelBimestreEnCurso(int $operativaId): array
+    {
+        return $this->model->query("
+            SELECT p.nombre_display,
+                   (SELECT COUNT(*) FROM conducta_respuestas cr
+                     WHERE cr.matricula_id = ? AND cr.periodo_id = p.id)        AS conducta,
+                   (SELECT COUNT(*) FROM conducta_confirmaciones cf
+                     WHERE cf.matricula_id = ? AND cf.periodo_id = p.id)        AS conducta_confirmada,
+                   (SELECT COUNT(*) FROM asistencia_incidencias ai
+                     WHERE ai.matricula_id = ? AND ai.periodo_id = p.id)        AS incidencias,
+                   (SELECT COUNT(*) FROM inasistencias i
+                     WHERE i.matricula_id = ? AND i.periodo_id = p.id
+                       AND i.confirmado_en IS NOT NULL)                         AS asistencia_confirmada
+            FROM periodos p
+            WHERE p.estado <> 'cerrado'
+              AND p.anio_id = (SELECT anio_id FROM matriculas WHERE id = ?)
+            HAVING conducta > 0 OR incidencias > 0 OR asistencia_confirmada > 0
+            ORDER BY p.numero
+        ", [$operativaId, $operativaId, $operativaId, $operativaId, $operativaId]);
     }
 
     /** Retorno ACTIVO cuya matrícula oficial es la indicada, o null. */
     private function getRetornoActivo(int $oficialId): ?array
     {
         return $this->model->queryOne("
-            SELECT r.*, g.nombre_display AS grado_destino, s.nombre AS seccion_destino
+            SELECT r.*, mo.seccion_id AS seccion_destino_id, g.nombre_display AS grado_destino, s.nombre AS seccion_destino
             FROM retornos_grado r
             INNER JOIN matriculas mo ON mo.id = r.matricula_operativa_id
             LEFT  JOIN secciones s   ON s.id = mo.seccion_id
@@ -323,9 +556,15 @@ class RetornoGradoController extends BaseController
      *   - `omisiones_criterio`      blanco motivado (evaluación registrada
      *                               aunque no haya nota).
      * Los criterios eliminados no cuentan.
+     *
+     * `$noCerrados = true` (lo usa la REVERSIÓN, 05/10/2026) amplía de los
+     * periodos `activo` a todos los que no están `cerrado`: los bimestres se
+     * solapan y el siguiente puede tener evaluación antes de que cierre este.
      */
-    private function evaluacionEnBimestreActivo(int $matriculaId): array
+    private function evaluacionEnBimestreActivo(int $matriculaId, bool $noCerrados = false): array
     {
+        $condEstado = $noCerrados ? "p.estado <> 'cerrado'" : "p.estado = 'activo'";
+
         return $this->model->query("
             SELECT
                 p.id,
@@ -341,7 +580,7 @@ class RetornoGradoController extends BaseController
                   WHERE oc.matricula_id = ? AND k2.periodo_id = p.id
                     AND k2.eliminado_en IS NULL)                             AS omisiones
             FROM periodos p
-            WHERE p.estado = 'activo'
+            WHERE {$condEstado}
               AND p.anio_id = (SELECT id FROM anios_academicos WHERE estado = 'activo' LIMIT 1)
             HAVING notas > 0 OR criterios > 0 OR omisiones > 0
             ORDER BY p.numero
@@ -364,25 +603,6 @@ class RetornoGradoController extends BaseController
              . 'en un bimestre en curso — ' . implode('; ', $partes) . '. '
              . 'El retorno debe hacerse antes de que se le califique en el bimestre, '
              . 'o esperar a que el bimestre cierre.';
-    }
-
-    /**
-     * Periodos en los que una matrícula tiene calificaciones registradas.
-     * Con $cerrados=true devuelve solo los cerrados (los que se consolidan);
-     * con $cerrados=false devuelve solo los NO cerrados (bloquean la reversión).
-     */
-    private function periodosConNotas(int $matriculaId, bool $cerrados = true): array
-    {
-        $condEstado = $cerrados ? "p.estado = 'cerrado'" : "p.estado <> 'cerrado'";
-
-        return $this->model->query("
-            SELECT DISTINCT p.id, p.numero, p.nombre_display, p.estado
-            FROM calificaciones cal
-            INNER JOIN periodos p ON p.id = cal.periodo_id
-            WHERE cal.matricula_id = ?
-              AND {$condEstado}
-            ORDER BY p.numero
-        ", [$matriculaId]);
     }
 
     /** Carga la matrícula o muestra 404. */

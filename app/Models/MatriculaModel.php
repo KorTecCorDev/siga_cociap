@@ -109,11 +109,10 @@ class MatriculaModel extends BaseModel
                 n.nombre         AS nivel_nombre,
                 s.nombre         AS seccion_nombre,
                 a.anio,
-                -- Rol de la fila dentro de un retorno de grado ACTIVO:
-                --  ro presente → m es la matricula OFICIAL (su pareja operativa = ro.matricula_operativa_id)
-                --  rp presente → m es la matricula OPERATIVA (su pareja oficial = rp.matricula_oficial_id)
-                ro.matricula_operativa_id AS retorno_operativa_id,
-                rp.matricula_oficial_id   AS retorno_oficial_id,
+                -- Rol de la fila en un retorno de grado, ACTIVO o REVERTIDO
+                -- (05/10/2026; punto único RetornoGradoModel): retorno_rol,
+                -- retorno_estado, retorno_oficial, retorno_operativa.
+                " . RetornoGradoModel::sqlColumnasRol('m') . ",
                 (
                     SELECT CONCAT(pap.apellido_paterno,' ',pap.apellido_materno,', ',pap.nombres)
                     FROM vinculo_familiar vf
@@ -129,8 +128,7 @@ class MatriculaModel extends BaseModel
             LEFT  JOIN secciones s        ON s.id = m.seccion_id
             LEFT  JOIN grados g           ON g.id = s.grado_id
             LEFT  JOIN niveles n          ON n.id = g.nivel_id
-            LEFT  JOIN retornos_grado ro  ON ro.matricula_oficial_id  = m.id AND ro.estado = 'activo'
-            LEFT  JOIN retornos_grado rp  ON rp.matricula_operativa_id = m.id AND rp.estado = 'activo'
+            " . RetornoGradoModel::sqlJoinRol('m') . "
             WHERE {$where}
             ORDER BY {$orderBy}
             LIMIT {$limit} OFFSET {$offset}
@@ -157,7 +155,8 @@ class MatriculaModel extends BaseModel
      * Listado COMPLETO (sin paginación) para la nómina detallada admin/RA
      * (reporte al comité directivo). A diferencia de la nómina del docente:
      *  - Incluye AMBAS matrículas de un retorno de grado (oficial Y operativa),
-     *    cada una con el cruce de su contraparte (regla R3). No oculta la operativa.
+     *    cada una con el cruce de su contraparte (regla R3). No oculta la operativa,
+     *    tampoco la de un retorno REVERTIDO (fila informativa, 05/10/2026).
      *  - Trae género (p.sexo), DNI y celular del apoderado responsable.
      * Usa los MISMOS filtros que listar()/contar() (construirFiltros), pero NO
      * modifica esos métodos: el index de /matriculas queda intacto.
@@ -187,14 +186,10 @@ class MatriculaModel extends BaseModel
                 s.id     AS seccion_id,
                 s.nombre AS seccion_nombre,
                 a.anio,
-                -- Rol de la fila dentro de un retorno de grado ACTIVO (igual que listar()):
-                --   retorno_operativa_id presente → m es la OFICIAL (alumno cursa en otro grado)
-                --   retorno_oficial_id   presente → m es la OPERATIVA (alumno cursa AQUÍ)
-                ro.matricula_operativa_id AS retorno_operativa_id,
-                rp.matricula_oficial_id   AS retorno_oficial_id,
-                -- Ubicación de la contraparte para la nota cruzada:
-                CONCAT(go.nombre_display,' ',so.nombre) AS retorno_op_ubic,
-                CONCAT(gf.nombre_display,' ',sf.nombre) AS retorno_of_ubic,
+                -- Rol de la fila en un retorno de grado, ACTIVO o REVERTIDO (igual
+                -- que listar()) y ubicación de la contraparte para la nota cruzada.
+                " . RetornoGradoModel::sqlColumnasRol('m') . ",
+                CONCAT(gpar.nombre_display,' ',spar.nombre) AS retorno_pareja_ubic,
                 ap.telefono AS apoderado_telefono,
                 TRIM(CONCAT(
                     COALESCE(ap.apellido_paterno,''),' ',
@@ -208,14 +203,12 @@ class MatriculaModel extends BaseModel
             LEFT  JOIN secciones s        ON s.id = m.seccion_id
             LEFT  JOIN grados g           ON g.id = s.grado_id
             LEFT  JOIN niveles n          ON n.id = g.nivel_id
-            LEFT  JOIN retornos_grado ro  ON ro.matricula_oficial_id  = m.id AND ro.estado = 'activo'
-            LEFT  JOIN retornos_grado rp  ON rp.matricula_operativa_id = m.id AND rp.estado = 'activo'
-            LEFT  JOIN matriculas mo ON mo.id = ro.matricula_operativa_id
-            LEFT  JOIN secciones so  ON so.id = mo.seccion_id
-            LEFT  JOIN grados go     ON go.id = so.grado_id
-            LEFT  JOIN matriculas mf ON mf.id = rp.matricula_oficial_id
-            LEFT  JOIN secciones sf  ON sf.id = mf.seccion_id
-            LEFT  JOIN grados gf     ON gf.id = sf.grado_id
+            " . RetornoGradoModel::sqlJoinRol('m') . "
+            LEFT  JOIN matriculas mpar ON mpar.id = IF(rgr.matricula_oficial_id = m.id,
+                                                       rgr.matricula_operativa_id,
+                                                       rgr.matricula_oficial_id)
+            LEFT  JOIN secciones spar  ON spar.id = mpar.seccion_id
+            LEFT  JOIN grados gpar     ON gpar.id = spar.grado_id
             LEFT  JOIN vinculo_familiar vf
                 ON  vf.estudiante_id = e.id
                 AND vf.es_responsable = 1
@@ -579,24 +572,6 @@ class MatriculaModel extends BaseModel
             WHERE m.id = ?
             LIMIT 1
         ", [$id]);
-    }
-
-    /**
-     * Si la matrícula es la OPERATIVA de un retorno de grado ACTIVO, devuelve
-     * el id de su matrícula oficial (hub de gestión); null en caso contrario.
-     * Se usa para bloquear el acceso directo al detalle de la operativa: toda
-     * la gestión del retorno vive en la oficial.
-     */
-    public function oficialSiEsOperativaEnRetornoActivo(int $matriculaId): ?int
-    {
-        $r = $this->queryOne(
-            "SELECT matricula_oficial_id
-             FROM retornos_grado
-             WHERE matricula_operativa_id = ? AND estado = 'activo'
-             LIMIT 1",
-            [$matriculaId]
-        );
-        return $r ? (int) $r['matricula_oficial_id'] : null;
     }
 
     /** ¿El estudiante ya tiene matrícula en ese año académico? */

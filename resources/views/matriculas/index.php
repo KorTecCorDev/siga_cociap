@@ -199,9 +199,12 @@ $thOrden = function (string $key, string $label, string $thClass = '') use ($ord
             </thead>
             <tbody>
                 <?php $i = ($pagina - 1) * 25; foreach ($matriculas as $m): $i++;
-                    // Rol dentro de un retorno de grado activo (ver MatriculaModel::listar).
-                    $esOficialRetorno   = !empty($m['retorno_operativa_id']);
-                    $esOperativaRetorno = !empty($m['retorno_oficial_id']);
+                    // Rol dentro de un retorno de grado (ver MatriculaModel::listar).
+                    // La operativa —activa o REVERTIDA— es solo informativa; la
+                    // oficial lleva su marca mientras el retorno está activo.
+                    $retornoActivo      = ($m['retorno_estado'] ?? null) === 'activo';
+                    $esOficialRetorno   = ($m['retorno_rol'] ?? null) === 'oficial' && $retornoActivo;
+                    $esOperativaRetorno = ($m['retorno_rol'] ?? null) === 'operativa';
                 ?>
                 <tr class="<?= $esOperativaRetorno ? 'mat-fila-operativa' : '' ?>">
                     <td class="text-sm"><?= $i ?></td>
@@ -215,7 +218,11 @@ $thOrden = function (string $key, string $label, string $thClass = '') use ($ord
                         <?php if ($esOficialRetorno): ?>
                         <span class="matricula-badge matricula-badge--oficial" title="Matrícula oficial de SIAGIE: la boleta usa este grado/sección.">Oficial</span>
                         <?php elseif ($esOperativaRetorno): ?>
+                        <?php if ($retornoActivo): ?>
                         <span class="matricula-badge matricula-badge--operativa" title="Matrícula operativa de un retorno: el estudiante cursa aquí. Solo informativa.">Operativa</span>
+                        <?php else: ?>
+                        <span class="matricula-badge matricula-badge--operativa" title="Matrícula operativa de un retorno ya revertido: conserva los bimestres que cursó aquí. No es una baja. Solo informativa.">Operativa · revertido</span>
+                        <?php endif; ?>
                         <?php endif; ?>
                     </td>
                     <td class="text-center">
@@ -229,7 +236,7 @@ $thOrden = function (string $key, string $label, string $thClass = '') use ($ord
                     <td class="text-right">
                         <?php if ($esOperativaRetorno): ?>
                             <span class="mat-info-operativa">Solo informativa</span>
-                            <a href="<?= url('matriculas/' . (int) $m['retorno_oficial_id']) ?>" class="btn btn--secondary btn--sm">Ver oficial →</a>
+                            <a href="<?= url('matriculas/' . (int) $m['retorno_oficial']) ?>" class="btn btn--secondary btn--sm">Ver oficial →</a>
                         <?php else: ?>
                             <a href="<?= url('matriculas/' . $m['id']) ?>" class="btn btn--secondary btn--sm">Ver</a>
                         <?php endif; ?>

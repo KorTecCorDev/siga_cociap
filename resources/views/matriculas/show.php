@@ -637,9 +637,10 @@ $labelDoc = [
         </div>
         <?php endif; ?>
 
-        <!-- Retorno de grado: la operación más delicada. Se oculta si ya hay un
-             retorno activo (en ese caso, la reversión se ofrece en su tarjeta). -->
-        <?php if (!($retorno && ($retorno['estado'] ?? 'activo') === 'activo')): ?>
+        <!-- Retorno de grado: la operación más delicada. Se oculta si la matrícula
+             ya tuvo un retorno, activo o revertido: se admite UNO por año (05/10/2026;
+             la reversión se ofrece en su tarjeta). -->
+        <?php if (!$retorno): ?>
         <div class="mat-accion mat-accion--critico">
             <div class="mat-accion__info">
                 <span class="mat-accion__titulo">⚠ Retorno de grado</span>

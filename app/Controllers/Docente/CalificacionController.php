@@ -9,6 +9,7 @@ use App\Models\CriterioModel;
 use App\Models\ExoneracionModel;
 use App\Models\OmisionCriterioModel;
 use App\Models\RectificacionModel;
+use App\Models\RetornoGradoModel;
 use Core\Session;
 
 /**
@@ -340,7 +341,7 @@ class CalificacionController extends BaseController
             }
         }
 
-        $alumnos = $this->getAlumnosSeccion($seccionId);
+        $alumnos = $this->getAlumnosSeccion($seccionId, (int) $periodo['id']);
 
         // Piso de "no se evaluó": área-aware (cubre todas las subárea-cargas del
         // área en la sección unidocente). Da igual qué carga del área se pase.
@@ -535,7 +536,7 @@ class CalificacionController extends BaseController
             $competencias = array_merge($competencias, $transversales);
         }
 
-        $alumnos         = $this->getAlumnosSeccion($carga['seccion_id']);
+        $alumnos         = $this->getAlumnosSeccion((int) $carga['seccion_id'], (int) $periodo['id']);
         $notasExistentes = $this->getNotasExistentes($cargaId, $periodo['id']);
         $bloqueos        = $this->getBloqueos($cargaId, $periodo['id']);
         $exonerados      = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
@@ -1409,7 +1410,7 @@ class CalificacionController extends BaseController
         ", [$cargaId, $user['id']]);
     }
 
-    private function getAlumnosSeccion(int $seccionId): array
+    private function getAlumnosSeccion(int $seccionId, int $periodoId): array
     {
         return $this->calModel->query("
             SELECT
@@ -1439,8 +1440,10 @@ class CalificacionController extends BaseController
             -- asistencia y sus contadores de avance) declara explícitamente que
             -- copia el de aquí. Desde hoy no se copia: sale del punto único
             -- `roster_evaluacion()` en helpers.php, que conserva el porqué de
-            -- cada condición.
-            " . roster_evaluacion('m') . "
+            -- cada condición. Desde el 05/10/2026 va POR BIMESTRE
+            -- (`sqlRosterDelPeriodo`): idéntico en el bimestre en curso, y en uno
+            -- cerrado muestra a quien lo cursó (retorno de grado, por el tramo).
+            " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             ORDER BY " . orden_alfabetico('p') . "
         ", [$seccionId]);
     }

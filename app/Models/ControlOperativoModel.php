@@ -357,11 +357,15 @@ class ControlOperativoModel extends BaseModel
               AND NOT EXISTS (SELECT 1 FROM exoneraciones ex
                               WHERE ex.matricula_id = m.id AND ex.area_id = a.id
                                 AND ex.revocado_en IS NULL)
-              -- Anclaje de retorno: excluye la oficial (compite en su operativa).
+              -- Anclaje de retorno POR BIMESTRE, el mismo del mérito (punto único
+              -- `RetornoGradoModel::sqlCursoElPeriodo`, por el TRAMO). Hasta el 05/10/2026 aquí solo
+              -- vivía la mitad «oficial de un retorno activo»: con el retorno
+              -- REVERTIDO, la operativa —fuera de todo roster— salía incompleta en
+              -- cada criterio nuevo de su ex sección y bloqueaba el cierre.
               -- ⚠️ NO usa `roster_evaluacion()` (helpers.php): esto pertenece al
               -- universo del ORDEN DE MÉRITO, que tiene su propio punto único
               -- (`OrdenMeritoModel::ROSTER_MERITO`) y exige `estado='aprobada'`.
-              AND m.id NOT IN (SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo')
+              " . RetornoGradoModel::sqlCursoElPeriodo('m', 'cr.periodo_id') . "
             ORDER BY n.id, g.numero, s.nombre, " . orden_alfabetico('p') . ",
                      comp.nombre_completo, cr.orden
         ", [$periodoId]);

@@ -18,9 +18,11 @@
  *      todos tengan motivo — o no cursó (sin notas), o nadie le registró.
  *   2. NO-REGRESIÓN: quien tiene fila con los 4 contadores en CERO conserva su 0.
  *      Es la distinción que da sentido al cambio; si esto falla, el cambio está mal.
- *   3. RETORNO DE GRADO: la pregunta va por UNIÓN. La boleta del retorno #1 NO debe
- *      salir en guion en B1 ni en B2, aunque cada matrícula por separado tenga un
- *      hueco: sus filas viven repartidas entre la oficial y la operativa.
+ *   3. RETORNO DE GRADO: cada bimestre se lee de la matrícula que lo CURSÓ (tramo,
+ *      migración 073, 05/10/2026). La boleta de la oficial sale en guion ⟺ esa
+ *      matrícula no tiene fila VISIBLE (confirmada y con cierre vigente) en el
+ *      bimestre. Hasta esa fecha la pregunta iba por unión de las dos matrículas
+ *      y el aserto contaba cualquier fila, también un borrador.
  *   4. TOTAL ANUAL: no se mueve. Las columnas que pasan a guion aportaban 0.
  */
 
@@ -134,12 +136,27 @@ foreach ($cerosReales as $c) {
 $ok($malCero === 0, "ninguna fila en cero real se convirtio en guion ({$malCero} fallos)");
 
 // ─────────────────────────────────────────────── 3. RETORNO DE GRADO (union)
-echo "\n--- 3. RETORNO DE GRADO: la pregunta va por UNION ---\n";
+echo "\n--- 3. RETORNO DE GRADO: cada bimestre, de la matricula que lo curso ---\n";
 
+// Tramo escrito a mano (no por RetornoGradoModel): el control no se apoya en el
+// codigo que vigila.
 $retornos = $pdo->query("
-    SELECT matricula_oficial_id AS oficial, matricula_operativa_id AS operativa
-    FROM retornos_grado ORDER BY id
+    SELECT r.matricula_oficial_id AS oficial, r.matricula_operativa_id AS operativa,
+           r.estado, pd.numero AS desde, ph.numero AS hasta
+    FROM retornos_grado r
+    JOIN periodos pd ON pd.id = r.periodo_desde_id
+    LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+    ORDER BY r.id
 ")->fetchAll(PDO::FETCH_ASSOC);
+// Fila VISIBLE = confirmada y con cierre de asistencia vigente en su seccion.
+$visible = static function (int $mid, int $pid) use ($pdo): bool {
+    return (bool) $pdo->query("SELECT 1 FROM inasistencias i
+        JOIN matriculas mv ON mv.id = i.matricula_id
+        JOIN cierres_asistencia z ON z.seccion_id = mv.seccion_id
+                                 AND z.periodo_id = i.periodo_id AND z.anulado_en IS NULL
+        WHERE i.matricula_id = {$mid} AND i.periodo_id = {$pid}
+          AND i.confirmado_en IS NOT NULL LIMIT 1")->fetchColumn();
+};
 
 if (!$retornos) {
     echo "  (no hay retornos registrados; bloque no aplica)\n";
@@ -154,22 +171,23 @@ foreach ($retornos as $r) {
         $pid = (int) $p['id'];
         $num = (int) $p['numero'];
 
-        $filaOf = (bool) $pdo->query("SELECT 1 FROM inasistencias
-            WHERE matricula_id = {$of} AND periodo_id = {$pid} LIMIT 1")->fetchColumn();
-        $filaOp = (bool) $pdo->query("SELECT 1 FROM inasistencias
-            WHERE matricula_id = {$op} AND periodo_id = {$pid} LIMIT 1")->fetchColumn();
+        $cubre   = $num >= (int) $r['desde']
+                && ($r['estado'] === 'activo' || ($r['hasta'] !== null && $num <= (int) $r['hasta']));
+        $cursada = $cubre ? $op : $of;
+        $hay     = $visible($cursada, $pid);
 
-        $union = $asisMod->tieneRegistroUnion([$op, $of], $pid);
-        $ok($union === ($filaOf || $filaOp),
-            "B{$num}: tieneRegistroUnion=" . var_export($union, true)
-            . " (oficial=" . var_export($filaOf, true) . ", operativa=" . var_export($filaOp, true) . ")");
+        $reg = $asisMod->tieneRegistroUnion([$cursada], $pid);
+        $ok($reg === $hay,
+            "B{$num}: curso en " . ($cubre ? "la operativa {$op}" : "la oficial {$of}")
+            . ", fila visible=" . var_export($hay, true) . " (modelo: " . var_export($reg, true) . ")");
 
-        // La boleta se rotula con la OFICIAL: no debe salir en guion si alguna tiene fila.
+        // La boleta se rotula con la OFICIAL y lee la columna de la que curso:
+        // guion <=> sin fila visible. Las DOS ramas.
         $b = $bloque($of, $verPeriodo, 'todos');
         $col = $b[$num] ?? null;
-        if ($col !== null && ($filaOf || $filaOp)) {
-            $ok(empty($col['sin_registro']),
-                "B{$num}: la boleta de la oficial {$of} NO sale en guion (hay fila en la union)");
+        if ($col !== null) {
+            $ok(empty($col['sin_registro']) === $hay,
+                "B{$num}: la boleta de la oficial {$of} " . ($hay ? 'NO sale' : 'sale') . " en guion");
         }
     }
 }

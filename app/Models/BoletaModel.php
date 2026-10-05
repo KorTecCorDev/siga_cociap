@@ -24,10 +24,12 @@ class BoletaModel extends BaseModel
     private ExoneracionModel     $exoModel;
     private DirectorEbrModel     $dirModel;
     private PublicacionBoletaModel $publicacionModel;
+    private RetornoGradoModel    $retornos;
 
     public function __construct()
     {
         parent::__construct();
+        $this->retornos         = new RetornoGradoModel();
         $this->calModel         = new CalificacionModel();
         $this->conductaModel    = new ConductaModel();
         $this->asistenciaModel  = new AsistenciaModel();
@@ -114,9 +116,10 @@ class BoletaModel extends BaseModel
     public function armar(int $matriculaId, int $periodoId, string $datos = 'oficial', bool $estructuraCompleta = false): ?array
     {
         // Retorno de grado: la boleta SIEMPRE se rotula con la matricula oficial
-        // (grado/seccion SIAGIE) y sus notas se leen por union de las matriculas
-        // involucradas (operativa + oficial). En el caso normal, identidad y
-        // unica fuente son la propia matricula.
+        // (grado/seccion SIAGIE) y cada bimestre se lee de la matricula que lo
+        // curso (tramo, RetornoGradoModel; 05/10/2026). `fuentes` queda solo para
+        // lo que es del estudiante completo (exoneraciones, omisiones). En el caso
+        // normal, identidad y unica fuente son la propia matricula.
         $ctx       = $this->calModel->boletaContexto($matriculaId);
         $identidad = (int) $ctx['identidad'];
         $fuentes   = $ctx['fuentes'];
@@ -174,18 +177,20 @@ class BoletaModel extends BaseModel
                 continue;
             }
             $periodosConDatos[$p['id']] = true;
-            $rows = [];
-            foreach ($fuentes as $mid) {
-                $rows = array_merge($rows, $this->calModel->getBoletaAlumno((int) $mid, $p['id']));
-            }
-            $datosPorPeriodo[$p['id']] = $rows;
+            // Retorno de grado (05/10/2026): el bimestre se lee ENTERO de la
+            // matricula que lo curso (tramo, RetornoGradoModel). Sin fusionar
+            // fuentes: las copias antiguas de otro bimestre no se cuelan.
+            $datosPorPeriodo[$p['id']] = $this->calModel->getBoletaAlumno(
+                $this->retornos->matriculaDelPeriodo($matriculaId, (int) $p['id']),
+                $p['id']
+            );
         }
 
         // ESQUELETO DEL PLAN (05/08/2026): el documento muestra TODAS las
         // competencias que la seccion dicta, con guion donde no hay dato. Sale de
-        // la matricula de EVALUACION (la operativa en un retorno de grado: se
-        // evalua donde se cursa, Regla A), no de la de identidad con la que se
-        // rotula la boleta. Las notas de la otra matricula no se pierden: el
+        // la matricula de EVALUACION (la de HOY en un retorno de grado: el plan del
+        // grado donde el estudiante termina el anio), no de la de identidad con la
+        // que se rotula la boleta. Las notas de la otra matricula no se pierden: el
         // builder crea su fila al superponerlas.
         $esqueleto = $this->calModel->estructuraCompetenciasSeccion((int) $ctx['evaluacion']);
 
@@ -233,16 +238,19 @@ class BoletaModel extends BaseModel
             // extra no se ejecuta cuando el umbral ya dijo que no hay nada que mostrar
             // — se conserva la regla de que una columna vacia no sale de datos que este
             // umbral no debe ver.
+            // Retorno de grado: la asistencia del bimestre vive en la matricula que
+            // lo curso (05/10/2026). Ya no se suma entre fuentes: sin doble conteo.
+            $cursoPa     = [$this->retornos->matriculaDelPeriodo($matriculaId, (int) $pa['id'])];
             $sinRegistro = !$this->periodoAportaNotas($pa, $datos, $publicados)
                         || ($pa['estado'] ?? '') === 'pendiente'
-                        || !$this->asistenciaModel->tieneRegistroUnion($fuentes, (int) $pa['id']);
+                        || !$this->asistenciaModel->tieneRegistroUnion($cursoPa, (int) $pa['id']);
 
             // OJO: variable propia, NO reusar el nombre $datos (parametro del metodo,
             // leido mas abajo por el filtro de conducta). Si no aporta NO se consulta:
             // la columna vacia no puede salir de datos que este umbral no debe ver.
             $asisDatos = $sinRegistro
                 ? $ceros
-                : $this->asistenciaModel->getDelBimestreUnion($fuentes, (int) $pa['id']);
+                : $this->asistenciaModel->getDelBimestreUnion($cursoPa, (int) $pa['id']);
 
             $asisBimestres[] = [
                 'id'           => (int) $pa['id'],
@@ -258,7 +266,8 @@ class BoletaModel extends BaseModel
         // Conducta [periodo_id => literal]: mismo umbral del Hito A que las notas.
         // Solo los periodos que APORTAN (segun $datos) muestran conducta; en 'todos'
         // no se filtra (vista previa de RA).
-        $conducta = $this->conductaModel->getParaBoletaUnion($fuentes, $anioId);
+        // Retorno de grado: cada bimestre, de la matricula que lo curso (tramo).
+        $conducta = $this->conductaModel->getParaBoletaPorTramo($matriculaId, $anioId);
         if ($datos !== 'todos') {
             $conducta = array_intersect_key($conducta, $periodosConDatos);
         }

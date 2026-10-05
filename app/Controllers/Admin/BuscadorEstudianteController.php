@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\EstudianteModel;
 use App\Models\OrdenMeritoModel;
+use App\Models\RetornoGradoModel;
 
 class BuscadorEstudianteController extends BaseController
 {
@@ -74,8 +75,8 @@ class BuscadorEstudianteController extends BaseController
         // (OrdenMeritoModel, con cascada de desempate y resolución manual).
         $puestos = [];
         if ($periodoId !== null && $filas) {
-            // Incluye el grado OPERATIVO de un retorno: el puesto de la oficial
-            // sale de ahí aunque la fila operativa no haya entrado al LIMIT.
+            // Incluye el grado de la PAREJA de un retorno: el puesto de la oficial
+            // puede salir de ahí aunque la fila operativa no haya entrado al LIMIT.
             $gradoIds = array_filter(array_merge(
                 array_map(static fn($f) => (int) ($f['grado_id'] ?? 0), $filas),
                 array_map(static fn($f) => (int) ($f['retorno_grado_id'] ?? 0), $filas)
@@ -85,7 +86,9 @@ class BuscadorEstudianteController extends BaseController
             }
         }
 
-        $resultados = array_map(function (array $f) use ($puestos): array {
+        $retornos = new RetornoGradoModel();
+
+        $resultados = array_map(function (array $f) use ($puestos, $retornos, $periodoId): array {
             $tutor = !empty($f['tutor_apellido_paterno'])
                 ? mb_strtoupper($f['tutor_apellido_paterno']) . ' '
                 . mb_strtoupper($f['tutor_apellido_materno']) . ', '
@@ -94,21 +97,42 @@ class BuscadorEstudianteController extends BaseController
 
             $puesto = $puestos[(int) $f['matricula_id']]['puesto'] ?? null;
 
-            // Retorno de grado ACTIVO: la oficial es la gestión y el documento;
-            // el mérito vive en la operativa, así que su puesto se lee de allí.
+            // Retorno de grado, ACTIVO o REVERTIDO (05/10/2026): la oficial es la
+            // gestión y el documento. El puesto sale de la matrícula que CURSÓ el
+            // último bimestre cerrado (tramo), que puede ser cualquiera de las dos.
             // El JS decide si agrupa (buscador) o separa (Rectificación).
             $retorno = null;
-            if (!empty($f['retorno_operativa_id'])) {
-                $puestoOp = $puestos[(int) $f['retorno_operativa_id']]['puesto'] ?? null;
-                $retorno  = [
-                    'rol'      => 'oficial',
-                    'cursa_en' => $f['retorno_grado_nombre'] . ' "' . $f['retorno_seccion_nombre'] . '"',
-                    'puesto'   => $puestoOp !== null ? (int) $puestoOp : null,
+            if (($f['retorno_rol'] ?? null) === 'oficial') {
+                $pareja = $f['retorno_grado_nombre'] . ' "' . $f['retorno_seccion_nombre'] . '"';
+                $v      = $retornos->vinculo((int) $f['matricula_id']);
+                $puestoMid = $periodoId !== null
+                    ? $retornos->matriculaDelPeriodo((int) $f['matricula_id'], $periodoId)
+                    : (int) $f['matricula_id'];
+                $puestoR = $puestos[$puestoMid]['puesto'] ?? null;
+
+                if ($f['retorno_estado'] === 'activo') {
+                    $texto = 'Retorno de grado: cursa en ' . $pareja;
+                } else {
+                    $tramo = $v ? $retornos->nombresDelTramo($v) : null;
+                    $texto = 'Retorno revertido'
+                        . (!empty($v['fecha_reversion']) ? ' el ' . date('d/m/Y', strtotime($v['fecha_reversion'])) : '')
+                        . ($tramo !== null
+                            ? ' · cursó el ' . $tramo . ' en ' . $pareja
+                            : ' · no completó ningún bimestre en ' . $pareja);
+                }
+                $retorno = [
+                    'rol'       => 'oficial',
+                    'estado'    => $f['retorno_estado'],
+                    'texto'     => $texto,
+                    'puesto'    => $puestoR !== null ? (int) $puestoR : null,
+                    // null = el puesto es del grado de la propia fila.
+                    'puesto_en' => $puestoMid !== (int) $f['matricula_id'] ? $pareja : null,
                 ];
-            } elseif (!empty($f['retorno_oficial_id'])) {
+            } elseif (($f['retorno_rol'] ?? null) === 'operativa') {
                 $retorno = [
                     'rol'        => 'operativa',
-                    'oficial_id' => (int) $f['retorno_oficial_id'],
+                    'estado'     => $f['retorno_estado'],
+                    'oficial_id' => (int) $f['retorno_oficial'],
                 ];
             }
 

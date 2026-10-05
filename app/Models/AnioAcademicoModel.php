@@ -635,6 +635,20 @@ class AnioAcademicoModel extends BaseModel
     }
 
     /**
+     * Qué matrícula cuenta en las estadísticas de calificaciones (alias `m`,
+     * `cal`): las aprobadas, y de un retorno de grado SOLO la que cursó el
+     * bimestre de la nota (tramo, `RetornoGradoModel`). La operativa revertida
+     * queda `desactivado` pero sus bimestres del tramo siguen contando; antes
+     * del 05/10/2026 se perdían (y con el retorno activo, el I de la oficial se
+     * contaba dos veces por las copias del antiguo INSERT IGNORE).
+     */
+    private static function sqlMatriculaQueCuenta(): string
+    {
+        return "(m.estado = 'aprobada' OR " . RetornoGradoModel::sqlOperativaRevertida('m') . ")
+              " . RetornoGradoModel::sqlCursoElPeriodo('m', 'cal.periodo_id');
+    }
+
+    /**
      * Indicadores globales del bimestre, separados por nivel (Primaria/Secundaria):
      *  - distribución de literales AD/A/B/C (contando cada calificación de competencia)
      *  - % en logro (AD+A) vs en proceso/inicio (B+C)
@@ -664,7 +678,7 @@ class AnioAcademicoModel extends BaseModel
             LEFT  JOIN subareas sa       ON sa.id   = comp.subarea_id
             INNER JOIN areas ar          ON ar.id   = COALESCE(sa.area_id, comp.area_id)
             WHERE cal.periodo_id = ?
-              AND m.estado       = 'aprobada'
+              AND " . self::sqlMatriculaQueCuenta() . "
               AND ar.tipo       != 'transversal'
             GROUP BY n.id, n.nombre, n.codigo
             ORDER BY n.id
@@ -701,7 +715,7 @@ class AnioAcademicoModel extends BaseModel
                 LEFT  JOIN subareas sa       ON sa.id   = comp.subarea_id
                 INNER JOIN areas ar          ON ar.id   = COALESCE(sa.area_id, comp.area_id)
                 WHERE cal.periodo_id = ?
-                  AND m.estado       = 'aprobada'
+                  AND " . self::sqlMatriculaQueCuenta() . "
                   AND ar.tipo       != 'transversal'
                 GROUP BY m.id, s.grado_id
             ) prom
@@ -823,7 +837,7 @@ class AnioAcademicoModel extends BaseModel
             LEFT  JOIN subareas sa       ON sa.id   = comp.subarea_id
             INNER JOIN areas ar          ON ar.id   = COALESCE(sa.area_id, comp.area_id)
             WHERE p.anio_id  = ?
-              AND m.estado   = 'aprobada'
+              AND " . self::sqlMatriculaQueCuenta() . "
               AND ar.tipo   != 'transversal'
             GROUP BY cal.periodo_id, n.id, n.nombre, n.codigo
             ORDER BY n.id

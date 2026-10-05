@@ -271,10 +271,24 @@ foreach ($casos as $c) {
         INNER JOIN matriculas m ON m.id = cal.matricula_id
         WHERE cal.carga_id = ? AND cal.competencia_id = ? AND cal.periodo_id = ?
           AND m.seccion_id = (SELECT seccion_id FROM cargas_academicas WHERE id = cal.carga_id)
-          AND m.estado IN ('aprobada', 'pendiente')
           AND m.tipo  NOT IN ('trasladado', 'retirado')
-          AND m.id NOT IN (SELECT matricula_oficial_id   FROM retornos_grado WHERE estado = 'activo')
-          AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'revertido')
+          -- Retorno de grado por TRAMO (05/10/2026, migracion 073), escrito a mano:
+          -- la operativa cuenta en los bimestres que curso (aunque revertida quede
+          -- `desactivado`), la oficial en los demas.
+          AND (m.estado IN ('aprobada', 'pendiente')
+               OR m.id IN (SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'revertido'))
+          AND NOT EXISTS (
+              SELECT 1 FROM retornos_grado r
+              JOIN periodos pd ON pd.id = r.periodo_desde_id
+              LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+              JOIN periodos px ON px.id = cal.periodo_id
+              WHERE (r.matricula_oficial_id = m.id
+                     AND px.numero >= pd.numero
+                     AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero)))
+                 OR (r.matricula_operativa_id = m.id
+                     AND NOT (px.numero >= pd.numero
+                              AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))))
+          )
     ");
     $st->execute([$m['carga_id'], $m['competencia_id'], $m['periodo_id']]);
     $enBase = (int) $st->fetchColumn();

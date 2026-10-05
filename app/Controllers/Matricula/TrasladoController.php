@@ -9,6 +9,7 @@ use App\Models\ApoderadoModel;
 use App\Models\EstudianteModel;
 use App\Models\DirectorEbrModel;
 use App\Models\OrdenMeritoModel;
+use App\Models\RetornoGradoModel;
 use Core\Session;
 use Core\View;
 
@@ -49,6 +50,7 @@ class TrasladoController extends BaseController
     public function form(string $matriculaId): void
     {
         $matricula = $this->requireMatricula((int) $matriculaId);
+        $this->guardaRetorno((int) $matriculaId);
 
         // Solo se traslada una matrícula vigente (activa).
         if ($matricula['estado'] !== 'aprobada') {
@@ -97,6 +99,7 @@ class TrasladoController extends BaseController
     {
         $this->validateCsrf();
         $matricula = $this->requireMatricula((int) $matriculaId);
+        $this->guardaRetorno((int) $matriculaId);
         $usuarioId = (int) (Session::user()['id'] ?? 0);
         $id        = (int) $matriculaId;
 
@@ -316,5 +319,19 @@ class TrasladoController extends BaseController
             $this->notFound();
         }
         return $matricula;
+    }
+
+    /**
+     * Retorno de grado (05/10/2026): la operativa no se traslada y la oficial
+     * de un retorno ACTIVO tampoco, hasta revertirlo
+     * (`RetornoGradoModel::bloqueoGestion`).
+     */
+    private function guardaRetorno(int $matriculaId): void
+    {
+        $retornos = new RetornoGradoModel();
+        $motivo   = $retornos->bloqueoGestion($matriculaId, 'trasladar');
+        if ($motivo !== null) {
+            $this->redirectWithError(url('matriculas/' . $retornos->identidad($matriculaId)), $motivo);
+        }
     }
 }

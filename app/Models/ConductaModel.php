@@ -220,7 +220,7 @@ class ConductaModel extends BaseModel
             LEFT JOIN matriculas m
                    ON m.seccion_id = s.id AND m.anio_id = s.anio_id
                   -- Roster de evaluacion (punto unico en helpers.php).
-                  " . roster_evaluacion('m') . "
+                  " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             LEFT JOIN (
                 -- Solo lo CONFIRMADO: el panel dice «Confirmados X de N».
                 SELECT r.matricula_id, COUNT(*) AS respondidos
@@ -281,7 +281,7 @@ class ConductaModel extends BaseModel
               -- TODOS los matriculados de la seccion (aprobada, pendiente e incluso
               -- desactivado por baja administrativa/deuda: siguen asistiendo). El
               -- Roster de evaluacion (punto unico en helpers.php).
-              " . roster_evaluacion('m') . "
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
         ", [$periodoId, $periodoId, $seccionId]);
@@ -332,7 +332,7 @@ class ConductaModel extends BaseModel
                 ON cc.matricula_id = m.id AND cc.periodo_id = ?
             WHERE m.seccion_id = ?
               -- Roster de evaluacion (punto unico en helpers.php).
-              " . roster_evaluacion('m') . "
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
         ", [$periodoId, $seccionId]);
@@ -515,7 +515,7 @@ class ConductaModel extends BaseModel
             WHERE m.seccion_id = ?
               -- Roster de evaluacion (punto unico en helpers.php): la compuerta de
               -- completitud debe contar exactamente a quienes aparecen en la grilla.
-              " . roster_evaluacion('m') . "
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
         ", [$totalCriterios, $periodoId, $seccionId]);
 
@@ -749,7 +749,7 @@ class ConductaModel extends BaseModel
             INNER JOIN periodos per ON per.id = ? AND per.anio_id = m.anio_id
             WHERE m.id = ?
               AND per.estado = 'cerrado'
-              " . roster_evaluacion('m') . "
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND " . self::sqlAdmiteExtraordinaria('m', 'per') . "
         ", [$periodoId, $matriculaId]);
 
@@ -838,7 +838,7 @@ class ConductaModel extends BaseModel
             LEFT JOIN calificaciones_conducta cc ON cc.matricula_id = m.id AND cc.periodo_id = ?
             WHERE m.seccion_id = ?
               -- Roster de evaluacion (punto unico en helpers.php).
-              " . roster_evaluacion('m') . "
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
         ", [$periodoId, $periodoId, $periodoId, $seccionId]);
@@ -959,6 +959,26 @@ class ConductaModel extends BaseModel
         return $out;
     }
 
+    /**
+     * Conducta para la boleta [periodo_id => literal] con el RETORNO DE GRADO por
+     * TRAMO (05/10/2026, migración 073): cada bimestre sale de la matrícula que
+     * lo cursó (`RetornoGradoModel::matriculaDelPeriodo`), sin fusionar ni dar
+     * precedencia. Sin retorno equivale a getParaBoleta().
+     */
+    public function getParaBoletaPorTramo(int $matriculaId, int $anioId): array
+    {
+        $retornos = new RetornoGradoModel();
+        $out = [];
+        foreach ($retornos->fuentes($matriculaId) as $id) {
+            foreach ($this->getParaBoleta($id, $anioId) as $periodoId => $literal) {
+                if ($retornos->matriculaDelPeriodo($matriculaId, (int) $periodoId) === $id) {
+                    $out[$periodoId] = $literal;
+                }
+            }
+        }
+        return $out;
+    }
+
     /** Conducta (literal) de un alumno en un solo periodo, o null si no es visible. */
     public function getParaPeriodo(int $matriculaId, int $periodoId): ?string
     {
@@ -1059,7 +1079,7 @@ class ConductaModel extends BaseModel
             INNER JOIN matriculas m
                     ON m.seccion_id = s.id AND m.anio_id = s.anio_id
                    -- Roster de evaluacion (punto unico en helpers.php).
-                   " . roster_evaluacion('m') . "
+                   " . RetornoGradoModel::sqlRosterDelPeriodo('m', 'p.id') . "
             LEFT JOIN calificaciones_conducta cc
                    ON cc.matricula_id = m.id AND cc.periodo_id = p.id
             LEFT JOIN (
@@ -1195,7 +1215,7 @@ class ConductaModel extends BaseModel
             INNER JOIN matriculas m
                     ON m.id = r.matricula_id
                    -- Roster de evaluacion (punto unico en helpers.php).
-                   " . roster_evaluacion('m') . "
+                   " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             INNER JOIN secciones s ON s.id = m.seccion_id
             INNER JOIN grados    g ON g.id = s.grado_id
             INNER JOIN niveles   n ON n.id = g.nivel_id

@@ -42,10 +42,11 @@ class SituacionFinalModel extends BaseModel
      *     cursan aquí. Se emite desde `helpers.php`, no se escribe a mano.
      *     **NO filtra por `estado`**, a propósito: `pendiente` y `desactivado`
      *     siguen asistiendo, se califican y serán promovidos o no.
-     *  2. ANCLAJE POR BIMESTRE del retorno de grado — se excluye la matrícula
-     *     OFICIAL en los periodos que cubrió su OPERATIVA (siempre si el retorno
-     *     está `activo`; solo en los bimestres con notas si está `revertido`).
-     *     Es el mismo anclaje que usa el ranking en vivo del mérito.
+     *  2. ANCLAJE POR BIMESTRE del retorno de grado: de las dos matrículas entra
+     *     SOLO la que cursó el bimestre, según el TRAMO guardado (migración 073;
+     *     punto único `RetornoGradoModel::sqlCursoElPeriodo`, el mismo del mérito).
+     *     Hasta el 05/10/2026 era una media copia a mano que no excluía la
+     *     operativa revertida: el estudiante salía DOS veces (retorno #1, III).
      *
      * 🔴 NO ES `roster_evaluacion()`, Y LA DIFERENCIA IMPORTA. Aquel excluye la
      * OPERATIVA de un retorno REVERTIDO **siempre**, porque describe el estado
@@ -61,20 +62,12 @@ class SituacionFinalModel extends BaseModel
      * pegarle a una el filtro de otra es el «híbrido» que ya costó un defecto en
      * `/matriculas/resumen`.
      *
-     * Lleva UN parámetro posicional: el `periodo_id` del anclaje.
+     * Correlacionado con el alias `per` (el periodo consultado) de rosterDelPeriodo.
      */
-    private const ROSTER_SITUACION = "
-        m.id NOT IN (
-            SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo'
-            UNION
-            SELECT r.matricula_oficial_id
-            FROM retornos_grado r
-            INNER JOIN calificaciones c2
-                ON c2.matricula_id = r.matricula_operativa_id
-               AND c2.periodo_id   = ?
-            WHERE r.estado = 'revertido'
-        )
-    ";
+    private static function rosterSituacion(): string
+    {
+        return RetornoGradoModel::sqlCursoElPeriodo('m', 'per.id');
+    }
 
     /**
      * PUNTO ÚNICO de QUÉ ÁREAS cuentan para la situación final. Lo usan las
@@ -193,6 +186,7 @@ class SituacionFinalModel extends BaseModel
         // Equivalencias del ACTA SIAGIE (02/10/2026): la situación final cuenta
         // lo que va en el acta. Ver `aplicarActa()`.
         $transv   = $this->transversalesDelActa($periodoId, $final);
+        $identidad = (new RetornoGradoModel())->mapaIdentidades();
 
         $porGrado   = [];
         $porSeccion = [];
@@ -268,7 +262,10 @@ class SituacionFinalModel extends BaseModel
             ];
 
             // Sustitución por ACTA, con el grado ya reubicado en la OFICIAL.
-            [$susNotas, $plan[$mid]] = $this->aplicarActa($m, $notas[$mid] ?? [], $plan[$mid] ?? [], $transv[$mid] ?? []);
+            // Notas y transversales van por IDENTIDAD (las dos matrículas de un
+            // retorno, cada bimestre de la que lo cursó): ver notasPorMatricula.
+            $ident = $identidad[$mid] ?? $mid;
+            [$susNotas, $plan[$mid]] = $this->aplicarActa($m, $notas[$ident] ?? [], $plan[$mid] ?? [], $transv[$ident] ?? []);
 
             $fila = $this->componerFila($m, $susNotas, $plan, $retorno, $final, $numeroActual);
             $sec  = (string) $m['seccion_nombre'];
@@ -681,9 +678,9 @@ class SituacionFinalModel extends BaseModel
             INNER JOIN periodos per  ON per.anio_id = m.anio_id AND per.id = ?
             WHERE 1 = 1
               " . matriculas_vigentes('m') . "
-              AND (" . self::ROSTER_SITUACION . ")
+              " . self::rosterSituacion() . "
             ORDER BY n.id, g.numero, s.nombre, " . orden_alfabetico('p') . "
-        ", [$periodoId, $periodoId]);
+        ", [$periodoId]);
     }
 
     /**
@@ -709,16 +706,19 @@ class SituacionFinalModel extends BaseModel
      * evaluarlas todas, así que con esa regla cumplida los dos criterios dan
      * lo mismo.
      *
-     * El arrastre no cruza matrículas: sale de la misma `matricula_id` (un
-     * cambio de sección la conserva; un retorno de grado se evalúa en la
-     * matrícula anclada del bimestre).
+     * RETORNO DE GRADO (05/10/2026): el arrastre SÍ cruza las dos matrículas del
+     * estudiante, como la boleta. Cada nota se lee de la matrícula que CURSÓ su
+     * bimestre (tramo guardado, `RetornoGradoModel::sqlCursoElPeriodo`) y se
+     * agrupa bajo su IDENTIDAD (la oficial). Antes no lo hacía: tras revertir el
+     * retorno #1, la oficial no veía las notas del II (vivían en la operativa) y
+     * salía en RR con las del I.
      *
-     * @return array<int, array<int, array>>  clave = matricula_id
+     * @return array<int, array<int, array>>  clave = matrícula IDENTIDAD (la oficial en un retorno)
      */
     private function notasPorMatricula(int $periodoId, bool $periodoFinal): array
     {
         $filas = $this->query("
-            SELECT cal.matricula_id,
+            SELECT " . RetornoGradoModel::sqlIdentidad('cal.matricula_id') . " AS matricula_id,
                    cal.competencia_id,
                    per.numero         AS periodo_numero,
                    per.nombre_display AS periodo,
@@ -750,7 +750,10 @@ class SituacionFinalModel extends BaseModel
             INNER JOIN periodos pact ON pact.id = ?
                                     AND per.anio_id = pact.anio_id
                                     AND per.numero <= pact.numero
+            -- Retorno de grado: solo la matrícula que cursó ese bimestre.
+            INNER JOIN matriculas mn ON mn.id = cal.matricula_id
             WHERE " . ($periodoFinal ? 'per.id = pact.id AND ' : '') . self::areasQueCuentan('cal.matricula_id') . ' AND ' . self::FILTRO_NOTAS . "
+              " . RetornoGradoModel::sqlCursoElPeriodo('mn', 'cal.periodo_id') . "
             -- Por competencia, primero el bimestre MÁS RECIENTE: el bucle se
             -- queda con esa fila y descarta las anteriores.
             ORDER BY a.orden, comp.orden, comp.id, per.numero DESC
@@ -890,8 +893,10 @@ class SituacionFinalModel extends BaseModel
         $ids = array_keys($ids);
         $in  = implode(',', array_fill(0, count($ids), '?'));
 
+        // Retorno de grado: como notasPorMatricula, cada bimestre de la matrícula
+        // que lo cursó, agrupado bajo la IDENTIDAD del estudiante.
         $filas = $this->query("
-            SELECT cal.matricula_id,
+            SELECT " . RetornoGradoModel::sqlIdentidad('cal.matricula_id') . " AS matricula_id,
                    cal.competencia_id,
                    per.numero         AS periodo_numero,
                    per.nombre_display AS periodo,
@@ -908,6 +913,7 @@ class SituacionFinalModel extends BaseModel
                                     AND per.numero <= pact.numero
             WHERE cal.competencia_id IN ($in)
               " . ($periodoFinal ? 'AND per.id = pact.id' : '') . "
+              " . RetornoGradoModel::sqlCursoElPeriodo('m', 'cal.periodo_id') . "
               AND EXISTS (SELECT 1 FROM cierres_transversales ct
                           WHERE ct.seccion_id = m.seccion_id
                             AND ct.periodo_id = cal.periodo_id

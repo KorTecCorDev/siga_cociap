@@ -69,12 +69,17 @@ $labelTipo = fn(string $t): string => match ($t) {
                 </thead>
                 <tbody>
                     <?php foreach ($grupo['alumnos'] as $i => $a):
-                        $esOficial   = !empty($a['retorno_operativa_id']); // cursa en otro grado (informativa)
-                        $esOperativa = !empty($a['retorno_oficial_id']);   // cursa AQUÍ
-                        $baja        = $a['estado'] === 'desactivado';
+                        // Retorno de grado (ver MatriculaModel::listarParaNomina).
+                        $rolRetorno  = $a['retorno_rol'] ?? null;
+                        $activo      = ($a['retorno_estado'] ?? null) === 'activo';
+                        $esOficial   = $rolRetorno === 'oficial'   && $activo;   // cursa en otro grado (informativa)
+                        $esOperativa = $rolRetorno === 'operativa' && $activo;   // cursa AQUÍ
+                        $esRevertida = $rolRetorno === 'operativa' && !$activo;  // cursó aquí; ya volvió (informativa)
+                        // La operativa revertida queda `desactivado`, pero NO es una baja.
+                        $baja        = $a['estado'] === 'desactivado' && !$esRevertida;
                         $clases = [];
                         if ($baja) { $clases[] = 'nomina-det__fila--baja'; }
-                        if ($esOficial || $esOperativa) { $clases[] = 'nomina-det__fila--retorno'; }
+                        if ($esOficial || $esOperativa || $esRevertida) { $clases[] = 'nomina-det__fila--retorno'; }
                     ?>
                         <tr class="<?= implode(' ', $clases) ?>">
                             <td class="nomina-det__c-num"><?= $i + 1 ?></td>
@@ -82,9 +87,11 @@ $labelTipo = fn(string $t): string => match ($t) {
                             <td>
                                 <?= e($a['nombre_completo']) ?>
                                 <?php if ($esOperativa): ?>
-                                    <span class="nomina-det__retorno-nota">↩ Retorno de grado · cursa aquí (oficial: <?= e($a['retorno_of_ubic'] ?: '—') ?>)</span>
+                                    <span class="nomina-det__retorno-nota">↩ Retorno de grado · cursa aquí (oficial: <?= e($a['retorno_pareja_ubic'] ?: '—') ?>)</span>
                                 <?php elseif ($esOficial): ?>
-                                    <span class="nomina-det__retorno-nota">↪ Retorno de grado · cursa en <?= e($a['retorno_op_ubic'] ?: '—') ?> (fila informativa)</span>
+                                    <span class="nomina-det__retorno-nota">↪ Retorno de grado · cursa en <?= e($a['retorno_pareja_ubic'] ?: '—') ?> (fila informativa)</span>
+                                <?php elseif ($esRevertida): ?>
+                                    <span class="nomina-det__retorno-nota">↪ Retorno de grado revertido · <?= !empty($a['retorno_tramo']) ? 'cursó aquí el ' . e($a['retorno_tramo']) : 'no completó ningún bimestre aquí' ?>; volvió a <?= e($a['retorno_pareja_ubic'] ?: '—') ?> (fila informativa)</span>
                                 <?php endif; ?>
                                 <?php if ($baja && !empty($a['motivo_estado'])): ?>
                                     <span class="nomina-det__motivo">⊘ Motivo de baja: <?= e($a['motivo_estado']) ?></span>

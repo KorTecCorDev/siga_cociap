@@ -15,8 +15,10 @@
 -- alumno que otros companeros SI tienen con nota (o sea, el criterio se evaluo)
 -- y a el le faltan, sin estar cubiertos por omision (motivo) ni por exoneracion
 -- del area. Mismo universo del merito: incluye Etica y Valores, excluye el resto
--- de transversales y tutoria. Excluye `trasladado`/`retirado` y la matricula
--- OFICIAL de un retorno de grado activo (compite en su operativa).
+-- de transversales y tutoria. Excluye `trasladado`/`retirado` y aplica el
+-- anclaje de retorno POR BIMESTRE del merito: segun el TRAMO guardado en
+-- retornos_grado (migracion 073), cada bimestre cuenta en la matricula que lo
+-- curso (desde el 05/10/2026; antes solo excluia la oficial de un retorno activo).
 --
 -- COMO LEER EL RESULTADO: la alerta solo aflora un criterio cuando algun
 -- companero de la seccion YA tiene nota en el. Mientras el bimestre avanza la
@@ -71,7 +73,17 @@ WHERE m.tipo NOT IN ('trasladado', 'retirado')
   AND NOT EXISTS (SELECT 1 FROM exoneraciones ex
                   WHERE ex.matricula_id = m.id AND ex.area_id = a.id
                     AND ex.revocado_en IS NULL)
-  AND m.id NOT IN (SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo')
+  -- Anclaje de retorno por bimestre: el TRAMO (= RetornoGradoModel::sqlCursoElPeriodo)
+  AND m.id NOT IN (SELECT r.matricula_oficial_id FROM retornos_grado r
+                   JOIN periodos pd ON pd.id = r.periodo_desde_id
+                   LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                   JOIN periodos px ON px.id = @periodo
+                   WHERE (px.numero >= pd.numero AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))))
+  AND m.id NOT IN (SELECT r.matricula_operativa_id FROM retornos_grado r
+                   JOIN periodos pd ON pd.id = r.periodo_desde_id
+                   LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                   JOIN periodos px ON px.id = @periodo
+                   WHERE NOT (px.numero >= pd.numero AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))))
 GROUP BY n.id, n.nombre, g.numero, g.nombre_display, s.nombre
 ORDER BY n.id, g.numero, s.nombre;
 
@@ -119,7 +131,17 @@ WHERE m.tipo NOT IN ('trasladado', 'retirado')
   AND NOT EXISTS (SELECT 1 FROM exoneraciones ex
                   WHERE ex.matricula_id = m.id AND ex.area_id = a.id
                     AND ex.revocado_en IS NULL)
-  AND m.id NOT IN (SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo')
+  -- Anclaje de retorno por bimestre: el TRAMO (= RetornoGradoModel::sqlCursoElPeriodo)
+  AND m.id NOT IN (SELECT r.matricula_oficial_id FROM retornos_grado r
+                   JOIN periodos pd ON pd.id = r.periodo_desde_id
+                   LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                   JOIN periodos px ON px.id = @periodo
+                   WHERE (px.numero >= pd.numero AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))))
+  AND m.id NOT IN (SELECT r.matricula_operativa_id FROM retornos_grado r
+                   JOIN periodos pd ON pd.id = r.periodo_desde_id
+                   LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                   JOIN periodos px ON px.id = @periodo
+                   WHERE NOT (px.numero >= pd.numero AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))))
 GROUP BY n.id, n.nombre, g.numero, g.nombre_display, s.nombre, a.nombre,
          docente, cr.carga_id, cr.id, comp.nombre_completo, cr.nombre
 ORDER BY alumnos_sin_nota DESC, n.id, g.numero, s.nombre;
@@ -163,7 +185,17 @@ WHERE m.tipo NOT IN ('trasladado', 'retirado')
   AND NOT EXISTS (SELECT 1 FROM exoneraciones ex
                   WHERE ex.matricula_id = m.id AND ex.area_id = a.id
                     AND ex.revocado_en IS NULL)
-  AND m.id NOT IN (SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo')
+  -- Anclaje de retorno por bimestre: el TRAMO (= RetornoGradoModel::sqlCursoElPeriodo)
+  AND m.id NOT IN (SELECT r.matricula_oficial_id FROM retornos_grado r
+                   JOIN periodos pd ON pd.id = r.periodo_desde_id
+                   LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                   JOIN periodos px ON px.id = @periodo
+                   WHERE (px.numero >= pd.numero AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))))
+  AND m.id NOT IN (SELECT r.matricula_operativa_id FROM retornos_grado r
+                   JOIN periodos pd ON pd.id = r.periodo_desde_id
+                   LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                   JOIN periodos px ON px.id = @periodo
+                   WHERE NOT (px.numero >= pd.numero AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))))
 GROUP BY n.id, n.nombre, g.numero, g.nombre_display, s.nombre, alumno, m.id, m.tipo
 ORDER BY blancos DESC, n.id, g.numero, s.nombre, alumno;
 
@@ -194,4 +226,14 @@ WHERE m.tipo NOT IN ('trasladado', 'retirado')
   AND NOT EXISTS (SELECT 1 FROM exoneraciones ex
                   WHERE ex.matricula_id = m.id AND ex.area_id = a.id
                     AND ex.revocado_en IS NULL)
-  AND m.id NOT IN (SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo');
+  -- Anclaje de retorno por bimestre: el TRAMO (= RetornoGradoModel::sqlCursoElPeriodo)
+  AND m.id NOT IN (SELECT r.matricula_oficial_id FROM retornos_grado r
+                   JOIN periodos pd ON pd.id = r.periodo_desde_id
+                   LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                   JOIN periodos px ON px.id = @periodo
+                   WHERE (px.numero >= pd.numero AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))))
+  AND m.id NOT IN (SELECT r.matricula_operativa_id FROM retornos_grado r
+                   JOIN periodos pd ON pd.id = r.periodo_desde_id
+                   LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                   JOIN periodos px ON px.id = @periodo
+                   WHERE NOT (px.numero >= pd.numero AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND px.numero <= ph.numero))));

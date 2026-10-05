@@ -125,7 +125,7 @@ class AsistenciaModel extends BaseModel
                   -- Roster de evaluacion (punto unico en helpers.php): los
                   -- 'esperados' tienen que contar exactamente a quienes
                   -- aparecen en la grilla, o el avance miente.
-                  " . roster_evaluacion('m') . "
+                  " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             LEFT JOIN inasistencias i
                    ON i.matricula_id = m.id
                   AND i.periodo_id   = ?
@@ -213,7 +213,7 @@ class AsistenciaModel extends BaseModel
               -- Roster de evaluacion (punto unico en helpers.php): el registro
               -- de asistencia debe cubrir exactamente a quien se evalua. El
               -- porque de cada condicion vive en el docblock del helper.
-              " . roster_evaluacion('m') . "
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id    = (SELECT id FROM anios_academicos WHERE estado = 'activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
         ", [$seccionId]);
@@ -768,7 +768,7 @@ class AsistenciaModel extends BaseModel
             INNER JOIN periodos per ON per.id = ? AND per.anio_id = m.anio_id
             WHERE m.id = ?
               AND per.estado = 'cerrado'
-              " . roster_evaluacion('m') . "
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND " . self::sqlSinRegistro('m', 'per') . "
         ", [$periodoId, $matriculaId]);
 
@@ -1155,7 +1155,7 @@ class AsistenciaModel extends BaseModel
                    ON m.seccion_id = s.id
                   AND m.anio_id    = s.anio_id
                   -- Roster de evaluacion (punto unico en helpers.php).
-                  " . roster_evaluacion('m') . "
+                  " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             LEFT JOIN inasistencias i
                    ON i.matricula_id = m.id
                   AND i.periodo_id   = ?
@@ -1255,7 +1255,7 @@ class AsistenciaModel extends BaseModel
             INNER JOIN matriculas m
                     ON m.id = i.matricula_id
                    -- Roster de evaluacion (punto unico en helpers.php).
-                   " . roster_evaluacion('m') . "
+                   " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
             INNER JOIN secciones   s ON s.id = m.seccion_id AND s.estado_nomina = 'aprobada'
@@ -1361,7 +1361,7 @@ class AsistenciaModel extends BaseModel
             LEFT JOIN matriculas m
                    ON m.id = i.matricula_id
                   -- Roster de evaluacion (punto unico en helpers.php).
-                  " . roster_evaluacion('m') . "
+                  " . RetornoGradoModel::sqlRosterDelPeriodo('m', 'p.id') . "
             LEFT JOIN secciones s ON s.id = m.seccion_id AND s.estado_nomina = 'aprobada'
             WHERE p.anio_id = ?
               AND (i.id IS NULL OR (m.id IS NOT NULL AND s.id IS NOT NULL))

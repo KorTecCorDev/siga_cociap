@@ -81,8 +81,14 @@ $evaluar = function (int $mat, int $periodoId, bool $debeEstar, string $etiqueta
 echo "=== Roster del mérito — casos de control (PERIODO 1 / B1) ===\n";
 $evaluar(541, 1, false, 'FUERA (retirado)');
 $evaluar(308, 1, false, 'FUERA (trasladado)');
-$evaluar(692, 1, true,  'DENTRO (retorno, operativa)');
-$evaluar(190, 1, false, 'FUERA (retorno, oficial: anclaje por bimestre)');
+// Retorno #1 (tramo II–II, migración 073): el I Bimestre lo CURSÓ en la oficial
+// (el retorno es del 21/06). Hasta el 05/10/2026 este caso esperaba lo contrario
+// porque el anclaje se DEDUCÍA de «tener notas», y la operativa arrastra 22
+// promedios del I copiados por el antiguo INSERT IGNORE. El snapshot publicado
+// del I (que la ubica en 1.°) es inmutable y no se toca: esto es el cálculo en vivo.
+$evaluar(692, 1, false, 'FUERA (retorno: el I esta fuera del tramo de la operativa)');
+$evaluar(190, 1, true,  'DENTRO (retorno, oficial: curso el I en su grado)');
+$evaluar(692, 2, true,  'DENTRO (retorno: el II esta en el tramo de la operativa)');
 
 // ── Casos de ESTADO, derivados de la base ───────────────────────────────────
 // Se busca, en cada periodo con notas bloqueadas, una matrícula por estado.

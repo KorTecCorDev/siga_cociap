@@ -177,6 +177,31 @@ grado concretos del I Bimestre (541 retirado, 220/666 pendientes, 692/190 retorn
     compañeros cambiaron de puesto, sin un solo aviso.
   - Se salta solo (exit 0) si no hay ningún bimestre cerrado, con snapshot y sin publicar:
     es el estado normal una vez publicado todo.
+- **`verif_reversion_retorno.php`** — No escribe nada; **NO apto para producción** (lleva el
+  guard de secretos). Ejecuta el `revertir()` REAL de un retorno de grado en subprocesos
+  cuya conexión ignora los commit, y comprueba lo siguiente (05/10/2026):
+  - el movimiento de asistencia y conducta del bimestre en curso a la oficial, con su
+    confirmación o como borrador;
+  - las 3 guardas (cierre vigente, criterio con nota sin promedio, filas propias de la
+    oficial), rechazando y sin tocar nada;
+  - que la alerta de evaluación incompleta ya no marque a la operativa revertida.
+
+  Si no hay retorno activo, reactiva el último dentro de la transacción. Ver
+  `docs/modulos/retorno-grado.md` § Reversión.
+- **`verif_retorno_ciclo.php`** — No escribe nada; **NO apto para producción** (guard de
+  secretos). Una sola transacción que nunca confirma, con los controladores REALES (sus
+  redirect se vuelven excepción) y SAVEPOINT entre ramas. Prueba el ciclo de vida del
+  retorno con TRAMO (migración 073, 05/10/2026) sobre un estudiante de prueba:
+  - retorno → `desde` = primer bimestre sin cerrar;
+  - reversión en el mismo bimestre → tramo vacío;
+  - reversión con notas sin cerrar → bloqueada; tras cerrar → `hasta` = ese bimestre;
+  - segundo retorno, retorno sobre la operativa y retorno de otro nivel → rechazados;
+  - guardas de gestión: la operativa no se gestiona; la oficial de un retorno activo no se
+    retira ni se traslada.
+
+  En cada estado, y sobre los retornos reales, exige que el estudiante salga una vez por
+  bimestre y desde la matrícula que lo cursó en mérito, alerta, situación final, lote y
+  boleta. Ver `docs/modulos/retorno-grado.md` § «El TRAMO y el punto único».
 
 ## Consultas operativas (phpMyAdmin)
 

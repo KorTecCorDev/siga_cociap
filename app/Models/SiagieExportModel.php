@@ -20,6 +20,7 @@ class SiagieExportModel extends BaseModel
     private CalificacionModel $calModel;
     private ExoneracionModel  $exoModel;
     private NotaAutorizadaSiagieModel $autModel;
+    private RetornoGradoModel $retornos;
 
     public function __construct()
     {
@@ -27,6 +28,7 @@ class SiagieExportModel extends BaseModel
         $this->calModel = new CalificacionModel();
         $this->exoModel = new ExoneracionModel();
         $this->autModel = new NotaAutorizadaSiagieModel();
+        $this->retornos = new RetornoGradoModel();
     }
 
     /**
@@ -166,39 +168,40 @@ class SiagieExportModel extends BaseModel
 
     /**
      * Notas oficiales del alumno en el periodo, indexadas por competencia_id.
-     * Reutiliza boletaContexto (unión oficial/operativa en retorno) y
-     * getBoletaAlumno (solo bloqueadas + transversales con cierre del tutor).
-     * En choque por competencia gana la fuente posterior (la oficial).
+     * Lee getBoletaAlumno (solo bloqueadas + transversales con cierre del tutor)
+     * de la matrícula que CURSÓ el periodo: en un retorno de grado lo dice el
+     * tramo (`RetornoGradoModel::matriculaDelPeriodo`, 05/10/2026), igual que la
+     * boleta. Antes unía las dos fuentes y ganaba la oficial.
      *
      * @return array competencia_id => ['nota_numerica'=>int, 'conclusion'=>?string]
      */
     public function notasOficiales(int $matriculaId, int $periodoId): array
     {
-        $ctx   = $this->calModel->boletaContexto($matriculaId);
-        $notas = [];
-        foreach ($ctx['fuentes'] as $fuente) {
-            foreach ($this->calModel->getBoletaAlumno((int) $fuente, $periodoId) as $fila) {
-                $notas[(int) $fila['competencia_id']] = [
-                    'nota_numerica' => (int) $fila['nota_numerica'],
-                    'conclusion'    => $fila['conclusion_descriptiva'] !== null
-                        ? trim((string) $fila['conclusion_descriptiva'])
-                        : null,
-                ];
-            }
+        $cursada = $this->retornos->matriculaDelPeriodo($matriculaId, $periodoId);
+        $notas   = [];
+        foreach ($this->calModel->getBoletaAlumno($cursada, $periodoId) as $fila) {
+            $notas[(int) $fila['competencia_id']] = [
+                'nota_numerica' => (int) $fila['nota_numerica'],
+                'conclusion'    => $fila['conclusion_descriptiva'] !== null
+                    ? trim((string) $fila['conclusion_descriptiva'])
+                    : null,
+            ];
         }
         return $notas;
     }
 
     /**
      * Conclusiones de RÉPLICA del acta (migración 072): [area_id => texto]
-     * del alumno en el periodo. Une las fuentes del retorno de grado como
-     * `notasOficiales`. El llenador las usa solo cuando la conclusión de la
+     * del alumno en el periodo, de la matrícula que lo cursó (tramo del retorno
+     * de grado), como `notasOficiales`. El llenador las usa solo cuando la conclusión de la
      * fuente es obligatoria (ver `ConclusionReplicaModel`).
      */
     public function conclusionesReplica(int $matriculaId, int $periodoId): array
     {
-        $ctx = $this->calModel->boletaContexto($matriculaId);
-        return (new ConclusionReplicaModel())->paraExport($ctx['fuentes'], $periodoId);
+        return (new ConclusionReplicaModel())->paraExport(
+            [$this->retornos->matriculaDelPeriodo($matriculaId, $periodoId)],
+            $periodoId
+        );
     }
 
     /**
@@ -208,22 +211,17 @@ class SiagieExportModel extends BaseModel
      * aparte" de la migración 040. La precedencia la resuelve el llenador: solo
      * se usan cuando NO hay nota oficial.
      *
-     * En RETORNO de grado el alumno se evalúa en la matrícula OPERATIVA pero el
-     * export procesa la OFICIAL: se unen las fuentes (igual que notasOficiales)
-     * para encontrar la nota autorizada esté registrada en la que esté.
+     * En RETORNO de grado el export procesa la OFICIAL y la nota autorizada vive
+     * en la matrícula que CURSÓ el periodo (tramo, como notasOficiales).
      *
      * @return array competencia_id => ['literal'=>string, 'conclusion'=>?string]
      */
     public function notasAutorizadas(int $matriculaId, int $periodoId): array
     {
-        $ctx = $this->calModel->boletaContexto($matriculaId);
-        $out = [];
-        foreach ($ctx['fuentes'] as $fuente) {
-            foreach ($this->autModel->getParaExport((int) $fuente, $periodoId) as $compId => $val) {
-                $out[$compId] = $val;   // en choque gana la fuente posterior (la oficial)
-            }
-        }
-        return $out;
+        return $this->autModel->getParaExport(
+            $this->retornos->matriculaDelPeriodo($matriculaId, $periodoId),
+            $periodoId
+        );
     }
 
     /**
