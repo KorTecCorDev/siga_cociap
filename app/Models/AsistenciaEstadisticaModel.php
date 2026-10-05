@@ -106,7 +106,7 @@ class AsistenciaEstadisticaModel extends BaseModel
             INNER JOIN grados      g ON g.id = s.grado_id
             INNER JOIN niveles     n ON n.id = g.nivel_id
             INNER JOIN matriculas  m ON m.seccion_id = s.id AND m.anio_id = s.anio_id
-                   " . roster_evaluacion('m') . "
+                   " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
             LEFT  JOIN inasistencias i ON i.matricula_id = m.id AND i.periodo_id = ?

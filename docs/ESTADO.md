@@ -5,6 +5,67 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🟡 RETORNO DE GRADO: TRAMO GUARDADO Y PUNTO ÚNICO — en `dev`, SIN DESPLEGAR (05/10/2026, migración 073)
+
+Nació del caso real de BALTAZAR PINTO (retorno #1, oficial 190 en 2.° B y operativa 692 en
+1.° B primaria). Volvió a 2.° B al inicio del III y se comunicó recién el 05/10. En local ya
+está **revertido** (lo hizo el usuario el 05/10, con «como borrador»). Detalle en
+`retorno-grado.md` § «El TRAMO y el punto único» y § Reversión.
+- **Reversión con bimestre en curso:** `revertir()` mueve la asistencia y la conducta de
+  los bimestres sin cerrar, con la casilla «como borrador»; 3 guardas; la pantalla lista lo
+  que se mueve.
+- **Migración 073:** `retornos_grado.periodo_desde_id` / `periodo_hasta_id`. El tramo se
+  guarda y no se deduce. Punto único `RetornoGradoModel`; `store()` fija `desde`,
+  `revertir()` fija `hasta`, y se admite un retorno por matrícula y año.
+- **Lecturas por bimestre** desde la matrícula que lo cursó:
+  - mérito en vivo, alerta y su copia SQL;
+  - situación final, que deja de listarla dos veces y de dar un RR falso;
+  - cuadros: resumen, evolución, asistencia, conducta y estadística;
+  - rectificaciones y conteos del mérito;
+  - boleta, lote de boletas (2.° B vuelve a 19 en el II), panel del padre, export SIAGIE y
+    notas autorizadas SIAGIE.
+- **Interfaz y guardas:**
+  - buscador: una tarjeta, con «Retorno revertido el … · cursó el II Bimestre en 1° "B"»;
+  - listado y nómina: «Operativa · revertido», que no se lee como baja;
+  - `show` redirige toda operativa;
+  - la operativa no se activa, desactiva, retira ni traslada, y la oficial de un retorno
+    activo no se retira ni se traslada.
+- [x] A/B (`huella`, 179 consumidores): para los estudiantes sin retorno, salida idéntica.
+      Solo cambian las filas del retorno #1.
+- [x] Batería verde. Nuevo `verif_retorno_ciclo.php`: ciclo completo con los controladores
+      reales y guardas F4; cae el mutante del lote.
+      `verif_stats_competencia` y `verif_asistencia_sin_registro` fallaban por asertos
+      escritos para la regla anterior (copia del roster viejo y borrador contado como
+      registro); se adaptaron al tramo.
+- [ ] Navegador (admin, local):
+  - `/admin/buscar-estudiante` «BALTAZAR» (una tarjeta);
+  - `/matriculas` y la nómina detallada de 1.° B;
+  - `/matriculas/692`, que redirige;
+  - `/admin/cuadros` y acompañamiento del II y del III;
+  - lote de boletas del II de 2.° B;
+  - la boleta de la 190.
+- [ ] Merge `dev` → `main` (preguntar antes).
+- [ ] **Producción, en este orden.** ⚠️ El merge local `353cf70` (lote de la 072) nunca se
+  pusheó: este deploy lleva **los dos lotes** y exige **072 y 073** aplicadas antes del push
+  (la 073 se probó idempotente en local el 05/10/2026).
+  0. aplicar `072_conclusiones_replica_acta.sql` si aún no está (`SHOW TABLES LIKE
+     'conclusiones_replica_acta';`);
+  1. correr el PREVIEW de la 073 y comprobar que el retorno #1 sale con datos propios solo
+     en el II;
+  2. aplicar la 073 **antes** del push (si no, `RetornoGradoModel` falla al leer el tramo);
+     comprobar desde = II y hasta = NULL (sigue activo en prod);
+  3. push y deploy;
+  4. reabrir la conducta y la asistencia del III de 1.° B y de 2.° B si están cerradas;
+  5. revertir en `/matriculas/190/retorno/revertir` **con «como borrador»** y el motivo
+     «Retornó a 2.° B al inicio del III Bimestre (10/08/2026); comunicado el 05/10/2026».
+     El tramo queda en II–II;
+  6. la auxiliar de 2.° B revisa y confirma su conducta y su asistencia del III;
+  7. los docentes de 2.° B la evalúan en el III;
+  8. `/admin/control` sin alertas de la 692, y el lote del II de 2.° B con 19.
+
+  ⚠️ Revertir **antes** de que 1.° B registre notas del III para ella: la guarda lo
+  impediría hasta el cierre del III.
+
 ## 🟡 CONCLUSIONES DE RÉPLICA DEL ACTA SIAGIE — en `dev`, SIN DESPLEGAR (02/10/2026, migración 072)
 
 GAMA en 5.º llena también las actas de EPT (`032`) y Arte y Cultura (`0001`). Con GAMA en C,

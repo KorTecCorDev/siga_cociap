@@ -154,18 +154,8 @@ class OrdenMeritoModel extends BaseModel
               -- modelo. Solo compiten las matrículas APROBADAS (12/08/2026).
               AND (" . self::ROSTER_MERITO . ")
               -- Anclaje por bimestre: el alumno compite donde están sus notas de
-              -- ESE periodo. Se excluye la OFICIAL cuando su operativa cubrió este
-              -- periodo (retorno activo siempre; revertido solo en sus bimestres).
-              AND m.id NOT IN (
-                  SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo'
-                  UNION
-                  SELECT r.matricula_oficial_id
-                  FROM retornos_grado r
-                  INNER JOIN calificaciones c2
-                      ON c2.matricula_id = r.matricula_operativa_id
-                     AND c2.periodo_id   = ?
-                  WHERE r.estado = 'revertido'
-              )
+              -- ESE periodo, según el TRAMO guardado. PUNTO ÚNICO: RetornoGradoModel.
+              " . RetornoGradoModel::sqlCursoElPeriodo('m', 'cal.periodo_id') . "
               -- El mérito excluye las áreas 'transversal' y 'tutoria', con UNA
               -- excepción: ÉTICA Y VALORES cuenta en TODA secundaria, 5.º incluido
               -- (decisión del usuario, 05/08/2026).
@@ -211,7 +201,7 @@ class OrdenMeritoModel extends BaseModel
                      -- P1 (rediseño 2): tras num_16 el desempate es MANUAL; el
                      -- apellido ya no dirime. Orden estable neutro por matricula.
                      m.id
-        ", [$gradoId, $periodoId, $periodoId]);
+        ", [$gradoId, $periodoId]);
 
         return $this->aplicarDesempate($estudiantes, $periodoId);
     }
@@ -271,16 +261,8 @@ class OrdenMeritoModel extends BaseModel
               AND cal.extraordinaria = 0
               -- ROSTER del documento (ver rankingGradoLive y self::ROSTER_MERITO).
               AND (" . self::ROSTER_MERITO . ")
-              AND m.id NOT IN (
-                  SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo'
-                  UNION
-                  SELECT r.matricula_oficial_id
-                  FROM retornos_grado r
-                  INNER JOIN calificaciones c2
-                      ON c2.matricula_id = r.matricula_operativa_id
-                     AND c2.periodo_id   = ?
-                  WHERE r.estado = 'revertido'
-              )
+              -- Anclaje por bimestre (ver rankingGradoLive).
+              " . RetornoGradoModel::sqlCursoElPeriodo('m', 'cal.periodo_id') . "
               -- El mérito excluye las áreas 'transversal' y 'tutoria', con UNA
               -- excepción: ÉTICA Y VALORES cuenta en TODA secundaria, 5.º incluido
               -- (decisión del usuario, 05/08/2026).
@@ -326,7 +308,7 @@ class OrdenMeritoModel extends BaseModel
                      -- P1 (rediseño 2): tras num_16 el desempate es MANUAL; el
                      -- apellido ya no dirime. Orden estable neutro por matricula.
                      m.id
-        ", [$gradoId, $periodoId, $periodoId]);
+        ", [$gradoId, $periodoId]);
 
         $porSeccion = [];
         foreach ($filas as $fila) {

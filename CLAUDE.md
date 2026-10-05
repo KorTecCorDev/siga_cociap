@@ -256,8 +256,13 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   eliminó del enum; otras columnas `estado` de otras tablas son independientes).
 - **Retorno de grado: se EVALÚA en la operativa, se DOCUMENTA con la oficial**
   (Regla A, 05/08/2026). Los datos NO se copian ni se mueven entre matrículas:
-  cada bimestre queda donde se cursó y la boleta une las fuentes al leer
-  (`boletaContexto`). ⚠️ Las dos exclusiones son **INVERSAS**, y **cada una tiene
+  cada bimestre queda donde se cursó. **Desde el 05/10/2026 (migración 073) el
+  TRAMO se GUARDA** (`periodo_desde_id`/`periodo_hasta_id`) y **NUNCA se deduce
+  de las notas**: PUNTO ÚNICO `RetornoGradoModel` (`matriculaDelPeriodo`,
+  `sqlCursoElPeriodo`, `identidad`, `sqlColumnasRol`, `bloqueoGestion`). Toda
+  lectura POR BIMESTRE —boleta, mérito, alerta, situación final, cuadros, lote,
+  SIAGIE— lee de la matrícula que lo cursó. Un retorno por matrícula y año.
+  ⚠️ Las dos exclusiones son **INVERSAS**, y **cada una tiene
   su PUNTO ÚNICO en `helpers.php`** (27/08 y 02/09/2026): `roster_evaluacion()`
   excluye la **oficial** (los rosters de evaluación) y `matricula_documento()`
   excluye la **operativa** (lote de boletas, token público y **todas** las

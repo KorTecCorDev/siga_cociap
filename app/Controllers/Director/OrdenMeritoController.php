@@ -7,6 +7,7 @@ use App\Models\CalificacionModel;
 use App\Models\DesempateMeritoModel;
 use App\Models\DirectorEbrModel;
 use App\Models\OrdenMeritoModel;
+use App\Models\RetornoGradoModel;
 use App\Models\TutorPeriodoModel;
 use Core\Session;
 use Core\View;
@@ -559,13 +560,11 @@ class OrdenMeritoController extends BaseController
             INNER JOIN areas a            ON a.id    = COALESCE(sa.area_id, comp.area_id)
             WHERE g.id           = ?
               AND cal.periodo_id = ?
-              AND m.estado = 'aprobada'
-              -- Retorno de grado: el estudiante compite en su grado OPERATIVO.
-              -- Se excluye la matrícula oficial (la operativa, en grado inferior,
-              -- entra como 'aprobada' y rankea con su grado real de asistencia).
-              AND m.id NOT IN (
-                  SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo'
-              )
+              -- Retorno de grado: compite donde CURSÓ el bimestre (tramo, punto
+              -- único RetornoGradoModel), igual que el ranking. La operativa
+              -- revertida (`desactivado`) sigue contando en sus bimestres.
+              AND (m.estado = 'aprobada' OR " . RetornoGradoModel::sqlOperativaRevertida('m') . ")
+              " . RetornoGradoModel::sqlCursoElPeriodo('m', 'cal.periodo_id') . "
               AND a.tipo        != 'transversal'
         ", [$gradoId, $periodoId]);
 

@@ -486,7 +486,7 @@ class RectificacionModel extends BaseModel
                       OR " . ConductaModel::sqlAdmiteExtraordinaria('m', 'per') . "
                       OR " . AsistenciaModel::sqlSinRegistro('m', 'per') . "
                   )
-              " . roster_evaluacion('m') . "{$cond}
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', 'per.id') . "{$cond}
             ORDER BY n.id, g.numero, s.nombre, " . orden_alfabetico('p') . ", per.numero
         ", $params);
         if ($filas === []) {
@@ -550,7 +550,7 @@ class RectificacionModel extends BaseModel
             INNER JOIN periodos per ON per.id = ? AND per.anio_id = m.anio_id
             WHERE m.id = ?
               AND per.estado = 'cerrado'
-              " . roster_evaluacion('m') . "
+              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
         ", [$periodoId, $matriculaId]);
 
         if ($fila === null) {

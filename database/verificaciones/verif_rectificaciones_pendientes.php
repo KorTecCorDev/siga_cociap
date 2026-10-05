@@ -64,8 +64,22 @@ $control = $pdo->query("
     JOIN anios_academicos a ON a.id = m.anio_id AND a.estado = 'activo'
     JOIN periodos per ON per.anio_id = m.anio_id AND per.estado = 'cerrado'
     WHERE m.tipo NOT IN ('trasladado', 'retirado')
-      AND m.id NOT IN (SELECT matricula_oficial_id   FROM retornos_grado WHERE estado = 'activo')
-      AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado WHERE estado = 'revertido')
+      -- Retorno de grado POR BIMESTRE (tramo, migración 073; escrito a mano a
+      -- propósito: es el control). Hasta el 05/10/2026 este control usaba el
+      -- roster de HOY y daba por pendiente a la oficial 190 en el II, cuyas notas
+      -- viven en la operativa que lo cursó: un falso «sin notas».
+      AND NOT EXISTS (SELECT 1 FROM retornos_grado r
+                      JOIN periodos pd ON pd.id = r.periodo_desde_id
+                      LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                      WHERE per.numero >= pd.numero
+                        AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND per.numero <= ph.numero))
+                        AND r.matricula_oficial_id = m.id)
+      AND NOT EXISTS (SELECT 1 FROM retornos_grado r
+                      JOIN periodos pd ON pd.id = r.periodo_desde_id
+                      LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                      WHERE NOT (per.numero >= pd.numero
+                             AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND per.numero <= ph.numero)))
+                        AND r.matricula_operativa_id = m.id)
       AND (
           NOT EXISTS (SELECT 1 FROM calificaciones c
                       WHERE c.matricula_id = m.id AND c.periodo_id = per.id)

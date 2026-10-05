@@ -87,16 +87,22 @@ $rosterControl = static function (int $pid) use ($pdo): array {
         JOIN grados g     ON g.id = s.grado_id
         JOIN niveles n    ON n.id = g.nivel_id
         WHERE m.tipo NOT IN ('trasladado', 'retirado')
-          AND m.id NOT IN (
-              SELECT matricula_oficial_id FROM retornos_grado WHERE estado = 'activo'
-              UNION
-              SELECT r.matricula_oficial_id
-              FROM retornos_grado r
-              JOIN calificaciones c2 ON c2.matricula_id = r.matricula_operativa_id AND c2.periodo_id = ?
-              WHERE r.estado = 'revertido'
-          )
+          -- Retorno de grado: entra la matricula que CURSO el bimestre segun el
+          -- TRAMO guardado (migracion 073), escrito a mano.
+          AND NOT EXISTS (SELECT 1 FROM retornos_grado r
+                          JOIN periodos pd ON pd.id = r.periodo_desde_id
+                          LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                          WHERE r.matricula_oficial_id = m.id
+                            AND per.numero >= pd.numero
+                            AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND per.numero <= ph.numero)))
+          AND NOT EXISTS (SELECT 1 FROM retornos_grado r
+                          JOIN periodos pd ON pd.id = r.periodo_desde_id
+                          LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                          WHERE r.matricula_operativa_id = m.id
+                            AND NOT (per.numero >= pd.numero
+                                 AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND per.numero <= ph.numero))))
     ");
-    $st->execute([$pid, $pid]);
+    $st->execute([$pid]);
     $out = [];
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $out[(int) $r['id']] = [
@@ -118,8 +124,12 @@ $areasControl = static function (int $pid) use ($pdo): array {
     $pp->execute([$pid]);
     $per = $pp->fetch(PDO::FETCH_ASSOC);
 
+    // Retorno de grado (05/10/2026): las notas de las DOS matriculas se unen
+    // bajo la OFICIAL, cada bimestre desde la que lo curso (tramo). Escrito a mano.
     $st = $pdo->prepare("
-        SELECT cal.matricula_id AS mid, a.id AS aid, cal.competencia_id AS cid,
+        SELECT COALESCE((SELECT ri.matricula_oficial_id FROM retornos_grado ri
+                          WHERE ri.matricula_operativa_id = cal.matricula_id), cal.matricula_id) AS mid,
+               a.id AS aid, cal.competencia_id AS cid,
                cal.nota_numerica AS nota, pe.numero AS num
         FROM calificaciones cal
         JOIN bloqueos_competencia bc
@@ -130,6 +140,18 @@ $areasControl = static function (int $pid) use ($pdo): array {
         LEFT JOIN subareas sa  ON sa.id = comp.subarea_id
         JOIN areas a           ON a.id = COALESCE(sa.area_id, comp.area_id)
         WHERE pe.numero <= ?
+          AND NOT EXISTS (SELECT 1 FROM retornos_grado r
+                          JOIN periodos pd ON pd.id = r.periodo_desde_id
+                          LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                          WHERE r.matricula_oficial_id = cal.matricula_id
+                            AND pe.numero >= pd.numero
+                            AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND pe.numero <= ph.numero)))
+          AND NOT EXISTS (SELECT 1 FROM retornos_grado r
+                          JOIN periodos pd ON pd.id = r.periodo_desde_id
+                          LEFT JOIN periodos ph ON ph.id = r.periodo_hasta_id
+                          WHERE r.matricula_operativa_id = cal.matricula_id
+                            AND NOT (pe.numero >= pd.numero
+                                 AND (r.estado = 'activo' OR (ph.id IS NOT NULL AND pe.numero <= ph.numero))))
           -- Las extraordinarias CUENTAN (24/09/2026): son notas oficiales de
           -- boleta y SIAGIE. El merito, en cambio, las sigue excluyendo.
           -- Los TALLERES no cuentan (migracion 064: la UGEL no los aprobo).
@@ -305,6 +327,12 @@ foreach ($pdo->query("
 ")->fetchAll(PDO::FETCH_ASSOC) as $r) {
     $oficialDe[(int) $r['op']] = ['gid' => (int) $r['gid'], 'sec' => (string) $r['sec']];
 }
+/** Mapa operativa => matricula OFICIAL (identidad), con su propia consulta. */
+$identidadDe = [];
+foreach ($pdo->query("SELECT matricula_operativa_id AS op, matricula_oficial_id AS ofi FROM retornos_grado")
+             ->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    $identidadDe[(int) $r['op']] = (int) $r['ofi'];
+}
 
 $periodos = $pdo->query("
     SELECT p.id, p.anio_id, p.numero, p.nombre_display, p.estado
@@ -362,8 +390,10 @@ foreach ($periodos as $p) {
         $gid = isset($oficialDe[$mid]) ? $oficialDe[$mid]['gid'] : $r['gid'];
         $sec = isset($oficialDe[$mid]) ? $oficialDe[$mid]['sec'] : $r['sec'];
         // El grado y el nivel de la regla son los del grado DESTINO.
+        // Las notas de control van por IDENTIDAD (la oficial en un retorno).
+        $ident = $identidadDe[$mid] ?? $mid;
         $espPorGrado[$gid][$mid] = ['sec' => $sec, 'areas' => $actaControl(
-            $areas[$mid] ?? [], $gradoDe[$gid]['nivel'], $gradoDe[$gid]['gnum'], $gamas[$mid] ?? null)];
+            $areas[$ident] ?? [], $gradoDe[$gid]['nivel'], $gradoDe[$gid]['gnum'], $gamas[$mid] ?? null)];
     }
 
     foreach ($porGrado as $g) {
@@ -514,8 +544,11 @@ foreach ($periodos as $p) {
 
         // 7a. Reubicación del retorno. Un aserto por GRADO, no por alumno: con
         // 250 filas la salida se volvía ilegible y un fallo se perdía dentro.
+        // Se mira el riesgo Y el seguimiento: la reubicación aplica a toda fila
+        // (05/10/2026; el retorno #1 cursó el II en la operativa y ahí está en
+        // seguimiento, no en riesgo).
         $retMal = $retAqui = 0;
-        foreach ($g['en_riesgo'] as $al) {
+        foreach (array_merge($g['en_riesgo'], $g['seguimiento']) as $al) {
             $mid = (int) $al['matricula_id'];
             if (isset($oficialDe[$mid])) {
                 $reubicados++;
@@ -691,43 +724,62 @@ $ret = $pdo->query("
     ORDER BY r.id LIMIT 1
 ")->fetch(PDO::FETCH_ASSOC);
 
-// Un periodo donde la operativa esté en riesgo: sirve para las tres ramas.
+// El ESCENARIO se arma dentro de la transacción (05/10/2026): el retorno queda
+// ACTIVO con el tramo desde el primer bimestre, así la operativa es la fila de
+// todos los periodos. Antes se esperaba encontrarlo así en los datos reales, y
+// al revertir el retorno #1 (tramo II–II, en seguimiento) la rama quedó sin medir.
 $pSim = null;
-if ($ret) {
-    foreach ($periodos as $p) {
-        foreach ((new SituacionFinalModel())->porGrado((int) $p['id']) as $g) {
-            foreach ($g['en_riesgo'] as $al) {
-                if ((int) $al['matricula_id'] === (int) $ret['op']) { $pSim = (int) $p['id']; }
-            }
-        }
-        if ($pSim) { break; }
-    }
-}
+$huellaAntes = $ret
+    ? json_encode(array_map(static fn($p) => (new SituacionFinalModel())->porGrado((int) $p['id']), $periodos))
+    : null;
 
-if (!$pSim) {
-    $ok($ret === false, 'hay un retorno en riesgo para simular',
-        $ret ? 'sin caso: la rama queda SIN MEDIR' : 'no hay retornos registrados');
-} else {
-    $buscar = static function () use ($pSim, $ret): ?array {
-        foreach ((new SituacionFinalModel())->porGrado($pSim) as $g) {
-            foreach ($g['en_riesgo'] as $al) {
-                if ((int) $al['matricula_id'] === (int) $ret['op']) {
-                    return ['grado' => $g['grado'], 'fila' => $al];
+if ($ret) {
+    $pdo->beginTransaction();
+}
+try {
+    if ($ret) {
+        $pdo->prepare("
+            UPDATE retornos_grado
+            SET estado = 'activo', periodo_hasta_id = NULL,
+                periodo_desde_id = (SELECT id FROM periodos WHERE anio_id = ? ORDER BY numero LIMIT 1)
+            WHERE id = ?")->execute([$ret['anio_id'], $ret['id']]);
+        $pdo->prepare("UPDATE matriculas SET estado = 'aprobada' WHERE id = ?")->execute([$ret['op']]);
+        // Un periodo donde la operativa esté en riesgo: sirve para las tres ramas.
+        foreach ($periodos as $p) {
+            foreach ((new SituacionFinalModel())->porGrado((int) $p['id']) as $g) {
+                foreach ($g['en_riesgo'] as $al) {
+                    if ((int) $al['matricula_id'] === (int) $ret['op']) { $pSim = (int) $p['id']; }
                 }
             }
+            if ($pSim) { break; }
         }
-        return null;
-    };
+    }
 
-    $pdo->beginTransaction();
-    try {
-        // (A) Revertido: sigue contando en la matrícula OFICIAL.
-        $pdo->prepare("UPDATE retornos_grado SET estado = 'revertido' WHERE id = ?")->execute([$ret['id']]);
+    if (!$pSim) {
+        $ok($ret === false, 'hay un retorno en riesgo para simular',
+            $ret ? 'sin caso: la rama queda SIN MEDIR' : 'no hay retornos registrados');
+    } else {
+        $buscar = static function () use ($pSim, $ret): ?array {
+            foreach ((new SituacionFinalModel())->porGrado($pSim) as $g) {
+                foreach ($g['en_riesgo'] as $al) {
+                    if ((int) $al['matricula_id'] === (int) $ret['op']) {
+                        return ['grado' => $g['grado'], 'fila' => $al];
+                    }
+                }
+            }
+            return null;
+        };
+
+        // (A) Revertido con el tramo cerrado en ese bimestre: lo cursó en la
+        //     operativa, y sigue contando en la matrícula OFICIAL.
+        $pdo->prepare("UPDATE retornos_grado SET estado = 'revertido', periodo_hasta_id = ? WHERE id = ?")
+            ->execute([$pSim, $ret['id']]);
         $x = $buscar();
         $ok($x !== null && (int) $x['grado']['id'] === (int) $ret['gid'] && !empty($x['fila']['retorno']),
             'un retorno REVERTIDO tambien se cuenta en la matricula oficial',
             $x ? $x['grado']['nombre_display'] . ' ' . $x['grado']['nivel_codigo'] : 'no aparece');
-        $pdo->prepare("UPDATE retornos_grado SET estado = 'activo' WHERE id = ?")->execute([$ret['id']]);
+        $pdo->prepare("UPDATE retornos_grado SET estado = 'activo', periodo_hasta_id = NULL WHERE id = ?")
+            ->execute([$ret['id']]);
 
         // (B) Otra sección oficial del mismo grado, con OTRA letra.
         $otra = $pdo->prepare("SELECT id, nombre FROM secciones WHERE grado_id = ? AND anio_id = ? AND nombre <> ? ORDER BY nombre LIMIT 1");
@@ -758,7 +810,7 @@ if (!$pSim) {
         $otroGrado = $otroGrado->fetch(PDO::FETCH_ASSOC);
         if ($otroGrado) {
             $pdo->prepare("UPDATE matriculas SET seccion_id = ? WHERE id = ?")->execute([$otroGrado['id'], $ret['ofi']]);
-            $areasSim = $areasControl($pSim)[(int) $ret['op']] ?? [];
+            $areasSim = $areasControl($pSim)[(int) $ret['ofi']] ?? [];   // notas por IDENTIDAD (oficial)
             $esperada = $situacionControl($areasSim, (string) $otroGrado['codigo'], (int) $otroGrado['numero']);
             $x = $buscar();
             $obtenida = $x['fila']['situacion'] ?? ($esperada === 'PRO' ? 'PRO' : 'no aparece');
@@ -770,13 +822,15 @@ if (!$pSim) {
         } else {
             $ok(false, 'hay un grado de otro nivel para simular');
         }
-    } finally {
+    }
+} finally {
+    if ($ret) {
         $pdo->rollBack();
     }
-    $x = $buscar();
-    $ok($x !== null && (int) $x['grado']['id'] === (int) $ret['gid'] && $x['fila']['seccion_nombre'] === $ret['sec'],
-        'el rollback dejo el retorno como estaba',
-        $x ? $x['grado']['nombre_display'] . ' ' . $x['fila']['seccion_nombre'] : 'no aparece');
+}
+if ($ret) {
+    $ok(json_encode(array_map(static fn($p) => (new SituacionFinalModel())->porGrado((int) $p['id']), $periodos)) === $huellaAntes,
+        'el rollback dejo el retorno como estaba', 'situacion final identica en todos los periodos');
 }
 
 // ── 7b. La cobertura se RECORTA con el filtro por sección (24/09/2026) ────────

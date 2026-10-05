@@ -348,7 +348,8 @@ estables, no configuración por bimestre. El reporte marca cada hoja afectada co
     como antes. **Si falta** (cierre de bimestre forzado o retorno de grado con grado
     oficial distinto), escribe la de GAMA y lo avisa en el reporte: *«falta la conclusión
     de réplica de … — se escribe la de la nota de origen»*. Lectura:
-    `SiagieExportModel::conclusionesReplica` (une las fuentes del retorno). La `035` de
+    `SiagieExportModel::conclusionesReplica` (en un retorno de grado, de la matrícula que
+    cursó el bimestre: tramo de la 073, como `notasOficiales` y `notasAutorizadas`). La `035` de
     Ética no cambia: no es réplica.
   - **VERIFICADO contra un acta real de 5° (29/07/2026, `S5B.xlsx`, lectura pura del
     zip).** Los tres datos que faltaban:

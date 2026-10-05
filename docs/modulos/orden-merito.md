@@ -16,13 +16,20 @@ cerrados ante reversión de retorno de grado, traslados o ediciones. Se convirti
 en documento oficial inmutable por snapshot.
 
 ### Reglas de negocio
-- **Anclado POR BIMESTRE según dónde están las notas:** en retorno de grado activo
-  el alumno compite en su sección OPERATIVA (grado inferior); tras revertir, los
-  bimestres pasados quedan congelados en la operativa y desde el siguiente compite
-  en su sección OFICIAL.
+- **Anclado POR BIMESTRE según el TRAMO del retorno** (migración 073): en un retorno
+  de grado activo el alumno compite en su sección OPERATIVA (grado inferior); tras
+  revertir, los bimestres del tramo quedan en la operativa y el resto en la OFICIAL.
+  **PUNTO ÚNICO desde el 05/10/2026: `RetornoGradoModel::sqlCursoElPeriodo($alias,
+  $columnaPeriodo)`**, que usan las dos consultas del ranking en vivo y la alerta de
+  evaluación incompleta. Ya no se deduce «lo cursó quien tiene notas». Estaba copiado a
+  mano y la alerta solo tenía la mitad «oficial de un retorno activo», así que una
+  operativa revertida bloqueaba el cierre (`docs/modulos/retorno-grado.md` § Reversión).
+  Va correlacionado por la columna del periodo, sin placeholder. El A/B dio salida
+  idéntica en el mérito (grado y sección, B1–B4) con el retorno activo y con el
+  revertido simulado.
 - **Nómina y boletas SIEMPRE muestran grado/sección OFICIAL** (nómina vía filtro en
   `PanelController::getMatriculados`; boletas vía `CalificacionModel::boletaContexto`:
-  identidad = oficial, notas por unión [operativa, oficial]).
+  identidad = oficial, y cada bimestre desde la matrícula que lo cursó según el tramo).
 - **El snapshot solo se (re)genera al CERRAR** el bimestre. Reabrir para corregir
   notas SÍ actualiza el ranking (regenera al re-cerrar) **mientras el bimestre no
   haya sido publicado**; si ya lo estuvo, el oficial es inmutable y la corrección va

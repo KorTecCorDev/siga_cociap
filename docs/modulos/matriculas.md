@@ -328,11 +328,13 @@ siempre con `EXO`; ya no distingue si había notas.
 - **Informe imprimible** `/matriculas/{id}/notas-siagie/informe` (layout `print`):
   respaldo físico con firma del director EBR vigente. SASS `pages/_notas-siagie-informe`.
 - **Rutas** literales/sub-recursos ANTES del patrón `{id}` (invariante del router).
-- **Retorno de grado:** la evaluación (omisiones, elegibles, nota autorizada) vive
-  en la matrícula OPERATIVA. El controlador resuelve la "matrícula de evaluación"
-  (`matriculaEvaluacion`: operativa si hay retorno) y opera ahí; la card del detalle
-  (que se ve en la OFICIAL) apunta a la operativa. El export une fuentes con
-  `boletaContexto`, así procesa la oficial y encuentra la nota de la operativa.
+- **Retorno de grado (05/10/2026, tramo de la migración 073):** la evaluación
+  (omisiones, elegibles, nota autorizada) de cada bimestre vive en la matrícula que lo
+  CURSÓ. La pantalla se rotula con la OFICIAL y cada bimestre opera sobre
+  `RetornoGradoModel::matriculaDelPeriodo` (`MatriculaController::matriculaCursada`); la
+  card del detalle lista las de las dos matrículas. El export lee igual
+  (`SiagieExportModel::notasAutorizadas`). Hasta esa fecha era siempre la operativa
+  (`matriculaEvaluacion`), también en los bimestres cursados en la oficial.
 - **NO toca:** `calificaciones`, `bloqueos_competencia`, boleta, orden de mérito.
 - OJO: en secundaria, la exoneración de Ética y Valores se registra contra el
   área **Tutoría (TOE)** (id 24) — así aparece rotulada la opción en el select
