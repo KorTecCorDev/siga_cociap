@@ -45,7 +45,11 @@ está **revertido** (lo hizo el usuario el 05/10, con «como borrador»). Detall
   - lote de boletas del II de 2.° B;
   - la boleta de la 190.
 - [ ] Merge `dev` → `main` (preguntar antes).
-- [ ] **Producción, en este orden:**
+- [ ] **Producción, en este orden.** ⚠️ El merge local `353cf70` (lote de la 072) nunca se
+  pusheó: este deploy lleva **los dos lotes** y exige **072 y 073** aplicadas antes del push
+  (la 073 se probó idempotente en local el 05/10/2026).
+  0. aplicar `072_conclusiones_replica_acta.sql` si aún no está (`SHOW TABLES LIKE
+     'conclusiones_replica_acta';`);
   1. correr el PREVIEW de la 073 y comprobar que el retorno #1 sale con datos propios solo
      en el II;
   2. aplicar la 073 **antes** del push (si no, `RetornoGradoModel` falla al leer el tramo);
