@@ -162,6 +162,10 @@
 >      FJ… nunca llegaba a T.
 > 3. **FJ/TJ SIEMPRE con motivo:** el modelo las rechaza sin él y hay un CHECK
 >    `chk_justificada_con_motivo`.
+>    - ⚠️ **En producción faltaban los dos CHECK** de `asistencia_incidencias` (este y
+>      `chk_motivo_solo_justificada` de la 069; medido en la copia del 05/10/2026). La tabla
+>      se había creado por otra vía (colación `utf8mb4_general_ci`). Los repone la migración
+>      **074** (solo los CHECK; NO re-correr la 070, que desconfirma y rellena listas).
 >    - La 070 convirtió las existentes sin motivo a F/T (1 en local), las recontó y las
 >      desconfirmó.
 >    - Se retiraron la marca «!», el borde discontinuo, «Falta motivo (n)» y

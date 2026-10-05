@@ -5,6 +5,26 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🟡 CHECK DE `asistencia_incidencias` QUE FALTABAN EN PRODUCCIÓN — migración 074 (05/10/2026)
+
+En la copia de producción del 05/10/2026 `asistencia_incidencias` no tenía ninguno de sus dos
+CHECK: `chk_motivo_solo_justificada` (069: F/T nunca con motivo) y `chk_justificada_con_motivo`
+(070: FJ/TJ siempre con motivo). La regla solo la aplicaba `AsistenciaModel::marcarDia`.
+- La tabla se había creado por otra vía (colación `utf8mb4_general_ci`) y la 069 la encontró hecha.
+- La **074** añade solo los CHECK que falten. No se re-corre la 070: además desconfirma filas y
+  rellena listas del día.
+- [x] 0 filas que los violen (554 en la copia de producción).
+- [x] Local (copia de producción): aplicada dos veces (la segunda, sin cambios). Las dos ramas
+      de cada CHECK probadas con transacción revertida: las válidas entran; FJ sin motivo y F
+      con motivo se rechazan.
+- [x] La única escritura de la app (`marcarDia`) ya cumple las dos reglas.
+- [x] `verif_asistencia_jornadas`: el aserto del CHECK pasa. El fallo restante es de su
+      preparación de prueba (no encuentra caso en los datos de producción), igual que con el
+      código de antes.
+- [ ] **Producción** (no necesita deploy: no cambia código):
+  1. correr el PREVIEW de la 074; debe dar 0 y 0;
+  2. ejecutar la 074 completa en un solo envío; al final deben salir los dos nombres de CHECK.
+
 ## 🟢 RETORNO DE GRADO: TRAMO GUARDADO Y PUNTO ÚNICO — DESPLEGADO el 05/10/2026 (merge `c3d1bdc`, migración 073; sin cambio de versión: sigue v1.0.5)
 
 Nació del caso real de BALTAZAR PINTO (retorno #1, oficial 190 en 2.° B y operativa 692 en
