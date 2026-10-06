@@ -1,9 +1,8 @@
 # Sesión que no hace perder el trabajo + borradores de formularios
 
-> **Estado: fases 1 (sesión), 2 (borradores + rectificación en lote) y 3 (rectificación por
-> competencia, extraordinaria individual, notas SIAGIE) implementadas en `dev` y probadas en
-> navegador (06/10/2026), sin desplegar.** Migración `074`, aplicada solo en local. Fase 4 en
-> curso; ver `docs/ESTADO.md`.
+> **Estado: las 4 fases implementadas en `dev` y probadas en navegador (06/10/2026), SIN
+> DESPLEGAR.** Migración `074`, aplicada solo en local: en producción va a mano ANTES del merge.
+> Ver `docs/ESTADO.md`.
 > Módulos relacionados: `calificaciones.md` (rectificación), `matriculas.md` (notas de origen).
 
 ## 1. Por qué existe
@@ -111,7 +110,7 @@ vigentes.
 | Rectificación por competencia (`/rectificaciones/editar`) | `rect_competencia` | ✅ fase 3 |
 | Extraordinaria individual (`/rectificaciones/extraordinaria`) | `rect_extraordinaria` | ✅ fase 3 |
 | Notas autorizadas SIAGIE (`/matriculas/{id}/notas-siagie`) | `notas_siagie` | ✅ fase 3 |
-| Notas del colegio de origen | — | fase 4 |
+| Notas del colegio de origen (`/matriculas/{id}/notas-externas`) | `notas_origen` | ✅ fase 4 |
 
 ### 3.5 Detalles de la fase 3
 - **Avisos en un parcial**: `shared/_borrador-avisos.php` («Se recuperó tu borrador…» y «X tiene
@@ -125,8 +124,25 @@ vigentes.
   matrícula + periodo y `borrador.js` maneja varios formularios por página. La matrícula de la
   clave es la `identidad()` del retorno de grado (la misma del URL y del POST).
 
-### 3.6 Verificación
-`database/verificaciones/verif_borradores.php` (transacción + rollback): clave, contexto en
-sus dos ramas, revisión y conflicto, aislamiento entre usuarios, **8 tablas oficiales sin
-cambios**, FK CASCADE, y que el POST elimina el borrador DESPUÉS del commit y en ningún otro
-punto.
+### 3.6 Detalles de la fase 4 (notas del colegio de origen)
+- **Filas dinámicas pintadas por el servidor**: primero las del borrador (con su nota, área
+  mapeada y conclusión), luego las importadas que no estén ya en él (clave
+  `periodo|área|competencia`), luego las de relleno. `filasDesdeBorrador()` descarta las filas
+  vacías y no restaura un literal fuera de `NotaExternaModel::LITERALES`.
+- **`campo[]` en el serializador**: `borrador.js` convierte `periodo_nombre[]` y compañía en
+  listas en el orden de la página. Antes cada fila pisaba a la anterior.
+- **«Traer competencias» ya no pierde lo tecleado**: su formulario lleva
+  `data-borrador-guardar-antes`; `borrador.js` guarda TODOS los borradores de la página y
+  ESPERA la respuesta antes de enviarlo, así el servidor ya los tiene al pintar la página
+  importada. Si `notas-externas.js` cancela el envío (sin bimestre o sin área), no hace nada:
+  por eso `notas-externas` va ANTES que `borrador` en `page_scripts`.
+- **Roles desde el punto único**: `MatriculaController::ROLES_MATRICULAN` pasó a ser pública
+  y el endpoint la referencia (antes habría que copiar la lista).
+- El formulario «Corregir colegio de origen» NO tiene borrador (es un solo campo).
+
+### 3.7 Verificación
+`database/verificaciones/verif_borradores.php` (transacción + rollback, 73 comprobaciones):
+clave, contexto en sus dos ramas, revisión y conflicto, aislamiento entre usuarios, **8 tablas
+oficiales sin cambios**, FK CASCADE, que **cada uno de los 5 POST** elimina su borrador DESPUÉS
+de escribir lo oficial y en un solo punto, que ninguna vista imprime el borrador sin `e()`, y
+la conversión de filas de las notas de origen.

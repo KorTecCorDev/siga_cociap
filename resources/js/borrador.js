@@ -17,6 +17,10 @@
  *     podría recrear el borrador que el POST oficial acaba de eliminar.
  *   · 409 = el formulario se cambió en otra pestaña o equipo: deja de guardar
  *     para no pisarlo.
+ *   · Un formulario con `data-borrador-guardar-antes` (p. ej. «Traer
+ *     competencias», que recarga la página) espera a que TODOS los borradores
+ *     de la página queden guardados antes de enviarse: así el servidor ya los
+ *     tiene cuando pinta la página nueva.
  *   · Mensajes al usuario genéricos: no se explica el flujo interno.
  */
 (function () {
@@ -33,7 +37,23 @@
              + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
     }
 
-    document.querySelectorAll('form[data-borrador-tipo]').forEach(iniciar);
+    var instancias = [];
+    document.querySelectorAll('form[data-borrador-tipo]').forEach(function (f) {
+        instancias.push(iniciar(f));
+    });
+
+    // Formularios que recargan la página sin ser el guardado oficial: primero
+    // se guardan los borradores, después se envía. Si otro script ya canceló el
+    // envío (su validación), no se hace nada.
+    document.querySelectorAll('form[data-borrador-guardar-antes]').forEach(function (f) {
+        f.addEventListener('submit', function (e) {
+            if (e.defaultPrevented || instancias.length === 0) return;
+            e.preventDefault();
+            Promise.all(instancias.map(function (i) { return i.ahora(); }))
+                .catch(function () { /* se envía igual: queda el último guardado */ })
+                .then(function () { HTMLFormElement.prototype.submit.call(f); });
+        });
+    });
 
     function iniciar(form) {
         var tipo  = form.dataset.borradorTipo;
@@ -53,6 +73,7 @@
         var detenido = false;     // tras enviar el formulario o tras un conflicto
         var enCurso  = false;
         var pendiente = false;
+        var enVuelo  = Promise.resolve();
 
         function mostrar(texto, esError) {
             if (!estado) return;
@@ -62,19 +83,29 @@
         }
 
         // Nombres con corchetes de PHP (nota[c12], asistencia[faltas]) → objeto
-        // anidado, igual que los leería $_POST.
+        // anidado, igual que los leería $_POST. `campo[]` (filas repetibles, como
+        // las notas de origen) → lista en el orden de la página: sin esto cada
+        // fila pisaba a la anterior.
         function serializar() {
             var datos = {};
             new FormData(form).forEach(function (valor, nombre) {
                 if (IGNORAR[nombre] || typeof valor !== 'string') return;
-                var partes = nombre.replace(/\]/g, '').split('[');
+                var lista = nombre.slice(-2) === '[]';
+                var base  = lista ? nombre.slice(0, -2) : nombre;
+                var partes = base.replace(/\]/g, '').split('[');
                 var nodo = datos;
                 for (var i = 0; i < partes.length - 1; i++) {
                     var p = partes[i];
                     if (typeof nodo[p] !== 'object' || nodo[p] === null) nodo[p] = {};
                     nodo = nodo[p];
                 }
-                nodo[partes[partes.length - 1]] = valor;
+                var clave = partes[partes.length - 1];
+                if (lista) {
+                    if (!Array.isArray(nodo[clave])) nodo[clave] = [];
+                    nodo[clave].push(valor);
+                } else {
+                    nodo[clave] = valor;
+                }
             });
             return JSON.stringify(datos);
         }
@@ -89,14 +120,15 @@
             return fd;
         }
 
+        // Devuelve una promesa que se resuelve al terminar (con o sin éxito).
         function guardar() {
-            if (detenido) return;
-            if (enCurso) { pendiente = true; return; }
+            if (detenido) return Promise.resolve();
+            if (enCurso) { pendiente = true; return enVuelo; }
             var json = serializar();
-            if (json === ultimoGuardado) return;
+            if (json === ultimoGuardado) return Promise.resolve();
 
             enCurso = true;
-            fetch(BASE + '/borradores/guardar', { method: 'POST', body: cuerpo(json) })
+            enVuelo = fetch(BASE + '/borradores/guardar', { method: 'POST', body: cuerpo(json) })
                 .then(function (res) {
                     if (res.redirected) throw { codigo: 401 };
                     return res.json().catch(function () { return {}; }).then(function (data) {
@@ -122,6 +154,13 @@
                     enCurso = false;
                     if (pendiente) { pendiente = false; programar(); }
                 });
+            return enVuelo;
+        }
+
+        // Guardar YA (sin esperar el retraso), y esperar a que termine.
+        function ahora() {
+            clearTimeout(temporizador);
+            return enCurso ? enVuelo.then(guardar) : guardar();
         }
 
         function programar() {
@@ -157,5 +196,7 @@
         // Punto de partida: lo que la página trae pintado (borrador restaurado o
         // vacío) no se reenvía si nadie lo toca.
         ultimoGuardado = serializar();
+
+        return { ahora: ahora };
     }
 })();

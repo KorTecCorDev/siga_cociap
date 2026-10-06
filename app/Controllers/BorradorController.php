@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Controllers\Matricula\MatriculaController;
 use App\Models\BorradorModel;
 use Core\Session;
 use Core\Throttle;
@@ -24,6 +25,8 @@ class BorradorController extends BaseController
         'rect_competencia'    => ['admin', 'registro_academico'],
         'rect_extraordinaria' => ['admin', 'registro_academico'],
         'notas_siagie'        => ['admin', 'registro_academico'],
+        // Los mismos que abren el formulario: punto único en MatriculaController.
+        'notas_origen'        => MatriculaController::ROLES_MATRICULAN,
     ];
 
     /** S6: escrituras de borrador por usuario y minuto (el JS guarda cada ~1,5 s como mucho). */

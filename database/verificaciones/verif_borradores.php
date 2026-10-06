@@ -24,6 +24,8 @@
  *      de la sesión.
  *  10. (fase 3) Tipos con carga: prefijos de clave sin ambigüedad y la carga
  *      validada contra el año de la matrícula, en sus dos ramas.
+ *  11. (fase 4) Notas de origen: clave solo por matrícula, contexto sin
+ *      periodo, roles desde el punto único y filas del borrador → formulario.
  *   9. ROLLBACK: la tabla vuelve a su estado inicial.
  */
 
@@ -170,6 +172,7 @@ try {
         [$rect, 'guardar',                   "eliminarBorrador('rect_competencia'",    '$this->model->commit()'],
         [$rect, 'guardarExtraordinaria',     "eliminarBorrador('rect_extraordinaria'", '$this->model->commit()'],
         [$mat,  'storeNotaSiagie',           "BorradorModel::clave('notas_siagie'",    '$this->notasAut->registrar('],
+        [$mat,  'storeNotasExternas',        "BorradorModel::clave('notas_origen'",    '$this->notasExternasModel->commit()'],
     ] as [$archivo, $nombre, $marca, $escritura]) {
         $post = $metodo($archivo, $nombre);
         $posEsc = strpos($post, $escritura);
@@ -188,7 +191,8 @@ try {
     $ok(str_contains($ep, 'BorradorModel::MAX_BYTES'), 'el endpoint aplica el tope de tamaño (S6)');
 
     foreach (['rectificaciones/extraordinaria-lote', 'rectificaciones/editar',
-              'rectificaciones/extraordinaria', 'matriculas/notas-siagie'] as $v) {
+              'rectificaciones/extraordinaria', 'matriculas/notas-siagie',
+              'matriculas/notas-externas'] as $v) {
         $vista = file_get_contents(ROOT_PATH . '/resources/views/' . $v . '.php');
         // Eco DIRECTO de un valor del borrador sin e() (`<?= $old[..]` o `<?= $oldTxt(..)` cerrado sin escapar).
         // Las comparaciones que solo imprimen ' selected' no son eco del valor.
@@ -208,6 +212,33 @@ try {
     $ok(!$bm->contextoValido('rect_competencia', ['carga' => 99999999] + $ctxC), 'carga inexistente → inválido');
     $ok(!$bm->contextoValido('inventado', $ctxC), 'tipo desconocido → inválido');
     $ok($bm->contextoValido('notas_siagie', ['matricula' => $mid, 'periodo' => $pid]), 'notas SIAGIE sin carga → válido');
+
+    echo "\n=== 11. NOTAS DE ORIGEN (fase 4) ===\n";
+    $ok(BorradorModel::clave('notas_origen', ['matricula' => $mid]) === "m{$mid}", 'clave solo por matrícula');
+    $ok($bm->contextoValido('notas_origen', ['matricula' => $mid]), 'matrícula existente → válido (sin periodo)');
+    $ok(!$bm->contextoValido('notas_origen', ['matricula' => 99999999]), 'matrícula inexistente → inválido');
+    $ep2 = file_get_contents(APP_PATH . '/Controllers/BorradorController.php');
+    $ok(str_contains($ep2, "'notas_origen'        => MatriculaController::ROLES_MATRICULAN"),
+        'roles de notas de origen desde el punto único (no copiados)');
+
+    // filasDesdeBorrador(): listas paralelas → filas; vacías fuera; literal inválido → ''.
+    require_once APP_PATH . '/Controllers/BaseController.php';
+    require_once APP_PATH . '/Controllers/Matricula/MatriculaController.php';
+    $ref = new ReflectionMethod(App\Controllers\Matricula\MatriculaController::class, 'filasDesdeBorrador');
+    $ref->setAccessible(true);
+    $ctl = (new ReflectionClass(App\Controllers\Matricula\MatriculaController::class))->newInstanceWithoutConstructor();
+    $filas = $ref->invoke($ctl, [
+        'periodo_nombre'         => ['I Bimestre', '', 'II Bimestre'],
+        'area_nombre'            => ['Matemática', '', 'Comunicación'],
+        'competencia_nombre'     => ['Resuelve', '', 'Lee'],
+        'nota_literal'           => ['A', '', 'X<script>'],
+        'area_id'                => ['5', '', '7'],
+        'conclusion_descriptiva' => ['Bien', '', ''],
+    ]);
+    $ok(count($filas) === 2, 'la fila totalmente vacía se descarta (3 → 2)');
+    $ok(($filas[0]['nota_literal'] ?? null) === 'A' && ($filas[0]['area_id'] ?? null) === 5, 'la fila conserva su nota y su área mapeada');
+    $ok(($filas[1]['nota_literal'] ?? null) === '', 'un literal inválido no se restaura');
+    $ok($ref->invoke($ctl, ['periodo_nombre' => 'no-es-lista']) === [], 'datos con forma inesperada → sin filas');
 } catch (Throwable $e) {
     echo "  [ERROR] " . $e->getMessage() . "\n";
     $fallos++;

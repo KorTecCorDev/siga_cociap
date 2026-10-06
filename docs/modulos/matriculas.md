@@ -905,6 +905,13 @@ rol**, solo dónde y cuándo se pinta cada cosa:
 - SASS: `.mat-seccion-ancha` sustituye al `grid-column` de `.mat-llegada`; los estilos
   `__panel/__boton/__contenido` del `<details>` se retiraron.
 
+### Autoguardado del formulario de captura (06/10/2026, migración 074)
+
+Lo tecleado en la captura en lote se guarda como borrador por usuario y vuelve pintado por el
+servidor (filas del borrador primero, luego las importadas). **«Traer competencias» ya no pierde
+lo escrito**: antes de recargar se guarda el borrador. Se elimina al guardar con éxito. Ver
+`docs/modulos/borradores-y-sesion.md` § 3.6.
+
 ### Colegio de origen: obligatorio y corregible (06/10/2026) — desplegado el 06/10/2026
 
 > Ruta nueva: `POST /matriculas/{id}/notas-externas/colegio`

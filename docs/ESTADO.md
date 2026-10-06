@@ -42,7 +42,10 @@ Plan de 4 fases; detalle y decisiones en `docs/modulos/borradores-y-sesion.md`.
 - [x] **Fase 3** — rectificación por competencia, extraordinaria individual, notas SIAGIE.
       Probada en navegador (06/10, sesión admin): guardado, restauración, conflicto entre
       pestañas, inyección escapada y aviso de otro usuario. `verif_borradores.php` 61/61.
-- [ ] **Fase 4** — notas de origen (emparejamiento por fila) + cierre de documentación.
+- [x] **Fase 4** — notas de origen (filas pintadas por el servidor, «Traer competencias» que
+      guarda antes de recargar, serializador de `campo[]`). Probada en navegador (06/10):
+      restauración, importación sin perder lo tecleado, «+ Añadir fila». `verif_borradores.php`
+      73/73 y `verif_notas_origen.php` en verde.
 - [ ] **Despliegue:** aplicar la 074 a mano en producción ANTES del merge. ⚠️ `session_timeout`
       debe ir en 600.
 - [ ] 🔴 **Pendiente de seguridad (preexistente, tarea APARTE):** la sesión única por usuario no

@@ -17,7 +17,10 @@
  * @var array $areas            áreas del plan de SU sección, para el mapeo opcional
  * @var array $curricula        áreas con sus competencias, para la card de importar
  * @var array $periodos         bimestres del año, para elegir cuáles importar
- * @var array $filasImportadas  filas pre-rellenadas por el importador (puede estar vacío)
+ * @var array $filasImportadas  filas pre-rellenadas: las del BORRADOR primero y luego las del
+ *                              importador (puede estar vacío)
+ * @var string|null $colegioBorrador colegio tecleado en el borrador (migración 074)
+ * @var array $borrador         revision, restaurado, actualizado_en, otros (migración 074)
  */
 $mid             = (int) $matricula['id'];
 $filasImportadas = $filasImportadas ?? [];
@@ -73,7 +76,8 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
         </p>
 
         <form method="GET" action="<?= url('matriculas/' . $mid . '/notas-externas') ?>"
-              data-importar-form>
+              data-importar-form
+              data-borrador-guardar-antes>
             <input type="hidden" name="importar" value="1">
 
             <p class="form-section-title">1. Bimestres</p>
@@ -111,9 +115,9 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
                 <?php endforeach; ?>
             </div>
 
-            <div class="flash flash--warning mt-md">
-                Al traer las competencias <strong>se recarga el formulario</strong> y se pierde
-                lo que hayas tecleado. Importa primero y escribe las notas después.
+            <div class="flash flash--info mt-md">
+                Al traer las competencias <strong>se recarga el formulario</strong>. Lo que ya
+                escribiste se conserva y las competencias nuevas se agregan a continuación.
             </div>
 
             <div class="btn-group form-actions">
@@ -124,8 +128,13 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
 </div>
 <?php endif; ?>
 
+<?php require VIEW_PATH . '/shared/_borrador-avisos.php'; ?>
+
 <form method="POST" action="<?= url('matriculas/' . $mid . '/notas-externas') ?>"
-      id="notasOrigenForm" class="notas-origen">
+      id="notasOrigenForm" class="notas-origen"
+      data-borrador-tipo="notas_origen"
+      data-borrador-ctx-matricula="<?= $mid ?>"
+      data-borrador-revision="<?= (int) ($borrador['revision'] ?? 0) ?>">
     <?= csrf_field() ?>
 
     <div class="card mb-md">
@@ -133,7 +142,7 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
             <div class="form-group">
                 <label class="form-label" for="colegio_origen">Colegio de origen</label>
                 <input type="text" id="colegio_origen" name="colegio_origen" class="form-input"
-                       maxlength="<?= \App\Models\NotaExternaModel::MAX_COLEGIO ?>" value="<?= e($notas[0]['colegio_origen'] ?? '') ?>"
+                       maxlength="<?= \App\Models\NotaExternaModel::MAX_COLEGIO ?>" value="<?= e($colegioBorrador ?? $notas[0]['colegio_origen'] ?? '') ?>"
                        placeholder="Nombre de la institución educativa anterior" required>
                 <p class="text-sm text-muted">Obligatorio. Se aplica a todas las filas de este envío.</p>
             </div>
@@ -178,10 +187,9 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
                             <td>
                                 <select name="nota_literal[]" class="form-input" aria-label="Nota literal">
                                     <option value="">—</option>
-                                    <option value="AD">AD</option>
-                                    <option value="A">A</option>
-                                    <option value="B">B</option>
-                                    <option value="C">C</option>
+                                    <?php foreach (\App\Models\NotaExternaModel::LITERALES as $lit): ?>
+                                        <option value="<?= $lit ?>"<?= ($f['nota_literal'] ?? '') === $lit ? ' selected' : '' ?>><?= $lit ?></option>
+                                    <?php endforeach; ?>
                                 </select>
                             </td>
                             <td>
@@ -229,6 +237,7 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
         </div>
     </div>
 
+    <p class="text-sm text-muted" data-borrador-estado aria-live="polite"></p>
     <div class="btn-group form-actions">
         <a href="<?= url('matriculas/' . $mid) ?>" class="btn btn--secondary">Cancelar</a>
         <button type="submit" class="btn btn--primary">Guardar notas de origen</button>

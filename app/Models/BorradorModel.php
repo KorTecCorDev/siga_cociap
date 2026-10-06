@@ -32,6 +32,8 @@ class BorradorModel extends BaseModel
         'rect_extraordinaria' => ['matricula', 'carga', 'competencia', 'periodo'],
         // Un formulario POR BIMESTRE en la misma pantalla: la clave lleva el periodo.
         'notas_siagie'        => ['matricula', 'periodo'],
+        // Un solo formulario por estudiante (varios bimestres en filas libres).
+        'notas_origen'        => ['matricula'],
     ];
 
     /** Prefijo de cada id en la clave (explícito: carga y competencia comparten inicial). */
@@ -77,8 +79,13 @@ class BorradorModel extends BaseModel
             return false;
         }
         $matricula = (int) ($ctx['matricula'] ?? 0);
-        $periodo   = (int) ($ctx['periodo'] ?? 0);
 
+        // Sin periodo en la clave (notas de origen): basta con que la matrícula exista.
+        if (!in_array('periodo', self::TIPOS[$tipo], true)) {
+            return $this->queryOne("SELECT 1 AS x FROM matriculas WHERE id = ? LIMIT 1", [$matricula]) !== null;
+        }
+
+        $periodo = (int) ($ctx['periodo'] ?? 0);
         $fila = $this->queryOne("
             SELECT m.anio_id
             FROM matriculas m
