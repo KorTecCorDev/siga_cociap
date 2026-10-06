@@ -1,25 +1,80 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **05/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **06/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🔜 RETOMAR AQUÍ (05/10/2026, fin del turno tarde en la laptop → escritorio de casa)
+## 🔜 RETOMAR AQUÍ (06/10/2026, fin del turno tarde en la laptop → escritorio de casa)
 
-**Producción al cierre del turno:** código `c3d1bdc` (retorno de grado con tramo + lotes 072).
-Migraciones aplicadas allí: **072 y 073**. **No existe ninguna 074** (se escribió y se retiró:
-ver «FALSA ALARMA»). Retorno #1 revertido y corregido (tramo II–II); la boleta de la 190
-muestra el II.
+**Git al cierre del turno:** `origin/dev` = `3452567` (autoguardado + sesión, 4 fases).
+`origin/main` = `52db789` (colegio de origen por bimestre): **el autoguardado NO está en
+producción.** Migraciones en producción: hasta la **073**. La **074 (`borradores_formulario`)
+existe y está aplicada SOLO en la BD local de la laptop.**
 
-**Al abrir el escritorio, antes de medir nada:**
-1. `git pull` en `dev` y en `main`.
-2. **La BD local de casa necesita una copia fresca de producción** (o, como mínimo, la **072** y
-   la **073** aplicadas). Sin la 073, `RetornoGradoModel` falla al leer el tramo. Huella para
-   comprobarla: `SHOW COLUMNS FROM retornos_grado LIKE 'periodo_hasta_id'` existe y
-   `SELECT periodo_hasta_id FROM retornos_grado WHERE id = 1` da **2**.
-3. ⚠️ La copia exportada de producción **no trae los CHECK con nombre de tabla** ni respeta
-   alguna colación: no auditar esquema con ella (ver «FALSA ALARMA»).
+**Al abrir el escritorio, antes de probar nada:**
+1. `git pull` en `dev` (y en `main`).
+2. **Aplicar la 074 en la BD local de casa**: `database/migrations/074_borradores_formulario.sql`
+   (idempotente). Sin ella, el autoguardado de los 5 formularios responde 500. Huella:
+   `SHOW TABLES LIKE 'borradores_formulario'` existe.
+3. Si la BD de casa no tiene la 072/073, ver los pasos del turno anterior (más abajo, en esta
+   misma sección): copia fresca de producción o aplicar 072 + 073.
+4. `gulp build` no hace falta (los JS compilados van en el commit), pero si algo se ve viejo,
+   recargar con Ctrl+F5.
+5. ⚠️ Para probar la sesión sin esperar 10 min se puede bajar `session_timeout` en
+   `config/app.php` (p. ej. 60) — **restaurar 600 y NO commitearlo**.
+
+### Pruebas de navegador que te quedan (autoguardado + sesión)
+
+Lo que ya se probó el 06/10 (admin, laptop) NO se repite: aviso y cierre por inactividad,
+regreso a la pantalla, lote en rectificación, restauración de los 5 formularios, conflicto entre
+pestañas, inyección escapada, aviso de «otro usuario», «Traer competencias» y «+ Añadir fila».
+Lo que falta es lo que necesita **tus manos, otros roles o un guardado REAL**:
+
+**Bloque A — Sesión con 10 minutos reales (cualquier rol)**
+- [ ] A1. **Trabajando sin parar** más de 10 min (escribiendo/haciendo clic en un formulario):
+      **NO debe aparecer el aviso** ni cerrarse la sesión (renovación silenciosa a los 8 min).
+- [ ] A2. Quieto 9 min → sale el aviso con 60 s → «Seguir trabajando» lo cierra (botón abajo a
+      la derecha) y la sesión sigue.
+- [ ] A3. Quieto 10 min → login con el mensaje de siempre → al entrar, vuelves a esa pantalla.
+- [ ] A4. **Con un DOCENTE** (no admin): A2 y A3 en su panel. El aviso es de todo el sistema y
+      solo se probó con admin.
+- [ ] A5. Abrir una **boleta imprimible** y dejarla 10 min: **no** debe salir aviso ni
+      redirigir (el layout `print` no lleva el aviso).
+
+**Bloque B — Guardado REAL borra el borrador (usar un estudiante de PRUEBA: escribe datos
+oficiales)**
+- [ ] B1. Extraordinaria individual: escribir → «Borrador guardado» → **Registrar** → al volver a
+      abrir esa competencia ya no es insertable (o no hay aviso de borrador).
+- [ ] B2. Notas SIAGIE: escribir → **Autorizar nota** → volver: el bloque de ese bimestre sin
+      aviso de borrador. (Se puede revertir con «eliminar» de la propia pantalla.)
+- [ ] B3. Notas de origen: escribir 1-2 filas → **Guardar notas de origen** → volver: formulario
+      en blanco, sin aviso de borrador, y las notas en «Ya registradas».
+
+**Bloque C — Otros roles (las pruebas con admin no cierran estos)**
+- [ ] C1. Con **Registro Académico**: autoguardado de la rectificación en lote y de notas SIAGIE
+      (escribir → «Borrador guardado» → recargar → vuelve).
+- [ ] C2. Con **secretaría académica o administrativa**: autoguardado de notas de origen (su
+      permiso viene de `ROLES_MATRICULAN`).
+- [ ] C3. Con **dos cuentas reales** (admin + RA) sobre el mismo formulario: la segunda ve
+      «X tiene un borrador sin registrar…» y **no** ve sus datos.
+
+**Bloque D — Antes del despliegue**
+- [ ] D1. `php database/verificaciones/verif_borradores.php` → TODO CORRECTO (73).
+- [ ] D2. `php database/verificaciones/verif_notas_origen.php` → TODO CORRECTO.
+- [ ] D3. Aplicar la **074 a mano en producción** y luego el merge `dev`→`main` (preguntar
+      antes); `session_timeout` en 600.
+
+---
+
+**(Turno anterior, 05/10)** Producción al cierre: código `c3d1bdc` (retorno de grado con
+tramo + lotes 072). Migraciones aplicadas allí: **072 y 073**. Retorno #1 revertido y corregido
+(tramo II–II); la boleta de la 190 muestra el II. Pasos de BD de ese turno: 1) `git pull`;
+2) **copia fresca de producción** o, como mínimo, **072 y 073** aplicadas (huella:
+`SHOW COLUMNS FROM retornos_grado LIKE 'periodo_hasta_id'` existe y
+`SELECT periodo_hasta_id FROM retornos_grado WHERE id = 1` da **2**); 3) ⚠️ la copia exportada
+**no trae los CHECK con nombre de tabla** ni respeta alguna colación: no auditar esquema con ella
+(ver «FALSA ALARMA»).
 
 **Pendientes, en orden:**
 - [ ] Colegio (no es código): la auxiliar de 2.° B **confirma** la asistencia del III de la
