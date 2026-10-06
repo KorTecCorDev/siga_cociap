@@ -324,7 +324,9 @@ class PanelController extends BaseController
             'estudiante'  => $estudiante,
             'porPeriodo'  => $porPeriodo,
             'misAreas'    => $model->areasDelDocenteEnSeccion($mid, $did),
-            'colegio'     => $notas[0]['colegio_origen'] ?? null,
+            // Colegio por bimestre (06/10/2026): un lote puede traer bimestres
+            // cursados en colegios distintos.
+            'colegios'    => NotaExternaModel::colegiosAgrupados($notas),
             'total'       => count($notas),
         ]);
     }

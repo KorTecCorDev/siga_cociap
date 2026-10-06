@@ -219,8 +219,16 @@ $labelDoc = [
             <?php // El "a dónde va" sale del punto único (PROCEDENCIAS_NOTA): es
                   // lo que de verdad separa a las secciones vecinas de esta ficha. ?>
             <p class="proc-destino"><?= e(procedencia_nota(PROCEDENCIA_ORIGEN)['destino']) ?></p>
-            <?php if (!empty($notasExternas[0]['colegio_origen'])): ?>
-                <p class="text-sm">Procede de <strong><?= e($notasExternas[0]['colegio_origen']) ?></strong></p>
+            <?php // Colegio por bimestre (06/10/2026): con uno solo, igual que antes. ?>
+            <?php if (count($colegiosOrigen ?? []) === 1): ?>
+                <p class="text-sm">Procede de <strong><?= e($colegiosOrigen[0]['colegio']) ?></strong></p>
+            <?php elseif (!empty($colegiosOrigen)): ?>
+                <p class="text-sm">Procede de
+                    <?php foreach ($colegiosOrigen as $i => $c): ?>
+                        <?= $i > 0 ? ' · ' : '' ?><strong><?= e($c['colegio']) ?></strong>
+                        (<?= e(implode(', ', $c['periodos'])) ?>)
+                    <?php endforeach; ?>
+                </p>
             <?php endif; ?>
             <div class="tabla-notas-wrapper">
                 <table class="tabla-notas">

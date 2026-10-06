@@ -849,6 +849,8 @@ class MatriculaController extends BaseController
             (int) $matricula['anio_id'], (int) $id, $esTrasladado
         ) !== null;
 
+        $notasExternas = $this->notasExternasModel->getDeMatricula((int) $id);
+
         $this->view('matriculas/show', [
             'tieneBoleta'          => $tieneBoleta,
             'registraLlegadaTarde' => $registraLlegadaTarde,
@@ -857,7 +859,10 @@ class MatriculaController extends BaseController
             'matricula'    => $matricula,
             'vinculos'     => $this->apoderados->getVinculos((int) $matricula['estudiante_id']),
             'documentos'   => $this->model->getDocumentos((int) $id),
-            'notasExternas'=> $this->notasExternasModel->getDeMatricula((int) $id),
+            'notasExternas'=> $notasExternas,
+            // Colegio por bimestre (06/10/2026): un lote puede traer bimestres
+            // cursados en colegios distintos.
+            'colegiosOrigen' => NotaExternaModel::colegiosAgrupados($notasExternas),
             'tiposVinculo' => self::TIPOS_VINCULO,
             'retorno'      => $retorno,
             'traslado'     => $this->traslados->getUltimaPorMatricula((int) $id),
@@ -1314,6 +1319,7 @@ class MatriculaController extends BaseController
             'titulo'    => 'Notas del colegio de origen',
             'matricula' => $matricula,
             'notas'     => $yaHay,
+            'colegiosPorPeriodo' => NotaExternaModel::colegiosPorPeriodo($yaHay),
             'areas'     => $this->notasExternasModel->areasDeLaSeccion($mid),
             'curricula' => $curricula,
             'periodos'  => $periodos,
@@ -1345,7 +1351,12 @@ class MatriculaController extends BaseController
         // OPCIONAL para los cuatro literales, nunca bloquea el guardado.
         $conclusiones = (array) $this->input('conclusion_descriptiva', []);
 
-        if ($colegio !== null && mb_strlen($colegio) > NotaExternaModel::MAX_COLEGIO) {
+        // Obligatorio desde el 06/10/2026: sin él, el docente no sabe de dónde
+        // viene el informe. La vista lo marca `required`; esta es la guarda que manda.
+        if ($colegio === null) {
+            $this->redirectWithError($volver, 'Indica el colegio de origen.');
+        }
+        if (mb_strlen($colegio) > NotaExternaModel::MAX_COLEGIO) {
             $this->redirectWithError($volver,
                 'El nombre del colegio de origen pasa de ' . NotaExternaModel::MAX_COLEGIO . ' caracteres.');
         }
@@ -1469,6 +1480,77 @@ class MatriculaController extends BaseController
             . ($sinNota > 0
                 ? ($sinNota === 1 ? ' Se omitió 1 fila sin nota.' : ' Se omitieron ' . $sinNota . ' filas sin nota.')
                 : ''));
+    }
+
+    // ── POST /matriculas/{id}/notas-externas/colegio ─────────────
+    //
+    // Corrige el colegio de origen de las notas ya registradas, UN CAMPO POR
+    // PERIODO (06/10/2026). El lote solo lo estampa en las filas de su envío, así
+    // que un colegio olvidado no se podía completar sin volver a teclear las
+    // notas; y un mismo lote puede traer bimestres cursados en colegios
+    // distintos. NO notifica a los docentes (decisión del usuario): las notas
+    // no cambiaron.
+    public function actualizarColegioOrigen(string $id): void
+    {
+        $this->requireRole(self::ROLES_MATRICULAN);
+        $this->validateCsrf();
+        $this->requireMatricula((int) $id);
+
+        $mid      = (int) $id;
+        $volver   = url('matriculas/' . $id . '/notas-externas');
+        $periodos = (array) $this->input('periodo_nombre', []);
+        $colegios = (array) $this->input('colegio_origen', []);
+
+        // Solo se aceptan los periodos que la matrícula YA tiene: el periodo es
+        // texto libre y llega en un campo oculto, así que se contrasta con la BD.
+        $existentes = NotaExternaModel::colegiosPorPeriodo(
+            $this->notasExternasModel->getDeMatricula($mid)
+        );
+        if ($existentes === []) {
+            $this->redirectWithError($volver,
+                'Todavía no hay notas de origen: el colegio se indica al registrarlas.');
+        }
+
+        $cambios = [];
+        foreach ($periodos as $i => $periodo) {
+            $periodo = (string) $periodo;
+            $colegio = trim((string) ($colegios[$i] ?? ''));
+            if (!array_key_exists($periodo, $existentes)) {
+                $this->redirectWithError($volver, 'Uno de los periodos ya no tiene notas de origen. Recarga la página.');
+            }
+            if ($colegio === '') {
+                $this->redirectWithError($volver, 'Indica el colegio de origen de ' . $periodo . '.');
+            }
+            if (mb_strlen($colegio) > NotaExternaModel::MAX_COLEGIO) {
+                $this->redirectWithError($volver,
+                    'El colegio de ' . $periodo . ' pasa de ' . NotaExternaModel::MAX_COLEGIO . ' caracteres.');
+            }
+            $cambios[$periodo] = $colegio;
+        }
+        if ($cambios === []) {
+            $this->redirectWithError($volver, 'Indica el colegio de origen.');
+        }
+
+        // Todos los periodos o ninguno: una transacción, como el lote.
+        $this->notasExternasModel->beginTransaction();
+        try {
+            $n = 0;
+            foreach ($cambios as $periodo => $colegio) {
+                $n += $this->notasExternasModel->actualizarColegio($mid, $periodo, $colegio);
+            }
+            $this->notasExternasModel->commit();
+        } catch (\Exception $e) {
+            $this->notasExternasModel->rollback();
+            log_error('Error al corregir el colegio de origen', [
+                'matricula' => $mid, 'error' => $e->getMessage(),
+            ]);
+            $this->redirectWithError($volver, 'No se pudo actualizar el colegio de origen.');
+        }
+
+        // rowCount cuenta solo las filas que CAMBIARON: 0 = ya tenían ese colegio.
+        $this->redirectWithSuccess($volver, $n === 0
+            ? 'Las notas ya tenían ese colegio de origen.'
+            : 'Colegio de origen actualizado en ' . $n . ($n === 1 ? ' nota.' : ' notas.'));
     }
 
     // ── Notas autorizadas por dirección para SIAGIE (informe aparte) ─────

@@ -233,6 +233,7 @@ $router->get( '/matriculas/{id}/trasladar',      'Matricula\TrasladoController@f
 $router->post('/matriculas/{id}/trasladar',      'Matricula\TrasladoController@store');
 $router->get( '/matriculas/{id}/notas-externas', 'Matricula\MatriculaController@notasExternas');
 $router->post('/matriculas/{id}/notas-externas', 'Matricula\MatriculaController@storeNotasExternas');
+$router->post('/matriculas/{id}/notas-externas/colegio', 'Matricula\MatriculaController@actualizarColegioOrigen');
 // Notas autorizadas por dirección para SIAGIE (informe aparte, solo admin/RA)
 $router->get( '/matriculas/{id}/notas-siagie/informe',  'Matricula\MatriculaController@informeNotaSiagie');
 $router->post('/matriculas/{id}/notas-siagie/eliminar', 'Matricula\MatriculaController@eliminarNotaSiagie');
