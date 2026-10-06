@@ -29,6 +29,19 @@ muestra el II.
       situación final según el acta).
 - [ ] Las pruebas en producción del módulo auxiliar (ver su sección más abajo).
 
+## 🟢 COLEGIO DE ORIGEN OBLIGATORIO Y CORREGIBLE POR BIMESTRE — DESPLEGADO el 06/10/2026 (sin migración; sigue v1.0.5)
+
+- Al guardar notas de origen el colegio es obligatorio, y «Corregir colegio de origen» lo
+  completa **por bimestre** sin volver a teclear notas. La ficha y la vista del docente
+  muestran el colegio de cada bimestre. Detalle en `docs/modulos/matriculas.md`
+  («Colegio de origen: obligatorio y corregible»).
+- Probado en navegador local con admin (06/10) y verificado por el usuario;
+  `verif_notas_origen.php` §7h en verde. La vista del docente solo se comprobó por consola.
+- [ ] **Acción del colegio en producción:** completar el colegio de las matrículas que tienen
+      notas de origen sin él (en la copia local, la 693: 23 notas del I Bimestre).
+- Pendiente opcional (no pedido): el campo del lote se prellena con el colegio de la primera
+  nota; con bimestres de colegios distintos hay que cambiarlo a mano.
+
 ## ⚪ FALSA ALARMA (05/10/2026): los CHECK de `asistencia_incidencias` SÍ están en producción
 
 En la copia local de producción del 05/10/2026 `asistencia_incidencias` aparecía SIN sus dos

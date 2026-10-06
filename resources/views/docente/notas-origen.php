@@ -13,7 +13,7 @@
  * @var array  $estudiante  nombre_completo, grado_nombre, seccion_nombre
  * @var array  $porPeriodo  periodo => filas[]
  * @var int[]  $misAreas    ids de área en los que el docente tiene carga
- * @var string $colegio     colegio de origen (puede ser null)
+ * @var array  $colegios    colegio(s) de origen con sus periodos (puede estar vacío)
  * @var int    $total
  */
 ?>
@@ -33,15 +33,20 @@
 </div>
 
 <?php // El colegio de origen, a la vista y no perdido en el subtítulo (21/09/2026).
-      // Es opcional al registrar: si no se anotó, no se pinta nada. ?>
-<?php if (!empty($colegio)): ?>
+      // Si no se anotó, no se pinta nada. Con colegios distintos por bimestre
+      // (06/10/2026) cada uno lleva sus periodos; con uno solo, igual que antes. ?>
+<?php if (!empty($colegios)): ?>
 <div class="card mb-md">
     <div class="card__body">
         <div class="info-grid">
+            <?php foreach ($colegios as $c): ?>
             <div class="info-item">
-                <span class="info-item__label">Colegio de origen</span>
-                <span class="info-item__value"><?= e($colegio) ?></span>
+                <span class="info-item__label">
+                    Colegio de origen<?= count($colegios) > 1 ? ' · ' . e(implode(', ', $c['periodos'])) : '' ?>
+                </span>
+                <span class="info-item__value"><?= e($c['colegio']) ?></span>
             </div>
+            <?php endforeach; ?>
         </div>
     </div>
 </div>

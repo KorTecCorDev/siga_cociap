@@ -137,6 +137,66 @@ class NotaExternaModel extends BaseModel
         return count($filas);
     }
 
+    /**
+     * Corrige el colegio de origen de las notas de UN periodo de la matrícula
+     * (06/10/2026). El lote solo estampa el colegio en las filas de su envío,
+     * así que un colegio olvidado no tenía cómo completarse sin volver a teclear
+     * las notas. Va POR PERIODO porque un mismo lote puede traer bimestres
+     * cursados en colegios distintos. NO toca `registrado_por` / `registrado_en`:
+     * son de las notas, no del colegio.
+     *
+     * @return int Filas que CAMBIARON (rowCount no cuenta las que ya lo tenían).
+     */
+    public function actualizarColegio(int $matriculaId, string $periodoNombre, string $colegio): int
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE notas_externas SET colegio_origen = ?
+             WHERE matricula_id = ? AND periodo_nombre = ?"
+        );
+        $stmt->execute([$colegio, $matriculaId, $periodoNombre]);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Colegio de cada periodo, a partir de las filas de `getDeMatricula()`.
+     * El periodo es texto libre: se agrupa por su texto EXACTO. Si dentro de un
+     * periodo hay valores mezclados (dos envíos distintos), gana el primero no
+     * vacío; la corrección por periodo los iguala.
+     *
+     * @return array<string, ?string> periodo => colegio (null si no se anotó)
+     */
+    public static function colegiosPorPeriodo(array $notas): array
+    {
+        $out = [];
+        foreach ($notas as $n) {
+            $periodo = (string) $n['periodo_nombre'];
+            $colegio = trim((string) ($n['colegio_origen'] ?? ''));
+            if (!array_key_exists($periodo, $out) || ($out[$periodo] === null && $colegio !== '')) {
+                $out[$periodo] = $colegio !== '' ? $colegio : null;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Colegios distintos con los periodos de cada uno, para MOSTRAR («Procede
+     * de …»). Omite los periodos sin colegio anotado.
+     *
+     * @return array<int, array{colegio: string, periodos: string[]}>
+     */
+    public static function colegiosAgrupados(array $notas): array
+    {
+        $grupos = [];
+        foreach (self::colegiosPorPeriodo($notas) as $periodo => $colegio) {
+            if ($colegio === null) {
+                continue;
+            }
+            $grupos[$colegio]['colegio']    = $colegio;
+            $grupos[$colegio]['periodos'][] = $periodo;
+        }
+        return array_values($grupos);
+    }
+
     /** ¿Esta matrícula tiene alguna nota de origen registrada? */
     public function tiene(int $matriculaId): bool
     {

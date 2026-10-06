@@ -13,6 +13,7 @@
  *
  * @var array $matricula
  * @var array $notas            ya registradas
+ * @var array $colegiosPorPeriodo periodo => colegio|null, para corregirlo por periodo
  * @var array $areas            áreas del plan de SU sección, para el mapeo opcional
  * @var array $curricula        áreas con sus competencias, para la card de importar
  * @var array $periodos         bimestres del año, para elegir cuáles importar
@@ -133,8 +134,8 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
                 <label class="form-label" for="colegio_origen">Colegio de origen</label>
                 <input type="text" id="colegio_origen" name="colegio_origen" class="form-input"
                        maxlength="<?= \App\Models\NotaExternaModel::MAX_COLEGIO ?>" value="<?= e($notas[0]['colegio_origen'] ?? '') ?>"
-                       placeholder="Nombre de la institución educativa anterior">
-                <p class="text-sm text-muted">Se aplica a todas las filas de este envío.</p>
+                       placeholder="Nombre de la institución educativa anterior" required>
+                <p class="text-sm text-muted">Obligatorio. Se aplica a todas las filas de este envío.</p>
             </div>
         </div>
     </div>
@@ -240,6 +241,42 @@ for ($i = 0, $blancas = ($filasImportadas === [] ? 6 : 3); $i < $blancas; $i++) 
         <?php if (empty($notas)): ?>
             <div class="empty-state"><p>Todavía no hay notas del colegio de origen.</p></div>
         <?php else: ?>
+            <?php // Corrección del colegio (06/10/2026): el lote solo lo estampa en
+                  // las filas de su envío. Va UN CAMPO POR PERIODO porque un mismo
+                  // lote puede traer bimestres cursados en colegios distintos. ?>
+            <form method="POST" action="<?= url('matriculas/' . $mid . '/notas-externas/colegio') ?>"
+                  class="mb-md">
+                <?= csrf_field() ?>
+                <p class="form-label">Corregir colegio de origen</p>
+                <div class="tabla-notas-wrapper">
+                    <table class="tabla-notas">
+                        <thead><tr><th>Periodo</th><th>Colegio de origen</th></tr></thead>
+                        <tbody>
+                            <?php foreach (($colegiosPorPeriodo ?? []) as $periodo => $colegio): ?>
+                            <tr>
+                                <td class="text-sm">
+                                    <?= e($periodo) ?>
+                                    <input type="hidden" name="periodo_nombre[]" value="<?= e($periodo) ?>">
+                                </td>
+                                <td>
+                                    <input type="text" name="colegio_origen[]" class="form-input"
+                                           maxlength="<?= \App\Models\NotaExternaModel::MAX_COLEGIO ?>"
+                                           value="<?= e($colegio ?? '') ?>"
+                                           placeholder="Nombre de la institución educativa anterior" required
+                                           aria-label="Colegio de origen de <?= e($periodo) ?>">
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-sm text-muted">
+                    Cada colegio se aplica a <strong>todas</strong> las notas de su periodo. No cambia ninguna nota.
+                </p>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn--secondary btn--sm">Guardar colegio</button>
+                </div>
+            </form>
             <div class="tabla-notas-wrapper">
                 <table class="tabla-notas">
                     <thead>

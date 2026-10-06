@@ -428,6 +428,66 @@ try {
     $ok(str_contains($docenteSrc, 'conclusion_descriptiva'),
         'el detalle del docente la muestra');
 
+    echo "\n=== 7h. COLEGIO DE ORIGEN — obligatorio y corregible POR PERIODO ===\n";
+    // El lote solo estampa el colegio en las filas de su envío, y un mismo lote
+    // puede traer dos bimestres de colegios distintos. La corrección escribe en
+    // TODAS las filas de SU periodo, en ninguna de otro periodo ni de otra matrícula.
+    $otra = (int) $pdo->query("SELECT id FROM matriculas WHERE id <> {$mid} ORDER BY id LIMIT 1")->fetchColumn();
+    $externas->registrarLote($otra, [
+        ['periodo_nombre' => 'Verif 7h-1', 'area_nombre' => 'Área 7h',
+         'competencia_nombre' => 'Otra matrícula', 'nota_literal' => 'B'],
+    ], 'IE ajena (verificación)', 1);
+    // UN lote con dos periodos y sin colegio: el caso que motivó el cambio.
+    $externas->registrarLote($mid, [
+        ['periodo_nombre' => 'Verif 7h-1', 'area_nombre' => 'Área 7h',
+         'competencia_nombre' => 'Comp 1', 'nota_literal' => 'C'],
+        ['periodo_nombre' => 'Verif 7h-1', 'area_nombre' => 'Área 7h',
+         'competencia_nombre' => 'Comp 2', 'nota_literal' => 'B'],
+        ['periodo_nombre' => 'Verif 7h-2', 'area_nombre' => 'Área 7h',
+         'competencia_nombre' => 'Comp 1', 'nota_literal' => 'A'],
+    ], null, 1);
+
+    $col = fn(int $m, string $p): array => array_column($pdo->query("
+        SELECT DISTINCT colegio_origen FROM notas_externas
+        WHERE matricula_id = {$m} AND periodo_nombre = " . $pdo->quote($p)
+    )->fetchAll(PDO::FETCH_ASSOC), 'colegio_origen');
+
+    $ok($externas->actualizarColegio($mid, 'Verif 7h-1', 'IE Uno (verificación)') === 2,
+        'la corrección del 1.er periodo cambia sus 2 filas');
+    $ok($externas->actualizarColegio($mid, 'Verif 7h-2', 'IE Dos (verificación)') === 1,
+        'la del 2.º periodo cambia su 1 fila');
+    $ok($col($mid, 'Verif 7h-1') === ['IE Uno (verificación)'] && $col($mid, 'Verif 7h-2') === ['IE Dos (verificación)'],
+        'cada periodo queda con SU colegio, sin pisarse');
+    $ok($col($otra, 'Verif 7h-1') === ['IE ajena (verificación)'],
+        'las notas de otra matrícula con el mismo periodo no se tocan');
+    $ok($externas->actualizarColegio($mid, 'Verif 7h-1', 'IE Uno (verificación)') === 0,
+        'repetir la corrección no cambia ninguna fila');
+
+    $porPeriodo = App\Models\NotaExternaModel::colegiosPorPeriodo($externas->getDeMatricula($mid));
+    $ok(($porPeriodo['Verif 7h-1'] ?? null) === 'IE Uno (verificación)'
+        && ($porPeriodo['Verif 7h-2'] ?? null) === 'IE Dos (verificación)',
+        'colegiosPorPeriodo() devuelve el colegio de cada periodo');
+    $grupos = App\Models\NotaExternaModel::colegiosAgrupados([
+        ['periodo_nombre' => 'I', 'colegio_origen' => 'X'],
+        ['periodo_nombre' => 'II', 'colegio_origen' => 'X'],
+        ['periodo_nombre' => 'III', 'colegio_origen' => 'Y'],
+        ['periodo_nombre' => 'IV', 'colegio_origen' => null],
+    ]);
+    $ok($grupos === [['colegio' => 'X', 'periodos' => ['I', 'II']], ['colegio' => 'Y', 'periodos' => ['III']]],
+        'colegiosAgrupados() junta los periodos de un mismo colegio y omite los vacíos');
+    $ok(App\Models\NotaExternaModel::colegiosPorPeriodo([
+            ['periodo_nombre' => 'I', 'colegio_origen' => null],
+            ['periodo_nombre' => 'I', 'colegio_origen' => 'Z'],
+        ]) === ['I' => 'Z'],
+        'con valores mezclados en un periodo, gana el primero no vacío');
+    $ok($celdas($boletaAntes) === $celdas($boletas->armar($mid, $periodo, 'archivo', true)),
+        'la boleta sigue IDÉNTICA tras corregir el colegio');
+    $ok(str_contains($ctrlSrc, "'Indica el colegio de origen.'"),
+        'el servidor exige el colegio al guardar y al corregir');
+    $ok(str_contains($vistaSrc, 'notas-externas/colegio')
+        && substr_count($vistaSrc, 'placeholder="Nombre de la institución educativa anterior" required') === 2,
+        'la vista marca el colegio como obligatorio en los dos formularios');
+
 } catch (Throwable $e) {
     echo "  [ERROR] " . $e->getMessage() . "\n";
     $fallos++;

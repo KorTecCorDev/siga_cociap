@@ -903,3 +903,33 @@ rol**, solo dónde y cuándo se pinta cada cosa:
 - SASS: `.mat-seccion-ancha` sustituye al `grid-column` de `.mat-llegada`; los estilos
   `__panel/__boton/__contenido` del `<details>` se retiraron.
 
+### Colegio de origen: obligatorio y corregible (06/10/2026) — desplegado el 06/10/2026
+
+> Ruta nueva: `POST /matriculas/{id}/notas-externas/colegio`
+> (`MatriculaController::actualizarColegioOrigen` → `NotaExternaModel::actualizarColegio`).
+
+El colegio vive **copiado en cada fila** de `notas_externas.colegio_origen`, y el lote lo
+estampa **solo en las filas de su envío**. Si se olvidaba, no había cómo completarlo sin volver
+a teclear las notas (matrícula 693: 23 notas sin colegio).
+
+- **Obligatorio al guardar el lote**: `required` en la vista y rechazo en
+  `storeNotasExternas` («Indica el colegio de origen.»).
+- **«Corregir colegio de origen»**, en la card «Ya registradas» (solo si hay notas): **un campo
+  por periodo** registrado, porque **un mismo lote puede traer bimestres cursados en colegios
+  distintos**. Cada campo escribe en todas las notas de SU periodo (`actualizarColegio($mid,
+  $periodo, $colegio)`), todo en una transacción. El periodo es texto libre: se agrupa por su
+  texto **exacto** y el servidor rechaza un periodo que la matrícula no tenga. No toca
+  `registrado_por`/`registrado_en` (son de las notas) y **no notifica** a los docentes
+  (decisión del usuario: las notas no cambiaron). Los avisos ya enviados conservan su texto.
+- **Mostrar por bimestre**: la ficha («Procede de …») y `/docente/notas-origen/{id}` ya no leen
+  `$notas[0]`, sino `NotaExternaModel::colegiosAgrupados()` (colegio → periodos). Con un solo
+  colegio se ve igual que antes; con varios, cada uno con sus periodos. Periodos sin colegio se
+  omiten. Con valores mezclados dentro de un periodo, `colegiosPorPeriodo()` toma el primero no
+  vacío; corregir el periodo los iguala.
+- **No cambió** (decisión del usuario): el lote sigue estampando solo sus filas, sin migración
+  ni aviso en la ficha. ⚠️ El campo del lote se sigue prellenando con el colegio de
+  `$notas[0]`: si se agregan notas de otro bimestre de otro colegio, hay que cambiarlo a mano.
+- `verif_notas_origen.php` §7h: un lote de dos periodos sin colegio, corregido periodo a periodo
+  sin pisarse; no toca otra matrícula con el mismo periodo; idempotente; agrupación; la
+  boleta no cambia.
+
