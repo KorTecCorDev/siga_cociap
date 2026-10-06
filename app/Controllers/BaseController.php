@@ -141,6 +141,9 @@ abstract class BaseController
     {
         if (!Session::isLoggedIn()) {
             Session::flash('error', 'Debes iniciar sesión para acceder.');
+            // Tras iniciar sesión se vuelve a esta pantalla (06/10/2026). El
+            // destino queda EN LA SESIÓN, nunca en la URL (no se puede editar).
+            Session::recordarDestinoSinSesion();
             redirect('/login');
         }
     }

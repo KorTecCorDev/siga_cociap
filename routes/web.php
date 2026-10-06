@@ -16,6 +16,10 @@ use Core\Router;
 $router->get( '/login',          'Auth\AuthController@showLogin');
 $router->post('/login/procesar', 'Auth\AuthController@login');
 $router->get( '/logout',         'Auth\AuthController@logout');
+// Renovar la sesión desde el aviso «¿Sigues trabajando?» (06/10/2026)
+$router->post('/sesion/renovar', 'Auth\SesionController@renovar');
+$router->get( '/sesion/estado',   'Auth\SesionController@estado');
+$router->get( '/sesion/expirada', 'Auth\SesionController@expirada');
 
 // ─── Dashboard ──────────────────────────────────────────────
 $router->get('/',          'DashboardController@index');

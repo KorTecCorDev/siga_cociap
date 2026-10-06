@@ -6,6 +6,7 @@
     <title><?= e($titulo ?? 'SIGACOCIAP') ?> — SIGACOCIAP</title>
     <meta name="base-url"   content="<?= rtrim(url(''), '/') ?>">
     <meta name="csrf-token" content="<?= \Core\Session::csrfToken() ?>">
+    <meta name="session-timeout" content="<?= (int) \Core\Session::timeout() ?>">
     <meta name="theme-color" content="#1a3a5c">
     <link rel="icon" type="image/x-icon" href="<?= url('favicon.ico') ?>">
     <link rel="apple-touch-icon" href="<?= url('siga-cociap-logo-sin-nombre.png') ?>">
@@ -107,6 +108,27 @@
             <span class="app-footer__author">Desarrollado por <strong>KorTecCorDev</strong></span>
         </span>
     </footer>
+
+    <?php // Aviso de sesión por vencer (06/10/2026). Lo maneja sesion.js; el
+          // vencimiento REAL lo decide el servidor (Core\Session). ?>
+    <div class="modal-overlay" id="modalSesion" hidden>
+        <div class="modal-box" role="alertdialog" aria-labelledby="modalSesionTitulo">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalSesionTitulo">¿Sigues trabajando?</h2>
+            </div>
+            <div class="modal-body">
+                <p>Tu sesión se cerrará por inactividad en <strong data-sesion-cuenta>60</strong> segundos.</p>
+                <?php // Texto GENÉRICO a propósito: no se explica el flujo interno. ?>
+                <p class="text-sm text-muted" data-sesion-error hidden>
+                    No se pudo continuar. Vuelve a ingresar.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--primary" data-sesion-seguir>Seguir trabajando</button>
+            </div>
+        </div>
+    </div>
+    <script src="<?= url('js/sesion.js') ?>"></script>
 
     <?php foreach ($page_scripts ?? [] as $script): ?>
     <script src="<?= url('js/' . $script . '.js') ?>"></script>

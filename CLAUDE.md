@@ -197,6 +197,7 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | **Notas del COLEGIO DE ORIGEN** (trasladado: informativas, nunca en boleta) | `docs/modulos/matriculas.md` |
 | **Completar notas de un bimestre CERRADO** (llegó tarde: extraordinaria, en lote) | `docs/modulos/calificaciones.md` |
 | **Notificaciones y comunicados** (bandeja, campana, avisos al docente) | `docs/modulos/notificaciones.md` |
+| **Sesión y borradores** (aviso «¿Sigues trabajando?», cierre por inactividad, regreso a la pantalla, autoguardado de formularios de carga manual) | `docs/modulos/borradores-y-sesion.md` |
 | **Consulta de notas con transversales y conducta** | `docs/modulos/consulta-notas-ampliada.md` |
 | **Bloqueos fantasma del cierre + visibilidad del tutor** | `docs/modulos/transversales-visibilidad-tutor.md` |
 | **Cambio de sección a mitad de bimestre** (mudanza, convalidación, reversión) | `docs/modulos/cambio-seccion.md` |

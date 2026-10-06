@@ -27,7 +27,7 @@ class AuthController extends BaseController
     public function showLogin(): void
     {
         if (Session::isLoggedIn()) {
-            $this->redirigirPorRol(Session::user()['rol_codigo']);
+            $this->redirigirAlEntrar(Session::user()['rol_codigo']);
         }
 
         $this->view('auth/login', [
@@ -50,6 +50,7 @@ class AuthController extends BaseController
         // fresco, para que reintente sin fricción. El resto de formularios (AJAX
         // que esperan JSON) siguen usando el validateCsrf() estricto.
         if (!Session::verifyCsrf($this->input('_csrf_token', ''))) {
+            // El destino del regreso sigue en la sesión: la URL va limpia.
             redirect(url('login') . '?timeout=1');
         }
 
@@ -137,8 +138,24 @@ class AuthController extends BaseController
         Session::set('auth_token', $token);
         Session::set('_last_activity', time());
 
-        // ── Redirigir según rol ──────────────────────────────
-        $this->redirigirPorRol($usuario['rol_codigo']);
+        // ── Redirigir: a la pantalla de antes, o según rol ───
+        $this->redirigirAlEntrar($usuario['rol_codigo']);
+    }
+
+    /**
+     * Tras iniciar sesión, vuelve a la pantalla donde se estaba (06/10/2026):
+     * la sesión vence a los 10 minutos y se perdía el lugar de trabajo. El
+     * destino sale de LA SESIÓN (`Session::tomarDestino()`, de un solo uso y
+     * validado por `volver_valido()`), nunca del request. Sin destino, el de
+     * siempre por rol.
+     */
+    private function redirigirAlEntrar(string $rol): never
+    {
+        $destino = Session::tomarDestino();
+        if ($destino !== null) {
+            redirect(url(ltrim($destino, '/')));
+        }
+        $this->redirigirPorRol($rol);
     }
 
     /**

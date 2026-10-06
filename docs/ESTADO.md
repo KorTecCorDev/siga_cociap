@@ -29,6 +29,24 @@ muestra el II.
       situación final según el acta).
 - [ ] Las pruebas en producción del módulo auxiliar (ver su sección más abajo).
 
+## 🆕 SESIÓN QUE NO HACE PERDER EL TRABAJO + BORRADORES — EN `dev` (06/10/2026)
+
+Plan de 4 fases; detalle y decisiones en `docs/modulos/borradores-y-sesion.md`.
+
+- [x] **Fase 1 — sesión** (sin migración): aviso al faltar 60 s, cierre real, regreso a la
+      última pantalla guardado en la sesión, renovación silenciosa por actividad humana con
+      `hace`, `SesionController` sin BD. Probada en navegador por el usuario (06/10).
+- [ ] **Fase 2** — migración `074_borradores_formulario` + `BorradorModel` +
+      `BorradorController` + `borrador.js` + rectificación en lote.
+- [ ] **Fase 3** — rectificación por competencia, extraordinaria individual, notas SIAGIE.
+- [ ] **Fase 4** — notas de origen (emparejamiento por fila) + cierre de documentación.
+- [ ] **Despliegue:** aplicar la 074 a mano en producción ANTES del merge. ⚠️ `session_timeout`
+      debe ir en 600.
+- [ ] 🔴 **Pendiente de seguridad (preexistente, tarea APARTE):** la sesión única por usuario no
+      se aplica — `UsuarioModel::tokenValido()` nunca se llama. Decidido tratarlo después.
+- Recomendaciones no pedidas: el autoguardado de `calificaciones.js` y `conducta.js` falla en
+  silencio si la sesión venció (el `fetch` sigue la redirección al login).
+
 ## 🟢 COLEGIO DE ORIGEN OBLIGATORIO Y CORREGIBLE POR BIMESTRE — DESPLEGADO el 06/10/2026 (merge `7dbe713`, sin migración; sigue v1.0.5)
 
 - El usuario confirmó tras el despliegue (06/10) que todo salió bien.

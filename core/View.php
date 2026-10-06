@@ -33,6 +33,13 @@ class View
 
         // Renderizar el layout con el contenido
         $layoutFile = VIEW_PATH . '/layouts/' . self::$layout . '.php';
+
+        // Una página completa del layout de la app es una «pantalla»: se anota
+        // como el lugar al que volver si la sesión vence (06/10/2026).
+        if (self::$layout === 'app') {
+            Session::recordarPantalla();
+        }
+
         if (file_exists($layoutFile)) {
             extract(['content' => $content] + $data, EXTR_SKIP);
             require $layoutFile;
