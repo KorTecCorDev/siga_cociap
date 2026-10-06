@@ -1,8 +1,9 @@
 # Sesión que no hace perder el trabajo + borradores de formularios
 
-> **Estado: fases 1 (sesión) y 2 (borradores + rectificación en lote) implementadas en `dev`
-> y probadas en navegador por el usuario (06/10/2026), sin desplegar.** Migración `074` (fase
-> 2), aplicada solo en local. Fases 3-4 en curso; ver `docs/ESTADO.md`.
+> **Estado: fases 1 (sesión), 2 (borradores + rectificación en lote) y 3 (rectificación por
+> competencia, extraordinaria individual, notas SIAGIE) implementadas en `dev` y probadas en
+> navegador (06/10/2026), sin desplegar.** Migración `074`, aplicada solo en local. Fase 4 en
+> curso; ver `docs/ESTADO.md`.
 > Módulos relacionados: `calificaciones.md` (rectificación), `matriculas.md` (notas de origen).
 
 ## 1. Por qué existe
@@ -107,10 +108,24 @@ vigentes.
 | Formulario | Tipo | Estado |
 |---|---|---|
 | Rectificación en lote (`/rectificaciones/extraordinaria/lote`) | `rect_lote` | ✅ fase 2 |
-| Rectificación por competencia, extraordinaria individual, notas SIAGIE | — | fase 3 |
+| Rectificación por competencia (`/rectificaciones/editar`) | `rect_competencia` | ✅ fase 3 |
+| Extraordinaria individual (`/rectificaciones/extraordinaria`) | `rect_extraordinaria` | ✅ fase 3 |
+| Notas autorizadas SIAGIE (`/matriculas/{id}/notas-siagie`) | `notas_siagie` | ✅ fase 3 |
 | Notas del colegio de origen | — | fase 4 |
 
-### 3.5 Verificación
+### 3.5 Detalles de la fase 3
+- **Avisos en un parcial**: `shared/_borrador-avisos.php` («Se recuperó tu borrador…» y «X tiene
+  un borrador…»), usado por todas las vistas con borrador.
+- **Clave con prefijos explícitos** (`m5-ca7-co9-p2`): `carga` y `competencia` comparten inicial.
+- **La carga se valida contra el AÑO de la matrícula, no contra su sección**: en un retorno de
+  grado el bimestre se cursa en otra sección.
+- **Extraordinaria individual**: no tenía `$old` (un rechazo borraba lo escrito); ahora el
+  borrador lo devuelve a los campos.
+- **Notas SIAGIE**: la pantalla tiene **un formulario por bimestre**, así que el borrador va por
+  matrícula + periodo y `borrador.js` maneja varios formularios por página. La matrícula de la
+  clave es la `identidad()` del retorno de grado (la misma del URL y del POST).
+
+### 3.6 Verificación
 `database/verificaciones/verif_borradores.php` (transacción + rollback): clave, contexto en
 sus dos ramas, revisión y conflicto, aislamiento entre usuarios, **8 tablas oficiales sin
 cambios**, FK CASCADE, y que el POST elimina el borrador DESPUÉS del commit y en ningún otro

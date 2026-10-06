@@ -27,7 +27,16 @@ class BorradorModel extends BaseModel
      * habilitan por fase: un tipo que no esté aquí se rechaza.
      */
     public const TIPOS = [
-        'rect_lote' => ['matricula', 'periodo'],
+        'rect_lote'           => ['matricula', 'periodo'],
+        'rect_competencia'    => ['matricula', 'carga', 'competencia', 'periodo'],
+        'rect_extraordinaria' => ['matricula', 'carga', 'competencia', 'periodo'],
+        // Un formulario POR BIMESTRE en la misma pantalla: la clave lleva el periodo.
+        'notas_siagie'        => ['matricula', 'periodo'],
+    ];
+
+    /** Prefijo de cada id en la clave (explícito: carga y competencia comparten inicial). */
+    private const PREFIJOS = [
+        'matricula' => 'm', 'periodo' => 'p', 'carga' => 'ca', 'competencia' => 'co',
     ];
 
     /** Tope del JSON de un borrador (S6). El lote más grande pesa unos pocos KB. */
@@ -48,31 +57,49 @@ class BorradorModel extends BaseModel
             if ($id === false) {
                 return null;
             }
-            $partes[] = $campo[0] . $id;
+            $partes[] = self::PREFIJOS[$campo] . $id;
         }
         return implode('-', $partes);
     }
 
     /**
-     * ¿El contexto existe y es coherente? La matrícula existe y el periodo es
-     * de SU año. No repite la regla de «rectificable» del formulario (cara, y
-     * el borrador se guarda cada pocos segundos): el guardado oficial la
-     * vuelve a exigir, y un borrador no escribe nada oficial.
+     * ¿El contexto existe y es coherente? La matrícula existe, el periodo es
+     * de SU año y, si el formulario lleva carga, la carga también es de ese
+     * año. No repite la regla «rectificable» / «insertable» / «elegible» del
+     * formulario (cara, y el borrador se guarda cada pocos segundos): el
+     * guardado oficial la vuelve a exigir, y un borrador no escribe nada
+     * oficial. La carga no se ata a la SECCIÓN de la matrícula a propósito:
+     * en un retorno de grado el bimestre se cursa en otra.
      */
     public function contextoValido(string $tipo, array $ctx): bool
     {
+        if (!isset(self::TIPOS[$tipo])) {
+            return false;
+        }
         $matricula = (int) ($ctx['matricula'] ?? 0);
         $periodo   = (int) ($ctx['periodo'] ?? 0);
 
         $fila = $this->queryOne("
-            SELECT 1 AS x
+            SELECT m.anio_id
             FROM matriculas m
             INNER JOIN periodos p ON p.anio_id = m.anio_id
             WHERE m.id = ? AND p.id = ?
             LIMIT 1
         ", [$matricula, $periodo]);
+        if ($fila === null) {
+            return false;
+        }
 
-        return $fila !== null;
+        if (in_array('carga', self::TIPOS[$tipo], true)) {
+            $carga = $this->queryOne(
+                "SELECT 1 AS x FROM cargas_academicas WHERE id = ? AND anio_id = ? LIMIT 1",
+                [(int) ($ctx['carga'] ?? 0), (int) $fila['anio_id']]
+            );
+            if ($carga === null) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

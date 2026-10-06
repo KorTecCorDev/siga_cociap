@@ -315,6 +315,8 @@ siempre con `EXO`; ya no distingue si había notas.
 - **Tabla** `notas_autorizadas_siagie` (migración 040): `matricula+competencia+periodo
   → nota_literal + conclusión + resolución`, UNIQUE. Modelo `NotaAutorizadaSiagieModel`.
 - **Pantalla** `/matriculas/{id}/notas-siagie` (solo admin/RA; card resumen en `show`).
+  **Autoguardado (06/10/2026, migración 074):** un borrador por bimestre (un formulario por
+  bimestre); se elimina al registrar. Ver `docs/modulos/borradores-y-sesion.md`.
   Muestra, por bimestre, las competencias AUTORIZABLES y las ya registradas.
 - **Candado de elegibilidad** (`esElegible`, validado en servidor): la competencia
   debe tener una **omisión registrada** del alumno (CUALQUIER motivo — basta que el

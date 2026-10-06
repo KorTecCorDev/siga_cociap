@@ -20,7 +20,10 @@ class BorradorController extends BaseController
 {
     /** Roles que pueden autoguardar cada tipo: los mismos que abren su formulario. */
     private const ROLES = [
-        'rect_lote' => ['admin', 'registro_academico'],
+        'rect_lote'           => ['admin', 'registro_academico'],
+        'rect_competencia'    => ['admin', 'registro_academico'],
+        'rect_extraordinaria' => ['admin', 'registro_academico'],
+        'notas_siagie'        => ['admin', 'registro_academico'],
     ];
 
     /** S6: escrituras de borrador por usuario y minuto (el JS guarda cada ~1,5 s como mucho). */

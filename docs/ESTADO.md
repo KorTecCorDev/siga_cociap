@@ -39,7 +39,9 @@ Plan de 4 fases; detalle y decisiones en `docs/modulos/borradores-y-sesion.md`.
 - [x] **Fase 2** — migración `074_borradores_formulario` (aplicada SOLO en local) +
       `BorradorModel` + `BorradorController` + `borrador.js` + rectificación en lote.
       Probada en navegador por el usuario (06/10); `verif_borradores.php` en verde.
-- [ ] **Fase 3** — rectificación por competencia, extraordinaria individual, notas SIAGIE.
+- [x] **Fase 3** — rectificación por competencia, extraordinaria individual, notas SIAGIE.
+      Probada en navegador (06/10, sesión admin): guardado, restauración, conflicto entre
+      pestañas, inyección escapada y aviso de otro usuario. `verif_borradores.php` 61/61.
 - [ ] **Fase 4** — notas de origen (emparejamiento por fila) + cierre de documentación.
 - [ ] **Despliegue:** aplicar la 074 a mano en producción ANTES del merge. ⚠️ `session_timeout`
       debe ir en 600.

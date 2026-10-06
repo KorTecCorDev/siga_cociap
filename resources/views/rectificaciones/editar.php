@@ -8,7 +8,8 @@
  * @var int   $competenciaId
  * @var int   $periodoId
  * @var array $literalesConclusion literales que EXIGEN conclusión en este nivel
- * @var array|null $old        lo escrito antes de un rechazo del servidor
+ * @var array|null $old        lo escrito antes de un rechazo del servidor, o el borrador
+ * @var array      $borrador   revision, restaurado, actualizado_en, otros (migración 074)
  *                             (notas por criterio, conclusion, motivo)
  */
 $esPrimaria = ($info['nivel_codigo'] ?? '') === 'prim';
@@ -58,7 +59,15 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
     </div>
 </div>
 
+<?php require VIEW_PATH . '/shared/_borrador-avisos.php'; ?>
+
 <form method="POST" action="<?= url('rectificaciones/guardar') ?>" class="card"
+      data-borrador-tipo="rect_competencia"
+      data-borrador-ctx-matricula="<?= (int) $info['matricula_id'] ?>"
+      data-borrador-ctx-carga="<?= (int) $cargaId ?>"
+      data-borrador-ctx-competencia="<?= (int) $competenciaId ?>"
+      data-borrador-ctx-periodo="<?= (int) $periodoId ?>"
+      data-borrador-revision="<?= (int) ($borrador['revision'] ?? 0) ?>"
       id="rectEditarForm"
       data-nota-min-ad="<?= NOTA_MIN_AD ?>"
       data-nota-min-a="<?= NOTA_MIN_A ?>"
@@ -138,6 +147,7 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
                       placeholder="Fundamenta el porqué de la corrección."><?= e((string) ($old['motivo'] ?? '')) ?></textarea>
         </div>
 
+        <p class="text-sm text-muted" data-borrador-estado aria-live="polite"></p>
         <div class="btn-group form-actions">
             <a href="<?= $volver ?>" class="btn btn--secondary">Cancelar</a>
             <button type="submit" class="btn btn--primary">Aplicar rectificación</button>

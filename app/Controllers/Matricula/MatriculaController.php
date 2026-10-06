@@ -17,6 +17,7 @@ use App\Models\AnioAcademicoModel;
 use App\Models\RectificacionModel;
 use App\Models\BoletaModel;
 use App\Models\RetornoGradoModel;
+use App\Models\BorradorModel;
 use Core\Session;
 use Core\View;
 
@@ -1580,6 +1581,11 @@ class MatriculaController extends BaseController
             FROM periodos WHERE anio_id = ? ORDER BY numero
         ", [(int) $matricula['anio_id']]);
 
+        // Borrador (06/10/2026, migración 074): uno POR BIMESTRE, porque la
+        // pantalla tiene un formulario por bimestre. Solo el del usuario.
+        $usuarioId     = (int) (Session::user()['id'] ?? 0);
+        $borradorModel = new BorradorModel();
+
         $bloques = [];
         foreach ($periodos as $per) {
             $pid         = (int) $per['id'];
@@ -1589,10 +1595,19 @@ class MatriculaController extends BaseController
             if ($elegibles === [] && $registradas === []) {
                 continue;
             }
+            $clave    = BorradorModel::clave('notas_siagie', ['matricula' => $ident, 'periodo' => $pid]);
+            $borrador = $clave !== null ? $borradorModel->obtener($usuarioId, 'notas_siagie', $clave) : null;
             $bloques[] = [
                 'periodo'     => $per,
                 'elegibles'   => $elegibles,
                 'registradas' => $registradas,
+                'old'         => $borrador['datos'] ?? [],
+                'borrador'    => [
+                    'revision'       => (int) ($borrador['revision'] ?? 0),
+                    'restaurado'     => $borrador !== null,
+                    'actualizado_en' => $borrador['actualizado_en'] ?? null,
+                    'otros'          => $clave !== null ? $borradorModel->deOtros('notas_siagie', $clave, $usuarioId) : [],
+                ],
             ];
         }
 
@@ -1601,6 +1616,7 @@ class MatriculaController extends BaseController
             'matricula' => $matricula,
             'bloques'   => $bloques,
             'nivel'     => mb_strtolower((string) ($matricula['nivel_nombre'] ?? '')),
+            'page_scripts' => ['borrador'],
         ]);
     }
 
@@ -1649,6 +1665,17 @@ class MatriculaController extends BaseController
             'resolucion'             => $resolucion,
             'registrado_por'         => (int) (Session::user()['id'] ?? 0),
         ]);
+
+        // Ya es OFICIAL: el borrador de ese bimestre se elimina (solo aquí).
+        // Que falle el borrado no tumba un registro ya válido.
+        try {
+            $clave = BorradorModel::clave('notas_siagie', ['matricula' => $ident, 'periodo' => $periodo]);
+            if ($clave !== null) {
+                (new BorradorModel())->eliminar((int) (Session::user()['id'] ?? 0), 'notas_siagie', $clave);
+            }
+        } catch (\Exception $e) {
+            log_error('No se pudo eliminar el borrador de nota SIAGIE', ['error' => $e->getMessage()]);
+        }
 
         $this->redirectWithSuccess($volver, 'Nota autorizada registrada.');
     }

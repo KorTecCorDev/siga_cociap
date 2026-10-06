@@ -116,20 +116,7 @@ $obligatoriaTxt = $literalesConclusion === []
     cerrado, la familia las verá en la boleta apenas las registres.
 </div>
 
-<?php // Borrador (06/10/2026): lo tecleado y no registrado. Los valores ya vienen
-      // pintados en los campos por `$old`; aquí solo se avisa. ?>
-<?php if (!empty($borrador['restaurado']) && !empty($borrador['actualizado_en'])): ?>
-<div class="flash flash--info">
-    Se recuperó tu borrador del <strong><?= e(date('d/m/Y H:i', strtotime((string) $borrador['actualizado_en']))) ?></strong>.
-    Revisa los datos antes de registrar.
-</div>
-<?php endif; ?>
-<?php foreach (($borrador['otros'] ?? []) as $otro): ?>
-<div class="flash flash--warning">
-    <strong><?= e((string) $otro['nombre']) ?></strong> tiene un borrador sin registrar de este formulario
-    (<?= e(date('d/m/Y H:i', strtotime((string) $otro['actualizado_en']))) ?>).
-</div>
-<?php endforeach; ?>
+<?php require VIEW_PATH . '/shared/_borrador-avisos.php'; ?>
 
 <form method="POST"
       action="<?= url('rectificaciones/extraordinaria/lote/guardar') ?>"

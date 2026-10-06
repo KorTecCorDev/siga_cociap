@@ -166,6 +166,11 @@ class RectificacionController extends BaseController
             $this->notFound();
         }
 
+        // Borrador (06/10/2026): este formulario no repintaba lo escrito; el
+        // borrador lo devuelve a los campos por `$old`.
+        $ctx = ['matricula' => $matriculaId, 'carga' => $cargaId, 'competencia' => $competenciaId, 'periodo' => $periodoId];
+        $borrador = $this->cargarBorrador('rect_extraordinaria', $ctx, true);
+
         $this->view('rectificaciones/extraordinaria', [
             'titulo'        => 'Calificación extraordinaria',
             'info'          => $info,
@@ -173,6 +178,9 @@ class RectificacionController extends BaseController
             'cargaId'       => $cargaId,
             'competenciaId' => $competenciaId,
             'periodoId'     => $periodoId,
+            'old'           => $borrador['datos'],
+            'borrador'      => $borrador['vista'],
+            'page_scripts'  => ['borrador'],
         ]);
     }
 
@@ -243,6 +251,11 @@ class RectificacionController extends BaseController
             ]);
             $this->redirectWithError($volverForm, 'No se pudo registrar la calificación extraordinaria.');
         }
+
+        // Ya es OFICIAL: su borrador se elimina (solo aquí, tras el commit).
+        $this->eliminarBorrador('rect_extraordinaria', [
+            'matricula' => $matriculaId, 'carga' => $cargaId, 'competencia' => $competenciaId, 'periodo' => $periodoId,
+        ], $usuarioId);
 
         $avisoBoleta = $this->calModel->queryOne(
             "SELECT estado FROM periodos WHERE id = ?", [$periodoId]
@@ -430,15 +443,10 @@ class RectificacionController extends BaseController
         // Lo tecleado y no registrado vuelve a los campos por el MISMO camino
         // que lo escrito antes de un rechazo del servidor (`$old`). El rechazo,
         // si lo hay, es más reciente y gana.
-        $usuarioId = (int) (Session::user()['id'] ?? 0);
-        $borradorModel = new BorradorModel();
-        $claveBorrador = BorradorModel::clave('rect_lote', ['matricula' => $matriculaId, 'periodo' => $periodoId]);
-        $borrador = $claveBorrador !== null ? $borradorModel->obtener($usuarioId, 'rect_lote', $claveBorrador) : null;
         $old = Session::getFlash('lote_old');
-        $borradorRestaurado = false;
-        if ($old === null && $borrador !== null) {
+        $borrador = $this->cargarBorrador('rect_lote', ['matricula' => $matriculaId, 'periodo' => $periodoId], $old === null);
+        if ($borrador['datos'] !== null) {
             $old = $this->entradaDesdeBorrador($borrador['datos']);
-            $borradorRestaurado = true;
         }
 
         $this->view('rectificaciones/extraordinaria-lote', [
@@ -462,13 +470,7 @@ class RectificacionController extends BaseController
             'literalesConclusion' => $literalesConclusion,
             'replicasPorComp'     => $replicasPorComp,
             'old'          => $old,
-            'borrador'     => [
-                'revision'      => (int) ($borrador['revision'] ?? 0),
-                'restaurado'    => $borradorRestaurado,
-                'actualizado_en'=> $borrador['actualizado_en'] ?? null,
-                'otros'         => $claveBorrador !== null
-                    ? $borradorModel->deOtros('rect_lote', $claveBorrador, $usuarioId) : [],
-            ],
+            'borrador'     => $borrador['vista'],
             'page_scripts' => ['rectificaciones-lote', 'borrador'],
         ]);
     }
@@ -490,6 +492,48 @@ class RectificacionController extends BaseController
             'conducta'     => $str($d['conducta_literal'] ?? ''),
             'asistencia'   => $arr($d['asistencia'] ?? []),
         ];
+    }
+
+    /**
+     * Borrador del USUARIO DE LA SESIÓN para este formulario (migración 074).
+     * `datos` solo viene si `$restaurar` (no hay un rechazo más reciente) y hay
+     * borrador; `vista` es lo que pinta el parcial de avisos y el <form>.
+     *
+     * @return array{datos: ?array, vista: array}
+     */
+    private function cargarBorrador(string $tipo, array $ctx, bool $restaurar): array
+    {
+        $usuarioId = (int) (Session::user()['id'] ?? 0);
+        $model     = new BorradorModel();
+        $clave     = BorradorModel::clave($tipo, $ctx);
+        $borrador  = $clave !== null ? $model->obtener($usuarioId, $tipo, $clave) : null;
+        $usar      = $restaurar && $borrador !== null;
+
+        return [
+            'datos' => $usar ? $borrador['datos'] : null,
+            'vista' => [
+                'revision'       => (int) ($borrador['revision'] ?? 0),
+                'restaurado'     => $usar,
+                'actualizado_en' => $borrador['actualizado_en'] ?? null,
+                'otros'          => $clave !== null ? $model->deOtros($tipo, $clave, $usuarioId) : [],
+            ],
+        ];
+    }
+
+    /**
+     * El registro ya es OFICIAL: elimina el borrador. SOLO se llama tras el
+     * commit del guardado; que falle no tumba un registro ya válido.
+     */
+    private function eliminarBorrador(string $tipo, array $ctx, int $usuarioId): void
+    {
+        try {
+            $clave = BorradorModel::clave($tipo, $ctx);
+            if ($clave !== null) {
+                (new BorradorModel())->eliminar($usuarioId, $tipo, $clave);
+            }
+        } catch (\Exception $e) {
+            log_error('No se pudo eliminar un borrador', ['tipo' => $tipo, 'error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -718,18 +762,8 @@ class RectificacionController extends BaseController
                 'No se pudo registrar el lote. No se guardó ninguna nota.', 'lote_old', $entrada);
         }
 
-        // El lote ya es OFICIAL: su borrador se elimina (solo aquí, tras el
-        // commit). Que falle el borrado no tumba un registro ya válido.
-        try {
-            $claveBorrador = BorradorModel::clave('rect_lote', ['matricula' => $matriculaId, 'periodo' => $periodoId]);
-            if ($claveBorrador !== null) {
-                (new BorradorModel())->eliminar($usuarioId, 'rect_lote', $claveBorrador);
-            }
-        } catch (\Exception $e) {
-            log_error('No se pudo eliminar el borrador del lote', [
-                'matricula' => $matriculaId, 'periodo' => $periodoId, 'error' => $e->getMessage(),
-            ]);
-        }
+        // El lote ya es OFICIAL: su borrador se elimina (solo aquí, tras el commit).
+        $this->eliminarBorrador('rect_lote', ['matricula' => $matriculaId, 'periodo' => $periodoId], $usuarioId);
 
         $avisoBoleta = $this->calModel->queryOne(
             "SELECT estado FROM periodos WHERE id = ?", [$periodoId]
@@ -824,6 +858,20 @@ class RectificacionController extends BaseController
             $this->notFound();
         }
 
+        // Borrador (06/10/2026): vuelve por `$old`; un rechazo reciente gana.
+        $old = Session::getFlash('rect_old');
+        $borrador = $this->cargarBorrador('rect_competencia', [
+            'matricula' => $matriculaId, 'carga' => $cargaId, 'competencia' => $competenciaId, 'periodo' => $periodoId,
+        ], $old === null);
+        if ($borrador['datos'] !== null) {
+            $d = $borrador['datos'];
+            $old = [
+                'notas'      => is_array($d['notas'] ?? null) ? $d['notas'] : [],
+                'conclusion' => is_string($d['conclusion'] ?? null) ? $d['conclusion'] : '',
+                'motivo'     => is_string($d['motivo'] ?? null) ? $d['motivo'] : '',
+            ];
+        }
+
         $this->view('rectificaciones/editar', [
             'titulo'        => 'Rectificar calificación',
             'info'          => $info,
@@ -836,8 +884,9 @@ class RectificacionController extends BaseController
             // Lo que se escribio antes de un rechazo del servidor (ver
             // volverConEntrada): sin esto el formulario se repintaba con las
             // notas de la BD y reenviarlo guardaba la nota VIEJA sin aviso.
-            'old'           => Session::getFlash('rect_old'),
-            'page_scripts'  => ['rectificaciones'],
+            'old'           => $old,
+            'borrador'      => $borrador['vista'],
+            'page_scripts'  => ['rectificaciones', 'borrador'],
         ]);
     }
 
@@ -965,6 +1014,11 @@ class RectificacionController extends BaseController
             ]);
             $this->volverConEntrada($volverEditar, 'No se pudo aplicar la rectificación.', 'rect_old', $entrada);
         }
+
+        // Ya es OFICIAL: su borrador se elimina (solo aquí, tras el commit).
+        $this->eliminarBorrador('rect_competencia', [
+            'matricula' => $matriculaId, 'carga' => $cargaId, 'competencia' => $competenciaId, 'periodo' => $periodoId,
+        ], $usuarioId);
 
         // ── Regeneración del orden de mérito + aviso de empate ────
         // registrarRanking respeta la INMUTABILIDAD (migr. 046): si el bimestre YA

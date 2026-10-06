@@ -19,8 +19,11 @@
  *      devuelve nombre y fecha, NUNCA el contenido (S11).
  *   6. Ninguna tabla oficial cambia con borradores (la comprobación central).
  *   7. FK con CASCADE a usuario y matrícula (S10, datos de menores).
- *   8. El POST oficial elimina el borrador DESPUÉS del commit; el endpoint
- *      valida CSRF, rol, throttle y toma el usuario de la sesión.
+ *   8. Cada POST oficial elimina SU borrador DESPUÉS del commit y en ningún
+ *      otro punto; el endpoint valida CSRF, rol, throttle y toma el usuario
+ *      de la sesión.
+ *  10. (fase 3) Tipos con carga: prefijos de clave sin ambigüedad y la carga
+ *      validada contra el año de la matrícula, en sus dos ramas.
  *   9. ROLLBACK: la tabla vuelve a su estado inicial.
  */
 
@@ -92,6 +95,9 @@ try {
     $ok(BorradorModel::clave('rect_lote', ['matricula' => -3, 'periodo' => 1]) === null, 'id negativo → null');
     $ok(BorradorModel::clave('rect_lote', ['matricula' => 5]) === null, 'falta un id → null');
     $ok(BorradorModel::clave('rect_lote', ['matricula' => ['x'], 'periodo' => 1]) === null, 'arreglo → null');
+    $ok(BorradorModel::clave('rect_competencia', ['matricula' => 5, 'carga' => 7, 'competencia' => 9, 'periodo' => 2]) === 'm5-ca7-co9-p2',
+        'carga y competencia con prefijos distintos (ca/co)');
+    $ok(BorradorModel::clave('notas_siagie', ['matricula' => 5, 'periodo' => 2]) === 'm5-p2', 'notas SIAGIE: una clave por bimestre');
 
     echo "\n=== 2. CONTEXTO — las dos ramas ===\n";
     $ok($bm->contextoValido('rect_lote', ['matricula' => $mid, 'periodo' => $pid]), 'matrícula + periodo de su año → válido');
@@ -149,15 +155,29 @@ try {
     $ok($bm->obtener($u1, 'rect_lote', $clave) === null, 'eliminar() borra el del dueño');
     $ok($bm->obtener($u2, 'rect_lote', $clave) !== null, '…y no toca el de otro usuario');
 
-    $ctrl = file_get_contents(APP_PATH . '/Controllers/Rectificacion/RectificacionController.php');
-    $ini  = strpos($ctrl, 'public function guardarExtraordinariaLote');
-    $fin  = strpos($ctrl, 'public function', $ini + 10);
-    $post = substr($ctrl, $ini, $fin - $ini);
-    $posCommit   = strpos($post, '$this->model->commit()');
-    $posEliminar = strpos($post, "->eliminar(\$usuarioId, 'rect_lote'");
-    $ok($posCommit !== false && $posEliminar !== false && $posEliminar > $posCommit,
-        'el POST del lote elimina el borrador DESPUÉS del commit');
-    $ok(substr_count($post, '->eliminar(') === 1, 'y en ningún otro punto del POST (no en los rechazos)');
+    // Cada POST oficial: elimina SU borrador UNA vez y DESPUÉS de escribir lo oficial.
+    $metodo = static function (string $archivo, string $nombre): string {
+        $src = file_get_contents($archivo);
+        $ini = strpos($src, 'public function ' . $nombre . '(');
+        $fin = strpos($src, "\n    }\r\n", $ini);
+        $fin = $fin === false ? strpos($src, "\n    }\n", $ini) : $fin;
+        return substr($src, $ini, $fin - $ini);
+    };
+    $rect = APP_PATH . '/Controllers/Rectificacion/RectificacionController.php';
+    $mat  = APP_PATH . '/Controllers/Matricula/MatriculaController.php';
+    foreach ([
+        [$rect, 'guardarExtraordinariaLote', "eliminarBorrador('rect_lote'",           '$this->model->commit()'],
+        [$rect, 'guardar',                   "eliminarBorrador('rect_competencia'",    '$this->model->commit()'],
+        [$rect, 'guardarExtraordinaria',     "eliminarBorrador('rect_extraordinaria'", '$this->model->commit()'],
+        [$mat,  'storeNotaSiagie',           "BorradorModel::clave('notas_siagie'",    '$this->notasAut->registrar('],
+    ] as [$archivo, $nombre, $marca, $escritura]) {
+        $post = $metodo($archivo, $nombre);
+        $posEsc = strpos($post, $escritura);
+        $posEli = strpos($post, $marca);
+        $ok($posEsc !== false && $posEli !== false && $posEli > $posEsc,
+            "{$nombre}: elimina su borrador DESPUÉS de escribir lo oficial");
+        $ok(substr_count($post, $marca) === 1, "{$nombre}: y en un solo punto (no en los rechazos)");
+    }
 
     $ep = file_get_contents(APP_PATH . '/Controllers/BorradorController.php');
     $ok(str_contains($ep, '$this->validateCsrf()'), 'el endpoint valida CSRF (S4)');
@@ -167,8 +187,27 @@ try {
     $ok(!str_contains($ep, "input('clave'"), 'el cliente no envía la clave (S2)');
     $ok(str_contains($ep, 'BorradorModel::MAX_BYTES'), 'el endpoint aplica el tope de tamaño (S6)');
 
-    $vista = file_get_contents(ROOT_PATH . '/resources/views/rectificaciones/extraordinaria-lote.php');
-    $ok(!preg_match('/<\?=\s*\$old\[/', $vista) && !str_contains($vista, '<?= $borrador'), 'la vista no imprime datos del borrador sin e() (S3)');
+    foreach (['rectificaciones/extraordinaria-lote', 'rectificaciones/editar',
+              'rectificaciones/extraordinaria', 'matriculas/notas-siagie'] as $v) {
+        $vista = file_get_contents(ROOT_PATH . '/resources/views/' . $v . '.php');
+        // Eco DIRECTO de un valor del borrador sin e() (`<?= $old[..]` o `<?= $oldTxt(..)` cerrado sin escapar).
+        // Las comparaciones que solo imprimen ' selected' no son eco del valor.
+        $ok(!preg_match('/<\?=\s*\$(old\w*|borrador)(\([^)]*\)|\[[^\]]*\])*\s*\?>/', $vista),
+            "{$v}: no imprime datos del borrador sin e() (S3)");
+        $ok(str_contains($vista, 'data-borrador-tipo=') && str_contains($vista, 'data-borrador-estado'),
+            "{$v}: formulario con borrador e indicador de estado");
+    }
+
+    echo "\n=== 10. TIPOS CON CARGA — la carga se valida contra el año (fase 3) ===\n";
+    $carga = $pdo->query("
+        SELECT ca.id FROM cargas_academicas ca
+        WHERE ca.anio_id = (SELECT anio_id FROM matriculas WHERE id = {$mid}) LIMIT 1
+    ")->fetchColumn();
+    $ctxC = ['matricula' => $mid, 'carga' => (int) $carga, 'competencia' => 1, 'periodo' => $pid];
+    $ok($carga !== false && $bm->contextoValido('rect_competencia', $ctxC), 'carga del año de la matrícula → válido');
+    $ok(!$bm->contextoValido('rect_competencia', ['carga' => 99999999] + $ctxC), 'carga inexistente → inválido');
+    $ok(!$bm->contextoValido('inventado', $ctxC), 'tipo desconocido → inválido');
+    $ok($bm->contextoValido('notas_siagie', ['matricula' => $mid, 'periodo' => $pid]), 'notas SIAGIE sin carga → válido');
 } catch (Throwable $e) {
     echo "  [ERROR] " . $e->getMessage() . "\n";
     $fallos++;
