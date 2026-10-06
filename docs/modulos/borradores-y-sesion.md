@@ -1,8 +1,8 @@
 # Sesión que no hace perder el trabajo + borradores de formularios
 
-> **Estado: fase 1 (sesión) implementada en `dev` y probada en navegador por el usuario
-> (06/10/2026), sin desplegar.** Fases 2-4 (borradores de 5 formularios) en curso; ver
-> `docs/ESTADO.md`. Sin migración en la fase 1.
+> **Estado: fases 1 (sesión) y 2 (borradores + rectificación en lote) implementadas en `dev`
+> y probadas en navegador por el usuario (06/10/2026), sin desplegar.** Migración `074` (fase
+> 2), aplicada solo en local. Fases 3-4 en curso; ver `docs/ESTADO.md`.
 > Módulos relacionados: `calificaciones.md` (rectificación), `matriculas.md` (notas de origen).
 
 ## 1. Por qué existe
@@ -72,6 +72,46 @@ Bajar `session_timeout` en local (p. ej. 60: aviso a los 30 s, renovación a los
 (`/sesion/renovar`, `/sesion/estado`, `/sesion/expirada`). En Git Bash, `MSYS_NO_PATHCONV=1`
 al pasar rutas `/…` a curl (si no, las convierte en `C:/Program Files/Git/…`).
 
-## 3. Fases 2-4 — borradores (en curso)
-Ver el plan en `docs/ESTADO.md`. Regla central: **un borrador NUNCA toca tablas oficiales y se
-elimina solo tras guardar con éxito.**
+## 3. Borradores de formularios
+
+🔴 **Regla central: un borrador NUNCA toca tablas oficiales y se elimina SOLO tras guardar con
+éxito** (sin botón «Descartar», sin vencimiento: decisión del usuario). Guardar una
+extraordinaria asegura el bloqueo y la nota sale en boleta y SIAGIE al instante; por eso lo
+tecleado vive aparte hasta pulsar «Guardar».
+
+### 3.1 Piezas (fase 2)
+| Pieza | Qué hace |
+|---|---|
+| Migración `074` | `borradores_formulario`: `usuario_id` y `matricula_id` con FK **CASCADE**, `tipo`, `clave`, `datos` (JSON), `revision`. UNIQUE (usuario, tipo, clave). |
+| `BorradorModel` | PUNTO ÚNICO. `TIPOS` (lista blanca, se habilitan por fase), `clave()` (solo enteros), `contextoValido()`, `obtener`, `guardar` (con revisión), `deOtros` (nombre y fecha, nunca datos), `eliminar`. |
+| `BorradorController` | `POST /borradores/guardar`, el ÚNICO endpoint. No hay ruta para LEER: lee el GET de cada formulario, para el usuario de la sesión. |
+| `resources/js/borrador.js` | Genérico: `<form data-borrador-tipo data-borrador-ctx-* data-borrador-revision>`. Guarda 1,5 s tras teclear, al salir de un campo y en `pagehide`; muestra `[data-borrador-estado]`. **Deja de guardar al enviar** (si no, el guardado de salida recrearía el borrador que el POST acaba de borrar). |
+
+### 3.2 Cómo se restaura
+**Lo pinta el servidor, no el JS.** El GET mapea el borrador a la misma estructura que ya
+repintaba lo escrito tras un rechazo de validación (`$old` / `lote_old`), así cada valor pasa
+por `e()`. Si hay un rechazo (flash), es más reciente y GANA sobre el borrador. Valores de filas
+que ya no existen (el borrador quedó viejo) se ignoran porque la vista solo pinta las filas
+vigentes.
+
+### 3.3 Seguridad (S1-S11 del plan)
+- Dueño SIEMPRE de la sesión; el cliente manda `tipo` + ids, **nunca la clave**; el contexto se
+  valida (matrícula existente y periodo de SU año — no repite la regla «rectificable», que
+  exige el POST oficial).
+- CSRF, rol por tipo, `Throttle` 60/min por usuario, tope 256 KB, JSON válido; se guarda el
+  JSON **re-codificado**, no el texto crudo.
+- 409 si la revisión no calza (dos pestañas/equipos): no se pisa; el JS deja de guardar y pide
+  recargar. Respuestas sin mensajes; el contenido del borrador nunca va al log.
+
+### 3.4 Formularios
+| Formulario | Tipo | Estado |
+|---|---|---|
+| Rectificación en lote (`/rectificaciones/extraordinaria/lote`) | `rect_lote` | ✅ fase 2 |
+| Rectificación por competencia, extraordinaria individual, notas SIAGIE | — | fase 3 |
+| Notas del colegio de origen | — | fase 4 |
+
+### 3.5 Verificación
+`database/verificaciones/verif_borradores.php` (transacción + rollback): clave, contexto en
+sus dos ramas, revisión y conflicto, aislamiento entre usuarios, **8 tablas oficiales sin
+cambios**, FK CASCADE, y que el POST elimina el borrador DESPUÉS del commit y en ningún otro
+punto.

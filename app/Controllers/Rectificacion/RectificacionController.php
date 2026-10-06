@@ -11,6 +11,7 @@ use App\Models\TransversalModel;
 use App\Models\AsistenciaModel;
 use App\Models\ConductaModel;
 use App\Models\ConclusionReplicaModel;
+use App\Models\BorradorModel;
 use Core\Session;
 
 /**
@@ -425,6 +426,21 @@ class RectificacionController extends BaseController
         // se pide una por área destino. Vacío en los demás grados.
         $replicasPorComp = $this->replicasPorCompetencia((int) $info['seccion_id']);
 
+        // ── Borrador (06/10/2026, migración 074) ─────────────────
+        // Lo tecleado y no registrado vuelve a los campos por el MISMO camino
+        // que lo escrito antes de un rechazo del servidor (`$old`). El rechazo,
+        // si lo hay, es más reciente y gana.
+        $usuarioId = (int) (Session::user()['id'] ?? 0);
+        $borradorModel = new BorradorModel();
+        $claveBorrador = BorradorModel::clave('rect_lote', ['matricula' => $matriculaId, 'periodo' => $periodoId]);
+        $borrador = $claveBorrador !== null ? $borradorModel->obtener($usuarioId, 'rect_lote', $claveBorrador) : null;
+        $old = Session::getFlash('lote_old');
+        $borradorRestaurado = false;
+        if ($old === null && $borrador !== null) {
+            $old = $this->entradaDesdeBorrador($borrador['datos']);
+            $borradorRestaurado = true;
+        }
+
         $this->view('rectificaciones/extraordinaria-lote', [
             'titulo'       => 'Calificación extraordinaria en lote',
             'info'         => $info,
@@ -445,9 +461,35 @@ class RectificacionController extends BaseController
             'total'        => count($items) + (int) $pend['conducta'] + (int) $pend['asistencia'],
             'literalesConclusion' => $literalesConclusion,
             'replicasPorComp'     => $replicasPorComp,
-            'old'          => Session::getFlash('lote_old'),
-            'page_scripts' => ['rectificaciones-lote'],
+            'old'          => $old,
+            'borrador'     => [
+                'revision'      => (int) ($borrador['revision'] ?? 0),
+                'restaurado'    => $borradorRestaurado,
+                'actualizado_en'=> $borrador['actualizado_en'] ?? null,
+                'otros'         => $claveBorrador !== null
+                    ? $borradorModel->deOtros('rect_lote', $claveBorrador, $usuarioId) : [],
+            ],
+            'page_scripts' => ['rectificaciones-lote', 'borrador'],
         ]);
+    }
+
+    /**
+     * Borrador del lote → la misma forma que `$entrada` (lo que la vista ya
+     * sabe repintar). Los nombres son los de los campos del formulario; los
+     * tipos se fuerzan aquí porque el JSON lo escribió el navegador.
+     */
+    private function entradaDesdeBorrador(array $d): array
+    {
+        $arr = static fn($v): array => is_array($v) ? $v : [];
+        $str = static fn($v): string => is_string($v) ? $v : '';
+        return [
+            'motivo'       => $str($d['motivo'] ?? ''),
+            'notas'        => $arr($d['nota'] ?? []),
+            'conclusiones' => $arr($d['conclusion'] ?? []),
+            'replicas'     => $arr($d['conclusion_replica'] ?? []),
+            'conducta'     => $str($d['conducta_literal'] ?? ''),
+            'asistencia'   => $arr($d['asistencia'] ?? []),
+        ];
     }
 
     /**
@@ -674,6 +716,19 @@ class RectificacionController extends BaseController
             ]);
             $this->volverConEntrada($volverForm,
                 'No se pudo registrar el lote. No se guardó ninguna nota.', 'lote_old', $entrada);
+        }
+
+        // El lote ya es OFICIAL: su borrador se elimina (solo aquí, tras el
+        // commit). Que falle el borrado no tumba un registro ya válido.
+        try {
+            $claveBorrador = BorradorModel::clave('rect_lote', ['matricula' => $matriculaId, 'periodo' => $periodoId]);
+            if ($claveBorrador !== null) {
+                (new BorradorModel())->eliminar($usuarioId, 'rect_lote', $claveBorrador);
+            }
+        } catch (\Exception $e) {
+            log_error('No se pudo eliminar el borrador del lote', [
+                'matricula' => $matriculaId, 'periodo' => $periodoId, 'error' => $e->getMessage(),
+            ]);
         }
 
         $avisoBoleta = $this->calModel->queryOne(

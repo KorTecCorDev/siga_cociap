@@ -20,6 +20,8 @@ $router->get( '/logout',         'Auth\AuthController@logout');
 $router->post('/sesion/renovar', 'Auth\SesionController@renovar');
 $router->get( '/sesion/estado',   'Auth\SesionController@estado');
 $router->get( '/sesion/expirada', 'Auth\SesionController@expirada');
+// Autoguardado de formularios de carga manual (06/10/2026, migración 074)
+$router->post('/borradores/guardar', 'BorradorController@guardar');
 
 // ─── Dashboard ──────────────────────────────────────────────
 $router->get('/',          'DashboardController@index');
