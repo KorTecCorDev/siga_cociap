@@ -29,7 +29,9 @@ muestra el II.
       situación final según el acta).
 - [ ] Las pruebas en producción del módulo auxiliar (ver su sección más abajo).
 
-## 🟢 COLEGIO DE ORIGEN OBLIGATORIO Y CORREGIBLE POR BIMESTRE — DESPLEGADO el 06/10/2026 (sin migración; sigue v1.0.5)
+## 🟢 COLEGIO DE ORIGEN OBLIGATORIO Y CORREGIBLE POR BIMESTRE — DESPLEGADO el 06/10/2026 (merge `7dbe713`, sin migración; sigue v1.0.5)
+
+- El usuario confirmó tras el despliegue (06/10) que todo salió bien.
 
 - Al guardar notas de origen el colegio es obligatorio, y «Corregir colegio de origen» lo
   completa **por bimestre** sin volver a teclear notas. La ficha y la vista del docente
