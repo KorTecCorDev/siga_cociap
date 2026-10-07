@@ -563,7 +563,10 @@ class CalificacionModel extends BaseModel
         $cierre = $this->queryOne("
             SELECT ct.id
             FROM cierres_transversales ct
-            INNER JOIN matriculas m ON m.seccion_id = ct.seccion_id
+            -- Cierre de la sección donde CURSÓ ese bimestre (cambio de sección,
+            -- 07/10/2026): punto único CambioSeccionModel::sqlSeccionDelPeriodo.
+            INNER JOIN matriculas m
+                    ON ct.seccion_id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
             WHERE m.id          = ?
               AND ct.periodo_id = ?
               AND ct.anulado_en IS NULL

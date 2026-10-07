@@ -909,8 +909,11 @@ class ConductaModel extends BaseModel
                   WHERE r.matricula_id = m.id AND r.periodo_id = p.id) AS respondidos,
                 (SELECT COUNT(*) FROM criterios_conducta k
                   WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'g.nivel_id') . ") AS total_criterios,
+                -- Cierre de la sección donde CURSÓ ese bimestre (cambio de sección,
+                -- 07/10/2026): punto único CambioSeccionModel::sqlSeccionDelPeriodo.
                 EXISTS(SELECT 1 FROM cierres_conducta z
-                  WHERE z.seccion_id = m.seccion_id AND z.periodo_id = p.id
+                  WHERE z.seccion_id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', 'p.id') . "
+                    AND z.periodo_id = p.id
                     AND z.anulado_en IS NULL) AS visible
             FROM matriculas m
             INNER JOIN secciones s ON s.id = m.seccion_id
@@ -993,8 +996,10 @@ class ConductaModel extends BaseModel
                   WHERE r.matricula_id = m.id AND r.periodo_id = ?) AS respondidos,
                 (SELECT COUNT(*) FROM criterios_conducta k
                   WHERE " . self::criteriosDelAnio('k', 's.anio_id', 'g.nivel_id') . ") AS total_criterios,
+                -- Cierre de la sección donde CURSÓ ese bimestre (cambio de sección).
                 EXISTS(SELECT 1 FROM cierres_conducta z
-                  WHERE z.seccion_id = m.seccion_id AND z.periodo_id = ?
+                  WHERE z.seccion_id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
+                    AND z.periodo_id = ?
                     AND z.anulado_en IS NULL) AS visible
             FROM matriculas m
             INNER JOIN secciones s ON s.id = m.seccion_id

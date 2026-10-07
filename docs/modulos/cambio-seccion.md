@@ -253,7 +253,7 @@ el grado no cambia).
 
 | # | Módulo | Funciones | Por qué importa |
 |---|---|---|---|
-| A | **Boleta (datos)** | `ConductaModel::getParaBoleta` / `getParaPeriodo` (cierre de conducta), `CalificacionModel::getTransversalesAgregadas` (cierre de transversales), `BoletaModel::getTutorSeccion`, `BoletaPublicaController::getTutorSeccion` | Un bimestre cursado en otra sección se publica con el **cierre y el tutor de ESA sección** (invariante «documentos = el tutor del bimestre»). Hoy saldría con guion o con el tutor equivocado. |
+| A ✅ | **Boleta (datos)** | `ConductaModel::getParaBoleta` / `getParaPeriodo` (cierre de conducta), `CalificacionModel::getTransversalesAgregadas` (cierre de transversales), `BoletaModel::getTutorSeccion`, `BoletaPublicaController::getTutorSeccion` | Un bimestre cursado en otra sección se publica con el **cierre y el tutor de ESA sección** (invariante «documentos = el tutor del bimestre»). Hoy saldría con guion o con el tutor equivocado. |
 | B | **Rectificación / extraordinarias** | `RectificacionModel::sqlInsertables`, `matriculasSinNotasEnCerrados`, `sqlTransversalesInsertables` | Hoy ofrecería insertar notas de un bimestre cerrado en las cargas de la sección ACTUAL, no en las de donde lo cursó. |
 | C | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
 | D | **Tutoría** | `TutoriaController::getAlumnosSeccion`, `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
@@ -263,12 +263,19 @@ el grado no cambia).
 | H | **Mérito y situación final** | `OrdenMeritoModel::rankingPorSeccionLive`, `rankingGradoLive` / `calcularFilasRanking` (etiqueta de sección), `DesempateMeritoModel::getActaPorPeriodo`, `SituacionFinalModel::rosterDelPeriodo`, `planPorMatricula`, `transversalesDelActa`, `fueraDelColegio` | Ranking por sección y acta del bimestre. Snapshots publicados: INTOCABLES. |
 | I | **Estadísticas** | `AnioAcademicoModel::getResumenBimestre` / `getEvolucionAnual`, `AsistenciaModel::getEvolucionIncidenciasAnual`, `ConductaModel::getDistribucionLiteralesAnual` | Cifras por sección y bimestre. |
 
-### 6.3 Decisión abierta
+### 6.3 Decisión cerrada (07/10/2026)
 
-- **Lote de boletas por sección** (`BoletaPublicaModel`: `getMatriculasAprobadasParaBoleta`,
-  `getEstudiantesParaPeriodo`, `getSeccionesParaPeriodo`, `getPorPeriodo`): ¿el estudiante
-  sale en el lote de la sección donde está HOY (quien la entrega) o en el de la sección
-  donde cursó el bimestre? Pendiente del usuario.
+- **Lote de boletas por sección = la sección de HOY** (`BoletaPublicaModel`:
+  `getMatriculasAprobadasParaBoleta`, `getEstudiantesParaPeriodo`, `getSeccionesParaPeriodo`,
+  `getPorPeriodo` → quedan en 6.1). El lote es lo que el tutor ACTUAL entrega; los DATOS de
+  cada bimestre ya salen de donde se cursó (bloque A). Orden de conversión: A → I, un commit
+  y un A/B por bloque.
+
+**Bloque A HECHO (07/10/2026).** `BoletaPublicaController::getTutorSeccion` NO se tocó: sus
+rutas están comentadas (boleta pública dormida). A/B: 2148 boletas (537 matrículas × 4
+bimestres) idénticas a `HEAD`; con los datos reales no cambia nada porque la boleta firma con
+el tutor del ÚLTIMO bimestre con datos. El efecto lo prueba `verif_seccion_del_periodo.php` § 4
+con un escenario que anula los cierres de destino: pasa con el código nuevo y FALLA con `HEAD`.
 
 ### 6.4 Cómo se verifica
 

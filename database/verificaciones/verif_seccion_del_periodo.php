@@ -132,5 +132,47 @@ if (!$suj) {
         '3. ROLLBACK: la matrícula vuelve a su sección');
 }
 
+echo "\n=== 4. Bloque A — la boleta de un bimestre cursado en otra sección ===\n";
+// Tras un cambio en el bimestre en curso, el bimestre CERRADO se publica con
+// el CIERRE (conducta y transversales) y el TUTOR de la sección de ORIGEN. Para
+// que la prueba distinga, se ANULAN los cierres de DESTINO en ese bimestre: si
+// el código leyera la sección de hoy, la boleta perdería esos datos.
+if ($suj) {
+    $conducta = new App\Models\ConductaModel();
+    $boleta   = new App\Models\BoletaModel();
+    $tutorDe  = new ReflectionMethod($boleta, 'getTutorSeccion');
+    $tutorDe->setAccessible(true);
+    $transv   = new ReflectionMethod($cal, 'getTransversalesAgregadas');
+    $transv->setAccessible(true);
+    $pid      = (int) $cerrado['id'];
+    $origenS  = (int) $suj['origen'];
+    $destinoS = (int) $suj['destino'];
+
+    $pdo->beginTransaction();
+    try {
+        $condAntes  = $conducta->getParaPeriodo($mid, $pid);
+        $transAntes = $transv->invoke($cal, $mid, $pid);
+        $tutorAntes = $tutorDe->invoke($boleta, $mid, $pid);
+
+        $cambios->ejecutar($mid, $destinoS, $tras->siguienteCorrelativo($anio, 1), date('Y-m-d'),
+                           'verificación', (int) $pdo->query("SELECT MIN(id) FROM usuarios")->fetchColumn());
+        $pdo->exec("UPDATE cierres_conducta SET anulado_en = NOW()
+                    WHERE seccion_id = {$destinoS} AND periodo_id = {$pid} AND anulado_en IS NULL");
+        $pdo->exec("UPDATE cierres_transversales SET anulado_en = NOW()
+                    WHERE seccion_id = {$destinoS} AND periodo_id = {$pid} AND anulado_en IS NULL");
+
+        $ok($conducta->getParaPeriodo($mid, $pid) === $condAntes,
+            'conducta del bimestre cerrado: sale con el cierre de ORIGEN (' . var_export($condAntes, true) . ')');
+        $ok($transv->invoke($cal, $mid, $pid) == $transAntes,
+            'transversales del bimestre cerrado: salen con el cierre de ORIGEN (' . count($transAntes) . ')');
+        $ok($tutorDe->invoke($boleta, $mid, $pid) == $tutorAntes,
+            'el tutor de ese bimestre es el de ORIGEN (' . ($tutorAntes['nombre'] ?? '—') . ')');
+        $porAnio = $conducta->getParaBoleta($mid, $anio);
+        $ok(($porAnio[$pid] ?? null) === $condAntes, 'getParaBoleta (todo el año) coincide');
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
 exit($fallos === 0 ? 0 : 1);
