@@ -323,6 +323,8 @@ $router->get( '/docente/nomina/{seccion_id}/imprimir', 'Docente\PanelController@
 // (tener carga activa en esa seccion) esta en el controlador, que responde 404
 // si no se cumple. Se llega desde la notificacion que genera Registro Academico.
 $router->get( '/docente/notas-origen/{matricula}',     'Docente\PanelController@notasOrigen');
+// Cambio de sección (fase 3): calificaciones de su sección anterior, solo lectura.
+$router->get( '/docente/procedencia/{matricula}',      'Docente\CalificacionController@procedencia');
 $router->get( '/docente/horario/imprimir',             'Docente\PanelController@horarioImprimir');
 // Boletas del docente (validadas por nivel). La literal /imprimir va ANTES del
 // patron generico para que el router no capture "imprimir" como matricula_id.

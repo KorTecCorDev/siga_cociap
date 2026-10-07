@@ -309,6 +309,8 @@ const ROL_AUXILIAR = 'auxiliar_academico';
 const PROCEDENCIA_EXTRAORDINARIA = 'extraordinaria';
 const PROCEDENCIA_ORIGEN         = 'origen';
 const PROCEDENCIA_SIAGIE         = 'siagie';
+/** Calificaciones OFICIALES cursadas en otra sección (cambio de sección, 07/10/2026). */
+const PROCEDENCIA_OTRA_SECCION   = 'otra_seccion';
 
 const PROCEDENCIAS_NOTA = [
     PROCEDENCIA_EXTRAORDINARIA => [
@@ -330,6 +332,16 @@ const PROCEDENCIAS_NOTA = [
         'nombre'  => 'Autorizada para SIAGIE',
         'icono'   => 'doc-add',
         'destino' => 'Solo para el acta SIAGIE. No toca la boleta ni el orden de mérito.',
+        'ambar'   => false,
+    ],
+    // No es de otro mecanismo de registro: son notas ORDINARIAS de OTRO docente
+    // (la sección anterior del estudiante). Comparte el borde punteado porque
+    // «no salió de tu registro»; sin ámbar, porque ya está en la boleta por su vía normal.
+    PROCEDENCIA_OTRA_SECCION => [
+        'corto'   => 'OTRA SECCIÓN',
+        'nombre'  => 'Calificaciones de su sección anterior',
+        'icono'   => 'round-double-alt-arrow-right',
+        'destino' => 'Oficiales: van a la boleta desde la carga de su sección anterior. Solo lectura.',
         'ambar'   => false,
     ],
 ];

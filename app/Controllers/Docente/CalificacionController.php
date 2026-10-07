@@ -5,6 +5,7 @@ namespace App\Controllers\Docente;
 use App\Controllers\BaseController;
 use App\Models\AnioAcademicoModel;
 use App\Models\CalificacionModel;
+use App\Models\CambioSeccionModel;
 use App\Models\CriterioModel;
 use App\Models\ExoneracionModel;
 use App\Models\OmisionCriterioModel;
@@ -161,6 +162,101 @@ class CalificacionController extends BaseController
             'extraordinariasCarga' => (new RectificacionModel())
                 ->getExtraordinariasDeCargas([$cargaId], $periodoId, Session::hasRole('docente')),
             'exonerados'   => $exonerados,
+        ]);
+    }
+
+    /**
+     * GET /docente/procedencia/{matricula} — CAMBIO DE SECCIÓN (fase 3, 07/10/2026).
+     *
+     * Solo lectura: las calificaciones que el estudiante obtuvo en su sección
+     * ANTERIOR, por cada carga que el docente le dicta HOY (misma área), con el
+     * detalle por criterio y las transversales. Dos bloques que no se mezclan:
+     *  - OFICIALES: bimestres CERRADOS cursados en otra sección (competencias
+     *    bloqueadas de la carga equivalente de origen);
+     *  - REFERENCIA (no oficial): lo archivado del bimestre abierto al llegar.
+     * Admin y RA ven todas las cargas de la sección. Reglas:
+     * docs/modulos/cambio-seccion.md (decisiones 2, 4, 5 y 15).
+     */
+    public function procedencia(string $matriculaId): void
+    {
+        $mid = (int) $matriculaId;
+        $estudiante = $this->calModel->queryOne("
+            SELECT m.id, m.seccion_id, m.anio_id,
+                   TRIM(CONCAT(per.apellido_paterno, ' ', per.apellido_materno, ', ', per.nombres)) AS nombre_completo,
+                   g.nombre_display AS grado_nombre, s.nombre AS seccion_nombre
+            FROM matriculas m
+            INNER JOIN estudiantes e ON e.id = m.estudiante_id
+            INNER JOIN personas per  ON per.id = e.persona_id
+            INNER JOIN secciones s   ON s.id = m.seccion_id
+            INNER JOIN grados g      ON g.id = s.grado_id
+            WHERE m.id = ?
+        ", [$mid]);
+        if (!$estudiante) {
+            $this->notFound();
+        }
+        $seccion  = (int) $estudiante['seccion_id'];
+        $gestiona = has_role(['admin', 'registro_academico']);
+        $user     = Session::user();
+
+        // Cargas de la sección actual: las del docente (o todas, para admin/RA).
+        $cargas = $this->calModel->query("
+            SELECT ca.*, COALESCE(sa.nombre, a.nombre) AS nombre_display, a.nombre AS area_nombre,
+                   COALESCE(ca.area_id, sa.area_id) AS area_resuelta_id, n.codigo AS nivel_codigo
+            FROM cargas_academicas ca
+            INNER JOIN secciones s  ON s.id = ca.seccion_id
+            INNER JOIN grados g     ON g.id = s.grado_id
+            INNER JOIN niveles n    ON n.id = g.nivel_id
+            LEFT  JOIN subareas sa  ON sa.id = ca.subarea_id
+            LEFT  JOIN areas a      ON a.id = COALESCE(ca.area_id, sa.area_id)
+            WHERE ca.seccion_id = ? AND ca.estado = 'activa'
+              AND (? = 1 OR ca.docente_id = ?)
+            ORDER BY a.nombre, sa.orden, ca.id
+        ", [$seccion, $gestiona ? 1 : 0, (int) $user['id']]);
+        if ($cargas === []) {
+            // Sin carga en la sección, el docente no tiene nada que ver aquí.
+            $this->notFound();
+        }
+
+        $cambios  = new CambioSeccionModel();
+        $fuera    = $cambios->bimestresCursadosFuera($mid, $seccion);
+        $vigente  = $cambios->ultimoVigente($mid);
+        $origenRef = $vigente && (int) $vigente['seccion_destino_id'] === $seccion
+            ? (int) $vigente['seccion_origen_id'] : null;
+
+        $porCarga = [];
+        foreach ($cargas as $carga) {
+            $oficiales = [];
+            foreach ($fuera as $b) {
+                foreach ($cambios->cargasEquivalentes($carga, $b['seccion_id']) as $eq) {
+                    $bloques = [];
+                    foreach ($this->bloquesBloqueadosDeCarga((int) $eq['id'], $b['periodo_id']) as $bl) {
+                        $bl['alumnos'] = array_values(array_filter(
+                            $bl['alumnos'], fn($a) => (int) $a['matricula_id'] === $mid
+                        ));
+                        if ($bl['alumnos'] !== []) {
+                            $bloques[] = $bl;
+                        }
+                    }
+                    $oficiales[] = $b + [
+                        'docente'    => $eq['docente'],
+                        'bloques'    => $bloques,
+                        'exonerados' => $this->exoModel->getActivasParaCarga((int) $eq['id'], (int) $estudiante['anio_id']),
+                    ];
+                }
+            }
+            $referencia = ['cambio' => null, 'competencias' => []];
+            if ($origenRef !== null) {
+                $ids = array_map(fn($eq) => (int) $eq['id'], $cambios->cargasEquivalentes($carga, $origenRef));
+                $referencia = $cambios->referenciaArchivada($mid, $seccion, $ids);
+            }
+            $porCarga[] = ['carga' => $carga, 'oficiales' => $oficiales, 'referencia' => $referencia];
+        }
+
+        $this->view('docente/procedencia', [
+            'titulo'     => 'Calificaciones de su sección anterior',
+            'estudiante' => $estudiante,
+            'porCarga'   => $porCarga,
+            'gestiona'   => $gestiona,
         ]);
     }
 
@@ -376,6 +472,8 @@ class CalificacionController extends BaseController
             'exonerados'       => $exonerados,
             'permiteNoEvaluar' => $permiteNoEvaluar,
             'periodoFinal'     => $this->periodoEsFinal((int) $periodo['id']),
+            // Chip «viene de otra sección» (cambio de sección, fase 3).
+            'procedencias'     => (new CambioSeccionModel())->procedenciasEnSeccion((int) $seccionId),
             'page_scripts'     => ['calificaciones'],
         ]);
     }
@@ -563,6 +661,8 @@ class CalificacionController extends BaseController
             'permiteNoEvaluar' => $permiteNoEvaluar,
             'periodoFinal'    => $this->periodoEsFinal((int) $periodo['id']),
             'extraordinariasPorComp' => $this->extraordinariasPorCompetencia($competencias, $cargaId, (int) $periodo['id']),
+            // Chip «viene de otra sección» (cambio de sección, fase 3).
+            'procedencias'    => (new CambioSeccionModel())->procedenciasEnSeccion((int) $carga['seccion_id']),
             'page_scripts'    => ['calificaciones'],
         ]);
     }

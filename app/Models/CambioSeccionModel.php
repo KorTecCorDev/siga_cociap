@@ -563,6 +563,145 @@ class CambioSeccionModel extends BaseModel
         ];
     }
 
+    // ── Procedencia (vista de solo lectura del docente, fase 3) ──────────
+
+    /**
+     * Estudiantes que HOY están en la sección y llegaron por un cambio vigente:
+     * [matricula_id => 'sección de la que vienen']. Alimenta el chip de la grilla.
+     */
+    public function procedenciasEnSeccion(int $seccionId): array
+    {
+        $filas = $this->query("
+            SELECT cs.matricula_id, so.nombre AS origen
+            FROM cambios_seccion cs
+            INNER JOIN matriculas m  ON m.id  = cs.matricula_id AND m.seccion_id = cs.seccion_destino_id
+            INNER JOIN secciones  so ON so.id = cs.seccion_origen_id
+            INNER JOIN periodos   p  ON p.id  = cs.periodo_id
+            WHERE cs.seccion_destino_id = ? AND cs.estado = 'vigente'
+            ORDER BY p.numero, cs.id
+        ", [$seccionId]);
+        $out = [];
+        foreach ($filas as $f) {
+            $out[(int) $f['matricula_id']] = (string) $f['origen'];   // el último gana
+        }
+        return $out;
+    }
+
+    /**
+     * Cargas de `$seccionId` EQUIVALENTES a la carga dada: misma subárea si la
+     * hay allí; si no, la misma área. Con el docente que la tenía.
+     */
+    public function cargasEquivalentes(array $carga, int $seccionId): array
+    {
+        $area = (int) ($carga['area_resuelta_id'] ?? 0);
+        $filas = $this->query("
+            SELECT ca.id, ca.subarea_id,
+                   TRIM(CONCAT(per.nombres, ' ', per.apellido_paterno, ' ', per.apellido_materno)) AS docente
+            FROM cargas_academicas ca
+            LEFT  JOIN subareas sa  ON sa.id = ca.subarea_id
+            LEFT  JOIN usuarios u   ON u.id  = ca.docente_id
+            LEFT  JOIN personas per ON per.id = u.persona_id
+            WHERE ca.seccion_id = ? AND COALESCE(ca.area_id, sa.area_id) = ?
+            ORDER BY ca.id
+        ", [$seccionId, $area]);
+        $sub = $carga['subarea_id'] ?? null;
+        if ($sub !== null) {
+            $mismas = array_values(array_filter($filas, fn($f) => (int) $f['subarea_id'] === (int) $sub));
+            if ($mismas !== []) {
+                return $mismas;
+            }
+        }
+        return $filas;
+    }
+
+    /**
+     * Bimestres CERRADOS que la matrícula cursó en OTRA sección distinta de
+     * `$seccionActual`: [{periodo_id, periodo, seccion_id, seccion}].
+     */
+    public function bimestresCursadosFuera(int $matriculaId, int $seccionActual): array
+    {
+        $out = [];
+        foreach ($this->query("
+            SELECT p.id, p.nombre_display
+            FROM periodos p INNER JOIN matriculas m ON m.anio_id = p.anio_id
+            WHERE m.id = ? AND p.estado = 'cerrado'
+            ORDER BY p.numero
+        ", [$matriculaId]) as $p) {
+            $s = $this->seccionDelPeriodo($matriculaId, (int) $p['id']);
+            if ($s !== null && $s !== $seccionActual) {
+                $sec = $this->queryOne("SELECT nombre FROM secciones WHERE id = ?", [$s]);
+                $out[] = [
+                    'periodo_id' => (int) $p['id'],
+                    'periodo'    => (string) $p['nombre_display'],
+                    'seccion_id' => $s,
+                    'seccion'    => (string) ($sec['nombre'] ?? ''),
+                ];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * REFERENCIA (no oficial) del bimestre abierto: lo que se archivó del
+     * estudiante al llegar a `$seccionActual` por su cambio vigente, solo de las
+     * cargas `$cargasOrigen`, y solo mientras ese bimestre siga abierto
+     * (decisiones 4 y 15). Agrupado por competencia.
+     *
+     * @return array{cambio:?array, competencias:array}
+     */
+    public function referenciaArchivada(int $matriculaId, int $seccionActual, array $cargasOrigen): array
+    {
+        $cambio = $this->queryOne("
+            SELECT cs.*, p.nombre_display AS periodo_nombre, so.nombre AS origen_nombre
+            FROM cambios_seccion cs
+            INNER JOIN periodos  p  ON p.id  = cs.periodo_id AND p.estado <> 'cerrado'
+            INNER JOIN secciones so ON so.id = cs.seccion_origen_id
+            WHERE cs.matricula_id = ? AND cs.seccion_destino_id = ? AND cs.estado = 'vigente'
+            ORDER BY cs.id DESC
+            LIMIT 1
+        ", [$matriculaId, $seccionActual]);
+        if (!$cambio || $cargasOrigen === []) {
+            return ['cambio' => $cambio, 'competencias' => []];
+        }
+        $ids    = implode(',', array_map('intval', $cargasOrigen));
+        $cid    = (int) $cambio['id'];
+        $comps  = [];
+        $nombre = fn(int $compId) => $this->queryOne(
+            "SELECT nombre_completo, codigo_minedu FROM competencias WHERE id = ?", [$compId]
+        );
+        foreach ($this->query("
+            SELECT competencia_id, criterio_nombre, criterio_orden, nota
+            FROM cambios_seccion_criterio
+            WHERE cambio_id = {$cid} AND lado = 'origen' AND carga_id IN ({$ids})
+            ORDER BY competencia_id, criterio_orden, id
+        ") as $r) {
+            $k = (int) $r['competencia_id'];
+            $comps[$k] ??= ['competencia' => $nombre($k), 'criterios' => [], 'promedio' => null, 'conclusion' => null];
+            $comps[$k]['criterios'][] = ['nombre' => $r['criterio_nombre'], 'nota' => (int) $r['nota'], 'omision' => null];
+        }
+        foreach ($this->query("
+            SELECT competencia_id, criterio_nombre, motivo
+            FROM cambios_seccion_omision
+            WHERE cambio_id = {$cid} AND lado = 'origen' AND carga_id IN ({$ids})
+            ORDER BY competencia_id, id
+        ") as $r) {
+            $k = (int) $r['competencia_id'];
+            $comps[$k] ??= ['competencia' => $nombre($k), 'criterios' => [], 'promedio' => null, 'conclusion' => null];
+            $comps[$k]['criterios'][] = ['nombre' => $r['criterio_nombre'], 'nota' => null, 'omision' => $r['motivo']];
+        }
+        foreach ($this->query("
+            SELECT competencia_id, nota_numerica, conclusion_descriptiva
+            FROM cambios_seccion_competencia
+            WHERE cambio_id = {$cid} AND lado = 'origen' AND carga_id IN ({$ids})
+        ") as $r) {
+            $k = (int) $r['competencia_id'];
+            $comps[$k] ??= ['competencia' => $nombre($k), 'criterios' => [], 'promedio' => null, 'conclusion' => null];
+            $comps[$k]['promedio']   = (int) $r['nota_numerica'];
+            $comps[$k]['conclusion'] = $r['conclusion_descriptiva'];
+        }
+        return ['cambio' => $cambio, 'competencias' => array_values($comps)];
+    }
+
     // ── Avisos ───────────────────────────────────────────────────────────
 
     /**
@@ -652,12 +791,22 @@ class CambioSeccionModel extends BaseModel
         foreach ($deDestino as $id) { $mensajes[$id] = $msgDestino; }
         unset($mensajes[$emisorId]);
 
+        // Los DOCENTES de destino reciben el enlace a la vista de solo lectura
+        // (fase 3) en un cambio vigente; en la reversión el estudiante ya no está.
+        $conEnlace = [];
+        if ($evento !== 'reversion') {
+            foreach ($notif->docentesDeSeccion($destino) as $d) {
+                $conEnlace[(int) $d['id']] = true;
+            }
+        }
         foreach ($mensajes as $usuarioId => $mensaje) {
             $notif->crear([
                 'usuario_id' => $usuarioId,
                 'tipo'       => NotificacionModel::TIPO_CAMBIO_SECCION,
                 'titulo'     => mb_substr($titulo, 0, 150),
                 'mensaje'    => $mensaje,
+                'enlace'     => isset($conEnlace[$usuarioId])
+                    ? 'docente/procedencia/' . (int) $c['matricula_id'] : null,
             ]);
         }
         return count($mensajes);

@@ -313,6 +313,47 @@
     color: $text-muted;
 }
 
+// ── Calificaciones de la sección anterior (cambio de sección, fase 3) ──
+// /docente/procedencia/{matricula}: lo OFICIAL arriba y la REFERENCIA aparte,
+// con el borde punteado de las procedencias («no salió de tu registro»).
+.procedencia__periodo {
+    margin: $spacing-md 0 $spacing-sm;
+    font-size: $font-size-base;
+    font-weight: 600;
+
+    &:first-child { margin-top: 0; }
+}
+
+.procedencia__competencia { margin-bottom: $spacing-md; }
+
+.procedencia__competencia-titulo {
+    margin: $spacing-sm 0 $spacing-xs;
+    font-weight: 600;
+}
+
+.procedencia-referencia {
+    margin-top: $spacing-lg;
+    padding: $spacing-md;
+    border: 1px dashed $border-color;
+    border-radius: $border-radius;
+    background: $bg-secondary;
+
+    &__titulo {
+        margin: 0 0 $spacing-xs;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+    }
+
+    &__nota {
+        margin: 0 0 $spacing-sm;
+        font-size: $font-size-sm;
+        color: $text-muted;
+    }
+}
+
 // ── Aviso de retorno de grado ────────────────────────────────
 .retorno-aviso {
     background: $color-warning-bg;

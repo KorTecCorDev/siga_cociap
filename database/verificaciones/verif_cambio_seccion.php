@@ -408,6 +408,52 @@ try {
 }
 $ok($contar("SELECT COUNT(*) FROM notificaciones") === $antesNotif, 'notificaciones vuelve a su conteo');
 
+echo "\n=== 5e. PROCEDENCIA: lo que ve el docente de destino (fase 3) ===\n";
+$pdo->beginTransaction();
+try {
+    $res = $cambios->ejecutar($mid, $destino, $tras->siguienteCorrelativo($anioId, 1), date('Y-m-d'), 'procedencia', $usuario);
+    $proc = $cambios->procedenciasEnSeccion($destino);
+    $ok(isset($proc[$mid]), 'el estudiante lleva el chip en la sección de destino');
+
+    $fuera = $cambios->bimestresCursadosFuera($mid, $destino);
+    $cerradosAnio = array_values(array_filter($periodos, fn($p) => $p['estado'] === 'cerrado'));
+    $ok(count($fuera) === count($cerradosAnio)
+        && array_column($fuera, 'seccion_id') === array_fill(0, count($cerradosAnio), $origen),
+        'los bimestres CERRADOS se ven como cursados en la sección de origen (' . count($fuera) . ')');
+
+    // Una carga de destino con su equivalente en origen que tenga nota archivada.
+    $cargaD = $pdo->query("
+        SELECT ca.*, COALESCE(ca.area_id, sa.area_id) AS area_resuelta_id
+        FROM cargas_academicas ca LEFT JOIN subareas sa ON sa.id = ca.subarea_id
+        WHERE ca.seccion_id = {$destino} AND ca.estado = 'activa'
+          AND EXISTS (SELECT 1 FROM cambios_seccion_criterio a
+                      JOIN cargas_academicas co ON co.id = a.carga_id
+                      LEFT JOIN subareas so ON so.id = co.subarea_id
+                      WHERE a.cambio_id = {$res['cambio_id']}
+                        AND COALESCE(co.area_id, so.area_id) = COALESCE(ca.area_id, sa.area_id))
+        LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if ($cargaD) {
+        $eq = $cambios->cargasEquivalentes($cargaD, $origen);
+        $ok($eq !== [], 'la carga de destino tiene su equivalente en origen');
+        $ref = $cambios->referenciaArchivada($mid, $destino, array_map(fn($e) => (int) $e['id'], $eq));
+        $nCrit = array_sum(array_map(fn($c) => count($c['criterios']), $ref['competencias']));
+        $esperado = $contar("SELECT COUNT(*) FROM cambios_seccion_criterio WHERE cambio_id = ? AND lado = 'origen'
+                              AND carga_id IN (" . implode(',', array_map(fn($e) => (int) $e['id'], $eq)) . ")",
+                            [$res['cambio_id']])
+                  + $contar("SELECT COUNT(*) FROM cambios_seccion_omision WHERE cambio_id = ? AND lado = 'origen'
+                              AND carga_id IN (" . implode(',', array_map(fn($e) => (int) $e['id'], $eq)) . ")",
+                            [$res['cambio_id']]);
+        $ok($nCrit === $esperado && $nCrit > 0,
+            "la referencia muestra lo archivado de esa área ({$nCrit} criterios), solo de su carga equivalente");
+    } else {
+        echo "  (sin carga de destino con equivalente archivado: rama no evaluable)\n";
+    }
+    $ok($cambios->referenciaArchivada($mid, $origen, [1])['competencias'] === [],
+        'en la sección de ORIGEN no hay referencia (decisión 15)');
+} finally {
+    $pdo->rollBack();
+}
+
 echo "\n=== 6. ROLLBACK ===\n";
 foreach ($tablas as $t) {
     $ok($contar("SELECT COUNT(*) FROM {$t}") === $antesGlobal[$t], "{$t} vuelve a {$antesGlobal[$t]} filas");
