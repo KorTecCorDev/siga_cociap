@@ -65,6 +65,23 @@ class CambioSeccionModel extends BaseModel
                 {$m}.seccion_id)";
     }
 
+    /**
+     * Condición SQL: la matrícula `$m` cursó el periodo `$colPeriodo` en la
+     * sección `$seccionId`. Para los ROSTERS DE UN BIMESTRE (historial, resumen).
+     *
+     * El primer término deja usar el índice de `seccion_id` (solo se evalúa la
+     * expresión para los de la sección y para quienes tienen algún cambio que
+     * la toque); el segundo es la regla, de sqlSeccionDelPeriodo().
+     */
+    public static function sqlEnSeccionDelPeriodo(string $m, int $seccionId, string|int $colPeriodo): string
+    {
+        return "({$m}.seccion_id = {$seccionId}
+                 OR {$m}.id IN (SELECT cse.matricula_id FROM cambios_seccion cse
+                                 WHERE cse.seccion_origen_id = {$seccionId}
+                                    OR cse.seccion_destino_id = {$seccionId}))
+                AND " . self::sqlSeccionDelPeriodo($m, $colPeriodo) . " = {$seccionId}";
+    }
+
     /** Sección en la que la matrícula cursó el periodo (ver cabecera). */
     public function seccionDelPeriodo(int $matriculaId, int $periodoId): ?int
     {

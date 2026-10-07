@@ -972,6 +972,15 @@ class CalificacionModel extends BaseModel
             ORDER BY orden, id
         ", [$cargaId, $competenciaId, $periodoId]);
 
+        // Roster DEL BIMESTRE por sección (cambio de sección, 07/10/2026): quien
+        // CURSÓ ese bimestre en la sección de la carga, no quien está hoy. En el
+        // bimestre en curso es lo mismo; en uno cerrado, el docente de origen
+        // conserva al que se fue y el de destino no lo ve vacío. PUNTO ÚNICO:
+        // CambioSeccionModel::sqlEnSeccionDelPeriodo.
+        $seccionCarga = (int) ($this->queryOne(
+            "SELECT seccion_id FROM cargas_academicas WHERE id = ?", [$cargaId]
+        )['seccion_id'] ?? 0);
+
         // Obtener alumnos con sus notas
         $alumnos = $this->query("
             SELECT
@@ -996,9 +1005,7 @@ class CalificacionModel extends BaseModel
                 AND cal.carga_id       = ?
                 AND cal.competencia_id = ?
                 AND cal.periodo_id     = ?
-            WHERE s.id = (
-                SELECT seccion_id FROM cargas_academicas WHERE id = ?
-            )
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionCarga, $periodoId) . "
             -- Mismo criterio que getAlumnosSeccion: incluye 'pendiente' (recién
             -- creadas) y 'aprobada' (vigentes, incl. retorno de grado), excluye
             -- trasladados. Así el resumen y la validación de bloqueo cuadran con
@@ -1014,7 +1021,7 @@ class CalificacionModel extends BaseModel
             AND (m.estado IN ('aprobada', 'pendiente') OR " . RetornoGradoModel::sqlOperativaRevertida('m') . ")
             " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             ORDER BY " . orden_alfabetico('p', 2) . "
-        ", [$cargaId, $competenciaId, $periodoId, $cargaId]);
+        ", [$cargaId, $competenciaId, $periodoId]);
 
         // Agregar notas por criterio a cada alumno
         foreach ($alumnos as &$alumno) {
