@@ -5,7 +5,26 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🔜 RETOMAR AQUÍ (07/10/2026) — Cambio de sección: FASE 1 HECHA (modelo)
+## 🔜 RETOMAR AQUÍ (07/10/2026, fin del turno tarde en la oficina → escritorio de casa)
+
+**Cambio de sección: TERMINADO Y PROBADO EN LOCAL (oficina).** `origin/dev` = `eab278d`.
+`origin/main` sin tocar. **El merge `dev` → `main` se hace en el escritorio de casa** (decisión del
+usuario). Detalle de cada fase más abajo, en esta misma sección.
+
+**En el escritorio, en este orden:**
+1. `git pull` en `dev`.
+2. **BD local de casa**: aplicar `database/migrations/075_cambio_seccion.sql` (sin ella el formulario
+   de TRASLADO falla: `TrasladoModel` lee `cambios_seccion`). Huella: `SHOW TABLES LIKE
+   'cambios_seccion%'` → 4 tablas. Si la BD de casa es una copia fresca de producción, igual.
+3. `php database/aplicar_cambios_seccion_259_339.php` (simula) → si los dos dan `PUEDE_REGISTRAR`,
+   repetir con `--confirmar`. Los avisos de prueba de 259/339 existen SOLO en la BD de la oficina.
+4. Correr `verif_seccion_del_periodo.php`, `verif_cambio_seccion.php` y `verif_numeracion_rd.php`.
+5. **Producción** (con su autorización del merge): **(a)** aplicar la `075` en la BD de producción
+   ANTES del merge; **(b)** merge `dev` → `main` (auto-deploy); **(c)** el script de 259/339 por SSH,
+   primero sin `--confirmar`, luego con él; **(d)** actualizar la CABECERA de
+   `docs/modulos/cambio-seccion.md` («desplegado») y la sección Git de este archivo.
+
+### Detalle del día (07/10/2026)
 
 - **Plan aprobado** en `docs/modulos/cambio-seccion.md` (17 decisiones; reemplaza al del 09/07).
 - **Fase 1 HECHA** en `dev` (`84386fb`, sin push): `CambioSeccionModel` con sección por bimestre,
