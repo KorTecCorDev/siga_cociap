@@ -1,12 +1,12 @@
 # Cambio de sección
 
-> **Estado: PLAN REDISEÑADO Y APROBADO por el usuario el 07/10/2026. NADA construido.**
+> **Estado (07/10/2026): CONSTRUIDO Y PROBADO EN `dev` — SIN DESPLEGAR.** Fases 1 a 5 hechas
+> (fase 4 completa; § 6). Falta: migración `075` en producción → merge a `main` → script de
+> 259/339 (pasos en `docs/ESTADO.md`, «RETOMAR AQUÍ»). **Al desplegar, actualizar esta línea.**
 > **Reemplaza al plan del 09/07/2026**, que nunca se construyó y quedó desactualizado frente a
 > los módulos 066–074 (auxiliares, confirmación, asistencia por fechas, tutor por periodo,
 > retorno con tramo, borradores). Varias de sus decisiones se **derogaron** (ver § 3).
-> Hoy un cambio de sección solo se hace a mano en la BD: no hay rutas, ni
-> `CambioSeccionModel`, ni tablas `cambios_seccion*`, ni ningún `UPDATE` de
-> `matriculas.seccion_id`.
+> Plan rediseñado y aprobado el 07/10/2026; reemplaza al del 09/07 (nunca construido).
 > Estado vivo y prioridades: `docs/ESTADO.md`. Módulos que toca: `matriculas.md`,
 > `calificaciones.md`, `boletas.md`, `admin.md`, `retorno-grado.md`,
 > `confirmacion-y-asistencia-por-fechas.md`, `notificaciones.md`.
