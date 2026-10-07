@@ -283,6 +283,10 @@
     &[hidden] { display: none; }
 }
 
+// El aviso de regreso usa .mat-accion__desc (display: block), que ganaría al
+// atributo [hidden] que pone el JS: aquí se le devuelve la prioridad.
+.mat-cambio-seccion-form .mat-accion__desc[hidden] { display: none; }
+
 // Historial de cambios en la card «Cambios de sección».
 .cambio-seccion__lista {
     list-style: none;
