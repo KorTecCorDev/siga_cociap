@@ -942,3 +942,22 @@ a teclear las notas (matrícula 693: 23 notas sin colegio).
   sin pisarse; no toca otra matrícula con el mismo periodo; idempotente; agrupación; la
   boleta no cambia.
 
+## Numeración COMPARTIDA de R.D.: traslado + cambio de sección (07/10/2026)
+
+> Migración `075`. PUNTO ÚNICO: `TrasladoModel::correlativoDisponible()` y
+> `TrasladoModel::siguienteCorrelativo()` (mismas firmas que antes). Protegido por
+> `database/verificaciones/verif_numeracion_rd.php`.
+
+Las constancias de traslado y las R.D. de cambio de sección (`cambios_seccion.rd_correlativo`)
+usan **un solo correlativo por año académico**, con el formato del traslado
+`N° 000-{AÑO}-CAVVG-DA` (`TrasladoModel::formatearNumero`).
+
+- **Se admite cualquier número LIBRE**: la secuencia no siempre se respeta en el colegio.
+- **Ocupan**: constancia `vigente` y cambio de sección `vigente`. **Liberan**: constancia
+  `anulado` y cambio `revertido` (decisión del usuario).
+- **Sugerencia** = el máximo del año en **las dos tablas** + 1 (los revertidos y los anulados
+  también cuentan, porque fueron emitidos). Se puede escribir otro número si está libre.
+- Sin UNIQUE en BD (por la liberación): la unicidad la valida el punto único, también dentro
+  de la transacción (defensa contra la carrera, como ya hacía el traslado).
+- ⚠️ **`TrasladoModel` lee `cambios_seccion`**: la `075` debe estar aplicada **ANTES** de
+  desplegar este código, o el formulario de traslado falla.
