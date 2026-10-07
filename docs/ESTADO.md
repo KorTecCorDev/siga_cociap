@@ -31,37 +31,47 @@ regreso a la pantalla, lote en rectificación, restauración de los 5 formulario
 pestañas, inyección escapada, aviso de «otro usuario», «Traer competencias» y «+ Añadir fila».
 Lo que falta es lo que necesita **tus manos, otros roles o un guardado REAL**:
 
-**Bloque A — Sesión con 10 minutos reales (cualquier rol)**
-- [ ] A1. **Trabajando sin parar** más de 10 min (escribiendo/haciendo clic en un formulario):
+**Bloque A — Sesión con 10 minutos reales (cualquier rol)** — A1 OK con admin (06/10 noche: renovación silenciosa a los 8 min, sin aviso). A2, A3, A4 y A5 OK con
+docente (06/10 noche, `session_timeout` bajado a 60 y restaurado a 600): «Seguir trabajando» renueva,
+el cierre lleva al login y al entrar vuelve a `/docente/tutoria/acompanamiento`; la boleta imprimible
+no carga `sesion.js` y no redirige.
+- [x] A1. **Trabajando sin parar** más de 10 min (escribiendo/haciendo clic en un formulario):
       **NO debe aparecer el aviso** ni cerrarse la sesión (renovación silenciosa a los 8 min).
-- [ ] A2. Quieto 9 min → sale el aviso con 60 s → «Seguir trabajando» lo cierra (botón abajo a
+- [x] A2. Quieto 9 min → sale el aviso con 60 s → «Seguir trabajando» lo cierra (botón abajo a
       la derecha) y la sesión sigue.
-- [ ] A3. Quieto 10 min → login con el mensaje de siempre → al entrar, vuelves a esa pantalla.
-- [ ] A4. **Con un DOCENTE** (no admin): A2 y A3 en su panel. El aviso es de todo el sistema y
+- [x] A3. Quieto 10 min → login con el mensaje de siempre → al entrar, vuelves a esa pantalla.
+- [x] A4. **Con un DOCENTE** (no admin): A2 y A3 en su panel. El aviso es de todo el sistema y
       solo se probó con admin.
-- [ ] A5. Abrir una **boleta imprimible** y dejarla 10 min: **no** debe salir aviso ni
+- [x] A5. Abrir una **boleta imprimible** y dejarla 10 min: **no** debe salir aviso ni
       redirigir (el layout `print` no lleva el aviso).
+- [x] A6. **Volver a una pestaña oculta** (refuerzo `visibilitychange`/`pageshow` del 06/10 noche):
+      probado en Chrome real con docente y `session_timeout` 420 (restaurado). Oculta 7 min, a los
+      18 s del vencimiento seguía con el aviso congelado en «26»; al volver (22:39:27.570) consultó,
+      cerró y pasó al login **en el mismo segundo**; tras el login regresó a la pantalla. Falta,
+      cuando se pueda, repetirlo desde un **celular**.
 
 **Bloque B — Guardado REAL borra el borrador (usar un estudiante de PRUEBA: escribe datos
-oficiales)**
-- [ ] B1. Extraordinaria individual: escribir → «Borrador guardado» → **Registrar** → al volver a
+oficiales)** — B1-B3 OK con admin (06/10 noche, matrícula 693; BD restaurada después).
+- [x] B1. Extraordinaria individual: escribir → «Borrador guardado» → **Registrar** → al volver a
       abrir esa competencia ya no es insertable (o no hay aviso de borrador).
-- [ ] B2. Notas SIAGIE: escribir → **Autorizar nota** → volver: el bloque de ese bimestre sin
+- [x] B2. Notas SIAGIE: escribir → **Autorizar nota** → volver: el bloque de ese bimestre sin
       aviso de borrador. (Se puede revertir con «eliminar» de la propia pantalla.)
-- [ ] B3. Notas de origen: escribir 1-2 filas → **Guardar notas de origen** → volver: formulario
+- [x] B3. Notas de origen: escribir 1-2 filas → **Guardar notas de origen** → volver: formulario
       en blanco, sin aviso de borrador, y las notas en «Ya registradas».
 
-**Bloque C — Otros roles (las pruebas con admin no cierran estos)**
-- [ ] C1. Con **Registro Académico**: autoguardado de la rectificación en lote y de notas SIAGIE
+**Bloque C — Otros roles (las pruebas con admin no cierran estos)** — C1 y C3 OK (06/10 noche, RA +
+admin en incógnito; la 2.ª cuenta ve el aviso y el formulario vacío en lote y en notas de origen).
+C2 queda pendiente: aún no hay usuario de secretaría.
+- [x] C1. Con **Registro Académico**: autoguardado de la rectificación en lote y de notas SIAGIE
       (escribir → «Borrador guardado» → recargar → vuelve).
 - [ ] C2. Con **secretaría académica o administrativa**: autoguardado de notas de origen (su
       permiso viene de `ROLES_MATRICULAN`).
-- [ ] C3. Con **dos cuentas reales** (admin + RA) sobre el mismo formulario: la segunda ve
+- [x] C3. Con **dos cuentas reales** (admin + RA) sobre el mismo formulario: la segunda ve
       «X tiene un borrador sin registrar…» y **no** ve sus datos.
 
 **Bloque D — Antes del despliegue**
-- [ ] D1. `php database/verificaciones/verif_borradores.php` → TODO CORRECTO (73).
-- [ ] D2. `php database/verificaciones/verif_notas_origen.php` → TODO CORRECTO.
+- [x] D1. `php database/verificaciones/verif_borradores.php` → TODO CORRECTO (73).
+- [x] D2. `php database/verificaciones/verif_notas_origen.php` → TODO CORRECTO.
 - [ ] D3. Aplicar la **074 a mano en producción** y luego el merge `dev`→`main` (preguntar
       antes); `session_timeout` en 600.
 
