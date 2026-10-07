@@ -254,7 +254,7 @@ el grado no cambia).
 | # | Módulo | Funciones | Por qué importa |
 |---|---|---|---|
 | A ✅ | **Boleta (datos)** | `ConductaModel::getParaBoleta` / `getParaPeriodo` (cierre de conducta), `CalificacionModel::getTransversalesAgregadas` (cierre de transversales), `BoletaModel::getTutorSeccion`, `BoletaPublicaController::getTutorSeccion` | Un bimestre cursado en otra sección se publica con el **cierre y el tutor de ESA sección** (invariante «documentos = el tutor del bimestre»). Hoy saldría con guion o con el tutor equivocado. |
-| B | **Rectificación / extraordinarias** | `RectificacionModel::sqlInsertables`, `matriculasSinNotasEnCerrados`, `sqlTransversalesInsertables` | Hoy ofrecería insertar notas de un bimestre cerrado en las cargas de la sección ACTUAL, no en las de donde lo cursó. |
+| B ✅ | **Rectificación / extraordinarias** | `RectificacionModel::sqlInsertables`, `sqlTransversalesInsertables` (`matriculasSinNotasEnCerrados` solo filtra y rotula por la sección de HOY: queda en 6.1; su conteo hereda la corrección) | Hoy ofrecería insertar notas de un bimestre cerrado en las cargas de la sección ACTUAL, no en las de donde lo cursó. |
 | C | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
 | D | **Tutoría** | `TutoriaController::getAlumnosSeccion`, `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
 | E | **Conducta** | `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
@@ -276,6 +276,13 @@ rutas están comentadas (boleta pública dormida). A/B: 2148 boletas (537 matrí
 bimestres) idénticas a `HEAD`; con los datos reales no cambia nada porque la boleta firma con
 el tutor del ÚLTIMO bimestre con datos. El efecto lo prueba `verif_seccion_del_periodo.php` § 4
 con un escenario que anula los cierres de destino: pasa con el código nuevo y FALLA con `HEAD`.
+
+**Bloque B HECHO (07/10/2026).** A/B sobre 537 matrículas: solo cambian 259 y 339 (con `HEAD`
+se les ofrecía insertar 26 notas del I en la sección ACTUAL; ahora 6 y 4, en la sección donde lo
+cursaron). Otras 10 difieren SOLO en la «carga dueña» de una transversal: es un **empate
+preexistente** (`ORDER BY COUNT(*) DESC LIMIT 1` sin desempate; todas las cargas de la sección
+tienen las mismas notas) que el cambio de plan hizo aflorar. Inocuo para la boleta (promedia por
+competencia). Recomendación NO aplicada: desempate fijo `, cal2.carga_id`.
 
 ### 6.4 Cómo se verifica
 

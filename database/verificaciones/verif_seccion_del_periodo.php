@@ -174,5 +174,27 @@ if ($suj) {
     }
 }
 
+echo "\n=== 5. Bloque B — rectificación de un bimestre cursado en otra sección ===\n";
+// Tras el cambio, lo que se ofrece insertar en un bimestre CERRADO debe estar en
+// las cargas de la sección donde se CURSÓ (y no repetir lo que ya tiene allí).
+if ($suj) {
+    $rect = new App\Models\RectificacionModel();
+    $pdo->beginTransaction();
+    try {
+        $antes = array_filter($rect->getCompetenciasInsertables($mid), fn($f) => (int) $f['periodo_id'] === (int) $cerrado['id']);
+        $cambios->ejecutar($mid, (int) $suj['destino'], $tras->siguienteCorrelativo($anio, 1), date('Y-m-d'),
+                           'verificación', (int) $pdo->query("SELECT MIN(id) FROM usuarios")->fetchColumn());
+        $despues = array_filter($rect->getCompetenciasInsertables($mid), fn($f) => (int) $f['periodo_id'] === (int) $cerrado['id']);
+        $secciones = array_values(array_unique(array_map(fn($f) => (int) $pdo->query(
+            "SELECT seccion_id FROM cargas_academicas WHERE id = " . (int) $f['carga_id'])->fetchColumn(), $despues)));
+        $ok($secciones === [] || $secciones === [(int) $suj['origen']],
+            "en el bimestre cerrado solo ofrece cargas de ORIGEN");
+        $ok(count($despues) === count($antes),
+            'ofrece lo mismo que antes del cambio (' . count($antes) . '): no inventa faltantes en DESTINO');
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
 exit($fallos === 0 ? 0 : 1);
