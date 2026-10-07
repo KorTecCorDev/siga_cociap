@@ -118,9 +118,10 @@ class ConclusionReplicaModel extends BaseModel
             SELECT cr.matricula_id, cr.area_id, cr.conclusion
             FROM conclusiones_replica_acta cr
             INNER JOIN matriculas m ON m.id = cr.matricula_id
-            WHERE m.seccion_id  = ?
+            -- Quien CURSÓ el bimestre en la sección (cambio de sección).
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               AND cr.periodo_id = ?
-        ", [$seccionId, $periodoId]);
+        ", [$periodoId]);
 
         $out = [];
         foreach ($filas as $f) {

@@ -256,7 +256,7 @@ el grado no cambia).
 | A ✅ | **Boleta (datos)** | `ConductaModel::getParaBoleta` / `getParaPeriodo` (cierre de conducta), `CalificacionModel::getTransversalesAgregadas` (cierre de transversales), `BoletaModel::getTutorSeccion`, `BoletaPublicaController::getTutorSeccion` | Un bimestre cursado en otra sección se publica con el **cierre y el tutor de ESA sección** (invariante «documentos = el tutor del bimestre»). Hoy saldría con guion o con el tutor equivocado. |
 | B ✅ | **Rectificación / extraordinarias** | `RectificacionModel::sqlInsertables`, `sqlTransversalesInsertables` (`matriculasSinNotasEnCerrados` solo filtra y rotula por la sección de HOY: queda en 6.1; su conteo hereda la corrección) | Hoy ofrecería insertar notas de un bimestre cerrado en las cargas de la sección ACTUAL, no en las de donde lo cursó. |
 | C ✅ | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
-| D | **Tutoría** | `TutoriaController::getAlumnosSeccion`, `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
+| D ✅ | **Tutoría** | `TutoriaController::getAlumnosSeccion` y sus 2 guardas de escritura (reciben el bimestre: pasan de 6.1 a aquí), `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
 | E | **Conducta** | `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
 | F | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
 | G | **Calificaciones del docente y cierre** | `Docente\CalificacionController::getAlumnosSeccion`, `ExoneracionModel::getActivasParaCarga` (EXO en un historial pasado), `ControlOperativoModel::alertasEvaluacionIncompleta`, `AnioAcademicoModel::competenciasVaciasDelPeriodo` | Grilla, historial y la compuerta del cierre. |
@@ -288,6 +288,13 @@ competencia). Recomendación NO aplicada: desempate fijo `, cal2.carga_id`.
 reciben un `?int $periodoId` OPCIONAL (sin él, la sección de hoy, como antes); `LlenadorSiagie`
 les pasa el bimestre del archivo. A/B en 92 rosters (secciones × bimestres cerrados): solo
 cambian 4.° A y 4.° B de primaria en el I Bimestre, intercambiando a 259 y 339.
+
+**Bloque D HECHO (07/10/2026).** También lo leen la consulta de notas
+(`ConsultaNotasController`) y la compuerta del cierre del tutor
+(`conclusionesObligatoriasPendientes`). A/B en 276 claves (secciones × bimestres): los promedios
+solo cambian en 4.° A/4.° B del I (259 ↔ 339); las conclusiones difieren SOLO en el orden de las
+filas (la consulta no tiene `ORDER BY`): con el contenido ordenado son idénticas; la compuerta del
+cierre, idéntica. La guarda de conducta del tutor (`ConductaTutorController`) va con el bloque E.
 
 ### 6.4 Cómo se verifica
 

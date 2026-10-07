@@ -216,5 +216,23 @@ if ($suj) {
     }
 }
 
+echo "\n=== 7. Bloque D — panel del tutor de un bimestre cursado en otra sección ===\n";
+if ($suj) {
+    $tm = new App\Models\TransversalModel();
+    $pdo->beginTransaction();
+    try {
+        $pc = (int) $cerrado['id'];
+        $tieneTransv = isset($tm->getPromediosSeccion((int) $suj['origen'], $pc)[$mid]);
+        $cambios->ejecutar($mid, (int) $suj['destino'], $tras->siguienteCorrelativo($anio, 1), date('Y-m-d'),
+                           'verificación', (int) $pdo->query("SELECT MIN(id) FROM usuarios")->fetchColumn());
+        $ok(isset($tm->getPromediosSeccion((int) $suj['origen'], $pc)[$mid]) === $tieneTransv,
+            'el tutor de ORIGEN conserva sus transversales de ese bimestre' . ($tieneTransv ? '' : ' (no tenía)'));
+        $ok(!isset($tm->getPromediosSeccion((int) $suj['destino'], $pc)[$mid]),
+            'el tutor de DESTINO no lo ve en ese bimestre');
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
 exit($fallos === 0 ? 0 : 1);
