@@ -234,4 +234,15 @@
 
     marcar();   // cargar esta página ya renovó la sesión en el servidor
     setInterval(tick, 1000);
+
+    // Al VOLVER a la pestaña se evalúa de inmediato (06/10/2026): oculta, el
+    // navegador espacia o congela el temporizador (Chrome: 1 vez por minuto;
+    // el celular lo suspende) y la página podía verse un rato tras vencer.
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) tick();
+    });
+    // Restaurada desde la caché del botón Atrás: no pasó por el servidor.
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) tick();
+    });
 })();

@@ -43,7 +43,7 @@ faltar 60 s) y la **renovación silenciosa** (al faltar 120 s); ver `resources/j
 - **Las vistas imprimibles (layout `print`) no tienen aviso ni redirección**: una boleta
   proyectada se queda en pantalla. Para exponer, la versión imprimible; no excepciones a la regla.
 
-### 2.3 Tres fallos que dieron forma al diseño (no reintroducir)
+### 2.3 Cuatro fallos que dieron forma al diseño (no reintroducir)
 1. 🔴 **La sesión no vencía nunca.** La primera versión, al llegar a cero, visitaba `/login`. El
    servidor vence con `> timeout` (un segundo después del contador); esa visita **renovaba** la
    sesión y `showLogin` devolvía a la pantalla. Por eso: el navegador **consulta**
@@ -55,6 +55,14 @@ faltar 60 s) y la **renovación silenciosa** (al faltar 120 s); ver `resources/j
    antes de la marca previa). Cada acción renueva una sola vez (`accionRenovada`).
 3. **`volver` se perdía en el propio login** (se recalculaba como `/login`, que se rechaza). Hoy
    el destino no se recalcula: viaja en la sesión.
+4. **Pestaña en segundo plano** (06/10/2026, visto en la prueba A3). Oculta más de 5 min, Chrome
+   corre el `setInterval` **una vez por minuto**; el celular y el «Ahorro de energía» lo
+   suspenden, y el botón Atrás puede restaurar la página desde caché sin pasar por el servidor.
+   La sesión vencía a tiempo en el servidor, pero la pestaña se quedaba con el aviso congelado
+   y cerraba hasta ~60 s tarde. Por eso `visibilitychange` (al volver visible) y `pageshow` con
+   `persisted` llaman a `tick()` **en el acto**. No añade peticiones: `tick()` solo consulta al
+   servidor en la zona del aviso, y `consultando`/`saliendo` evitan duplicados. No se cuentan
+   los ticks: `tick()` recalcula con la hora real, así que el aviso nunca acumula error.
 
 ### 2.4 Seguridad
 - Sin renovación automática: solo la dispara una persona (botón o actividad `isTrusted`).
