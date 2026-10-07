@@ -215,18 +215,66 @@ abierto, también lo bloqueado (decisión 3).
 - Rutas literales ANTES de los patrones `{param}`. SASS en `resources/sass/`, sin CSS
   inline, comillas ASCII y luego `gulp build`.
 
-## 6. Lista de estudiantes por bimestre (la fase más grande)
+## 6. Lista de estudiantes por bimestre — INVENTARIO (07/10/2026)
 
-Hay **unas 100 consultas en 37 archivos** que unen la matrícula con su sección por
-`m.seccion_id`. Hay que clasificarlas una por una:
+Medido el 07/10/2026: **111 líneas en 91 funciones** cruzan la matrícula con su sección
+(`m.seccion_id` y equivalentes; búsqueda: `(m|mat|m2|mm|mo)\.seccion_id|matriculas\.seccion_id`
+más 3 guardas sin alias). Criterio: ¿la consulta pregunta por **HOY** o por **UN BIMESTRE**
+(recibe un periodo, o lee notas, asistencia, conducta o cierres de un periodo)?
 
-- **ACTUAL** (no se tocan): nómina, horario, panel del auxiliar, captura del bimestre en
-  curso.
-- **DEL PERIODO** (pasan a `sqlSeccionDelPeriodo`): historial, cuadros y consolidados por
-  sección de bimestres pasados, extraordinarias, cierres.
+En el bimestre en curso las dos respuestas coinciden (la sección del periodo abierto es la
+actual), así que convertir una consulta DEL PERIODO **no cambia nada hoy**: solo corrige los
+bimestres cerrados cursados en otra sección. PUNTO ÚNICO: `sqlEnSeccionDelPeriodo` /
+`sqlSeccionDelPeriodo`.
 
-El inventario clasificado se escribe en este doc y lo protege un verificador nuevo,
-`verif_seccion_del_periodo.php` (con transacción y rollback, y excluyendo los retornos).
+### 6.1 HOY — no se tocan (≈ 45 funciones)
+
+Gestión, identidad y documentos que se entregan HOY: `MatriculaModel` (listar, contar,
+nómina, resumen, cuadro, `findById`, sugerir sección, año anterior), `NominaModel`,
+`SeccionModel::listarConTutor`, `EstudianteModel::buscarEnAnioActivo`, `TrasladoModel`,
+`ApoderadoModel::getHijos`, `ExoneracionController` (index, revocar),
+`ExoneracionModel::getParaSeccion` / `getAlumnosSeccion` (la exoneración es anual),
+`ControlOperativoModel::matriculasPendientes`, `RectificacionModel::getMatriculaInfo`,
+cabeceras de boleta (`BoletaModel::getAlumno`, `BoletaPublicaController::getAlumno`,
+`BoletaController::resolverBoletaDocente` / `resolveToken`: la boleta es anual y nombra la
+sección de hoy), `CalificacionModel::estructuraCompetenciasSeccion` (el plan es del grado),
+`Padre\PanelController` (getHijo, contextoMerito), `ConductaModel::contextoMatricula`,
+`AuxiliarSeccionModel::seccionesConHijos`, accesos del docente
+(`NotaExternaModel::docenteTieneAcceso` / `areasDelDocenteEnSeccion`, `procedencia`,
+`notasOrigen`), `NotificacionModel::crearParaDocentesDeSeccion`, todo lo de retorno de grado
+(`mo.seccion_id`: `RetornoGradoController`, `MatriculaController::show`,
+`SituacionFinalModel::areasQueCuentan` / `ubicacionOficialRetornos`), las 3 guardas de
+escritura del tutor (`TutoriaController` ×2, `ConductaTutorController`: escriben en el
+bimestre en curso) y los conteos por GRADO del mérito (`gradosConRanking`,
+`gradosConEmpatesPendientesDetalle`, `Director\OrdenMeritoController::getConteosGrado`:
+el grado no cambia).
+
+### 6.2 DEL PERIODO — se convierten (≈ 40 funciones), por módulo
+
+| # | Módulo | Funciones | Por qué importa |
+|---|---|---|---|
+| A | **Boleta (datos)** | `ConductaModel::getParaBoleta` / `getParaPeriodo` (cierre de conducta), `CalificacionModel::getTransversalesAgregadas` (cierre de transversales), `BoletaModel::getTutorSeccion`, `BoletaPublicaController::getTutorSeccion` | Un bimestre cursado en otra sección se publica con el **cierre y el tutor de ESA sección** (invariante «documentos = el tutor del bimestre»). Hoy saldría con guion o con el tutor equivocado. |
+| B | **Rectificación / extraordinarias** | `RectificacionModel::sqlInsertables`, `matriculasSinNotasEnCerrados`, `sqlTransversalesInsertables` | Hoy ofrecería insertar notas de un bimestre cerrado en las cargas de la sección ACTUAL, no en las de donde lo cursó. |
+| C | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
+| D | **Tutoría** | `TutoriaController::getAlumnosSeccion`, `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
+| E | **Conducta** | `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
+| F | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
+| G | **Calificaciones del docente y cierre** | `Docente\CalificacionController::getAlumnosSeccion`, `ExoneracionModel::getActivasParaCarga` (EXO en un historial pasado), `ControlOperativoModel::alertasEvaluacionIncompleta`, `AnioAcademicoModel::competenciasVaciasDelPeriodo` | Grilla, historial y la compuerta del cierre. |
+| H | **Mérito y situación final** | `OrdenMeritoModel::rankingPorSeccionLive`, `rankingGradoLive` / `calcularFilasRanking` (etiqueta de sección), `DesempateMeritoModel::getActaPorPeriodo`, `SituacionFinalModel::rosterDelPeriodo`, `planPorMatricula`, `transversalesDelActa`, `fueraDelColegio` | Ranking por sección y acta del bimestre. Snapshots publicados: INTOCABLES. |
+| I | **Estadísticas** | `AnioAcademicoModel::getResumenBimestre` / `getEvolucionAnual`, `AsistenciaModel::getEvolucionIncidenciasAnual`, `ConductaModel::getDistribucionLiteralesAnual` | Cifras por sección y bimestre. |
+
+### 6.3 Decisión abierta
+
+- **Lote de boletas por sección** (`BoletaPublicaModel`: `getMatriculasAprobadasParaBoleta`,
+  `getEstudiantesParaPeriodo`, `getSeccionesParaPeriodo`, `getPorPeriodo`): ¿el estudiante
+  sale en el lote de la sección donde está HOY (quien la entrega) o en el de la sección
+  donde cursó el bimestre? Pendiente del usuario.
+
+### 6.4 Cómo se verifica
+
+Cada bloque se convierte con un **A/B contra `HEAD`**: sin cambios de sección las salidas
+deben ser idénticas, y con los dos casos reales (259, 339) solo pueden diferir en
+4.° A / 4.° B de primaria y en el I Bimestre. Lo protege `verif_seccion_del_periodo.php`.
 
 ## 7. Orden de construcción
 
