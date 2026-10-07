@@ -15,7 +15,18 @@
   despliegue/cancelar, R.D. sugerida, toggle del regreso (simulado en el DOM) y un POST real
   RECHAZADO por R.D. ocupada (0 filas escritas). **Sin ver aún**: la card del historial y la
   reversión en pantalla (no hay ningún cambio registrado) — se verán al registrar 259/339 (fase 5).
-  **Siguiente: fase 3** (vista de solo lectura del docente + chip).
+- **Fase 3 HECHA** (`331ba51` raíz en `getResumenCompetencia` + `740ecd1` vista): `/docente/procedencia/{matricula}`,
+  chip «OTRA SECCIÓN» en la grilla y enlace en el aviso. A/B de la raíz: 1924/1924 resúmenes idénticos.
+- **Fase 5 APLICADA EN LOCAL** (07/10, escritorio PROBOOK450): `database/aplicar_cambios_seccion_259_339.php
+  --confirmar` registró 339 → R.D. 059 y 259 → R.D. 060 (vigentes desde el II). **PENDIENTE EN PRODUCCIÓN**:
+  1) aplicar la `075`; 2) correr el script SIN `--confirmar`, revisar veredictos; 3) con `--confirmar`.
+  Probado con ADMIN en navegador: card del historial (sin «Revertir», con «regreso» a 4.° B) y la vista
+  de procedencia (16 cargas, I Bimestre de 4.° B). Por modelo: los historiales del I de 4.° A/4.° B ya
+  listan a quien lo cursó allí (339: 24 notas en A; 259: 22 en B) y ninguno sale vacío.
+  **Sin probar con sesión DOCENTE**: el chip en la grilla y el enlace del aviso.
+  **Siguiente: fase 4** (inventario de las ~100 consultas con `m.seccion_id`).
+- Fallos PREEXISTENTES (iguales con `HEAD`): `verif_asistencia_jornadas.php` (no halla escenario de
+  prueba) y `verif_criterios_filtros_cascada.php` (§ 7, «el árbol NO queda vacío»). No tocados.
 - ⚠️ La `075` se MODIFICÓ tras su primer commit (rd_* NULL + CHECK): en otra BD local que ya
   la tenga, borrar sus 4 tablas vacías y volver a aplicarla.
 - **Migración `075_cambio_seccion.sql`** (solo esquema): escrita y **aplicada en la BD local del
