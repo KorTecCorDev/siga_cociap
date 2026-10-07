@@ -255,5 +255,25 @@ if ($suj) {
     }
 }
 
+echo "\n=== 9. Bloque F — asistencia de un bimestre cursado en otra sección ===\n";
+if ($suj) {
+    $am  = new App\Models\AsistenciaModel();
+    $ids = fn(array $r) => array_map('intval', array_column($r, 'matricula_id'));
+    $pdo->beginTransaction();
+    try {
+        $pc = (int) $cerrado['id'];
+        $cambios->ejecutar($mid, (int) $suj['destino'], $tras->siguienteCorrelativo($anio, 1), date('Y-m-d'),
+                           'verificación', (int) $pdo->query("SELECT MIN(id) FROM usuarios")->fetchColumn());
+        $ok(in_array($mid, $ids($am->getEstudiantesConIncidencias((int) $suj['origen'], $pc)), true),
+            'la asistencia de ORIGEN lo conserva en ese bimestre');
+        $ok(!in_array($mid, $ids($am->getEstudiantesConIncidencias((int) $suj['destino'], $pc)), true),
+            'la de DESTINO no lo lista en ese bimestre');
+        $ok(in_array($mid, $ids($am->getEstudiantesConIncidencias((int) $suj['destino'], (int) $abierto['id'])), true),
+            'en el bimestre en curso lo registra DESTINO (decisión 10)');
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
 exit($fallos === 0 ? 0 : 1);

@@ -120,7 +120,8 @@ class AsistenciaModel extends BaseModel
             FROM secciones s
             INNER JOIN anios_academicos a ON a.id = s.anio_id AND a.estado = 'activo'
             LEFT JOIN matriculas m
-                   ON m.seccion_id = s.id
+                   -- Quien CURSÓ el bimestre en la sección (cambio de sección).
+                   ON " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', 's.id', $periodoId) . "
                   AND m.anio_id    = s.anio_id
                   -- Roster de evaluacion (punto unico en helpers.php): los
                   -- 'esperados' tienen que contar exactamente a quienes
@@ -209,14 +210,15 @@ class AsistenciaModel extends BaseModel
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
-            WHERE m.seccion_id = ?
+            -- Quien CURSÓ el bimestre en la sección (cambio de sección, 07/10/2026).
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               -- Roster de evaluacion (punto unico en helpers.php): el registro
               -- de asistencia debe cubrir exactamente a quien se evalua. El
               -- porque de cada condicion vive en el docblock del helper.
               " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id    = (SELECT id FROM anios_academicos WHERE estado = 'activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$seccionId]);
+        ");
 
         if (empty($alumnos)) {
             return [];
@@ -1152,7 +1154,8 @@ class AsistenciaModel extends BaseModel
             INNER JOIN grados  g ON g.id = s.grado_id
             INNER JOIN niveles n ON n.id = g.nivel_id
             LEFT JOIN matriculas m
-                   ON m.seccion_id = s.id
+                   -- Quien CURSÓ el bimestre en la sección (cambio de sección).
+                   ON " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', 's.id', $periodoId) . "
                   AND m.anio_id    = s.anio_id
                   -- Roster de evaluacion (punto unico en helpers.php).
                   " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
@@ -1258,7 +1261,8 @@ class AsistenciaModel extends BaseModel
                    " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
-            INNER JOIN secciones   s ON s.id = m.seccion_id AND s.estado_nomina = 'aprobada'
+            -- La sección donde CURSÓ el bimestre (cambio de sección).
+            INNER JOIN secciones   s ON s.id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . " AND s.estado_nomina = 'aprobada'
             INNER JOIN grados      g ON g.id = s.grado_id
             INNER JOIN niveles     n ON n.id = g.nivel_id
             WHERE i.periodo_id = ?

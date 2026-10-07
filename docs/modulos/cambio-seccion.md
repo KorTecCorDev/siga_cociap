@@ -258,7 +258,7 @@ el grado no cambia).
 | C ✅ | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
 | D ✅ | **Tutoría** | `TutoriaController::getAlumnosSeccion` y sus 2 guardas de escritura (reciben el bimestre: pasan de 6.1 a aquí), `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
 | E ✅ | **Conducta** | guarda de escritura de `ConductaTutorController` (recibe el bimestre), `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
-| F | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
+| F ✅ | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
 | G | **Calificaciones del docente y cierre** | `Docente\CalificacionController::getAlumnosSeccion`, `ExoneracionModel::getActivasParaCarga` (EXO en un historial pasado), `ControlOperativoModel::alertasEvaluacionIncompleta`, `AnioAcademicoModel::competenciasVaciasDelPeriodo` | Grilla, historial y la compuerta del cierre. |
 | H | **Mérito y situación final** | `OrdenMeritoModel::rankingPorSeccionLive`, `rankingGradoLive` / `calcularFilasRanking` (etiqueta de sección), `DesempateMeritoModel::getActaPorPeriodo`, `SituacionFinalModel::rosterDelPeriodo`, `planPorMatricula`, `transversalesDelActa`, `fueraDelColegio` | Ranking por sección y acta del bimestre. Snapshots publicados: INTOCABLES. |
 | I | **Estadísticas** | `AnioAcademicoModel::getResumenBimestre` / `getEvolucionAnual`, `AsistenciaModel::getEvolucionIncidenciasAnual`, `ConductaModel::getDistribucionLiteralesAnual` | Cifras por sección y bimestre. |
@@ -300,6 +300,10 @@ cierre, idéntica. La guarda de conducta del tutor (`ConductaTutorController`) v
 sección (`s.id`) para las consultas que recorren todas las secciones. A/B en 351 claves: solo
 cambian 4.° A/4.° B del I (registro, panel del tutor y literales legado: 259 ↔ 339); el
 progreso por sección, el incumplimiento y la completitud del cierre, idénticos.
+
+**Bloque F HECHO (07/10/2026).** A/B en 150 claves: solo cambian la lista de 4.° A/4.° B del I
+(259 ↔ 339) y, por eso, las incidencias por sección y el top de inasistencias del I; el avance
+por sección, las justificaciones y las listas del día, idénticos.
 
 ### 6.4 Cómo se verifica
 

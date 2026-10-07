@@ -105,7 +105,8 @@ class AsistenciaEstadisticaModel extends BaseModel
             FROM secciones s
             INNER JOIN grados      g ON g.id = s.grado_id
             INNER JOIN niveles     n ON n.id = g.nivel_id
-            INNER JOIN matriculas  m ON m.seccion_id = s.id AND m.anio_id = s.anio_id
+            -- Quien CURSÓ el bimestre en la sección (cambio de sección, 07/10/2026).
+            INNER JOIN matriculas  m ON " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', 's.id', $periodoId) . " AND m.anio_id = s.anio_id
                    " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
