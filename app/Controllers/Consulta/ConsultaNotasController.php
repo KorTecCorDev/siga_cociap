@@ -740,7 +740,7 @@ class ConsultaNotasController extends BaseController
             'docente'        => $this->nombreDocente($primera),
         ];
 
-        $exonerados   = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        $exonerados   = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
         $competencias = [];
 
         foreach ($filas as $c) {

@@ -275,5 +275,24 @@ if ($suj) {
     }
 }
 
+echo "\n=== 10. Bloque G — compuerta del cierre (evaluación incompleta) ===\n";
+// Un bimestre cerrado cursado en otra sección NO puede generar una alerta de
+// «evaluación incompleta» por no tener notas en las cargas de la sección de hoy
+// (con HEAD la generaba e impedía volver a cerrar ese bimestre).
+if ($suj) {
+    $co = new App\Models\ControlOperativoModel();
+    $suyas = fn(int $p) => count(array_filter($co->alertasEvaluacionIncompleta($p), fn($f) => (int) $f['matricula_id'] === $mid));
+    $pdo->beginTransaction();
+    try {
+        $pc = (int) $cerrado['id'];
+        $antes = $suyas($pc);
+        $cambios->ejecutar($mid, (int) $suj['destino'], $tras->siguienteCorrelativo($anio, 1), date('Y-m-d'),
+                           'verificación', (int) $pdo->query("SELECT MIN(id) FROM usuarios")->fetchColumn());
+        $ok($suyas($pc) === $antes, "sus alertas del bimestre cerrado no cambian ({$antes})");
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
 exit($fallos === 0 ? 0 : 1);

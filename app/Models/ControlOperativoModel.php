@@ -315,12 +315,15 @@ class ControlOperativoModel extends BaseModel
                 cr.nombre        AS criterio,
                 cr.carga_id      AS carga_id
             FROM matriculas m
-            INNER JOIN secciones s          ON s.id  = m.seccion_id
+            -- La sección donde CURSÓ el bimestre (cambio de sección, 07/10/2026):
+            -- sus cargas son las que deben tener su nota. Punto único:
+            -- CambioSeccionModel::sqlSeccionDelPeriodo.
+            INNER JOIN secciones s          ON s.id  = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
             INNER JOIN grados g             ON g.id  = s.grado_id
             INNER JOIN niveles n            ON n.id  = g.nivel_id
             INNER JOIN estudiantes e        ON e.id  = m.estudiante_id
             INNER JOIN personas p           ON p.id  = e.persona_id
-            INNER JOIN cargas_academicas ca ON ca.seccion_id = m.seccion_id
+            INNER JOIN cargas_academicas ca ON ca.seccion_id = s.id
                                            AND ca.estado     = 'activa'
             INNER JOIN criterios cr         ON cr.carga_id      = ca.id
                                            AND cr.periodo_id    = ?

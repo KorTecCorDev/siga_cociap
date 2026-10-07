@@ -13,9 +13,14 @@ class ExoneracionModel extends BaseModel
     /**
      * Retorna los matricula_id de alumnos exonerados para el área/subárea de una carga.
      * Incluye exoneraciones a nivel de área (aplica a toda la carga) y a nivel de subárea.
+     *
+     * Con `$periodoId` (cambio de sección, 07/10/2026): los alumnos que CURSARON
+     * ese bimestre en la sección de la carga, no los de hoy (un exonerado que
+     * cambió de sección sigue saliendo EXO en el historial de su sección
+     * anterior). Sin él, la sección de hoy, como antes.
      * @return int[]
      */
-    public function getActivasParaCarga(int $cargaId, int $anioId): array
+    public function getActivasParaCarga(int $cargaId, int $anioId, ?int $periodoId = null): array
     {
         $carga = $this->queryOne("
             SELECT ca.area_id, ca.subarea_id, ca.seccion_id, sa.area_id AS sa_area_id
@@ -34,7 +39,10 @@ class ExoneracionModel extends BaseModel
 
         if (!$areaId && !$subareaId) return [];
 
-        $params     = [$anioId, $seccionId];
+        $enSeccion  = $periodoId !== null
+            ? CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId)
+            : 'm.seccion_id = ' . $seccionId;
+        $params     = [$anioId];
         $conditions = [];
 
         if ($areaId) {
@@ -54,7 +62,7 @@ class ExoneracionModel extends BaseModel
             INNER JOIN matriculas m ON m.id = e.matricula_id
             WHERE e.anio_id      = ?
               AND e.revocado_en  IS NULL
-              AND m.seccion_id   = ?
+              AND $enSeccion
               AND $where
         ", $params);
 

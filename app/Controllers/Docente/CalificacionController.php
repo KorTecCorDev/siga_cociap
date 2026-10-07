@@ -148,7 +148,7 @@ class CalificacionController extends BaseController
         }
 
         // Competencias OFICIALES (bloqueadas) de la carga en ese periodo.
-        $exonerados   = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        $exonerados   = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
         $competencias = $this->bloquesBloqueadosDeCarga($cargaId, $periodoId);
 
         $this->view('docente/historial-carga', [
@@ -240,7 +240,7 @@ class CalificacionController extends BaseController
                     $oficiales[] = $b + [
                         'docente'    => $eq['docente'],
                         'bloques'    => $bloques,
-                        'exonerados' => $this->exoModel->getActivasParaCarga((int) $eq['id'], (int) $estudiante['anio_id']),
+                        'exonerados' => $this->exoModel->getActivasParaCarga((int) $eq['id'], (int) $estudiante['anio_id'], $b['periodo_id']),
                     ];
                 }
             }
@@ -419,7 +419,7 @@ class CalificacionController extends BaseController
             foreach ($this->getBloqueos($cid, $periodo['id']) as $b) {
                 $bloqueos[] = (int) $b;
             }
-            foreach ($this->exoModel->getActivasParaCarga($cid, (int) $periodo['anio_id']) as $ex) {
+            foreach ($this->exoModel->getActivasParaCarga($cid, (int) $periodo['anio_id'], (int) $periodo['id']) as $ex) {
                 $exonerados[] = (int) $ex;
             }
         }
@@ -518,7 +518,7 @@ class CalificacionController extends BaseController
             foreach ($this->bloquesBloqueadosDeCarga($cid, $periodoId) as $bloque) {
                 $competencias[] = $bloque;
             }
-            foreach ($this->exoModel->getActivasParaCarga($cid, (int) $periodo['anio_id']) as $ex) {
+            foreach ($this->exoModel->getActivasParaCarga($cid, (int) $periodo['anio_id'], (int) $periodo['id']) as $ex) {
                 $exonerados[] = (int) $ex;
             }
         }
@@ -637,7 +637,7 @@ class CalificacionController extends BaseController
         $alumnos         = $this->getAlumnosSeccion((int) $carga['seccion_id'], (int) $periodo['id']);
         $notasExistentes = $this->getNotasExistentes($cargaId, $periodo['id']);
         $bloqueos        = $this->getBloqueos($cargaId, $periodo['id']);
-        $exonerados      = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        $exonerados      = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
 
         // Piso de carga: si marcar "no se evaluó" dejaría la carga sin ninguna
         // calificación, no se ofrece el botón (el servidor también lo rechaza).
@@ -765,7 +765,7 @@ class CalificacionController extends BaseController
         // esto, el sello de "Ver resumen" sería bypasseable por una petición
         // directa que omita las omisiones de los blancos.
         $resumen        = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, (int) $periodo['id']);
-        $exonerados     = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        $exonerados     = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
         $exoSet         = array_flip(array_map('intval', $exonerados));
         $omisionPrevia  = $this->omisionModel->getPorCriterio($criterioId);
 
@@ -1527,7 +1527,9 @@ class CalificacionController extends BaseController
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas p    ON p.id = e.persona_id
-            WHERE m.seccion_id = ?
+            -- Quien CURSÓ el bimestre en la sección (cambio de sección, 07/10/2026):
+            -- punto único CambioSeccionModel::sqlEnSeccionDelPeriodo.
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
             -- Regla del proyecto: el docente tiene a disposición a TODOS los
             -- estudiantes matriculados de la sección (aprobada, pendiente e
             -- incluso desactivado por baja administrativa, p. ej. deuda: el
@@ -1545,7 +1547,7 @@ class CalificacionController extends BaseController
             -- cerrado muestra a quien lo cursó (retorno de grado, por el tramo).
             " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$seccionId]);
+        ");
     }
 
     private function getNotasExistentes(int $cargaId, int $periodoId): array
@@ -1650,7 +1652,7 @@ class CalificacionController extends BaseController
         }
         unset($alumno);
 
-        $exonerados = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        $exonerados = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
 
         // Destino del "Volver": si el docente es AULA y el área tiene >1 subárea-
         // carga suya, vino de la vista consolidada de área (misma condición
@@ -1868,7 +1870,7 @@ class CalificacionController extends BaseController
         $matriculasConOmision = $this->omisionModel->getMatriculasConOmisionEnCompetencia(
             $cargaId, $competenciaId, (int) $periodo['id']
         );
-        $exonerados = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        $exonerados = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
 
         $sinNota = array_filter(
             $resumen['alumnos'],
@@ -1899,7 +1901,7 @@ class CalificacionController extends BaseController
         if (empty($alumnos)) {
             return false;
         }
-        $exonerados = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        $exonerados = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
         foreach ($alumnos as $a) {
             if (!in_array((int) $a['matricula_id'], $exonerados, true)) {
                 return false;

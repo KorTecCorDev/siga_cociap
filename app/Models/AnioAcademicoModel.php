@@ -282,7 +282,8 @@ class AnioAcademicoModel extends BaseModel
                   SELECT 1
                   FROM matriculas m
                   INNER JOIN periodos per ON per.id = bc.periodo_id AND per.anio_id = m.anio_id
-                  WHERE m.seccion_id = ca.seccion_id
+                  -- Quien CURSÓ ese bimestre en la sección (cambio de sección).
+                  WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', 'ca.seccion_id', 'bc.periodo_id') . "
                     " . matriculas_vigentes('m') . "
                     AND (
                         comp_area.tipo = 'transversal'
