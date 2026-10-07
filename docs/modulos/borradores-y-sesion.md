@@ -1,8 +1,8 @@
 # Sesión que no hace perder el trabajo + borradores de formularios
 
-> **Estado: las 4 fases implementadas en `dev` y probadas en navegador (06/10/2026), SIN
-> DESPLEGAR.** Migración `074`, aplicada solo en local: en producción va a mano ANTES del merge.
-> Ver `docs/ESTADO.md`.
+> **Estado: DESPLEGADO en producción el 06/10/2026** (merge `db8dbb0`, sigue v1.0.5), con el
+> refuerzo de pestaña oculta (§ 2.3, fallo 4). Migración `074` aplicada a mano en producción
+> antes del merge. Pendiente: la prueba C2 con secretaría (ver `docs/ESTADO.md`).
 > Módulos relacionados: `calificaciones.md` (rectificación), `matriculas.md` (notas de origen).
 
 ## 1. Por qué existe
