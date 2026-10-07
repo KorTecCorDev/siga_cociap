@@ -332,6 +332,215 @@ class CambioSeccionModel extends BaseModel
         ] + $conteo;
     }
 
+    // ── Reversión ────────────────────────────────────────────────────────
+
+    /**
+     * Competencias de ORIGEN que ya están BLOQUEADAS y recibirían notas
+     * restauradas. Mientras haya alguna, NO se revierte (opción a, decisión del
+     * usuario del 07/10/2026): la reversión nunca toca una competencia oficial;
+     * primero se desbloquea con el flujo de siempre.
+     *
+     * @return array<int, array{carga_id:int, competencia:string, codigo:?string}>
+     */
+    public function bloqueosQueImpidenRevertir(int $cambioId): array
+    {
+        return $this->query("
+            SELECT DISTINCT bc.carga_id, comp.nombre_completo AS competencia,
+                   comp.codigo_minedu AS codigo
+            FROM (
+                SELECT carga_id, competencia_id, periodo_id FROM cambios_seccion_criterio
+                 WHERE cambio_id = ? AND lado = 'origen'
+                UNION
+                SELECT carga_id, competencia_id, periodo_id FROM cambios_seccion_omision
+                 WHERE cambio_id = ? AND lado = 'origen'
+                UNION
+                SELECT carga_id, competencia_id, periodo_id FROM cambios_seccion_competencia
+                 WHERE cambio_id = ? AND lado = 'origen'
+            ) a
+            INNER JOIN bloqueos_competencia bc
+                    ON bc.carga_id       = a.carga_id
+                   AND bc.competencia_id = a.competencia_id
+                   AND bc.periodo_id     = a.periodo_id
+            INNER JOIN competencias comp ON comp.id = a.competencia_id
+            ORDER BY bc.carga_id, comp.nombre_completo
+        ", [$cambioId, $cambioId, $cambioId]);
+    }
+
+    /**
+     * Motivo por el que el cambio NO se puede revertir, o null si se puede.
+     * Solo el ÚLTIMO cambio vigente, con su bimestre AÚN ABIERTO (si ya cerró,
+     * volver es un 'regreso': un cambio nuevo) y sin bloqueos en origen.
+     */
+    public function motivoNoRevertible(int $cambioId): ?string
+    {
+        $c = $this->queryOne("
+            SELECT cs.*, p.estado AS periodo_estado, m.seccion_id AS seccion_actual, m.tipo
+            FROM cambios_seccion cs
+            INNER JOIN periodos   p ON p.id = cs.periodo_id
+            INNER JOIN matriculas m ON m.id = cs.matricula_id
+            WHERE cs.id = ?
+        ", [$cambioId]);
+        if (!$c || $c['estado'] !== 'vigente') {
+            return 'El cambio de sección no existe o ya fue revertido.';
+        }
+        $ult = $this->ultimoVigente((int) $c['matricula_id']);
+        if (!$ult || (int) $ult['id'] !== $cambioId
+            || (int) $c['seccion_actual'] !== (int) $c['seccion_destino_id']) {
+            return 'Solo se puede revertir el último cambio de sección del estudiante.';
+        }
+        if ($c['periodo_estado'] === 'cerrado') {
+            return 'El bimestre de este cambio ya cerró: para volver a la sección anterior '
+                . 'registra un nuevo cambio de sección.';
+        }
+        if (!in_array($c['tipo'], ['continuador', 'nuevo'], true)) {
+            return 'La matrícula está trasladada o retirada.';
+        }
+        $bloqueos = $this->bloqueosQueImpidenRevertir($cambioId);
+        if ($bloqueos !== []) {
+            $lista = array_map(
+                fn($b) => ($b['codigo'] ? $b['codigo'] . ' ' : '') . $b['competencia'],
+                $bloqueos
+            );
+            return 'En la sección de origen ya están bloqueadas competencias que recibirían '
+                . 'las notas restauradas. Desbloquéalas primero: ' . implode('; ', $lista) . '.';
+        }
+        return null;
+    }
+
+    /**
+     * Revierte el cambio: archiva lo que registró destino (lado 'destino'),
+     * restaura lo archivado de origen, DESCONFIRMA los criterios que reciben
+     * notas restauradas (decisión 16), devuelve la matrícula a origen y marca el
+     * cambio 'revertido' (libera su número de R.D.). TRANSACCIÓN.
+     *
+     * Lo que no se puede restaurar (criterio eliminado después) se omite y se
+     * cuenta en `omitidas`.
+     *
+     * @return array{restauradas:int, omitidas:int, desconfirmados:int[],
+     *               archivadas_destino:array{competencias:int, criterios:int, omisiones:int}}
+     * @throws \InvalidArgumentException
+     */
+    public function revertir(int $cambioId, string $motivo, int $usuarioId): array
+    {
+        $motivo = trim($motivo);
+        if ($motivo === '') {
+            throw new \InvalidArgumentException('El motivo de la reversión es obligatorio.');
+        }
+
+        $propia = !$this->db->inTransaction();
+        if ($propia) {
+            $this->beginTransaction();
+        }
+        try {
+            $c = $this->queryOne("SELECT * FROM cambios_seccion WHERE id = ? FOR UPDATE", [$cambioId]);
+            $no = $this->motivoNoRevertible($cambioId);
+            if (!$c || $no !== null) {
+                throw new \InvalidArgumentException($no ?? 'El cambio de sección no existe.');
+            }
+            $matriculaId = (int) $c['matricula_id'];
+            $origenId    = (int) $c['seccion_origen_id'];
+            $destinoId   = (int) $c['seccion_destino_id'];
+            $anioId      = (int) $c['anio_id'];
+
+            // 1) Lo de destino se archiva (simétrico: no se pierde nada).
+            $archDestino = $this->archivarYRetirar($cambioId, 'destino', $matriculaId, $destinoId, $anioId);
+
+            // 2) Criterios VIVOS que recibirán algo (antes de insertar).
+            $criterios = array_map('intval', array_column($this->query("
+                SELECT DISTINCT a.criterio_id FROM (
+                    SELECT criterio_id FROM cambios_seccion_criterio WHERE cambio_id = ? AND lado = 'origen'
+                    UNION
+                    SELECT criterio_id FROM cambios_seccion_omision  WHERE cambio_id = ? AND lado = 'origen'
+                ) a
+                INNER JOIN criterios cr ON cr.id = a.criterio_id AND cr.eliminado_en IS NULL
+            ", [$cambioId, $cambioId]), 'criterio_id'));
+
+            // 3) Notas por criterio y omisiones (solo criterios vivos).
+            $this->execute("
+                INSERT INTO calificaciones_criterio (criterio_id, matricula_id, nota, registrado_en, modificado_en)
+                SELECT a.criterio_id, ?, a.nota, a.registrado_en, a.modificado_en
+                FROM cambios_seccion_criterio a
+                INNER JOIN criterios cr ON cr.id = a.criterio_id AND cr.eliminado_en IS NULL
+                WHERE a.cambio_id = ? AND a.lado = 'origen'
+            ", [$matriculaId, $cambioId]);
+            $this->execute("
+                INSERT INTO omisiones_criterio (criterio_id, matricula_id, motivo, registrado_en, registrado_por)
+                SELECT a.criterio_id, ?, a.motivo, a.registrado_en, a.registrado_por
+                FROM cambios_seccion_omision a
+                INNER JOIN criterios cr ON cr.id = a.criterio_id AND cr.eliminado_en IS NULL
+                WHERE a.cambio_id = ? AND a.lado = 'origen'
+            ", [$matriculaId, $cambioId]);
+
+            // 4) Promedios: solo donde el estudiante vuelve a tener nota viva
+            //    (invariante «fila en calificaciones ⟺ nota viva»). Con el
+            //    criterio desconfirmado, el promedio es transitorio: se rehace
+            //    cuando el docente vuelva a confirmar.
+            $this->execute("
+                INSERT INTO calificaciones
+                    (matricula_id, carga_id, periodo_id, competencia_id, nota_numerica,
+                     conclusion_descriptiva, extraordinaria, registrado_en, modificado_en, registrado_por)
+                SELECT ?, a.carga_id, a.periodo_id, a.competencia_id, a.nota_numerica,
+                       a.conclusion_descriptiva, a.extraordinaria, a.registrado_en, a.modificado_en, a.registrado_por
+                FROM cambios_seccion_competencia a
+                WHERE a.cambio_id = ? AND a.lado = 'origen'
+                  AND EXISTS (
+                      SELECT 1 FROM calificaciones_criterio cc
+                      INNER JOIN criterios cr ON cr.id = cc.criterio_id
+                      WHERE cc.matricula_id   = ?
+                        AND cr.carga_id       = a.carga_id
+                        AND cr.competencia_id = a.competencia_id
+                        AND cr.periodo_id     = a.periodo_id
+                        AND cr.eliminado_en   IS NULL
+                  )
+            ", [$matriculaId, $cambioId, $matriculaId]);
+
+            // 5) Desconfirmar (punto único del criterio). Solo los confirmados.
+            $desconfirmados = [];
+            $criterioModel  = new CriterioModel();
+            foreach ($criterios as $critId) {
+                $conf = $this->queryOne(
+                    "SELECT 1 AS x FROM criterios WHERE id = ? AND confirmado_en IS NOT NULL",
+                    [$critId]
+                );
+                if ($conf) {
+                    $criterioModel->desconfirmar($critId);
+                    $desconfirmados[] = $critId;
+                }
+            }
+
+            // 6) La matrícula vuelve y el cambio queda revertido (libera su R.D.).
+            $this->execute("UPDATE matriculas SET seccion_id = ? WHERE id = ?", [$origenId, $matriculaId]);
+            $this->execute("
+                UPDATE cambios_seccion
+                SET estado = 'revertido', revertido_por = ?, revertido_en = NOW(), motivo_reversion = ?
+                WHERE id = ?
+            ", [$usuarioId, $motivo, $cambioId]);
+
+            $restauradas = (int) ($this->queryOne("
+                SELECT COUNT(*) AS n FROM cambios_seccion_criterio a
+                INNER JOIN criterios cr ON cr.id = a.criterio_id AND cr.eliminado_en IS NULL
+                WHERE a.cambio_id = ? AND a.lado = 'origen'
+            ", [$cambioId])['n'] ?? 0);
+            $omitidas = $this->filasArchivadas('cambios_seccion_criterio', $cambioId, 'origen') - $restauradas;
+
+            if ($propia) {
+                $this->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($propia) {
+                $this->rollback();
+            }
+            throw $e;
+        }
+
+        return [
+            'restauradas'        => $restauradas,
+            'omitidas'           => $omitidas,
+            'desconfirmados'     => $desconfirmados,
+            'archivadas_destino' => $archDestino,
+        ];
+    }
+
     /**
      * Copia al archivo y RETIRA de las tablas vivas todo lo del estudiante en
      * las cargas de `$seccionId`, en los periodos NO cerrados del año.

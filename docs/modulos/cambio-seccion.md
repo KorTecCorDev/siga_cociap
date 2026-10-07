@@ -116,6 +116,16 @@ Lo que el colegio necesita:
 16. **Revertir DESCONFIRMA** los criterios que reciben notas restauradas (invariante
     «`criterios.confirmado_en` es la única verdad de oficial»); el docente vuelve a confirmar.
 
+17. **Revertir con competencias BLOQUEADAS en origen: NO se permite** (opción a, 07/10/2026).
+    Si en origen ya se bloqueó una competencia que recibiría notas restauradas, la reversión se
+    rechaza y el aviso nombra esas competencias; se desbloquea primero con el flujo de siempre.
+    La reversión nunca toca una competencia oficial. En DESTINO no hay guarda: lo suyo se
+    archiva igual que cuando un estudiante llega (decisión 3).
+    ⚠️ **Costo medido** (verificador, matrícula 162): revertir desconfirmó **8 criterios** de
+    origen (6 con nota y 2 con omisión: restaurar una omisión también muta el criterio). Mientras
+    el docente no los reconfirme, el resumen de esas competencias no está disponible para la
+    sección entera. El aviso al docente de origen (fase 2) debe decirlo.
+
 ⚠️ **«Archivo del cambio» NO es la tabla de borradores.** `borradores_formulario` (074) guarda
 lo tecleado en un formulario y se BORRA tras el guardado oficial; `cambios_seccion_*` es un
 archivo PERMANENTE (auditoría, referencia y reversión). Se archiva TODO lo del bimestre

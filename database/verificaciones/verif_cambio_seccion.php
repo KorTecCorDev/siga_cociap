@@ -258,6 +258,112 @@ if ($cerrado) {
     echo "  (sin bimestres cerrados: el regreso no es evaluable)\n";
 }
 
+echo "\n=== 5c. REVERTIR (mismo bimestre abierto; opción a del 07/10/2026) ===\n";
+$pdo->beginTransaction();
+try {
+    $vivoAntes = $vivas($mid, $origen, false);
+    // Criterios de origen CONFIRMADOS que recibirán algo del estudiante: una
+    // nota O una omisión (restaurar cualquiera de las dos muta el criterio).
+    $confirmadosAntes = array_map('intval', $pdo->query("
+        SELECT DISTINCT cr.id FROM criterios cr
+        JOIN cargas_academicas ca ON ca.id = cr.carga_id
+        JOIN periodos pe ON pe.id = cr.periodo_id
+        WHERE ca.seccion_id = {$origen} AND pe.estado <> 'cerrado'
+          AND cr.eliminado_en IS NULL AND cr.confirmado_en IS NOT NULL
+          AND (EXISTS (SELECT 1 FROM calificaciones_criterio cc
+                        WHERE cc.criterio_id = cr.id AND cc.matricula_id = {$mid})
+            OR EXISTS (SELECT 1 FROM omisiones_criterio oc
+                        WHERE oc.criterio_id = cr.id AND oc.matricula_id = {$mid}))")
+        ->fetchAll(PDO::FETCH_COLUMN));
+
+    $nro = $tras->siguienteCorrelativo($anioId, 1);
+    $res = $cambios->ejecutar($mid, $destino, $nro, date('Y-m-d'), 'ida', $usuario);
+    $cid = $res['cambio_id'];
+
+    // Destino le registra una nota (debe ARCHIVARSE con lado = 'destino').
+    $critDestino = (int) $pdo->query("
+        SELECT cr.id FROM criterios cr
+        JOIN cargas_academicas ca ON ca.id = cr.carga_id
+        JOIN periodos pe ON pe.id = cr.periodo_id
+        WHERE ca.seccion_id = {$destino} AND pe.estado <> 'cerrado' AND cr.eliminado_en IS NULL
+        LIMIT 1")->fetchColumn();
+    if ($critDestino > 0) {
+        $pdo->prepare("INSERT INTO calificaciones_criterio (criterio_id, matricula_id, nota) VALUES (?, ?, 15)")
+            ->execute([$critDestino, $mid]);
+    }
+
+    // Guarda (a), rama BLOQUEA: un bloqueo en origen sobre lo archivado.
+    $bloqReales = $cambios->bloqueosQueImpidenRevertir($cid);
+    $creado = false;
+    if ($bloqReales === []) {
+        $a = $pdo->query("SELECT carga_id, competencia_id, periodo_id FROM cambios_seccion_criterio
+                          WHERE cambio_id = {$cid} AND lado = 'origen' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $pdo->prepare("INSERT INTO bloqueos_competencia (carga_id, competencia_id, periodo_id, bloqueado_por)
+                       VALUES (?, ?, ?, ?)")
+            ->execute([$a['carga_id'], $a['competencia_id'], $a['periodo_id'], $usuario]);
+        $creado = true;
+    }
+    $ok($cambios->motivoNoRevertible($cid) !== null, 'con competencia BLOQUEADA en origen: NO se revierte');
+    $ok($rechaza(fn() => $cambios->revertir($cid, 'x', $usuario)) !== null, 'revertir() lo rechaza');
+
+    // Rama DEJA PASAR: sin esos bloqueos (dentro de la transacción; el rollback los repone).
+    $pdo->exec("DELETE bc FROM bloqueos_competencia bc
+                JOIN (SELECT carga_id, competencia_id, periodo_id FROM cambios_seccion_criterio
+                       WHERE cambio_id = {$cid} AND lado = 'origen'
+                      UNION SELECT carga_id, competencia_id, periodo_id FROM cambios_seccion_omision
+                       WHERE cambio_id = {$cid} AND lado = 'origen'
+                      UNION SELECT carga_id, competencia_id, periodo_id FROM cambios_seccion_competencia
+                       WHERE cambio_id = {$cid} AND lado = 'origen') a
+                  ON a.carga_id = bc.carga_id AND a.competencia_id = bc.competencia_id
+                 AND a.periodo_id = bc.periodo_id");
+    echo "  (bloqueos de origen " . ($creado ? 'creados' : 'reales') . " para la rama que bloquea)\n";
+    $ok($cambios->motivoNoRevertible($cid) === null, 'sin bloqueos en origen: SÍ se revierte');
+    $ok($rechaza(fn() => $cambios->revertir($cid, '  ', $usuario)) !== null, 'motivo vacío: RECHAZADO');
+
+    $rev = $cambios->revertir($cid, 'la familia desiste', $usuario);
+    echo "  → restauradas {$rev['restauradas']}, omitidas {$rev['omitidas']}, desconfirmados "
+        . count($rev['desconfirmados']) . ", archivadas de destino {$rev['archivadas_destino']['criterios']}\n";
+
+    $ok($vivas($mid, $origen, false)['crit'] === $vivoAntes['crit']
+        && $vivas($mid, $origen, false)['omi'] === $vivoAntes['omi'],
+        'origen recupera todas sus notas por criterio y omisiones');
+    $ok($vivas($mid, $origen, false)['cal'] <= $vivoAntes['cal'],
+        'los promedios restaurados no superan los que había');
+    $ok($vivas($mid, $destino, false) === ['cal' => 0, 'crit' => 0, 'omi' => 0], 'destino queda sin filas vivas');
+    if ($critDestino > 0) {
+        $ok($rev['archivadas_destino']['criterios'] >= 1, 'lo de destino quedó ARCHIVADO (lado destino)');
+    }
+    sort($confirmadosAntes);
+    $des = $rev['desconfirmados']; sort($des);
+    $ok($des === $confirmadosAntes, 'se desconfirman EXACTAMENTE los criterios confirmados que reciben notas');
+    $ok($contar("SELECT COUNT(*) FROM criterios WHERE confirmado_en IS NOT NULL AND id IN ("
+            . (implode(',', $des) ?: '0') . ")") === 0, 'y quedan sin confirmar');
+    $ok($contar("SELECT seccion_id FROM matriculas WHERE id = ?", [$mid]) === $origen, 'la matrícula vuelve a origen');
+    $ok($contar("SELECT COUNT(*) FROM cambios_seccion WHERE id = ? AND estado = 'revertido'", [$cid]) === 1,
+        'el cambio queda REVERTIDO');
+    $ok($tras->correlativoDisponible($anioId, $nro), "la R.D. {$nro} queda LIBRE");
+    foreach ($periodos as $p) {
+        $ok($cambios->seccionDelPeriodo($mid, (int) $p['id']) === $origen, "periodo {$p['numero']} → {$origen}");
+    }
+    $ok($rechaza(fn() => $cambios->revertir($cid, 'x', $usuario)) !== null, 'revertir dos veces: RECHAZADO');
+} finally {
+    $pdo->rollBack();
+}
+
+if ($cerrado) {
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare("INSERT INTO cambios_seccion (matricula_id, anio_id, periodo_id, seccion_origen_id,
+                         seccion_destino_id, motivo, movido_por) VALUES (?, ?, ?, ?, ?, 'ida', ?)")
+            ->execute([$mid, $anioId, (int) $cerrado['id'], $origen, $destino, $usuario]);
+        $cid = (int) $pdo->lastInsertId();
+        $pdo->prepare("UPDATE matriculas SET seccion_id = ? WHERE id = ?")->execute([$destino, $mid]);
+        $ok($cambios->motivoNoRevertible($cid) !== null, 'cambio de un bimestre CERRADO: NO se revierte (es regreso)');
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n=== 6. ROLLBACK ===\n";
 foreach ($tablas as $t) {
     $ok($contar("SELECT COUNT(*) FROM {$t}") === $antesGlobal[$t], "{$t} vuelve a {$antesGlobal[$t]} filas");
