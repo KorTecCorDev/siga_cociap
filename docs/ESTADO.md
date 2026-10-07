@@ -1,25 +1,90 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **05/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **06/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🔜 RETOMAR AQUÍ (05/10/2026, fin del turno tarde en la laptop → escritorio de casa)
+## 🔜 RETOMAR AQUÍ (06/10/2026, fin del turno tarde en la laptop → escritorio de casa)
 
-**Producción al cierre del turno:** código `c3d1bdc` (retorno de grado con tramo + lotes 072).
-Migraciones aplicadas allí: **072 y 073**. **No existe ninguna 074** (se escribió y se retiró:
-ver «FALSA ALARMA»). Retorno #1 revertido y corregido (tramo II–II); la boleta de la 190
-muestra el II.
+**Git al cierre del turno:** `origin/dev` = `3452567` (autoguardado + sesión, 4 fases).
+`origin/main` = `52db789` (colegio de origen por bimestre): **el autoguardado NO está en
+producción.** Migraciones en producción: hasta la **073**. La **074 (`borradores_formulario`)
+existe y está aplicada SOLO en la BD local de la laptop.**
 
-**Al abrir el escritorio, antes de medir nada:**
-1. `git pull` en `dev` y en `main`.
-2. **La BD local de casa necesita una copia fresca de producción** (o, como mínimo, la **072** y
-   la **073** aplicadas). Sin la 073, `RetornoGradoModel` falla al leer el tramo. Huella para
-   comprobarla: `SHOW COLUMNS FROM retornos_grado LIKE 'periodo_hasta_id'` existe y
-   `SELECT periodo_hasta_id FROM retornos_grado WHERE id = 1` da **2**.
-3. ⚠️ La copia exportada de producción **no trae los CHECK con nombre de tabla** ni respeta
-   alguna colación: no auditar esquema con ella (ver «FALSA ALARMA»).
+**Al abrir el escritorio, antes de probar nada:**
+1. `git pull` en `dev` (y en `main`).
+2. **Aplicar la 074 en la BD local de casa**: `database/migrations/074_borradores_formulario.sql`
+   (idempotente). Sin ella, el autoguardado de los 5 formularios responde 500. Huella:
+   `SHOW TABLES LIKE 'borradores_formulario'` existe.
+3. Si la BD de casa no tiene la 072/073, ver los pasos del turno anterior (más abajo, en esta
+   misma sección): copia fresca de producción o aplicar 072 + 073.
+4. `gulp build` no hace falta (los JS compilados van en el commit), pero si algo se ve viejo,
+   recargar con Ctrl+F5.
+5. ⚠️ Para probar la sesión sin esperar 10 min se puede bajar `session_timeout` en
+   `config/app.php` (p. ej. 60) — **restaurar 600 y NO commitearlo**.
+
+### Pruebas de navegador que te quedan (autoguardado + sesión)
+
+Lo que ya se probó el 06/10 (admin, laptop) NO se repite: aviso y cierre por inactividad,
+regreso a la pantalla, lote en rectificación, restauración de los 5 formularios, conflicto entre
+pestañas, inyección escapada, aviso de «otro usuario», «Traer competencias» y «+ Añadir fila».
+Lo que falta es lo que necesita **tus manos, otros roles o un guardado REAL**:
+
+**Bloque A — Sesión con 10 minutos reales (cualquier rol)** — A1 OK con admin (06/10 noche: renovación silenciosa a los 8 min, sin aviso). A2, A3, A4 y A5 OK con
+docente (06/10 noche, `session_timeout` bajado a 60 y restaurado a 600): «Seguir trabajando» renueva,
+el cierre lleva al login y al entrar vuelve a `/docente/tutoria/acompanamiento`; la boleta imprimible
+no carga `sesion.js` y no redirige.
+- [x] A1. **Trabajando sin parar** más de 10 min (escribiendo/haciendo clic en un formulario):
+      **NO debe aparecer el aviso** ni cerrarse la sesión (renovación silenciosa a los 8 min).
+- [x] A2. Quieto 9 min → sale el aviso con 60 s → «Seguir trabajando» lo cierra (botón abajo a
+      la derecha) y la sesión sigue.
+- [x] A3. Quieto 10 min → login con el mensaje de siempre → al entrar, vuelves a esa pantalla.
+- [x] A4. **Con un DOCENTE** (no admin): A2 y A3 en su panel. El aviso es de todo el sistema y
+      solo se probó con admin.
+- [x] A5. Abrir una **boleta imprimible** y dejarla 10 min: **no** debe salir aviso ni
+      redirigir (el layout `print` no lleva el aviso).
+- [x] A6. **Volver a una pestaña oculta** (refuerzo `visibilitychange`/`pageshow` del 06/10 noche):
+      probado en Chrome real con docente y `session_timeout` 420 (restaurado). Oculta 7 min, a los
+      18 s del vencimiento seguía con el aviso congelado en «26»; al volver (22:39:27.570) consultó,
+      cerró y pasó al login **en el mismo segundo**; tras el login regresó a la pantalla. Falta,
+      cuando se pueda, repetirlo desde un **celular**.
+
+**Bloque B — Guardado REAL borra el borrador (usar un estudiante de PRUEBA: escribe datos
+oficiales)** — B1-B3 OK con admin (06/10 noche, matrícula 693; BD restaurada después).
+- [x] B1. Extraordinaria individual: escribir → «Borrador guardado» → **Registrar** → al volver a
+      abrir esa competencia ya no es insertable (o no hay aviso de borrador).
+- [x] B2. Notas SIAGIE: escribir → **Autorizar nota** → volver: el bloque de ese bimestre sin
+      aviso de borrador. (Se puede revertir con «eliminar» de la propia pantalla.)
+- [x] B3. Notas de origen: escribir 1-2 filas → **Guardar notas de origen** → volver: formulario
+      en blanco, sin aviso de borrador, y las notas en «Ya registradas».
+
+**Bloque C — Otros roles (las pruebas con admin no cierran estos)** — C1 y C3 OK (06/10 noche, RA +
+admin en incógnito; la 2.ª cuenta ve el aviso y el formulario vacío en lote y en notas de origen).
+C2 queda pendiente: aún no hay usuario de secretaría.
+- [x] C1. Con **Registro Académico**: autoguardado de la rectificación en lote y de notas SIAGIE
+      (escribir → «Borrador guardado» → recargar → vuelve).
+- [ ] C2. Con **secretaría académica o administrativa**: autoguardado de notas de origen (su
+      permiso viene de `ROLES_MATRICULAN`).
+- [x] C3. Con **dos cuentas reales** (admin + RA) sobre el mismo formulario: la segunda ve
+      «X tiene un borrador sin registrar…» y **no** ve sus datos.
+
+**Bloque D — Antes del despliegue**
+- [x] D1. `php database/verificaciones/verif_borradores.php` → TODO CORRECTO (73).
+- [x] D2. `php database/verificaciones/verif_notas_origen.php` → TODO CORRECTO.
+- [ ] D3. Aplicar la **074 a mano en producción** y luego el merge `dev`→`main` (preguntar
+      antes); `session_timeout` en 600.
+
+---
+
+**(Turno anterior, 05/10)** Producción al cierre: código `c3d1bdc` (retorno de grado con
+tramo + lotes 072). Migraciones aplicadas allí: **072 y 073**. Retorno #1 revertido y corregido
+(tramo II–II); la boleta de la 190 muestra el II. Pasos de BD de ese turno: 1) `git pull`;
+2) **copia fresca de producción** o, como mínimo, **072 y 073** aplicadas (huella:
+`SHOW COLUMNS FROM retornos_grado LIKE 'periodo_hasta_id'` existe y
+`SELECT periodo_hasta_id FROM retornos_grado WHERE id = 1` da **2**); 3) ⚠️ la copia exportada
+**no trae los CHECK con nombre de tabla** ni respeta alguna colación: no auditar esquema con ella
+(ver «FALSA ALARMA»).
 
 **Pendientes, en orden:**
 - [ ] Colegio (no es código): la auxiliar de 2.° B **confirma** la asistencia del III de la
@@ -28,6 +93,30 @@ muestra el II.
 - [ ] `php scripts/siagie/llenar-siagie.php --simular` sobre un acta real de 5.º (lote 072/
       situación final según el acta).
 - [ ] Las pruebas en producción del módulo auxiliar (ver su sección más abajo).
+
+## 🆕 SESIÓN QUE NO HACE PERDER EL TRABAJO + BORRADORES — EN `dev` (06/10/2026)
+
+Plan de 4 fases; detalle y decisiones en `docs/modulos/borradores-y-sesion.md`.
+
+- [x] **Fase 1 — sesión** (sin migración): aviso al faltar 60 s, cierre real, regreso a la
+      última pantalla guardado en la sesión, renovación silenciosa por actividad humana con
+      `hace`, `SesionController` sin BD. Probada en navegador por el usuario (06/10).
+- [x] **Fase 2** — migración `074_borradores_formulario` (aplicada SOLO en local) +
+      `BorradorModel` + `BorradorController` + `borrador.js` + rectificación en lote.
+      Probada en navegador por el usuario (06/10); `verif_borradores.php` en verde.
+- [x] **Fase 3** — rectificación por competencia, extraordinaria individual, notas SIAGIE.
+      Probada en navegador (06/10, sesión admin): guardado, restauración, conflicto entre
+      pestañas, inyección escapada y aviso de otro usuario. `verif_borradores.php` 61/61.
+- [x] **Fase 4** — notas de origen (filas pintadas por el servidor, «Traer competencias» que
+      guarda antes de recargar, serializador de `campo[]`). Probada en navegador (06/10):
+      restauración, importación sin perder lo tecleado, «+ Añadir fila». `verif_borradores.php`
+      73/73 y `verif_notas_origen.php` en verde.
+- [ ] **Despliegue:** aplicar la 074 a mano en producción ANTES del merge. ⚠️ `session_timeout`
+      debe ir en 600.
+- [ ] 🔴 **Pendiente de seguridad (preexistente, tarea APARTE):** la sesión única por usuario no
+      se aplica — `UsuarioModel::tokenValido()` nunca se llama. Decidido tratarlo después.
+- Recomendaciones no pedidas: el autoguardado de `calificaciones.js` y `conducta.js` falla en
+  silencio si la sesión venció (el `fetch` sigue la redirección al login).
 
 ## 🟢 COLEGIO DE ORIGEN OBLIGATORIO Y CORREGIBLE POR BIMESTRE — DESPLEGADO el 06/10/2026 (merge `7dbe713`, sin migración; sigue v1.0.5)
 

@@ -19,7 +19,8 @@
  * @var array $literalesConclusion literales que EXIGEN conclusión en este nivel
  * @var array $replicasPorComp     [competencia_id => [{area_id, area_nombre}]]
  *                                 réplicas del acta SIAGIE (migración 072)
- * @var array|null $old            lo escrito antes de un rechazo del servidor
+ * @var array|null $old            lo escrito antes de un rechazo del servidor, o el borrador
+ * @var array      $borrador       revision, restaurado, actualizado_en, otros (migración 074)
  *                                 (motivo, notas[clave], conclusiones[clave],
  *                                 conducta, asistencia[campo])
  */
@@ -115,10 +116,16 @@ $obligatoriaTxt = $literalesConclusion === []
     cerrado, la familia las verá en la boleta apenas las registres.
 </div>
 
+<?php require VIEW_PATH . '/shared/_borrador-avisos.php'; ?>
+
 <form method="POST"
       action="<?= url('rectificaciones/extraordinaria/lote/guardar') ?>"
       id="rectLoteForm"
       class="rect-lote"
+      data-borrador-tipo="rect_lote"
+      data-borrador-ctx-matricula="<?= (int) $info['matricula_id'] ?>"
+      data-borrador-ctx-periodo="<?= (int) $periodo['id'] ?>"
+      data-borrador-revision="<?= (int) ($borrador['revision'] ?? 0) ?>"
       data-nota-min-ad="<?= NOTA_MIN_AD ?>"
       data-nota-min-a="<?= NOTA_MIN_A ?>"
       data-nota-min-b="<?= NOTA_MIN_B ?>"
@@ -339,6 +346,7 @@ $obligatoriaTxt = $literalesConclusion === []
         <div class="rect-lote__contador">
             <strong data-rect-lote-llenas>0</strong> de <?= (int) $total ?> registros llenos.
             <span class="text-muted">Los que dejes vacíos no se registran.</span>
+            <span class="text-sm text-muted" data-borrador-estado aria-live="polite"></span>
         </div>
         <div class="btn-group">
             <a href="<?= $volver ?>" class="btn btn--secondary">Cancelar</a>

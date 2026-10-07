@@ -315,6 +315,8 @@ siempre con `EXO`; ya no distingue si había notas.
 - **Tabla** `notas_autorizadas_siagie` (migración 040): `matricula+competencia+periodo
   → nota_literal + conclusión + resolución`, UNIQUE. Modelo `NotaAutorizadaSiagieModel`.
 - **Pantalla** `/matriculas/{id}/notas-siagie` (solo admin/RA; card resumen en `show`).
+  **Autoguardado (06/10/2026, migración 074):** un borrador por bimestre (un formulario por
+  bimestre); se elimina al registrar. Ver `docs/modulos/borradores-y-sesion.md`.
   Muestra, por bimestre, las competencias AUTORIZABLES y las ya registradas.
 - **Candado de elegibilidad** (`esElegible`, validado en servidor): la competencia
   debe tener una **omisión registrada** del alumno (CUALQUIER motivo — basta que el
@@ -902,6 +904,13 @@ rol**, solo dónde y cuándo se pinta cada cosa:
 - **Exoneraciones**: solo si hay alguna (su registro sigue en «Gestión de la matrícula»).
 - SASS: `.mat-seccion-ancha` sustituye al `grid-column` de `.mat-llegada`; los estilos
   `__panel/__boton/__contenido` del `<details>` se retiraron.
+
+### Autoguardado del formulario de captura (06/10/2026, migración 074)
+
+Lo tecleado en la captura en lote se guarda como borrador por usuario y vuelve pintado por el
+servidor (filas del borrador primero, luego las importadas). **«Traer competencias» ya no pierde
+lo escrito**: antes de recargar se guarda el borrador. Se elimina al guardar con éxito. Ver
+`docs/modulos/borradores-y-sesion.md` § 3.6.
 
 ### Colegio de origen: obligatorio y corregible (06/10/2026) — desplegado el 06/10/2026
 

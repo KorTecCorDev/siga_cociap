@@ -944,6 +944,9 @@ en `calificaciones` (4 tablas propias, ciclo por SECCIÓN en dos etapas).
 
 > Rutas `GET /rectificaciones/extraordinaria/lote?matricula=&periodo=` y
 > `POST .../lote/guardar`. Sin migración: **no cambia nada del motor**.
+> **Autoguardado (06/10/2026, migración 074):** lo tecleado se guarda como borrador por
+> usuario y se restaura por `$old`; el POST lo elimina tras el commit. Ver
+> `docs/modulos/borradores-y-sesion.md`.
 
 **El problema era de UX, no de reglas.** El alta era de UNA competencia por vez, y un
 alumno matriculado después del cierre necesita **25-27 altas**: 25-27 pasadas por el

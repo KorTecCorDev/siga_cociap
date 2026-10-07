@@ -197,6 +197,7 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | **Notas del COLEGIO DE ORIGEN** (trasladado: informativas, nunca en boleta) | `docs/modulos/matriculas.md` |
 | **Completar notas de un bimestre CERRADO** (llegó tarde: extraordinaria, en lote) | `docs/modulos/calificaciones.md` |
 | **Notificaciones y comunicados** (bandeja, campana, avisos al docente) | `docs/modulos/notificaciones.md` |
+| **Sesión y borradores** (aviso «¿Sigues trabajando?», cierre por inactividad, regreso a la pantalla, autoguardado de formularios de carga manual) | `docs/modulos/borradores-y-sesion.md` |
 | **Consulta de notas con transversales y conducta** | `docs/modulos/consulta-notas-ampliada.md` |
 | **Bloqueos fantasma del cierre + visibilidad del tutor** | `docs/modulos/transversales-visibilidad-tutor.md` |
 | **Cambio de sección a mitad de bimestre** (mudanza, convalidación, reversión) | `docs/modulos/cambio-seccion.md` |
@@ -434,6 +435,11 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   bimestre: PUNTO ÚNICO `TutorPeriodoModel` (inmutable; en curso → el actual). Un
   documento nuevo de bimestre que nombre al tutor lo lee de ahí, nunca de `tutor_id`.
   Ver `docs/modulos/admin.md`.
+- **Un BORRADOR nunca toca tablas oficiales** (migración 074, 06/10/2026): lo tecleado en un
+  formulario de carga manual vive en `borradores_formulario`, por usuario, y se elimina SOLO
+  tras el commit del guardado oficial. PUNTO ÚNICO `BorradorModel`; se restaura por el `$old`
+  del formulario (pintado por el servidor), nunca rellenando campos desde JS. Ver
+  `docs/modulos/borradores-y-sesion.md`.
 - **PDO preparado siempre**; `cargas_academicas` y `criterios` NO tienen UNIQUE KEY →
   proteger duplicados con `WHERE NOT EXISTS`.
 - **NUNCA CSS inline en PHP** — todo en SASS bajo `resources/sass/` + `gulp build`.

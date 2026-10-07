@@ -122,6 +122,57 @@ function url(string $path = ''): string
 }
 
 /**
+ * Ruta de la petición actual RELATIVA A LA APP (sin el base path del
+ * subdirectorio), con su query. Ej.: `/rectificaciones/editar?matricula=5`.
+ * Es lo que viaja como `volver` al login (06/10/2026). Misma resta del base
+ * path que hace `Core\Router`.
+ */
+function ruta_actual_app(): string
+{
+    $uri      = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+    $ruta     = (string) parse_url($uri, PHP_URL_PATH);
+    $query    = (string) parse_url($uri, PHP_URL_QUERY);
+    $basePath = rtrim(dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php')), '/\\');
+    if ($basePath !== '' && str_starts_with($ruta, $basePath)) {
+        $ruta = substr($ruta, strlen($basePath));
+    }
+    $ruta = '/' . ltrim($ruta, '/');
+    return $query !== '' ? $ruta . '?' . $query : $ruta;
+}
+
+/**
+ * Valida el destino `volver` del login (06/10/2026). Devuelve la ruta interna
+ * limpia o null.
+ *
+ * 🔴 SEGURIDAD — redirección abierta: solo se acepta una ruta RELATIVA A LA APP
+ * con un juego de caracteres cerrado. Rechaza `//host`, `\`, esquemas
+ * (`https:`, `javascript:`), caracteres de control (CR/LF), `..` y las rutas de
+ * la propia sesión. Quien la use redirige con `url()`, que antepone la base:
+ * nunca puede salir del dominio.
+ */
+function volver_valido(mixed $volver): ?string
+{
+    // Viene del request: `volver[]=x` llega como arreglo. Lo que no es texto
+    // se rechaza, en vez de reventar con un TypeError (500).
+    if (!is_string($volver) || $volver === '' || strlen($volver) > 300) {
+        return null;
+    }
+    if (!preg_match('#^/(?!/)[A-Za-z0-9/_\-]*(\?[A-Za-z0-9_\-=&%.\[\]]*)?$#', $volver)) {
+        return null;
+    }
+    if (str_contains($volver, '..')) {
+        return null;
+    }
+    $ruta = (string) parse_url($volver, PHP_URL_PATH);
+    foreach (['/login', '/logout', '/sesion/', '/borradores/'] as $prohibida) {
+        if ($ruta === rtrim($prohibida, '/') || str_starts_with($ruta, $prohibida)) {
+            return null;
+        }
+    }
+    return $ruta === '/' ? null : $volver;
+}
+
+/**
  * Cache-busting de assets estaticos.
  * Si $relPath apunta a un archivo real bajo public/ (css, js, imagenes,
  * fuentes, etc.) devuelve la URL con ?v=<filemtime>; asi el navegador y la

@@ -3,7 +3,8 @@
  * Vista: Notas autorizadas por dirección para SIAGIE (informe aparte).
  *
  * @var array  $matricula
- * @var array  $bloques  [ ['periodo'=>..., 'elegibles'=>[...], 'registradas'=>[...]], ... ]
+ * @var array  $bloques  [ ['periodo'=>..., 'elegibles'=>[...], 'registradas'=>[...],
+ *                          'old'=>borrador, 'borrador'=>avisos (migración 074)], ... ]
  * @var string $nivel    'primaria' | 'secundaria' (para la regla de conclusión)
  */
 $mid = (int) $matricula['id'];
@@ -87,7 +88,16 @@ $mid = (int) $matricula['id'];
 
         <!-- Autorizar una competencia elegible -->
         <?php if (!empty($b['elegibles'])): ?>
-            <form method="POST" action="<?= url('matriculas/' . $mid . '/notas-siagie') ?>">
+            <?php // Borrador de ESTE bimestre (06/10/2026): vuelve a los campos por $old.
+                  $old = is_array($b['old'] ?? null) ? $b['old'] : [];
+                  $oldTxt = static fn(string $k): string => is_string($old[$k] ?? null) ? $old[$k] : '';
+                  $borrador = $b['borrador'] ?? [];
+                  require VIEW_PATH . '/shared/_borrador-avisos.php'; ?>
+            <form method="POST" action="<?= url('matriculas/' . $mid . '/notas-siagie') ?>"
+                  data-borrador-tipo="notas_siagie"
+                  data-borrador-ctx-matricula="<?= $mid ?>"
+                  data-borrador-ctx-periodo="<?= $pid ?>"
+                  data-borrador-revision="<?= (int) ($borrador['revision'] ?? 0) ?>">
                 <?= csrf_field() ?>
                 <input type="hidden" name="periodo_id" value="<?= $pid ?>">
                 <div class="form-grid">
@@ -97,7 +107,7 @@ $mid = (int) $matricula['id'];
                         <select id="comp-<?= $pid ?>" name="competencia_id" class="form-input" required>
                             <option value="">— elige —</option>
                             <?php foreach ($b['elegibles'] as $c): ?>
-                                <option value="<?= (int) $c['competencia_id'] ?>">
+                                <option value="<?= (int) $c['competencia_id'] ?>"<?= $oldTxt('competencia_id') === (string) (int) $c['competencia_id'] ? ' selected' : '' ?>>
                                     <?= e(($c['area_nombre'] ? $c['area_nombre'] . ' — ' : '') . $c['competencia_nombre']) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -107,23 +117,24 @@ $mid = (int) $matricula['id'];
                         <label class="form-label" for="lit-<?= $pid ?>">Nota literal <span class="text-danger">*</span></label>
                         <select id="lit-<?= $pid ?>" name="nota_literal" class="form-input" required>
                             <option value="">—</option>
-                            <option value="AD">AD — Logro destacado</option>
-                            <option value="A">A — Logro esperado</option>
-                            <option value="B">B — En proceso</option>
-                            <option value="C">C — En inicio</option>
+                            <?php foreach (['AD' => 'Logro destacado', 'A' => 'Logro esperado', 'B' => 'En proceso', 'C' => 'En inicio'] as $lit => $txt): ?>
+                                <option value="<?= $lit ?>"<?= $oldTxt('nota_literal') === $lit ? ' selected' : '' ?>><?= $lit ?> — <?= $txt ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="form-group form-group--full">
                         <label class="form-label" for="conc-<?= $pid ?>">Conclusión descriptiva</label>
                         <textarea id="conc-<?= $pid ?>" name="conclusion_descriptiva" class="form-input" rows="2"
-                                  placeholder="Obligatoria si la nota es B/C (primaria) o C (secundaria)"></textarea>
+                                  placeholder="Obligatoria si la nota es B/C (primaria) o C (secundaria)"><?= e($oldTxt('conclusion_descriptiva')) ?></textarea>
                     </div>
                     <div class="form-group form-group--full">
                         <label class="form-label" for="res-<?= $pid ?>">Resolución / autorización de dirección <span class="text-danger">*</span></label>
                         <input type="text" id="res-<?= $pid ?>" name="resolucion" class="form-input" maxlength="255"
-                               placeholder="Ej.: Autorizado por Dirección — Resolución N.° ___ / motivo" required>
+                               placeholder="Ej.: Autorizado por Dirección — Resolución N.° ___ / motivo" required
+                               value="<?= e($oldTxt('resolucion')) ?>">
                     </div>
                 </div>
+                <p class="text-sm text-muted" data-borrador-estado aria-live="polite"></p>
                 <div class="btn-group form-actions">
                     <button type="submit" class="btn btn--primary">Autorizar nota</button>
                 </div>

@@ -64,7 +64,17 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
     cerrado, la familia la verá en la boleta apenas la registres.
 </div>
 
-<form method="POST" action="<?= url('rectificaciones/extraordinaria/guardar') ?>" class="card">
+<?php // Borrador (06/10/2026): lo tecleado y no registrado vuelve por `$old`. ?>
+<?php $old = is_array($old ?? null) ? $old : []; ?>
+<?php require VIEW_PATH . '/shared/_borrador-avisos.php'; ?>
+
+<form method="POST" action="<?= url('rectificaciones/extraordinaria/guardar') ?>" class="card"
+      data-borrador-tipo="rect_extraordinaria"
+      data-borrador-ctx-matricula="<?= (int) $info['matricula_id'] ?>"
+      data-borrador-ctx-carga="<?= (int) $cargaId ?>"
+      data-borrador-ctx-competencia="<?= (int) $competenciaId ?>"
+      data-borrador-ctx-periodo="<?= (int) $periodoId ?>"
+      data-borrador-revision="<?= (int) ($borrador['revision'] ?? 0) ?>">
     <div class="card__body">
         <?= csrf_field() ?>
         <input type="hidden" name="matricula_id"   value="<?= (int) $info['matricula_id'] ?>">
@@ -81,26 +91,28 @@ $volver = url('rectificaciones/matricula/' . (int) $info['matricula_id']);
         <div class="form-group">
             <label class="form-label" for="nota">Nota <span class="text-danger">*</span></label>
             <input type="number" id="nota" name="nota" min="0" max="20" step="1"
-                   class="form-input rect-nota-input" inputmode="numeric" required>
+                   class="form-input rect-nota-input" inputmode="numeric" required
+                   value="<?= e(is_string($old['nota'] ?? null) ? $old['nota'] : '') ?>">
         </div>
 
         <div class="form-group mt-md">
             <label class="form-label" for="conclusion">Conclusión descriptiva</label>
             <textarea id="conclusion" name="conclusion" class="form-input" rows="3"
-                      placeholder="Conclusión descriptiva (opcional según el resultado)."></textarea>
+                      placeholder="Conclusión descriptiva (opcional según el resultado)."><?= e(is_string($old['conclusion'] ?? null) ? $old['conclusion'] : '') ?></textarea>
             <p class="text-sm text-muted"><?= $obligatoriaTxt ?></p>
         </div>
 
         <div class="form-group">
             <label class="form-label" for="motivo">Motivo de la calificación extraordinaria <span class="text-danger">*</span></label>
             <textarea id="motivo" name="motivo" class="form-input" rows="3" required
-                      placeholder="Fundamenta la autorización (p. ej. evaluación de recuperación aplicada el ... por ausencia justificada)."></textarea>
+                      placeholder="Fundamenta la autorización (p. ej. evaluación de recuperación aplicada el ... por ausencia justificada)."><?= e(is_string($old['motivo'] ?? null) ? $old['motivo'] : '') ?></textarea>
             <p class="text-sm text-muted">
                 El motivo queda en la auditoría y el docente lo verá junto a la nota
                 en sus vistas de solo lectura.
             </p>
         </div>
 
+        <p class="text-sm text-muted" data-borrador-estado aria-live="polite"></p>
         <div class="btn-group form-actions">
             <a href="<?= $volver ?>" class="btn btn--secondary">Cancelar</a>
             <button type="submit" class="btn btn--primary">Registrar calificación</button>

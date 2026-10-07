@@ -17,6 +17,7 @@ use App\Models\AnioAcademicoModel;
 use App\Models\RectificacionModel;
 use App\Models\BoletaModel;
 use App\Models\RetornoGradoModel;
+use App\Models\BorradorModel;
 use Core\Session;
 use Core\View;
 
@@ -97,7 +98,9 @@ class MatriculaController extends BaseController
      * habia CUATRO metodos de escritura sin guarda propia. Guardarlos con esta
      * constante deja el permiso donde estaba y cierra la puerta a los nuevos.
      */
-    private const ROLES_MATRICULAN = [
+    // Pública desde el 06/10/2026: el endpoint de borradores la usa para las
+    // notas de origen (un solo punto de verdad de quién abre ese formulario).
+    public const ROLES_MATRICULAN = [
         'admin', 'registro_academico',
         'secretaria_academica', 'secretaria_administrativa',
     ];
@@ -1315,17 +1318,89 @@ class MatriculaController extends BaseController
             }
         }
 
+        // ── Borrador (06/10/2026, migración 074) ──────────────────
+        // Lo tecleado y no guardado vuelve PINTADO POR EL SERVIDOR: primero las
+        // filas del borrador (con sus notas), después las importadas que no
+        // estén ya en él. Así «Traer competencias» deja de perder lo escrito
+        // (borrador.js guarda ANTES de que el importador recargue la página).
+        $usuarioId     = (int) (Session::user()['id'] ?? 0);
+        $borradorModel = new BorradorModel();
+        $claveBorrador = BorradorModel::clave('notas_origen', ['matricula' => $mid]);
+        $borrador      = $claveBorrador !== null ? $borradorModel->obtener($usuarioId, 'notas_origen', $claveBorrador) : null;
+        $filasBorrador = $borrador !== null ? $this->filasDesdeBorrador($borrador['datos']) : [];
+        if ($filasBorrador !== []) {
+            $enBorrador = [];
+            foreach ($filasBorrador as $f) {
+                $enBorrador[$f['periodo_nombre'] . '||' . $f['area_nombre'] . '||' . $f['competencia_nombre']] = true;
+            }
+            $filasImportadas = array_merge($filasBorrador, array_values(array_filter(
+                $filasImportadas,
+                static fn(array $f): bool => !isset($enBorrador[$f['periodo_nombre'] . '||' . $f['area_nombre'] . '||' . $f['competencia_nombre']])
+            )));
+        }
+        $colegioBorrador = is_string($borrador['datos']['colegio_origen'] ?? null)
+            ? $borrador['datos']['colegio_origen'] : null;
+
         $this->view('matriculas/notas-externas', [
             'titulo'    => 'Notas del colegio de origen',
             'matricula' => $matricula,
             'notas'     => $yaHay,
+            'colegioBorrador' => $colegioBorrador,
+            'borrador'  => [
+                'revision'       => (int) ($borrador['revision'] ?? 0),
+                'restaurado'     => $borrador !== null,
+                'actualizado_en' => $borrador['actualizado_en'] ?? null,
+                'otros'          => $claveBorrador !== null
+                    ? $borradorModel->deOtros('notas_origen', $claveBorrador, $usuarioId) : [],
+            ],
             'colegiosPorPeriodo' => NotaExternaModel::colegiosPorPeriodo($yaHay),
             'areas'     => $this->notasExternasModel->areasDeLaSeccion($mid),
             'curricula' => $curricula,
             'periodos'  => $periodos,
             'filasImportadas' => $filasImportadas,
-            'page_scripts'    => ['notas-externas'],
+            // El orden importa: notas-externas.js valida el importador ANTES de
+            // que borrador.js guarde y lo envíe.
+            'page_scripts'    => ['notas-externas', 'borrador'],
         ]);
+    }
+
+    /**
+     * Borrador de notas de origen → filas del formulario. Los campos llegan como
+     * listas paralelas (`periodo_nombre[]`, `nota_literal[]`…), igual que el POST.
+     * Se omiten las filas totalmente vacías y se fuerzan los tipos: el JSON lo
+     * escribió el navegador.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function filasDesdeBorrador(array $d): array
+    {
+        $lista = static fn(string $k): array => is_array($d[$k] ?? null) ? array_values($d[$k]) : [];
+        $texto = static fn($v): string => is_string($v) ? $v : '';
+        $per = $lista('periodo_nombre');
+        $are = $lista('area_nombre');
+        $com = $lista('competencia_nombre');
+        $not = $lista('nota_literal');
+        $aid = $lista('area_id');
+        $con = $lista('conclusion_descriptiva');
+
+        $filas = [];
+        $n = max(count($per), count($are), count($com), count($not), count($con));
+        for ($i = 0; $i < $n; $i++) {
+            $fila = [
+                'periodo_nombre'         => $texto($per[$i] ?? ''),
+                'area_nombre'            => $texto($are[$i] ?? ''),
+                'competencia_nombre'     => $texto($com[$i] ?? ''),
+                'nota_literal'           => in_array($not[$i] ?? '', NotaExternaModel::LITERALES, true) ? $not[$i] : '',
+                'area_id'                => (int) ($aid[$i] ?? 0),
+                'conclusion_descriptiva' => $texto($con[$i] ?? ''),
+            ];
+            if (trim($fila['periodo_nombre'] . $fila['area_nombre'] . $fila['competencia_nombre']
+                    . $fila['nota_literal'] . $fila['conclusion_descriptiva']) === '') {
+                continue;
+            }
+            $filas[] = $fila;
+        }
+        return $filas;
     }
 
     // ── POST /matriculas/{id}/notas-externas ─────────────────────
@@ -1441,6 +1516,17 @@ class MatriculaController extends BaseController
                 'error' => $e->getMessage(),
             ]);
             $this->redirectWithError($volver, 'No se pudo registrar. No se guardó ninguna nota.');
+        }
+
+        // Ya es OFICIAL: el borrador se elimina (solo aquí, tras el commit).
+        // Que falle el borrado no tumba un registro ya válido.
+        try {
+            $claveBorrador = BorradorModel::clave('notas_origen', ['matricula' => (int) $id]);
+            if ($claveBorrador !== null) {
+                (new BorradorModel())->eliminar((int) (Session::user()['id'] ?? 0), 'notas_origen', $claveBorrador);
+            }
+        } catch (\Exception $e) {
+            log_error('No se pudo eliminar el borrador de notas de origen', ['error' => $e->getMessage()]);
         }
 
         // Aviso a los docentes con carga en su sección: estas notas NO salen en
@@ -1580,6 +1666,11 @@ class MatriculaController extends BaseController
             FROM periodos WHERE anio_id = ? ORDER BY numero
         ", [(int) $matricula['anio_id']]);
 
+        // Borrador (06/10/2026, migración 074): uno POR BIMESTRE, porque la
+        // pantalla tiene un formulario por bimestre. Solo el del usuario.
+        $usuarioId     = (int) (Session::user()['id'] ?? 0);
+        $borradorModel = new BorradorModel();
+
         $bloques = [];
         foreach ($periodos as $per) {
             $pid         = (int) $per['id'];
@@ -1589,10 +1680,19 @@ class MatriculaController extends BaseController
             if ($elegibles === [] && $registradas === []) {
                 continue;
             }
+            $clave    = BorradorModel::clave('notas_siagie', ['matricula' => $ident, 'periodo' => $pid]);
+            $borrador = $clave !== null ? $borradorModel->obtener($usuarioId, 'notas_siagie', $clave) : null;
             $bloques[] = [
                 'periodo'     => $per,
                 'elegibles'   => $elegibles,
                 'registradas' => $registradas,
+                'old'         => $borrador['datos'] ?? [],
+                'borrador'    => [
+                    'revision'       => (int) ($borrador['revision'] ?? 0),
+                    'restaurado'     => $borrador !== null,
+                    'actualizado_en' => $borrador['actualizado_en'] ?? null,
+                    'otros'          => $clave !== null ? $borradorModel->deOtros('notas_siagie', $clave, $usuarioId) : [],
+                ],
             ];
         }
 
@@ -1601,6 +1701,7 @@ class MatriculaController extends BaseController
             'matricula' => $matricula,
             'bloques'   => $bloques,
             'nivel'     => mb_strtolower((string) ($matricula['nivel_nombre'] ?? '')),
+            'page_scripts' => ['borrador'],
         ]);
     }
 
@@ -1649,6 +1750,17 @@ class MatriculaController extends BaseController
             'resolucion'             => $resolucion,
             'registrado_por'         => (int) (Session::user()['id'] ?? 0),
         ]);
+
+        // Ya es OFICIAL: el borrador de ese bimestre se elimina (solo aquí).
+        // Que falle el borrado no tumba un registro ya válido.
+        try {
+            $clave = BorradorModel::clave('notas_siagie', ['matricula' => $ident, 'periodo' => $periodo]);
+            if ($clave !== null) {
+                (new BorradorModel())->eliminar((int) (Session::user()['id'] ?? 0), 'notas_siagie', $clave);
+            }
+        } catch (\Exception $e) {
+            log_error('No se pudo eliminar el borrador de nota SIAGIE', ['error' => $e->getMessage()]);
+        }
 
         $this->redirectWithSuccess($volver, 'Nota autorizada registrada.');
     }

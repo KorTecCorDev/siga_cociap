@@ -17,6 +17,8 @@
 # Temporales EFIMEROS del modulo Actas SIAGIE (xlsx subido entre previsualizar y
 # confirmar; en prod viven en ~/siga_uploads/siagie_tmp). Nunca se versionan.
 /storage/tmp/
+# Contadores del limite de frecuencia (Core\Throttle): datos de ejecucion, nunca al repo
+/storage/throttle/
 # Nominas RegNotas del SIAGIE (traen PII de alumnos: nombres, DNI, codigos) y
 # public/ es docroot. NUNCA versionar ni servir desde el repo/prod.
 /public/*.xlsx
