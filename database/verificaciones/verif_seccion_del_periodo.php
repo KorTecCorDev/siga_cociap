@@ -294,5 +294,29 @@ if ($suj) {
     }
 }
 
+echo "\n=== 11. Bloque H — mérito por sección de un bimestre cursado en otra sección ===\n";
+if ($suj) {
+    $om  = new App\Models\OrdenMeritoModel();
+    $rps = new ReflectionMethod($om, 'rankingPorSeccionLive');
+    $rps->setAccessible(true);
+    $grado = (int) $pdo->query("SELECT grado_id FROM secciones WHERE id = " . (int) $suj['origen'])->fetchColumn();
+    $secDe = function (int $p) use ($rps, $om, $grado, $mid): ?string {
+        foreach ($rps->invoke($om, $grado, $p) as $sec => $filas) {
+            foreach ($filas as $f) { if ((int) $f['matricula_id'] === $mid) { return (string) $sec; } }
+        }
+        return null;
+    };
+    $pdo->beginTransaction();
+    try {
+        $pc = (int) $cerrado['id'];
+        $antes = $secDe($pc);
+        $cambios->ejecutar($mid, (int) $suj['destino'], $tras->siguienteCorrelativo($anio, 1), date('Y-m-d'),
+                           'verificación', (int) $pdo->query("SELECT MIN(id) FROM usuarios")->fetchColumn());
+        $ok($secDe($pc) === $antes, "en el bimestre cerrado compite en su sección de ORIGEN ({$antes})");
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
 exit($fallos === 0 ? 0 : 1);

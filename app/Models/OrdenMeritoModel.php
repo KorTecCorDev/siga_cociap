@@ -131,7 +131,9 @@ class OrdenMeritoModel extends BaseModel
             FROM matriculas m
             INNER JOIN estudiantes e      ON e.id  = m.estudiante_id
             INNER JOIN personas p         ON p.id  = e.persona_id
-            INNER JOIN secciones s        ON s.id  = m.seccion_id
+            -- La sección donde CURSÓ el bimestre (cambio de sección, 07/10/2026):
+            -- se compite por sección donde se cursó. Punto único sqlSeccionDelPeriodo.
+            INNER JOIN secciones s        ON s.id  = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
             INNER JOIN grados g           ON g.id  = s.grado_id
             INNER JOIN calificaciones cal ON cal.matricula_id = m.id
             -- P2 (rediseño 2): el mérito en vivo solo cuenta competencias
@@ -243,7 +245,9 @@ class OrdenMeritoModel extends BaseModel
             FROM matriculas m
             INNER JOIN estudiantes e      ON e.id  = m.estudiante_id
             INNER JOIN personas p         ON p.id  = e.persona_id
-            INNER JOIN secciones s        ON s.id  = m.seccion_id
+            -- La sección donde CURSÓ el bimestre (cambio de sección, 07/10/2026):
+            -- se compite por sección donde se cursó. Punto único sqlSeccionDelPeriodo.
+            INNER JOIN secciones s        ON s.id  = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
             INNER JOIN grados g           ON g.id  = s.grado_id
             INNER JOIN calificaciones cal ON cal.matricula_id = m.id
             -- P2 (rediseño 2): el mérito en vivo solo cuenta competencias

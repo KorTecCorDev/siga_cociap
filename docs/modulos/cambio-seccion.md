@@ -260,7 +260,7 @@ el grado no cambia).
 | E ✅ | **Conducta** | guarda de escritura de `ConductaTutorController` (recibe el bimestre), `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
 | F ✅ | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
 | G ✅ | **Calificaciones del docente y cierre** | `Docente\CalificacionController::getAlumnosSeccion`, `ExoneracionModel::getActivasParaCarga` (EXO en un historial pasado), `ControlOperativoModel::alertasEvaluacionIncompleta`, `AnioAcademicoModel::competenciasVaciasDelPeriodo` | Grilla, historial y la compuerta del cierre. |
-| H | **Mérito y situación final** | `OrdenMeritoModel::rankingPorSeccionLive`, `rankingGradoLive` / `calcularFilasRanking` (etiqueta de sección), `DesempateMeritoModel::getActaPorPeriodo`, `SituacionFinalModel::rosterDelPeriodo`, `planPorMatricula`, `transversalesDelActa`, `fueraDelColegio` | Ranking por sección y acta del bimestre. Snapshots publicados: INTOCABLES. |
+| H ✅ | **Mérito y situación final** | `OrdenMeritoModel::rankingPorSeccionLive`, `rankingGradoLive` / `calcularFilasRanking` (etiqueta de sección), `DesempateMeritoModel::getActaPorPeriodo`, `SituacionFinalModel::rosterDelPeriodo`, `planPorMatricula`, `transversalesDelActa`, `fueraDelColegio` | Ranking por sección y acta del bimestre. Snapshots publicados: INTOCABLES. |
 | I | **Estadísticas** | `AnioAcademicoModel::getResumenBimestre` / `getEvolucionAnual`, `AsistenciaModel::getEvolucionIncidenciasAnual`, `ConductaModel::getDistribucionLiteralesAnual` | Cifras por sección y bimestre. |
 
 ### 6.3 Decisión cerrada (07/10/2026)
@@ -312,6 +312,21 @@ cambia solo en 4.° A/4.° B del I; exonerados y competencias vacías, idéntico
 faltaban notas en las cargas de su sección de hoy: habría impedido volver a cerrar el I).
 `verif_roster_evaluacion.php` se ajustó al bimestre en curso (su premisa «el roster no depende
 del periodo» ya no es cierta).
+
+**Bloque H HECHO (07/10/2026).** Convertidas: `rankingPorSeccionLive` (se compite por sección
+donde se cursó), `rankingGradoLive` (solo la etiqueta), `DesempateMeritoModel::getActaPorPeriodo`,
+`SituacionFinalModel::rosterDelPeriodo` / `planPorMatricula` / `transversalesDelActa`.
+`fueraDelColegio` queda en 6.1 (trasladados y retirados: su ÚLTIMA sección). A/B en 85 claves:
+puestos del grado idénticos (solo cambia la etiqueta de 259/339 en el I); ranking en vivo por
+sección del I con 259/339 donde lo cursaron; situación final idéntica salvo esas 2 etiquetas.
+⚠️ `transversalesDelActa` usa un JOIN a los cierres vigentes con `DISTINCT` en vez de `EXISTS`:
+**MariaDB 10.4 convierte ese EXISTS en IN y rechaza la subconsulta de la sección en el lado
+izquierdo (error 1235)**. Si otra consulta lo necesita, usar el mismo patrón.
+⚠️ **Snapshot publicado del I**: ya ubica a 259 en 4.° A y a 339 en 4.° B (sus secciones de HOY),
+aunque cursaron el I en la otra: el cambio a mano se hizo tras calificar el I y antes de generar
+su snapshot. Es INMUTABLE y no se toca; no cambia nada visible (las pantallas de un bimestre
+publicado leen el snapshot). Solo una rectificación futura del I los ubicaría, en la versión NO
+oficial de `/admin/control`, en la sección donde lo cursaron.
 
 ### 6.4 Cómo se verifica
 

@@ -672,7 +672,8 @@ class SituacionFinalModel extends BaseModel
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas p    ON p.id = e.persona_id
-            INNER JOIN secciones s   ON s.id = m.seccion_id
+            -- La sección donde CURSÓ el bimestre (cambio de sección, 07/10/2026).
+            INNER JOIN secciones s   ON s.id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
             INNER JOIN grados g      ON g.id = s.grado_id
             INNER JOIN niveles n     ON n.id = g.nivel_id
             INNER JOIN periodos per  ON per.anio_id = m.anio_id AND per.id = ?
@@ -831,8 +832,9 @@ class SituacionFinalModel extends BaseModel
                    COUNT(DISTINCT comp.id) AS plan
             FROM matriculas m
             INNER JOIN periodos per ON per.anio_id = m.anio_id AND per.id = ?
+            -- La sección donde CURSÓ el bimestre (cambio de sección, 07/10/2026).
             INNER JOIN cargas_academicas ca
-                    ON ca.seccion_id = m.seccion_id
+                    ON ca.seccion_id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', 'per.id') . "
                    AND ca.estado     = 'activa'
             INNER JOIN competencias comp
                     ON (ca.subarea_id IS NOT NULL AND comp.subarea_id = ca.subarea_id)
@@ -911,13 +913,19 @@ class SituacionFinalModel extends BaseModel
             INNER JOIN periodos pact ON pact.id = ?
                                     AND per.anio_id = pact.anio_id
                                     AND per.numero <= pact.numero
+            -- Cierre vigente de la sección donde CURSÓ el bimestre (cambio de sección,
+            -- 07/10/2026). Va como JOIN a los cierres SIN DUPLICADOS y no como EXISTS:
+            -- MariaDB 10.4 convierte ese EXISTS en IN (exists-to-in) y rechaza la
+            -- subconsulta de sqlSeccionDelPeriodo en el lado izquierdo (error 1235).
+            -- El DISTINCT garantiza que ninguna nota se cuente dos veces en el AVG.
+            INNER JOIN (SELECT DISTINCT seccion_id, periodo_id
+                          FROM cierres_transversales
+                         WHERE anulado_en IS NULL) ctv
+                    ON ctv.periodo_id = cal.periodo_id
+                   AND ctv.seccion_id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', 'cal.periodo_id') . "
             WHERE cal.competencia_id IN ($in)
               " . ($periodoFinal ? 'AND per.id = pact.id' : '') . "
               " . RetornoGradoModel::sqlCursoElPeriodo('m', 'cal.periodo_id') . "
-              AND EXISTS (SELECT 1 FROM cierres_transversales ct
-                          WHERE ct.seccion_id = m.seccion_id
-                            AND ct.periodo_id = cal.periodo_id
-                            AND ct.anulado_en IS NULL)
             GROUP BY cal.matricula_id, cal.competencia_id, per.id, per.numero, per.nombre_display
             ORDER BY per.numero DESC
         ", array_merge([$periodoId], $ids));
