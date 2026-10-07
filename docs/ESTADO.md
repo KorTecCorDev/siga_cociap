@@ -10,7 +10,12 @@
 - **Plan aprobado** en `docs/modulos/cambio-seccion.md` (17 decisiones; reemplaza al del 09/07).
 - **Fase 1 HECHA** en `dev` (`84386fb`, sin push): `CambioSeccionModel` con sección por bimestre,
   `ejecutar`, regreso sin R.D. y `revertir` (opción a). `verif_cambio_seccion.php` verde.
-  **Siguiente: fase 2** (pantalla de la matrícula + avisos). Nada visible para el usuario aún.
+- **Fase 2 HECHA** (`2922344` + `9ff3f4a`): acción «Cambiar de sección» y card del historial en
+  `/matriculas/{id}`, rutas POST y avisos. **Probado en navegador con sesión ADMIN** (07/10, mat. 162):
+  despliegue/cancelar, R.D. sugerida, toggle del regreso (simulado en el DOM) y un POST real
+  RECHAZADO por R.D. ocupada (0 filas escritas). **Sin ver aún**: la card del historial y la
+  reversión en pantalla (no hay ningún cambio registrado) — se verán al registrar 259/339 (fase 5).
+  **Siguiente: fase 3** (vista de solo lectura del docente + chip).
 - ⚠️ La `075` se MODIFICÓ tras su primer commit (rd_* NULL + CHECK): en otra BD local que ya
   la tenga, borrar sus 4 tablas vacías y volver a aplicarla.
 - **Migración `075_cambio_seccion.sql`** (solo esquema): escrita y **aplicada en la BD local del
