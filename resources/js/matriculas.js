@@ -114,4 +114,58 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+    // Cambio de sección y su reversión (07/10/2026): mismo disclosure que
+    // Desactivar. Sin JS los formularios se ven abiertos.
+    [['cambio', 'select'], ['cambio-revertir', 'textarea']].forEach(([nombre, foco]) => {
+        document.querySelectorAll('[data-' + nombre + '-form]').forEach((form) => {
+            const bloque  = form.closest('.mat-accion');
+            const control = bloque ? bloque.querySelector('[data-' + nombre + '-control]') : null;
+            const toggle  = bloque ? bloque.querySelector('[data-' + nombre + '-toggle]') : null;
+            const cancel  = form.querySelector('[data-' + nombre + '-cancel]');
+            if (!control || !toggle) return;
+
+            control.hidden = false;
+            form.hidden    = true;
+            if (cancel) cancel.hidden = false;
+
+            toggle.addEventListener('click', () => {
+                form.hidden    = false;
+                control.hidden = true;
+                const campo = form.querySelector(foco);
+                if (campo) campo.focus();
+            });
+            if (cancel) {
+                cancel.addEventListener('click', () => {
+                    form.reset();
+                    form.dispatchEvent(new Event('change'));
+                    form.hidden    = true;
+                    control.hidden = false;
+                });
+            }
+        });
+    });
+
+    // REGRESO a la sección anterior: no lleva R.D. Los campos se DESHABILITAN
+    // (un campo deshabilitado no se envía, así el regreso no ocupa el número
+    // sugerido). El servidor vuelve a decidirlo.
+    document.querySelectorAll('[data-cambio-form]').forEach((form) => {
+        const destino = form.querySelector('[data-cambio-destino]');
+        const rd      = form.querySelector('[data-cambio-rd]');
+        const aviso   = form.querySelector('[data-cambio-regreso-aviso]');
+        if (!destino || !rd) return;
+
+        const aplicar = () => {
+            const opcion  = destino.options[destino.selectedIndex];
+            const regreso = !!opcion && opcion.dataset.regreso === '1';
+            rd.hidden = regreso;
+            rd.querySelectorAll('input').forEach((input) => {
+                input.disabled = regreso;
+                input.required = !regreso;
+            });
+            if (aviso) aviso.hidden = !regreso;
+        };
+        destino.addEventListener('change', aplicar);
+        form.addEventListener('change', aplicar);
+        aplicar();
+    });
 });

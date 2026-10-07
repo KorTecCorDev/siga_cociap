@@ -131,6 +131,27 @@ lo tecleado en un formulario y se BORRA tras el guardado oficial; `cambios_secci
 archivo PERMANENTE (auditoría, referencia y reversión). Se archiva TODO lo del bimestre
 abierto, también lo bloqueado (decisión 3).
 
+## 3b. Lo construido (fases 1 y 2, 07/10/2026)
+
+- **Modelo** (`CambioSeccionModel`): `seccionDelPeriodo` / `sqlSeccionDelPeriodo`,
+  `motivoNoElegible`, `tipoDeMovimiento`, `ejecutar`, `motivoNoRevertible`,
+  `bloqueosQueImpidenRevertir`, `revertir`, `avisar`, `periodoCerrado`.
+- **Rutas** (solo POST; el formulario vive en el detalle):
+  `POST /matriculas/{id}/cambiar-seccion` y `POST /matriculas/{id}/cambiar-seccion/revertir`
+  → `Matricula\CambioSeccionController` (admin y registro académico; CSRF; avisos FUERA de la
+  transacción).
+- **Pantalla** `/matriculas/{id}`:
+  - card «Cambios de sección» (historial a la vista, con su reversión desplegable mientras el
+    bimestre del cambio siga abierto, o el aviso de por qué no se puede);
+  - en «Gestión de la matrícula», la acción «Cambiar de sección» (destino, N.° y fecha de R.D.
+    con el número sugerido, motivo). La opción de **regreso** se marca en el select y el JS
+    **deshabilita** los campos de R.D. (no se envían: no ocupa número). La vuelta en el mismo
+    bimestre abierto no se ofrece como destino: es la reversión.
+- **Avisos** (`NotificacionModel::TIPO_CAMBIO_SECCION`): un aviso por persona, sin el emisor;
+  texto distinto para origen, destino y dirección. Todavía **sin enlace**: el de los docentes
+  de destino apuntará a la vista de solo lectura de la fase 3.
+- **Verificador** `verif_cambio_seccion.php` (§ 1–6, transacción + rollback).
+
 ## 4. Casos reales en la BD (medido el 07/10/2026)
 
 - **Hay 2 cambios de sección hechos a mano**, un intercambio dentro de 4.° grado: la matrícula

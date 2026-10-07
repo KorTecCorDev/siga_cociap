@@ -248,6 +248,10 @@ $router->post('/matriculas/{id}/notas-siagie',          'Matricula\MatriculaCont
 // Exoneraciones desde el detalle (solo admin/RA — lo exige el controlador;
 // candado de notas vivas incluido).
 $router->post('/matriculas/{id}/exonerar',       'Admin\ExoneracionController@registrarDesdeMatricula');
+// Cambio de sección (07/10/2026, docs/modulos/cambio-seccion.md). Solo POST: el
+// formulario vive en el detalle de la matrícula. La ruta larga va primero.
+$router->post('/matriculas/{id}/cambiar-seccion/revertir', 'Matricula\CambioSeccionController@revertir');
+$router->post('/matriculas/{id}/cambiar-seccion',          'Matricula\CambioSeccionController@store');
 // Retorno de grado
 $router->get( '/matriculas/{id}/retorno/revertir', 'Matricula\RetornoGradoController@confirmarReversion');
 $router->post('/matriculas/{id}/retorno/revertir', 'Matricula\RetornoGradoController@revertir');

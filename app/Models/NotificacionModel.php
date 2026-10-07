@@ -25,10 +25,17 @@ class NotificacionModel extends BaseModel
     public const TIPO_NOTAS_ORIGEN = 'notas_origen';
     /** Mensaje redactado por admin / registro académico. */
     public const TIPO_COMUNICADO   = 'comunicado';
+    /**
+     * Cambio de sección o su reversión (07/10/2026). EXCEPCIÓN DELIBERADA a la
+     * regla de abajo: por decisión del usuario lo reciben también DIRECCIÓN y
+     * los AUXILIARES (punto único de destinatarios: CambioSeccionModel::avisar).
+     */
+    public const TIPO_CAMBIO_SECCION = 'cambio_seccion';
 
     public const TIPOS = [
-        self::TIPO_NOTAS_ORIGEN => 'Notas del colegio de origen',
-        self::TIPO_COMUNICADO   => 'Comunicado',
+        self::TIPO_NOTAS_ORIGEN   => 'Notas del colegio de origen',
+        self::TIPO_COMUNICADO     => 'Comunicado',
+        self::TIPO_CAMBIO_SECCION => 'Cambio de sección',
     ];
 
     /**

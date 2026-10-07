@@ -447,6 +447,70 @@ $labelDoc = [
     </div>
     <?php endif; ?>
 
+    <!-- Cambios de sección (07/10/2026): datos a la vista; la reversión, como
+         acción desplegable dentro de la misma card. Solo existe mientras el
+         bimestre del cambio sigue abierto (después, volver es un cambio nuevo). -->
+    <?php if (!empty($cambio['historial'])): ?>
+    <div class="card">
+        <div class="card__body">
+            <p class="form-section-title">Cambios de sección</p>
+            <ul class="cambio-seccion__lista">
+                <?php foreach ($cambio['historial'] as $cs): ?>
+                <li class="cambio-seccion__item">
+                    <span class="cambio-seccion__ruta">
+                        <?= e($matricula['grado_nombre'] . ' ' . $cs['origen_nombre']) ?>
+                        → <?= e($matricula['grado_nombre'] . ' ' . $cs['destino_nombre']) ?>
+                        · desde el <?= e($cs['periodo_nombre']) ?>
+                    </span>
+                    <span class="matricula-badge matricula-badge--<?= $cs['estado'] === 'revertido' ? 'desactivado' : 'continuador' ?>">
+                        <?= $cs['estado'] === 'revertido' ? 'Revertido' : 'Vigente' ?>
+                    </span>
+                    <span class="cambio-seccion__detalle">
+                        <?php if ($cs['rd_numero'] !== null): ?>
+                            R.D. <?= e($cs['rd_numero']) ?> del <?= fecha_es($cs['rd_fecha']) ?>.
+                        <?php else: ?>
+                            Regreso a su sección anterior (sin R.D.).
+                        <?php endif; ?>
+                        Motivo: <?= e($cs['motivo']) ?>
+                        <?php if ($cs['estado'] === 'revertido' && !empty($cs['motivo_reversion'])): ?>
+                            <br>Motivo de la reversión: <?= e($cs['motivo_reversion']) ?>
+                        <?php endif; ?>
+                    </span>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+
+            <?php if ($puedeGestionar && $cambio['revertible']): ?>
+                <?php if ($cambio['noRevertible'] !== null): ?>
+                <div class="retorno-aviso"><?= e($cambio['noRevertible']) ?></div>
+                <?php else: ?>
+                <div class="mat-accion mat-accion--danger">
+                    <div class="mat-accion__info">
+                        <span class="mat-accion__titulo">Revertir el cambio de sección</span>
+                        <span class="mat-accion__desc">El estudiante vuelve a <?= e($matricula['grado_nombre'] . ' ' . $cambio['vigente']['origen_nombre']) ?> como si el cambio no hubiera ocurrido: se le restauran allí sus calificaciones del <?= e($cambio['vigente']['periodo_nombre']) ?> y lo que le registraron en <?= e($matricula['grado_nombre'] . ' ' . $cambio['vigente']['destino_nombre']) ?> queda archivado. Los criterios que reciban calificaciones restauradas quedan sin confirmar. Libera el número de R.D.</span>
+                    </div>
+                    <div class="mat-accion__control" data-cambio-revertir-control hidden>
+                        <button type="button" class="btn btn--danger" data-cambio-revertir-toggle>Revertir</button>
+                    </div>
+                    <form method="POST" action="<?= url('matriculas/' . $mid . '/cambiar-seccion/revertir') ?>"
+                          class="mat-cambio-seccion-form" data-cambio-revertir-form
+                          onsubmit="return confirm('¿Revertir el cambio de sección? El estudiante volverá a su sección anterior.')">
+                        <?= csrf_field() ?>
+                        <label class="form-label" for="motivo_revertir_cambio">Motivo de la reversión <span class="text-danger">*</span></label>
+                        <textarea id="motivo_revertir_cambio" name="motivo" class="form-input" rows="2" required
+                                  placeholder="Indica por qué se revierte el cambio"></textarea>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn--secondary" data-cambio-revertir-cancel hidden>Cancelar</button>
+                            <button type="submit" class="btn btn--danger">Confirmar reversión</button>
+                        </div>
+                    </form>
+                </div>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
 </div>
 
 <!-- ── Boleta (consulta / impresión) ─────────────────────────── -->
@@ -595,6 +659,52 @@ $labelDoc = [
                     <a href="<?= url('matriculas/' . $mid . '/trasladar') ?>" class="btn btn--danger">Trasladar</a>
                 </div>
             </div>
+        <?php endif; ?>
+
+        <!-- Cambiar de sección (07/10/2026, docs/modulos/cambio-seccion.md). Mismo
+             disclosure que Desactivar; sin JS se ve abierto. La R.D. es obligatoria
+             salvo en un REGRESO a la sección anterior con su bimestre ya cerrado
+             (opción marcada con data-regreso); el servidor decide en último término. -->
+        <?php if (!empty($cambio['puede']) && !empty($cambio['destinos'])): ?>
+        <div class="mat-accion mat-accion--danger">
+            <div class="mat-accion__info">
+                <span class="mat-accion__titulo">Cambiar de sección</span>
+                <span class="mat-accion__desc">Rige desde el <?= e($cambio['periodo']['nombre_display'] ?? '') ?>. Las calificaciones de los bimestres cerrados se quedan en su sección actual y los nuevos docentes las ven en solo lectura. Lo registrado en el <?= e($cambio['periodo']['nombre_display'] ?? '') ?> en su sección actual se archiva y la nueva sección lo califica desde cero.</span>
+            </div>
+            <div class="mat-accion__control" data-cambio-control hidden>
+                <button type="button" class="btn btn--danger" data-cambio-toggle>Cambiar de sección</button>
+            </div>
+            <form method="POST" action="<?= url('matriculas/' . $mid . '/cambiar-seccion') ?>"
+                  class="mat-cambio-seccion-form" data-cambio-form
+                  onsubmit="return confirm('¿Registrar el cambio de sección? Lo registrado en el bimestre en curso se archivará.')">
+                <?= csrf_field() ?>
+                <label class="form-label" for="seccion_destino_id">Nueva sección <span class="text-danger">*</span></label>
+                <select id="seccion_destino_id" name="seccion_destino_id" class="form-input" required data-cambio-destino>
+                    <option value="">— Selecciona —</option>
+                    <?php foreach ($cambio['destinos'] as $d): ?>
+                        <option value="<?= (int) $d['id'] ?>" data-regreso="<?= $d['regreso'] ? '1' : '0' ?>">
+                            <?= e($matricula['grado_nombre'] . ' ' . $d['nombre']) ?><?= $d['regreso'] ? ' (regreso a su sección anterior)' : '' ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="mat-cambio-seccion-form__rd" data-cambio-rd>
+                    <label class="form-label" for="rd_correlativo">N° de R.D. <span class="text-danger" data-cambio-rd-marca>*</span></label>
+                    <input type="number" id="rd_correlativo" name="rd_correlativo" class="form-input"
+                           min="1" value="<?= (int) $cambio['rdSugerido'] ?>" required>
+                    <span class="mat-accion__desc">Sugerido: el siguiente de la numeración que comparte con las constancias de traslado. Puedes usar cualquier número libre.</span>
+                    <label class="form-label" for="rd_fecha">Fecha de la R.D. <span class="text-danger" data-cambio-rd-marca>*</span></label>
+                    <input type="date" id="rd_fecha" name="rd_fecha" class="form-input" required>
+                </div>
+                <p class="mat-accion__desc" data-cambio-regreso-aviso hidden>Regreso a su sección anterior: no requiere R.D.</p>
+                <label class="form-label" for="motivo_cambio">Motivo <span class="text-danger">*</span></label>
+                <textarea id="motivo_cambio" name="motivo" class="form-input" rows="2" required
+                          placeholder="Indica por qué se cambia de sección"></textarea>
+                <div class="btn-group">
+                    <button type="button" class="btn btn--secondary" data-cambio-cancel hidden>Cancelar</button>
+                    <button type="submit" class="btn btn--danger">Confirmar cambio</button>
+                </div>
+            </form>
+        </div>
         <?php endif; ?>
 
         <!-- Exonerar de área: registra una exoneración vigente del año. El

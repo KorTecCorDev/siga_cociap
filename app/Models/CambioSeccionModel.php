@@ -208,11 +208,16 @@ class CambioSeccionModel extends BaseModel
         if (!$ult || (int) $ult['seccion_origen_id'] !== $destinoId) {
             return 'normal';
         }
-        $cerrado = $this->queryOne(
+        return $this->periodoCerrado((int) $ult['periodo_id']) ? 'regreso' : 'revertir';
+    }
+
+    /** ¿El periodo está cerrado? */
+    public function periodoCerrado(int $periodoId): bool
+    {
+        return $this->queryOne(
             "SELECT 1 AS x FROM periodos WHERE id = ? AND estado = 'cerrado'",
-            [(int) $ult['periodo_id']]
-        );
-        return $cerrado ? 'regreso' : 'revertir';
+            [$periodoId]
+        ) !== null;
     }
 
     /**
@@ -539,6 +544,106 @@ class CambioSeccionModel extends BaseModel
             'desconfirmados'     => $desconfirmados,
             'archivadas_destino' => $archDestino,
         ];
+    }
+
+    // ── Avisos ───────────────────────────────────────────────────────────
+
+    /**
+     * Avisa del cambio (o de su reversión) — decisión 8: tutor, docentes y
+     * auxiliar de ORIGEN y de DESTINO, y DIRECCIÓN. Un aviso por persona (sin
+     * duplicar a quien tiene varios papeles) y nunca a quien hizo la operación.
+     * El llamador lo invoca FUERA de la transacción del dato.
+     *
+     * @return int cuántas personas quedaron avisadas
+     */
+    public function avisar(int $cambioId, string $evento, int $emisorId): int
+    {
+        $c = $this->queryOne("
+            SELECT cs.*, p.nombre_display AS periodo_nombre,
+                   g.nombre_display AS grado, so.nombre AS origen, sd.nombre AS destino,
+                   TRIM(CONCAT(per.apellido_paterno, ' ', per.apellido_materno, ', ', per.nombres)) AS alumno
+            FROM cambios_seccion cs
+            INNER JOIN periodos    p   ON p.id   = cs.periodo_id
+            INNER JOIN secciones   so  ON so.id  = cs.seccion_origen_id
+            INNER JOIN secciones   sd  ON sd.id  = cs.seccion_destino_id
+            INNER JOIN grados      g   ON g.id   = so.grado_id
+            INNER JOIN matriculas  m   ON m.id   = cs.matricula_id
+            INNER JOIN estudiantes e   ON e.id   = m.estudiante_id
+            INNER JOIN personas    per ON per.id = e.persona_id
+            WHERE cs.id = ?
+        ", [$cambioId]);
+        if (!$c) {
+            return 0;
+        }
+
+        $notif = new NotificacionModel();
+        $aux   = new AuxiliarSeccionModel();
+        $periodoId = (int) $c['periodo_id'];
+
+        // Personal de una sección: tutor + docentes con carga + auxiliar vigente.
+        $personal = function (int $seccionId) use ($notif, $aux, $periodoId): array {
+            $ids = array_map(fn($d) => (int) $d['id'], $notif->docentesDeSeccion($seccionId));
+            $tutor = $this->queryOne(
+                "SELECT s.tutor_id FROM secciones s
+                 INNER JOIN usuarios u ON u.id = s.tutor_id AND u.estado = 'activo'
+                 WHERE s.id = ?",
+                [$seccionId]
+            );
+            if ($tutor) {
+                $ids[] = (int) $tutor['tutor_id'];
+            }
+            $a = $aux->vigente($seccionId, $periodoId);
+            if ($a) {
+                $ids[] = (int) $a['auxiliar_id'];
+            }
+            return $ids;
+        };
+
+        $origen   = (int) $c['seccion_origen_id'];
+        $destino  = (int) $c['seccion_destino_id'];
+        $deOrigen = $personal($origen);
+        $deDestino = $personal($destino);
+        $direccion = array_map(fn($u) => (int) $u['id'], $notif->usuariosDeRoles(ROLES_DIRECCION));
+
+        $alumno = (string) $c['alumno'];
+        $de     = $c['grado'] . ' ' . $c['origen'];
+        $a      = $c['grado'] . ' ' . $c['destino'];
+        $rd     = $c['rd_numero'] !== null
+            ? ' (R.D. ' . $c['rd_numero'] . ')'
+            : ' (regreso a su sección anterior)';
+
+        if ($evento === 'reversion') {
+            $titulo = 'Cambio de sección revertido: ' . $alumno;
+            $base   = $alumno . ' vuelve a ' . $de . '. Se revirtió su cambio a ' . $a . '.';
+            $msgOrigen = $base . ' Se restauraron sus calificaciones del ' . $c['periodo_nombre']
+                . '; los criterios que las recibieron quedaron sin confirmar y hay que volver a confirmarlos.';
+            $msgDestino = $base . ' Ya no está en tu lista; lo que le registraste en el '
+                . $c['periodo_nombre'] . ' quedó archivado.';
+        } else {
+            $titulo = 'Cambio de sección: ' . $alumno;
+            $base   = $alumno . ' pasa de ' . $de . ' a ' . $a . ' desde el ' . $c['periodo_nombre'] . $rd . '.';
+            $msgOrigen = $base . ' Ya no está en tu lista. Sus calificaciones de bimestres cerrados '
+                . 'se quedan en esta sección.';
+            $msgDestino = $base . ' En el ' . $c['periodo_nombre'] . ' se le califica desde cero; '
+                . 'sus calificaciones de bimestres anteriores son de solo lectura.';
+        }
+
+        // Un aviso por persona: si alguien está en origen Y destino, prima destino.
+        $mensajes = [];
+        foreach ($direccion as $id) { $mensajes[$id] = $base; }
+        foreach ($deOrigen as $id)  { $mensajes[$id] = $msgOrigen; }
+        foreach ($deDestino as $id) { $mensajes[$id] = $msgDestino; }
+        unset($mensajes[$emisorId]);
+
+        foreach ($mensajes as $usuarioId => $mensaje) {
+            $notif->crear([
+                'usuario_id' => $usuarioId,
+                'tipo'       => NotificacionModel::TIPO_CAMBIO_SECCION,
+                'titulo'     => mb_substr($titulo, 0, 150),
+                'mensaje'    => $mensaje,
+            ]);
+        }
+        return count($mensajes);
     }
 
     /**

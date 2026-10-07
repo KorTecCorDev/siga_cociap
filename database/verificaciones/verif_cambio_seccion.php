@@ -364,6 +364,50 @@ if ($cerrado) {
     }
 }
 
+echo "\n=== 5d. AVISOS (decisión 8) ===\n";
+$antesNotif = $contar("SELECT COUNT(*) FROM notificaciones");
+$pdo->beginTransaction();
+try {
+    $res = $cambios->ejecutar($mid, $destino, $tras->siguienteCorrelativo($anioId, 1), date('Y-m-d'), 'avisos', $usuario);
+    $per = (int) $periodoCambio['id'];
+    $aux = new App\Models\AuxiliarSeccionModel();
+    $esperados = [];
+    foreach ([$origen, $destino] as $sec) {
+        foreach ($pdo->query("SELECT DISTINCT ca.docente_id FROM cargas_academicas ca
+                              JOIN anios_academicos aa ON aa.id = ca.anio_id AND aa.estado = 'activo'
+                              JOIN usuarios u ON u.id = ca.docente_id AND u.estado = 'activo'
+                              WHERE ca.seccion_id = {$sec} AND ca.estado = 'activa'")->fetchAll(PDO::FETCH_COLUMN) as $d) {
+            $esperados[(int) $d] = true;
+        }
+        $t = (int) $pdo->query("SELECT s.tutor_id FROM secciones s JOIN usuarios u ON u.id = s.tutor_id
+                                 AND u.estado = 'activo' WHERE s.id = {$sec}")->fetchColumn();
+        if ($t) { $esperados[$t] = true; }
+        $a = $aux->vigente($sec, $per);
+        if ($a) { $esperados[$a['auxiliar_id']] = true; }
+    }
+    $marcas = implode(',', array_map(fn($r) => "'" . $r . "'", ROLES_DIRECCION));
+    foreach ($pdo->query("SELECT u.id FROM usuarios u JOIN roles r ON r.id = u.rol_id
+                          WHERE r.codigo IN ({$marcas}) AND u.estado = 'activo'")->fetchAll(PDO::FETCH_COLUMN) as $d) {
+        $esperados[(int) $d] = true;
+    }
+    // El emisor es un docente de destino a propósito: no debe recibir su propio aviso.
+    $emisor = (int) array_key_first($esperados);
+    unset($esperados[$emisor]);
+
+    $n = $cambios->avisar($res['cambio_id'], 'cambio', $emisor);
+    $recibidos = array_map('intval', $pdo->query("SELECT usuario_id FROM notificaciones
+        WHERE tipo = 'cambio_seccion' AND id > (SELECT COALESCE(MAX(id), 0) - {$n} FROM notificaciones)")
+        ->fetchAll(PDO::FETCH_COLUMN));
+    sort($recibidos);
+    $esp = array_keys($esperados); sort($esp);
+    $ok($n === count($esperados) && $recibidos === $esp,
+        "avisados {$n}: tutores, docentes y auxiliares de las dos secciones + dirección, sin repetir");
+    $ok(!in_array($emisor, $recibidos, true), 'quien hace la operación NO recibe aviso');
+} finally {
+    $pdo->rollBack();
+}
+$ok($contar("SELECT COUNT(*) FROM notificaciones") === $antesNotif, 'notificaciones vuelve a su conteo');
+
 echo "\n=== 6. ROLLBACK ===\n";
 foreach ($tablas as $t) {
     $ok($contar("SELECT COUNT(*) FROM {$t}") === $antesGlobal[$t], "{$t} vuelve a {$antesGlobal[$t]} filas");

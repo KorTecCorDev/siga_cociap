@@ -159,7 +159,8 @@
 
 // ── Formularios desplegables de la card Gestión (desactivar / exonerar) ──
 .mat-desactivar-form,
-.mat-exonerar-form {
+.mat-exonerar-form,
+.mat-cambio-seccion-form {
     display: flex;
     flex-direction: column;
     gap: $spacing-xs;
@@ -272,6 +273,42 @@
     }
 }
 
+// ── Cambio de sección (07/10/2026) ───────────────────────────
+// Bloque de la R.D. dentro del formulario: se oculta en un REGRESO.
+.mat-cambio-seccion-form__rd {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+
+    &[hidden] { display: none; }
+}
+
+// Historial de cambios en la card «Cambios de sección».
+.cambio-seccion__lista {
+    list-style: none;
+    margin: 0 0 $spacing-md;
+    padding: 0;
+}
+
+.cambio-seccion__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs $spacing-sm;
+    padding: $spacing-sm 0;
+    border-bottom: 1px solid $border-color;
+
+    &:last-child { border-bottom: none; }
+}
+
+.cambio-seccion__ruta { font-weight: 600; }
+
+.cambio-seccion__detalle {
+    flex: 1 1 100%;
+    font-size: $font-size-sm;
+    color: $text-muted;
+}
+
 // ── Aviso de retorno de grado ────────────────────────────────
 .retorno-aviso {
     background: $color-warning-bg;
@@ -345,7 +382,8 @@
     // El formulario de desactivar (disclosure) baja a su propia línea
     // a ancho completo cuando se despliega, no apretado a la derecha.
     .mat-desactivar-form,
-    .mat-exonerar-form {
+    .mat-exonerar-form,
+    .mat-cambio-seccion-form {
         flex: 1 1 100%;
         max-width: 560px;
         margin-top: $spacing-sm;
@@ -362,7 +400,8 @@
     @media (max-width: 640px) {
         &__control { width: 100%; }
         .mat-desactivar-form,
-        .mat-exonerar-form { max-width: 100%; }
+        .mat-exonerar-form,
+        .mat-cambio-seccion-form { max-width: 100%; }
     }
 }
 
