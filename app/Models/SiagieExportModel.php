@@ -111,9 +111,16 @@ class SiagieExportModel extends BaseModel
      * APROBADAS, excluyendo las OPERATIVAS de un retorno de grado, activo o
      * revertido (ese alumno figura en el archivo SIAGIE de su sección OFICIAL).
      * Punto único: `matricula_documento()`.
+     *
+     * Con `$periodoId` (cambio de sección, 07/10/2026): quien CURSÓ ese bimestre
+     * en la sección, no quien está hoy (punto único sqlEnSeccionDelPeriodo). Sin
+     * él, la sección de hoy, como antes.
      */
-    public function estudiantesDeSeccion(int $seccionId): array
+    public function estudiantesDeSeccion(int $seccionId, ?int $periodoId = null): array
     {
+        $enSeccion = $periodoId !== null
+            ? CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId)
+            : 'm.seccion_id = ' . $seccionId;
         return $this->query("
             SELECT
                 m.id  AS matricula_id,
@@ -126,11 +133,11 @@ class SiagieExportModel extends BaseModel
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas p    ON p.id = e.persona_id
-            WHERE m.seccion_id = ?
+            WHERE {$enSeccion}
               AND m.estado     = 'aprobada'
               " . matricula_documento('m') . "
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$seccionId]);
+        ");
     }
 
     /**
@@ -139,9 +146,15 @@ class SiagieExportModel extends BaseModel
      * alumno que en SIGA sigue en otra sección). Mismos filtros que
      * estudiantesDeSeccion (aprobadas, excluye operativas de retorno)
      * MÁS la sección de origen (id + nombre) para poder informarla.
+     *
+     * Con `$periodoId` (cambio de sección, 07/10/2026): la sección es la que el
+     * alumno CURSÓ ese bimestre. Sin él, la de hoy, como antes.
      */
-    public function estudiantesDeOtrasSecciones(int $gradoId, int $anioId, int $seccionExcluida): array
+    public function estudiantesDeOtrasSecciones(int $gradoId, int $anioId, int $seccionExcluida, ?int $periodoId = null): array
     {
+        $seccion = $periodoId !== null
+            ? CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId)
+            : 'm.seccion_id';
         return $this->query("
             SELECT
                 m.id     AS matricula_id,
@@ -156,10 +169,10 @@ class SiagieExportModel extends BaseModel
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas p    ON p.id = e.persona_id
-            INNER JOIN secciones s    ON s.id = m.seccion_id
+            INNER JOIN secciones s    ON s.id = {$seccion}
             WHERE s.grado_id   = ?
               AND s.anio_id    = ?
-              AND m.seccion_id <> ?
+              AND s.id        <> ?
               AND m.estado     = 'aprobada'
               " . matricula_documento('m') . "
             ORDER BY s.nombre, " . orden_alfabetico('p') . "

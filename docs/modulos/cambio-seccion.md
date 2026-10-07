@@ -255,7 +255,7 @@ el grado no cambia).
 |---|---|---|---|
 | A ✅ | **Boleta (datos)** | `ConductaModel::getParaBoleta` / `getParaPeriodo` (cierre de conducta), `CalificacionModel::getTransversalesAgregadas` (cierre de transversales), `BoletaModel::getTutorSeccion`, `BoletaPublicaController::getTutorSeccion` | Un bimestre cursado en otra sección se publica con el **cierre y el tutor de ESA sección** (invariante «documentos = el tutor del bimestre»). Hoy saldría con guion o con el tutor equivocado. |
 | B ✅ | **Rectificación / extraordinarias** | `RectificacionModel::sqlInsertables`, `sqlTransversalesInsertables` (`matriculasSinNotasEnCerrados` solo filtra y rotula por la sección de HOY: queda en 6.1; su conteo hereda la corrección) | Hoy ofrecería insertar notas de un bimestre cerrado en las cargas de la sección ACTUAL, no en las de donde lo cursó. |
-| C | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
+| C ✅ | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
 | D | **Tutoría** | `TutoriaController::getAlumnosSeccion`, `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
 | E | **Conducta** | `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
 | F | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
@@ -283,6 +283,11 @@ cursaron). Otras 10 difieren SOLO en la «carga dueña» de una transversal: es 
 preexistente** (`ORDER BY COUNT(*) DESC LIMIT 1` sin desempate; todas las cargas de la sección
 tienen las mismas notas) que el cambio de plan hizo aflorar. Inocuo para la boleta (promedia por
 competencia). Recomendación NO aplicada: desempate fijo `, cal2.carga_id`.
+
+**Bloque C HECHO (07/10/2026).** `estudiantesDeSeccion` y `estudiantesDeOtrasSecciones`
+reciben un `?int $periodoId` OPCIONAL (sin él, la sección de hoy, como antes); `LlenadorSiagie`
+les pasa el bimestre del archivo. A/B en 92 rosters (secciones × bimestres cerrados): solo
+cambian 4.° A y 4.° B de primaria en el I Bimestre, intercambiando a 259 y 339.
 
 ### 6.4 Cómo se verifica
 

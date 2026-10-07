@@ -196,5 +196,25 @@ if ($suj) {
     }
 }
 
+echo "\n=== 6. Bloque C — acta SIAGIE de un bimestre cursado en otra sección ===\n";
+if ($suj) {
+    $siagie = new App\Models\SiagieExportModel();
+    $ids = fn(array $r) => array_map('intval', array_column($r, 'matricula_id'));
+    $pdo->beginTransaction();
+    try {
+        $cambios->ejecutar($mid, (int) $suj['destino'], $tras->siguienteCorrelativo($anio, 1), date('Y-m-d'),
+                           'verificación', (int) $pdo->query("SELECT MIN(id) FROM usuarios")->fetchColumn());
+        $pc = (int) $cerrado['id'];
+        $ok(in_array($mid, $ids($siagie->estudiantesDeSeccion((int) $suj['origen'], $pc)), true),
+            'el acta del bimestre cerrado de ORIGEN lo incluye');
+        $ok(!in_array($mid, $ids($siagie->estudiantesDeSeccion((int) $suj['destino'], $pc)), true),
+            'el acta de DESTINO de ese bimestre no lo incluye');
+        $ok(in_array($mid, $ids($siagie->estudiantesDeSeccion((int) $suj['destino'])), true),
+            'sin periodo, la sección de HOY (comportamiento anterior intacto)');
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
 exit($fallos === 0 ? 0 : 1);
