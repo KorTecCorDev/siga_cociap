@@ -261,7 +261,7 @@ el grado no cambia).
 | F ✅ | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
 | G ✅ | **Calificaciones del docente y cierre** | `Docente\CalificacionController::getAlumnosSeccion`, `ExoneracionModel::getActivasParaCarga` (EXO en un historial pasado), `ControlOperativoModel::alertasEvaluacionIncompleta`, `AnioAcademicoModel::competenciasVaciasDelPeriodo` | Grilla, historial y la compuerta del cierre. |
 | H ✅ | **Mérito y situación final** | `OrdenMeritoModel::rankingPorSeccionLive`, `rankingGradoLive` / `calcularFilasRanking` (etiqueta de sección), `DesempateMeritoModel::getActaPorPeriodo`, `SituacionFinalModel::rosterDelPeriodo`, `planPorMatricula`, `transversalesDelActa`, `fueraDelColegio` | Ranking por sección y acta del bimestre. Snapshots publicados: INTOCABLES. |
-| I | **Estadísticas** | `AnioAcademicoModel::getResumenBimestre` / `getEvolucionAnual`, `AsistenciaModel::getEvolucionIncidenciasAnual`, `ConductaModel::getDistribucionLiteralesAnual` | Cifras por sección y bimestre. |
+| I ➖ | **Estadísticas** (SIN CAMBIOS, ver abajo) | `AnioAcademicoModel::getResumenBimestre` / `getEvolucionAnual`, `AsistenciaModel::getEvolucionIncidenciasAnual`, `ConductaModel::getDistribucionLiteralesAnual` | Cifras por sección y bimestre. |
 
 ### 6.3 Decisión cerrada (07/10/2026)
 
@@ -327,6 +327,14 @@ aunque cursaron el I en la otra: el cambio a mano se hizo tras calificar el I y 
 su snapshot. Es INMUTABLE y no se toca; no cambia nada visible (las pantallas de un bimestre
 publicado leen el snapshot). Solo una rectificación futura del I los ubicaría, en la versión NO
 oficial de `/admin/control`, en la sección donde lo cursaron.
+
+**Bloque I: NO necesita cambios (07/10/2026).** Ninguna de sus 4 consultas agrupa por sección
+(`getResumenBimestre` y `getEvolucionAnual` por nivel/grado, `getEvolucionIncidenciasAnual` por
+bimestre, `getDistribucionLiteralesAnual` por matrícula y bimestre) y un cambio de sección es
+SIEMPRE dentro del mismo grado y nivel: leer una sección u otra da el mismo número. Pasan a 6.1.
+
+**FASE 4 COMPLETA (07/10/2026):** bloques A–H convertidos, I sin cambios. Lo protege
+`verif_seccion_del_periodo.php` (§ 1–11, cada escenario FALLA con el código anterior).
 
 ### 6.4 Cómo se verifica
 

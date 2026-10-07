@@ -32,7 +32,14 @@
   - Los avisos de 259/339 se GENERARON A MANO solo en LOCAL (12 por cambio) para esta prueba; en
     producción el script de la fase 5 no avisa.
   Sin probar aún: sesión de TUTOR y de AUXILIAR (sus pantallas entran en el inventario de la fase 4).
-  **Siguiente: fase 4** (inventario de las ~100 consultas con `m.seccion_id`).
+- **Fase 4 COMPLETA** (07/10, `3f4c591`…`817de4f`): inventario de 91 funciones en
+  `docs/modulos/cambio-seccion.md` § 6; bloques A–H convertidos a «sección donde se cursó el
+  bimestre», I sin cambios. Cada bloque con A/B contra `HEAD` (solo cambian 259/339 en el I) y
+  escenario en `verif_seccion_del_periodo.php` que FALLA con el código anterior. Hallazgos:
+  la compuerta del cierre del I acusaba en falso a 259/339 (corregido); el snapshot PUBLICADO del I
+  los ubica en su sección de hoy (inmutable, sin efecto visible); MariaDB 10.4 no admite la
+  subconsulta de sección dentro de un EXISTS convertido a IN (usar JOIN DISTINCT).
+  **Pendiente**: probar con sesión de TUTORA el panel del I (tutoría y conducta).
 - Fallos PREEXISTENTES (iguales con `HEAD`): `verif_asistencia_jornadas.php` (no halla escenario de
   prueba) y `verif_criterios_filtros_cascada.php` (§ 7, «el árbol NO queda vacío»). No tocados.
 - ⚠️ La `075` se MODIFICÓ tras su primer commit (rd_* NULL + CHECK): en otra BD local que ya
