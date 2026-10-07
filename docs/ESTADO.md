@@ -5,10 +5,14 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🔜 RETOMAR AQUÍ (07/10/2026) — Cambio de sección: plan aprobado, fase 0 hecha
+## 🔜 RETOMAR AQUÍ (07/10/2026) — Cambio de sección: FASE 1 HECHA (modelo)
 
-- **Plan rediseñado y aprobado** en `docs/modulos/cambio-seccion.md` (12 decisiones; reemplaza
-  al del 09/07). Siguiente paso: **fase 1, `CambioSeccionModel`**.
+- **Plan aprobado** en `docs/modulos/cambio-seccion.md` (17 decisiones; reemplaza al del 09/07).
+- **Fase 1 HECHA** en `dev` (`84386fb`, sin push): `CambioSeccionModel` con sección por bimestre,
+  `ejecutar`, regreso sin R.D. y `revertir` (opción a). `verif_cambio_seccion.php` verde.
+  **Siguiente: fase 2** (pantalla de la matrícula + avisos). Nada visible para el usuario aún.
+- ⚠️ La `075` se MODIFICÓ tras su primer commit (rd_* NULL + CHECK): en otra BD local que ya
+  la tenga, borrar sus 4 tablas vacías y volver a aplicarla.
 - **Migración `075_cambio_seccion.sql`** (solo esquema): escrita y **aplicada en la BD local del
   escritorio** el 07/10. **NO aplicada en producción.**
 - **Numeración COMPARTIDA de R.D.** (traslado + cambio de sección) ya implementada en
