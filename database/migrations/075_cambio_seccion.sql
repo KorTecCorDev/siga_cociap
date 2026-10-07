@@ -29,6 +29,11 @@
 -- por eso NO hay UNIQUE sobre (anio_id, rd_correlativo): la unicidad la valida
 -- el PUNTO ÚNICO `TrasladoModel::correlativoDisponible`, que mira las dos tablas.
 --
+-- REGRESO SIN R.D. (decisión del usuario, 07/10/2026): volver a la sección de
+-- ORIGEN del último cambio vigente, cuando el bimestre de ese cambio ya cerró,
+-- es un cambio NUEVO que solo exige el motivo. Por eso rd_* admite NULL, y el
+-- CHECK exige los tres llenos o los tres vacíos. Un regreso no ocupa número.
+--
 -- Solo esquema. Idempotente (CREATE TABLE IF NOT EXISTS).
 -- Ejecutar después de 074_borradores_formulario.sql.
 -- ============================================================
@@ -43,9 +48,9 @@ CREATE TABLE IF NOT EXISTS cambios_seccion (
     periodo_id          SMALLINT UNSIGNED NOT NULL,
     seccion_origen_id   SMALLINT UNSIGNED NOT NULL,
     seccion_destino_id  SMALLINT UNSIGNED NOT NULL,
-    rd_correlativo      SMALLINT UNSIGNED NOT NULL,
-    rd_numero           VARCHAR(60)       NOT NULL,
-    rd_fecha            DATE              NOT NULL,
+    rd_correlativo      SMALLINT UNSIGNED NULL DEFAULT NULL,
+    rd_numero           VARCHAR(60)       NULL DEFAULT NULL,
+    rd_fecha            DATE              NULL DEFAULT NULL,
     motivo              TEXT              NOT NULL,
     estado              ENUM('vigente','revertido') NOT NULL DEFAULT 'vigente',
     movido_por          INT UNSIGNED      NOT NULL,
@@ -66,7 +71,10 @@ CREATE TABLE IF NOT EXISTS cambios_seccion (
     CONSTRAINT fk_cs_destino   FOREIGN KEY (seccion_destino_id) REFERENCES secciones (id),
     CONSTRAINT fk_cs_movido    FOREIGN KEY (movido_por)         REFERENCES usuarios (id),
     CONSTRAINT fk_cs_revertido FOREIGN KEY (revertido_por)      REFERENCES usuarios (id),
-    CONSTRAINT chk_cs_secciones_distintas CHECK (seccion_origen_id <> seccion_destino_id)
+    CONSTRAINT chk_cs_secciones_distintas CHECK (seccion_origen_id <> seccion_destino_id),
+    CONSTRAINT chk_cs_rd_completa CHECK (
+        (rd_correlativo IS NULL AND rd_numero IS NULL AND rd_fecha IS NULL)
+        OR (rd_correlativo IS NOT NULL AND rd_numero IS NOT NULL AND rd_fecha IS NOT NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2) Archivo: promedios por competencia (fila completa de `calificaciones`).

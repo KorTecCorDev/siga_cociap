@@ -99,6 +99,28 @@ Lo que el colegio necesita:
     notas del II en su sección actual): la R.D. formalizó un cambio hecho antes. El
     `periodo_id` sale de los DATOS, no de `rd_fecha`.
 
+13. **Revertir ≠ regresar** (07/10/2026). **Revertir** = deshacer un cambio **mientras su
+    bimestre sigue abierto** (como si no hubiera ocurrido). Si ese bimestre **ya cerró**,
+    volver a la sección anterior es un **cambio NUEVO** (el *regreso*): el bimestre cerrado
+    queda en la sección donde se cursó. Escenario del usuario: A en I–II, B en el III,
+    regreso a A en el IV → I, II y IV del primer docente, III del segundo (probado en
+    `verif_cambio_seccion.php` § 5b). `CambioSeccionModel::tipoDeMovimiento()` decide entre
+    `normal`, `regreso` y `revertir`; `ejecutar()` rechaza la vuelta dentro del mismo
+    bimestre y remite a revertir.
+14. **El regreso NO lleva R.D.**: solo el motivo, y no ocupa número (`rd_*` en NULL; el CHECK
+    `chk_cs_rd_completa` exige los tres llenos o los tres vacíos). Un cambio `normal` sin R.D.
+    se rechaza.
+15. Al regresar, el docente de la sección original **NO ve sus propias notas parciales** del
+    bimestre en que el estudiante se fue (quedan en el archivo, solo para auditoría). Ve lo
+    oficial del bimestre cursado fuera y, como referencia, lo archivado del bimestre abierto.
+16. **Revertir DESCONFIRMA** los criterios que reciben notas restauradas (invariante
+    «`criterios.confirmado_en` es la única verdad de oficial»); el docente vuelve a confirmar.
+
+⚠️ **«Archivo del cambio» NO es la tabla de borradores.** `borradores_formulario` (074) guarda
+lo tecleado en un formulario y se BORRA tras el guardado oficial; `cambios_seccion_*` es un
+archivo PERMANENTE (auditoría, referencia y reversión). Se archiva TODO lo del bimestre
+abierto, también lo bloqueado (decisión 3).
+
 ## 4. Casos reales en la BD (medido el 07/10/2026)
 
 - **Hay 2 cambios de sección hechos a mano**, un intercambio dentro de 4.° grado: la matrícula

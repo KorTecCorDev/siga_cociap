@@ -211,6 +211,53 @@ try {
     $pdo->rollBack();
 }
 
+echo "\n=== 5b. REGRESO a la sección anterior (decisión del 07/10/2026) ===\n";
+$cerrado = $pdo->query("SELECT id, numero FROM periodos WHERE anio_id = {$anioId} AND estado = 'cerrado'
+                        ORDER BY numero DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+$pdo->beginTransaction();
+try {
+    $ok($rechaza(fn() => $cambios->ejecutar($mid, $destino, null, null, 'x', $usuario)) !== null,
+        'cambio NORMAL sin R.D.: RECHAZADO');
+
+    // Mismo bimestre abierto: ir y volver es REVERTIR, no un cambio nuevo.
+    $cambios->ejecutar($mid, $destino, $tras->siguienteCorrelativo($anioId, 1), date('Y-m-d'), 'ida', $usuario);
+    $ok($cambios->tipoDeMovimiento($mid, $origen) === 'revertir', 'volver en el MISMO bimestre abierto = revertir');
+    $ok($rechaza(fn() => $cambios->ejecutar($mid, $origen, null, null, 'vuelta', $usuario)) !== null,
+        'ejecutar() rechaza esa vuelta (corresponde revertir)');
+} finally {
+    $pdo->rollBack();
+}
+
+if ($cerrado) {
+    $pdo->beginTransaction();
+    try {
+        // Ida registrada en un bimestre YA CERRADO (como las matrículas 259/339).
+        $pdo->prepare("INSERT INTO cambios_seccion (matricula_id, anio_id, periodo_id, seccion_origen_id,
+                         seccion_destino_id, rd_correlativo, rd_numero, rd_fecha, motivo, movido_por)
+                       VALUES (?, ?, ?, ?, ?, 999, 'ida (verificación)', CURDATE(), 'ida', ?)")
+            ->execute([$mid, $anioId, (int) $cerrado['id'], $origen, $destino, $usuario]);
+        $pdo->prepare("UPDATE matriculas SET seccion_id = ? WHERE id = ?")->execute([$destino, $mid]);
+
+        $ok($cambios->tipoDeMovimiento($mid, $origen) === 'regreso',
+            "volver tras cerrar el bimestre {$cerrado['numero']} = regreso");
+        $ok($cambios->tipoDeMovimiento($mid, $otroGrado) === 'normal', 'ir a otra sección = normal');
+        $res = $cambios->ejecutar($mid, $origen, null, null, 'regreso', $usuario);
+        $ok($res['regreso'] === true && $res['rd_numero'] === null, 'el REGRESO se registra SIN R.D.');
+        $ok($contar("SELECT COUNT(*) FROM cambios_seccion WHERE id = ? AND rd_correlativo IS NULL",
+                [$res['cambio_id']]) === 1, 'y no ocupa ningún número');
+        foreach ($periodos as $p) {
+            $esperada = ((int) $p['numero'] >= (int) $cerrado['numero']
+                         && (int) $p['numero'] < (int) $periodoCambio['numero']) ? $destino : $origen;
+            $ok($cambios->seccionDelPeriodo($mid, (int) $p['id']) === $esperada,
+                "ida y vuelta: periodo {$p['numero']} → {$esperada}");
+        }
+    } finally {
+        $pdo->rollBack();
+    }
+} else {
+    echo "  (sin bimestres cerrados: el regreso no es evaluable)\n";
+}
+
 echo "\n=== 6. ROLLBACK ===\n";
 foreach ($tablas as $t) {
     $ok($contar("SELECT COUNT(*) FROM {$t}") === $antesGlobal[$t], "{$t} vuelve a {$antesGlobal[$t]} filas");

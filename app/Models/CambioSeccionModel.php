@@ -194,18 +194,43 @@ class CambioSeccionModel extends BaseModel
     // ── Ejecución ────────────────────────────────────────────────────────
 
     /**
+     * Qué es mover la matrícula a `$destinoId`, frente a su último cambio vigente:
+     *  - 'normal'  : un cambio de sección con R.D. obligatoria;
+     *  - 'regreso' : vuelve a la sección de ORIGEN del último cambio y el
+     *                bimestre de ese cambio YA CERRÓ → cambio nuevo SIN R.D.
+     *                (decisión del usuario, 07/10/2026);
+     *  - 'revertir': vuelve a esa sección y el bimestre del cambio SIGUE
+     *                ABIERTO → no es un cambio nuevo, es revertir().
+     */
+    public function tipoDeMovimiento(int $matriculaId, int $destinoId): string
+    {
+        $ult = $this->ultimoVigente($matriculaId);
+        if (!$ult || (int) $ult['seccion_origen_id'] !== $destinoId) {
+            return 'normal';
+        }
+        $cerrado = $this->queryOne(
+            "SELECT 1 AS x FROM periodos WHERE id = ? AND estado = 'cerrado'",
+            [(int) $ult['periodo_id']]
+        );
+        return $cerrado ? 'regreso' : 'revertir';
+    }
+
+    /**
      * Cambia de sección la matrícula. TRANSACCIÓN propia (o la del llamador,
      * si ya hay una abierta: así lo prueba el verificador con rollback).
      *
-     * @return array{cambio_id:int, rd_numero:string, periodo:string,
+     * La R.D. (`$rdCorrelativo` + `$rdFecha`) es obligatoria salvo en un
+     * 'regreso' (ver tipoDeMovimiento), donde es opcional.
+     *
+     * @return array{cambio_id:int, rd_numero:?string, periodo:string, regreso:bool,
      *               competencias:int, criterios:int, omisiones:int}
      * @throws \InvalidArgumentException si algo no es válido (mensaje para el usuario)
      */
     public function ejecutar(
         int $matriculaId,
         int $destinoId,
-        int $rdCorrelativo,
-        string $rdFecha,
+        ?int $rdCorrelativo,
+        ?string $rdFecha,
         string $motivo,
         int $usuarioId
     ): array {
@@ -213,12 +238,16 @@ class CambioSeccionModel extends BaseModel
         if ($motivo === '') {
             throw new \InvalidArgumentException('El motivo es obligatorio.');
         }
-        if ($rdCorrelativo < 1) {
-            throw new \InvalidArgumentException('El número de R.D. debe ser mayor o igual a 1.');
-        }
-        $f = \DateTime::createFromFormat('Y-m-d', $rdFecha);
-        if (!$f || $f->format('Y-m-d') !== $rdFecha) {
-            throw new \InvalidArgumentException('La fecha de la R.D. no es válida.');
+        $rdFecha = ($rdFecha === null || trim($rdFecha) === '') ? null : trim($rdFecha);
+        $conRd   = $rdCorrelativo !== null || $rdFecha !== null;
+        if ($conRd) {
+            if ($rdCorrelativo === null || $rdCorrelativo < 1) {
+                throw new \InvalidArgumentException('El número de R.D. debe ser mayor o igual a 1.');
+            }
+            $f = $rdFecha !== null ? \DateTime::createFromFormat('Y-m-d', $rdFecha) : false;
+            if (!$f || $f->format('Y-m-d') !== $rdFecha) {
+                throw new \InvalidArgumentException('La fecha de la R.D. no es válida.');
+            }
         }
 
         $propia = !$this->db->inTransaction();
@@ -235,22 +264,35 @@ class CambioSeccionModel extends BaseModel
             if (!$m || $motivoNo !== null) {
                 throw new \InvalidArgumentException($motivoNo ?? 'Matrícula no encontrada.');
             }
+            $tipo = $this->tipoDeMovimiento($matriculaId, $destinoId);
+            if ($tipo === 'revertir') {
+                throw new \InvalidArgumentException(
+                    'El estudiante vuelve a su sección anterior en el mismo bimestre: '
+                    . 'corresponde revertir el cambio, no registrar uno nuevo.'
+                );
+            }
+            if ($tipo === 'normal' && !$conRd) {
+                throw new \InvalidArgumentException('El número y la fecha de la R.D. son obligatorios.');
+            }
             $anioId   = (int) $m['anio_id'];
             $origenId = (int) $m['seccion_id'];
             $periodo  = $this->periodoDelCambio($anioId);
 
-            // Numeración COMPARTIDA con los traslados (punto único).
-            $traslados = new TrasladoModel();
-            if (!$traslados->correlativoDisponible($anioId, $rdCorrelativo)) {
-                throw new \InvalidArgumentException(
-                    'El número ' . $rdCorrelativo . ' ya está en uso por otra resolución vigente. Elige otro.'
+            $rdNumero = null;
+            if ($conRd) {
+                // Numeración COMPARTIDA con los traslados (punto único).
+                $traslados = new TrasladoModel();
+                if (!$traslados->correlativoDisponible($anioId, $rdCorrelativo)) {
+                    throw new \InvalidArgumentException(
+                        'El número ' . $rdCorrelativo . ' ya está en uso por otra resolución vigente. Elige otro.'
+                    );
+                }
+                $config   = $traslados->getConfigAnio($anioId);
+                $sufijo   = config('institucion_datos')['sufijo_constancia'] ?? 'CAVVG-DA';
+                $rdNumero = TrasladoModel::formatearNumero(
+                    $rdCorrelativo, (int) ($config['anio'] ?? date('Y')), $sufijo
                 );
             }
-            $config   = $traslados->getConfigAnio($anioId);
-            $sufijo   = config('institucion_datos')['sufijo_constancia'] ?? 'CAVVG-DA';
-            $rdNumero = TrasladoModel::formatearNumero(
-                $rdCorrelativo, (int) ($config['anio'] ?? date('Y')), $sufijo
-            );
 
             $cambioId = $this->create([
                 'matricula_id'       => $matriculaId,
@@ -258,7 +300,7 @@ class CambioSeccionModel extends BaseModel
                 'periodo_id'         => (int) $periodo['id'],
                 'seccion_origen_id'  => $origenId,
                 'seccion_destino_id' => $destinoId,
-                'rd_correlativo'     => $rdCorrelativo,
+                'rd_correlativo'     => $conRd ? $rdCorrelativo : null,
                 'rd_numero'          => $rdNumero,
                 'rd_fecha'           => $rdFecha,
                 'motivo'             => $motivo,
@@ -286,6 +328,7 @@ class CambioSeccionModel extends BaseModel
             'cambio_id' => $cambioId,
             'rd_numero' => $rdNumero,
             'periodo'   => (string) $periodo['nombre_display'],
+            'regreso'   => $tipo === 'regreso',
         ] + $conteo;
     }
 
