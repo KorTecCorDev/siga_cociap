@@ -257,7 +257,7 @@ el grado no cambia).
 | B ✅ | **Rectificación / extraordinarias** | `RectificacionModel::sqlInsertables`, `sqlTransversalesInsertables` (`matriculasSinNotasEnCerrados` solo filtra y rotula por la sección de HOY: queda en 6.1; su conteo hereda la corrección) | Hoy ofrecería insertar notas de un bimestre cerrado en las cargas de la sección ACTUAL, no en las de donde lo cursó. |
 | C ✅ | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
 | D ✅ | **Tutoría** | `TutoriaController::getAlumnosSeccion` y sus 2 guardas de escritura (reciben el bimestre: pasan de 6.1 a aquí), `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
-| E | **Conducta** | `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
+| E ✅ | **Conducta** | guarda de escritura de `ConductaTutorController` (recibe el bimestre), `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
 | F | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
 | G | **Calificaciones del docente y cierre** | `Docente\CalificacionController::getAlumnosSeccion`, `ExoneracionModel::getActivasParaCarga` (EXO en un historial pasado), `ControlOperativoModel::alertasEvaluacionIncompleta`, `AnioAcademicoModel::competenciasVaciasDelPeriodo` | Grilla, historial y la compuerta del cierre. |
 | H | **Mérito y situación final** | `OrdenMeritoModel::rankingPorSeccionLive`, `rankingGradoLive` / `calcularFilasRanking` (etiqueta de sección), `DesempateMeritoModel::getActaPorPeriodo`, `SituacionFinalModel::rosterDelPeriodo`, `planPorMatricula`, `transversalesDelActa`, `fueraDelColegio` | Ranking por sección y acta del bimestre. Snapshots publicados: INTOCABLES. |
@@ -295,6 +295,11 @@ cambian 4.° A y 4.° B de primaria en el I Bimestre, intercambiando a 259 y 339
 solo cambian en 4.° A/4.° B del I (259 ↔ 339); las conclusiones difieren SOLO en el orden de las
 filas (la consulta no tiene `ORDER BY`): con el contenido ordenado son idénticas; la compuerta del
 cierre, idéntica. La guarda de conducta del tutor (`ConductaTutorController`) va con el bloque E.
+
+**Bloque E HECHO (07/10/2026).** `sqlEnSeccionDelPeriodo` acepta ahora también una COLUMNA de
+sección (`s.id`) para las consultas que recorren todas las secciones. A/B en 351 claves: solo
+cambian 4.° A/4.° B del I (registro, panel del tutor y literales legado: 259 ↔ 339); el
+progreso por sección, el incumplimiento y la completitud del cierre, idénticos.
 
 ### 6.4 Cómo se verifica
 

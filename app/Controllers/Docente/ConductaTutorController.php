@@ -173,10 +173,12 @@ class ConductaTutorController extends BaseController
             $this->json(['success' => false, 'mensaje' => 'Datos incompletos.'], 400);
         }
 
-        // El alumno debe pertenecer a la sección del tutor.
+        // El alumno debe haber CURSADO ese bimestre en la sección del tutor
+        // (cambio de sección, 07/10/2026: punto único sqlEnSeccionDelPeriodo).
         $pertenece = $this->model->queryOne(
-            "SELECT id FROM matriculas WHERE id = ? AND seccion_id = ?",
-            [$matriculaId, $sid]
+            "SELECT m.id FROM matriculas m WHERE m.id = ? AND "
+                . \App\Models\CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $sid, $pid),
+            [$matriculaId]
         );
         if (!$pertenece) {
             $this->json(['success' => false, 'mensaje' => 'El alumno no pertenece a tu sección.'], 403);

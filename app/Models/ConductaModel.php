@@ -218,7 +218,7 @@ class ConductaModel extends BaseModel
             INNER JOIN grados g ON g.id = s.grado_id
             INNER JOIN anios_academicos a ON a.id = s.anio_id AND a.estado = 'activo'
             LEFT JOIN matriculas m
-                   ON m.seccion_id = s.id AND m.anio_id = s.anio_id
+                   ON " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', 's.id', $periodoId) . " AND m.anio_id = s.anio_id
                   -- Roster de evaluacion (punto unico en helpers.php).
                   " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
             LEFT JOIN (
@@ -276,7 +276,7 @@ class ConductaModel extends BaseModel
                    ON cc.matricula_id = m.id AND cc.periodo_id = ?
             LEFT JOIN conducta_confirmaciones cf
                    ON cf.matricula_id = m.id AND cf.periodo_id = ?
-            WHERE m.seccion_id = ?
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               -- Mismo roster que el docente al ingresar notas (getAlumnosSeccion):
               -- TODOS los matriculados de la seccion (aprobada, pendiente e incluso
               -- desactivado por baja administrativa/deuda: siguen asistiendo). El
@@ -284,7 +284,7 @@ class ConductaModel extends BaseModel
               " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$periodoId, $periodoId, $seccionId]);
+        ", [$periodoId, $periodoId]);
 
         if (empty($alumnos)) {
             return [];
@@ -330,12 +330,12 @@ class ConductaModel extends BaseModel
             INNER JOIN personas    p ON p.id = e.persona_id
             LEFT JOIN calificaciones_conducta cc
                 ON cc.matricula_id = m.id AND cc.periodo_id = ?
-            WHERE m.seccion_id = ?
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               -- Roster de evaluacion (punto unico en helpers.php).
               " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$periodoId, $seccionId]);
+        ", [$periodoId]);
     }
 
     /**
@@ -350,9 +350,9 @@ class ConductaModel extends BaseModel
             SELECT 1
             FROM conducta_respuestas r
             INNER JOIN matriculas m ON m.id = r.matricula_id
-            WHERE m.seccion_id = ? AND r.periodo_id = ?
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . " AND r.periodo_id = ?
             LIMIT 1
-        ", [$seccionId, $periodoId]);
+        ", [$periodoId]);
         if ($hayMatriz) {
             return null;
         }
@@ -365,14 +365,14 @@ class ConductaModel extends BaseModel
             INNER JOIN matriculas m ON m.id = cc.matricula_id
             INNER JOIN usuarios   u ON u.id = cc.registrado_por
             INNER JOIN personas   p ON p.id = u.persona_id
-            WHERE m.seccion_id = ? AND cc.periodo_id = ? AND cc.literal IS NOT NULL
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . " AND cc.periodo_id = ? AND cc.literal IS NOT NULL
               -- La via extraordinaria (migracion 063) NO es el registro de la
               -- seccion: un literal que RA ingreso hoy para un alumno que llego
               -- tarde haria decir al banner del tutor «registradas por RA, hoy».
               AND cc.extraordinaria = 0
             ORDER BY cc.registrado_en DESC
             LIMIT 1
-        ", [$seccionId, $periodoId]);
+        ", [$periodoId]);
 
         return $registro ?: null;
     }
@@ -512,12 +512,12 @@ class ConductaModel extends BaseModel
                 FROM " . self::RESPUESTAS_OFICIALES . " r WHERE r.periodo_id = ?
                 GROUP BY r.matricula_id
             ) sub ON sub.matricula_id = m.id
-            WHERE m.seccion_id = ?
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               -- Roster de evaluacion (punto unico en helpers.php): la compuerta de
               -- completitud debe contar exactamente a quienes aparecen en la grilla.
               " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
-        ", [$totalCriterios, $periodoId, $seccionId]);
+        ", [$totalCriterios, $periodoId]);
 
         return [
             'esperados' => (int) ($row['esperados'] ?? 0),
@@ -836,12 +836,12 @@ class ConductaModel extends BaseModel
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
             LEFT JOIN calificaciones_conducta cc ON cc.matricula_id = m.id AND cc.periodo_id = ?
-            WHERE m.seccion_id = ?
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               -- Roster de evaluacion (punto unico en helpers.php).
               " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$periodoId, $periodoId, $periodoId, $seccionId]);
+        ", [$periodoId, $periodoId, $periodoId]);
 
         foreach ($rows as &$r) {
             $respondidos = (int) $r['respondidos'];
@@ -1221,7 +1221,7 @@ class ConductaModel extends BaseModel
                     ON m.id = r.matricula_id
                    -- Roster de evaluacion (punto unico en helpers.php).
                    " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
-            INNER JOIN secciones s ON s.id = m.seccion_id
+            INNER JOIN secciones s ON s.id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
             INNER JOIN grados    g ON g.id = s.grado_id
             INNER JOIN niveles   n ON n.id = g.nivel_id
             WHERE r.periodo_id = ?

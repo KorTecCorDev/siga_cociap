@@ -234,5 +234,26 @@ if ($suj) {
     }
 }
 
+echo "\n=== 8. Bloque E — conducta de un bimestre cursado en otra sección ===\n";
+if ($suj) {
+    $cm  = new App\Models\ConductaModel();
+    $ids = fn(array $r) => array_map('intval', array_column($r, 'matricula_id'));
+    $pdo->beginTransaction();
+    try {
+        $pc = (int) $cerrado['id'];
+        $cambios->ejecutar($mid, (int) $suj['destino'], $tras->siguienteCorrelativo($anio, 1), date('Y-m-d'),
+                           'verificación', (int) $pdo->query("SELECT MIN(id) FROM usuarios")->fetchColumn());
+        $ok(in_array($mid, $ids($cm->getEstudiantesParaRegistro((int) $suj['origen'], $pc)), true)
+            && in_array($mid, $ids($cm->getEstudiantesParaTutor((int) $suj['origen'], $pc, 10)), true),
+            'el registro y el panel de conducta de ORIGEN lo conservan en ese bimestre');
+        $ok(!in_array($mid, $ids($cm->getEstudiantesParaRegistro((int) $suj['destino'], $pc)), true),
+            'el de DESTINO no lo lista en ese bimestre');
+        $ok(in_array($mid, $ids($cm->getEstudiantesParaRegistro((int) $suj['destino'], (int) $abierto['id'])), true),
+            'en el bimestre en curso lo registra DESTINO');
+    } finally {
+        $pdo->rollBack();
+    }
+}
+
 echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
 exit($fallos === 0 ? 0 : 1);
