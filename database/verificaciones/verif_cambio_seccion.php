@@ -1,0 +1,221 @@
+<?php
+
+/**
+ * Verificación — CAMBIO DE SECCIÓN (fase 1: punto único + ejecutar).
+ * Uso: php database/verificaciones/verif_cambio_seccion.php
+ *
+ * ⚠️ ESCRIBE PARA PROBAR, siempre dentro de una TRANSACCIÓN QUE TERMINA EN
+ * ROLLBACK: no deja ni una fila (regla del proyecto).
+ *
+ * LAS REGLAS (docs/modulos/cambio-seccion.md, 07/10/2026)
+ *  - Bimestres CERRADOS: las notas se quedan en la carga de origen, intactas.
+ *  - Bimestres NO cerrados: lo vivo en origen se ARCHIVA y se RETIRA; destino
+ *    califica de cero.
+ *  - sección(P): destino desde el periodo del cambio; origen antes.
+ *  - Guardas: operativa de retorno NO; oficial con retorno activo NO (revertido
+ *    SÍ); destino del mismo grado y año, distinto del actual; R.D. libre.
+ *
+ * QUÉ COMPRUEBA
+ *   1. Sin cambios, sección(P) = matriculas.seccion_id.
+ *   2. Guardas, en sus DOS ramas.
+ *   3. ejecutar(): archivo completo = lo que había vivo; origen queda sin filas
+ *      vivas en los periodos no cerrados; los cerrados, idénticos; la boleta de
+ *      los cerrados no cambia; la matrícula queda en destino.
+ *   4. sección(P) por bimestre tras el cambio.
+ *   5. Un cambio REVERTIDO deja de contar en sección(P).
+ *   6. ROLLBACK: todo vuelve a su valor inicial.
+ */
+
+define('ROOT_PATH', dirname(__DIR__, 2));
+define('APP_PATH',  ROOT_PATH . '/app');
+define('CORE_PATH', ROOT_PATH . '/core');
+define('CONFIG_PATH', ROOT_PATH . '/config');
+define('STORAGE_PATH', ROOT_PATH . '/storage');
+
+spl_autoload_register(function (string $class): void {
+    $map = ['Core\\' => CORE_PATH . '/', 'App\\Models\\' => APP_PATH . '/Models/'];
+    foreach ($map as $prefix => $base) {
+        if (str_starts_with($class, $prefix)) {
+            $file = $base . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+            if (file_exists($file)) { require_once $file; return; }
+        }
+    }
+});
+require_once APP_PATH . '/Helpers/helpers.php';
+
+$pdo     = Core\Database::connect();
+$cambios = new App\Models\CambioSeccionModel();
+$cal     = new App\Models\CalificacionModel();
+$tras    = new App\Models\TrasladoModel();
+
+$fallos = 0;
+$ok = function (bool $cond, string $texto) use (&$fallos): void {
+    if (!$cond) { $fallos++; }
+    echo ($cond ? '  [OK]   ' : '  [FALLA] ') . $texto . "\n";
+};
+$contar = function (string $sql, array $p = []) use ($pdo): int {
+    $st = $pdo->prepare($sql); $st->execute($p);
+    return (int) $st->fetchColumn();
+};
+$rechaza = function (callable $fn): ?string {
+    try { $fn(); return null; } catch (\InvalidArgumentException $e) { return $e->getMessage(); }
+};
+
+// Filas VIVAS de una matrícula en las cargas de una sección, por estado de periodo.
+$vivas = function (int $mid, int $sec, bool $cerrados) use ($contar): array {
+    $cond = $cerrados ? "= 'cerrado'" : "<> 'cerrado'";
+    return [
+        'cal'  => $contar("SELECT COUNT(*) FROM calificaciones c
+                    JOIN cargas_academicas ca ON ca.id = c.carga_id
+                    JOIN periodos pe ON pe.id = c.periodo_id
+                    WHERE c.matricula_id = ? AND ca.seccion_id = ? AND pe.estado {$cond}", [$mid, $sec]),
+        'crit' => $contar("SELECT COUNT(*) FROM calificaciones_criterio cc
+                    JOIN criterios cr ON cr.id = cc.criterio_id
+                    JOIN cargas_academicas ca ON ca.id = cr.carga_id
+                    JOIN periodos pe ON pe.id = cr.periodo_id
+                    WHERE cc.matricula_id = ? AND ca.seccion_id = ? AND pe.estado {$cond}
+                      AND cr.eliminado_en IS NULL", [$mid, $sec]),
+        'omi'  => $contar("SELECT COUNT(*) FROM omisiones_criterio oc
+                    JOIN criterios cr ON cr.id = oc.criterio_id
+                    JOIN cargas_academicas ca ON ca.id = cr.carga_id
+                    JOIN periodos pe ON pe.id = cr.periodo_id
+                    WHERE oc.matricula_id = ? AND ca.seccion_id = ? AND pe.estado {$cond}
+                      AND cr.eliminado_en IS NULL", [$mid, $sec]),
+    ];
+};
+
+// ── Sujeto: aprobada, sin retorno, con otra sección en su grado y con datos
+//    VIVOS en algún periodo no cerrado (para que el archivo no sea trivial). ──
+$suj = $pdo->query("
+    SELECT m.id, m.anio_id, m.seccion_id AS origen, s.grado_id,
+           (SELECT s2.id FROM secciones s2 WHERE s2.grado_id = s.grado_id
+               AND s2.anio_id = s.anio_id AND s2.id <> s.id ORDER BY s2.id LIMIT 1) AS destino
+    FROM matriculas m
+    JOIN secciones s ON s.id = m.seccion_id
+    JOIN anios_academicos aa ON aa.id = m.anio_id AND aa.estado = 'activo'
+    WHERE m.estado = 'aprobada' AND m.tipo IN ('continuador','nuevo')
+      AND m.id NOT IN (SELECT matricula_oficial_id FROM retornos_grado)
+      AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado)
+      AND EXISTS (SELECT 1 FROM secciones s3 WHERE s3.grado_id = s.grado_id
+                     AND s3.anio_id = s.anio_id AND s3.id <> s.id)
+      AND EXISTS (SELECT 1 FROM calificaciones_criterio cc
+                    JOIN criterios cr ON cr.id = cc.criterio_id
+                    JOIN periodos pe ON pe.id = cr.periodo_id
+                   WHERE cc.matricula_id = m.id AND pe.estado <> 'cerrado'
+                     AND cr.eliminado_en IS NULL)
+    ORDER BY m.id LIMIT 1
+")->fetch(PDO::FETCH_ASSOC);
+if (!$suj) { echo "No hay una matrícula con datos vivos en un bimestre abierto. Nada que verificar.\n"; exit(0); }
+
+$mid     = (int) $suj['id'];
+$anioId  = (int) $suj['anio_id'];
+$origen  = (int) $suj['origen'];
+$destino = (int) $suj['destino'];
+$usuario = (int) $pdo->query("SELECT id FROM usuarios ORDER BY id LIMIT 1")->fetchColumn();
+$periodos = $pdo->query("SELECT id, numero, estado FROM periodos WHERE anio_id = {$anioId} ORDER BY numero")
+    ->fetchAll(PDO::FETCH_ASSOC);
+$periodoCambio = $cambios->periodoDelCambio($anioId);
+echo "\n=== SUJETO === matrícula {$mid} · sección {$origen} → {$destino} · rige desde {$periodoCambio['nombre_display']}\n";
+
+$tablas = ['cambios_seccion', 'cambios_seccion_competencia', 'cambios_seccion_criterio',
+           'cambios_seccion_omision', 'calificaciones', 'calificaciones_criterio', 'omisiones_criterio'];
+$antesGlobal = [];
+foreach ($tablas as $t) { $antesGlobal[$t] = $contar("SELECT COUNT(*) FROM {$t}"); }
+
+$pdo->beginTransaction();
+try {
+    echo "\n=== 1. Sin cambios, sección(P) = sección actual ===\n";
+    foreach ($periodos as $p) {
+        $ok($cambios->seccionDelPeriodo($mid, (int) $p['id']) === $origen, "periodo {$p['numero']} → {$origen}");
+    }
+
+    echo "\n=== 2. Guardas (las dos ramas) ===\n";
+    $ok($cambios->motivoNoElegible($mid, $destino) === null, 'sujeto con destino válido: ELEGIBLE');
+    $ok($cambios->motivoNoElegible($mid, $origen) !== null, 'destino = sección actual: RECHAZADO');
+    $otroGrado = (int) $pdo->query("SELECT id FROM secciones WHERE anio_id = {$anioId}
+                                     AND grado_id <> {$suj['grado_id']} LIMIT 1")->fetchColumn();
+    $ok($cambios->motivoNoElegible($mid, $otroGrado) !== null, 'destino de otro grado: RECHAZADO');
+    foreach ($pdo->query("SELECT matricula_oficial_id AS ofi, matricula_operativa_id AS ope, estado
+                          FROM retornos_grado")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $ok($cambios->motivoNoElegible((int) $r['ope']) !== null,
+            "operativa {$r['ope']} de un retorno: RECHAZADA");
+        $ofi = $cambios->motivoNoElegible((int) $r['ofi']);
+        if ($r['estado'] === 'activo') {
+            $ok($ofi !== null, "oficial {$r['ofi']} con retorno ACTIVO: RECHAZADA");
+        } else {
+            $ok($ofi === null || !str_contains($ofi, 'retorno'),
+                "oficial {$r['ofi']} con retorno REVERTIDO: no la frena el retorno");
+        }
+    }
+    $libre = $tras->siguienteCorrelativo($anioId, 1);
+    $ocupado = $contar("SELECT correlativo FROM traslados WHERE anio_id = ? AND estado = 'vigente' LIMIT 1", [$anioId]);
+    if ($ocupado > 0) {
+        $ok($rechaza(fn() => $cambios->ejecutar($mid, $destino, $ocupado, date('Y-m-d'), 'x', $usuario)) !== null,
+            "R.D. {$ocupado} ocupada por un traslado: RECHAZADA");
+    }
+    $ok($rechaza(fn() => $cambios->ejecutar($mid, $destino, $libre, date('Y-m-d'), '   ', $usuario)) !== null,
+        'motivo vacío: RECHAZADO');
+    $ok($rechaza(fn() => $cambios->ejecutar($mid, $destino, $libre, '2026-02-30', 'x', $usuario)) !== null,
+        'fecha inválida: RECHAZADA');
+    $ok($contar("SELECT COUNT(*) FROM cambios_seccion") === $antesGlobal['cambios_seccion'],
+        'los rechazos no dejaron ninguna fila');
+
+    echo "\n=== 3. ejecutar() ===\n";
+    $abiertoAntes = $vivas($mid, $origen, false);
+    $cerradoAntes = $vivas($mid, $origen, true);
+    $boletaAntes = [];
+    foreach ($periodos as $p) {
+        if ($p['estado'] === 'cerrado') { $boletaAntes[$p['id']] = $cal->getBoletaAlumno($mid, (int) $p['id']); }
+    }
+
+    $res = $cambios->ejecutar($mid, $destino, $libre, date('Y-m-d'), 'verificación', $usuario);
+    echo "  → cambio {$res['cambio_id']} · {$res['rd_numero']} · archivadas: "
+        . "{$res['competencias']} competencias, {$res['criterios']} criterios, {$res['omisiones']} omisiones\n";
+
+    $ok($res['competencias'] === $abiertoAntes['cal']
+        && $res['criterios'] === $abiertoAntes['crit']
+        && $res['omisiones'] === $abiertoAntes['omi'],
+        'el archivo tiene exactamente lo que estaba vivo en los bimestres no cerrados');
+    $ok($res['criterios'] > 0, 'el archivo no es trivial (hay notas por criterio)');
+    $ok($vivas($mid, $origen, false) === ['cal' => 0, 'crit' => 0, 'omi' => 0],
+        'origen queda SIN filas vivas en los bimestres no cerrados');
+    $ok($vivas($mid, $origen, true) === $cerradoAntes, 'los bimestres CERRADOS de origen quedan idénticos');
+    foreach ($boletaAntes as $pid => $b) {
+        $ok($cal->getBoletaAlumno($mid, (int) $pid) == $b, "boleta del periodo {$pid} (cerrado) sin cambios");
+    }
+    $ok($contar("SELECT seccion_id FROM matriculas WHERE id = ?", [$mid]) === $destino, 'la matrícula queda en destino');
+    $ok($res['rd_numero'] === App\Models\TrasladoModel::formatearNumero(
+            $libre, (int) $tras->getConfigAnio($anioId)['anio'],
+            config('institucion_datos')['sufijo_constancia'] ?? 'CAVVG-DA'),
+        'la R.D. usa la nomenclatura del traslado');
+    $ok(!$tras->correlativoDisponible($anioId, $libre), "la R.D. {$libre} queda OCUPADA");
+
+    echo "\n=== 4. sección(P) por bimestre ===\n";
+    foreach ($periodos as $p) {
+        $esperada = (int) $p['numero'] >= (int) $periodoCambio['numero'] ? $destino : $origen;
+        $ok($cambios->seccionDelPeriodo($mid, (int) $p['id']) === $esperada,
+            "periodo {$p['numero']} → {$esperada}");
+    }
+    $sqlOk = $contar("SELECT " . App\Models\CambioSeccionModel::sqlSeccionDelPeriodo('m', 'px.id') . "
+                       FROM matriculas m JOIN periodos px ON px.id = ? WHERE m.id = ?",
+                     [(int) $periodos[0]['id'], $mid]);
+    $ok($sqlOk === $origen, 'la versión SQL con columna coincide con la PHP');
+
+    echo "\n=== 5. Un cambio REVERTIDO no cuenta ===\n";
+    $pdo->prepare("UPDATE cambios_seccion SET estado = 'revertido' WHERE id = ?")->execute([$res['cambio_id']]);
+    $pdo->prepare("UPDATE matriculas SET seccion_id = ? WHERE id = ?")->execute([$origen, $mid]);
+    foreach ($periodos as $p) {
+        $ok($cambios->seccionDelPeriodo($mid, (int) $p['id']) === $origen, "periodo {$p['numero']} → {$origen}");
+    }
+} finally {
+    $pdo->rollBack();
+}
+
+echo "\n=== 6. ROLLBACK ===\n";
+foreach ($tablas as $t) {
+    $ok($contar("SELECT COUNT(*) FROM {$t}") === $antesGlobal[$t], "{$t} vuelve a {$antesGlobal[$t]} filas");
+}
+$ok($contar("SELECT seccion_id FROM matriculas WHERE id = ?", [$mid]) === $origen, 'la matrícula vuelve a su sección');
+
+echo "\n" . ($fallos === 0 ? "TODO OK\n" : "FALLAS: {$fallos}\n");
+exit($fallos === 0 ? 0 : 1);
