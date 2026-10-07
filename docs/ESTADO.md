@@ -1,9 +1,28 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **06/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **07/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+
+## 🔜 RETOMAR AQUÍ (07/10/2026) — Cambio de sección: plan aprobado, fase 0 hecha
+
+- **Plan rediseñado y aprobado** en `docs/modulos/cambio-seccion.md` (12 decisiones; reemplaza
+  al del 09/07). Siguiente paso: **fase 1, `CambioSeccionModel`**.
+- **Migración `075_cambio_seccion.sql`** (solo esquema): escrita y **aplicada en la BD local del
+  escritorio** el 07/10. **NO aplicada en producción.**
+- **Numeración COMPARTIDA de R.D.** (traslado + cambio de sección) ya implementada en
+  `TrasladoModel` (sin commit). ⚠️ Desde ahí `TrasladoModel` **lee `cambios_seccion`**: la `075`
+  debe aplicarse en producción **ANTES** del merge a `main`, y en cada BD local antes de usar el
+  formulario de traslado. Verificador: `verif_numeracion_rd.php` (verde).
+- Registro pendiente (fase 5): matrícula 339 → `N° 059-2026-CAVVG-DA`, 259 →
+  `N° 060-2026-CAVVG-DA`, ambas del 01/09/2026, vigentes desde el II Bimestre.
+- `verif_fase_a_orden_merito.php`: **el fallo era del ASERTO, no del mérito** (corregido el
+  07/10). Elegía «cualquier aprobada con un bloqueo» también en el III EN CURSO, donde solo había
+  transversales bloqueadas (que el mérito excluye) → esperaba a la mat. 174 en un ranking vacío.
+  Ahora solo evalúa **bimestres CERRADOS**. Verde.
+- `verif_boleta_sin_calificaciones.php` no pasa: su rama «sin boleta» no se puede ejercitar con
+  estos datos (no hay ninguna matrícula sin notas). No es un defecto del código.
 
 ## 🔜 RETOMAR AQUÍ (06/10/2026, fin del turno tarde en la laptop → escritorio de casa)
 
@@ -2951,7 +2970,8 @@ pregunta siempre antes.
     veredicto y UPDATE como sentencias sueltas, así que pegarlo entero ejecuta el cambio
     **aunque el veredicto salga en rojo** — lección de la 048.
   - La **`053` está RESERVADA** para `cambio_seccion` (ver `docs/modulos/cambio-seccion.md`),
-    por eso esta corrección toma la `054`.
+    por eso esta corrección toma la `054`. **Reserva LIBERADA el 07/10/2026**: el cambio de sección usará
+    la `075` (ver `docs/modulos/cambio-seccion.md`).
 - **`052_alias_huerfano_etica_secundaria`** (17/08): corrección de DATOS (no toca esquema).
   Pone en NULL el `alias_boleta` «(Ética y Valores)» del área **Ed. Religiosa de
   SECUNDARIA**. Es el **paso 3 del plan de encendido de Ética del 07/07**, que este archivo
