@@ -7,7 +7,12 @@
 
 ## 🔜 RETOMAR AQUÍ (06/10/2026, fin del turno tarde en la laptop → escritorio de casa)
 
-**Git al cierre del turno:** `origin/dev` = `3452567` (autoguardado + sesión, 4 fases).
+**✅ ACTUALIZACIÓN (06/10/2026, noche, escritorio):** el autoguardado y la sesión **YA ESTÁN EN
+PRODUCCIÓN** (merge `db8dbb0`, sigue v1.0.5) y la **074 está aplicada en producción**. Las
+pruebas de abajo quedaron en verde salvo **C2** (falta usuario de secretaría). Lo que sigue en
+esta sección es el texto original del turno de la laptop.
+
+**Git al cierre del turno (laptop):** `origin/dev` = `3452567` (autoguardado + sesión, 4 fases).
 `origin/main` = `52db789` (colegio de origen por bimestre): **el autoguardado NO está en
 producción.** Migraciones en producción: hasta la **073**. La **074 (`borradores_formulario`)
 existe y está aplicada SOLO en la BD local de la laptop.**
@@ -94,7 +99,7 @@ tramo + lotes 072). Migraciones aplicadas allí: **072 y 073**. Retorno #1 rever
       situación final según el acta).
 - [ ] Las pruebas en producción del módulo auxiliar (ver su sección más abajo).
 
-## 🆕 SESIÓN QUE NO HACE PERDER EL TRABAJO + BORRADORES — EN `dev` (06/10/2026)
+## 🟢 SESIÓN QUE NO HACE PERDER EL TRABAJO + BORRADORES — DESPLEGADO el 06/10/2026 (merge `db8dbb0`, migración 074; sigue v1.0.5)
 
 Plan de 4 fases; detalle y decisiones en `docs/modulos/borradores-y-sesion.md`.
 
@@ -111,8 +116,9 @@ Plan de 4 fases; detalle y decisiones en `docs/modulos/borradores-y-sesion.md`.
       guarda antes de recargar, serializador de `campo[]`). Probada en navegador (06/10):
       restauración, importación sin perder lo tecleado, «+ Añadir fila». `verif_borradores.php`
       73/73 y `verif_notas_origen.php` en verde.
-- [ ] **Despliegue:** aplicar la 074 a mano en producción ANTES del merge. ⚠️ `session_timeout`
-      debe ir en 600.
+- [x] **Despliegue (06/10/2026):** 074 aplicada a mano en producción por el usuario ANTES del
+      merge; `session_timeout` en 600. Incluye el refuerzo de pestaña oculta (`de12bfa`).
+- [ ] Prueba **C2** con secretaría académica o administrativa (sin usuario aún).
 - [ ] 🔴 **Pendiente de seguridad (preexistente, tarea APARTE):** la sesión única por usuario no
       se aplica — `UsuarioModel::tokenValido()` nunca se llama. Decidido tratarlo después.
 - Recomendaciones no pedidas: el autoguardado de `calificaciones.js` y `conducta.js` falla en
@@ -5156,6 +5162,11 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **06/10/2026 (noche) — DEPLOY, sigue v1.0.5.** `main` pasó de `52db789` a `db8dbb0`
+  (merge `--no-ff` de `dev`, 7 commits: sesión + autoguardado de los 5 formularios + refuerzo
+  de pestaña oculta). Migración `074` aplicada a mano en producción por el usuario ANTES del
+  push. Verificado antes: `php -l` y `node --check` limpios, `verif_borradores.php` 73/73,
+  `verif_notas_origen.php` en verde, pruebas de navegador A1–A6, B1–B3, C1, C3.
 - 🟡 **28/09/2026 — PUSH A `dev`, NO ES UN DEPLOY.** Módulo auxiliar académico en
   construcción. `origin/dev` ya traía F0–F2a (`dcd2c9e`…`208b75e`, subidos antes); este
   push suma F2b, F3, F4a, los 3 refactors y la documentación (`48f7731`…).
