@@ -23,7 +23,15 @@
   Probado con ADMIN en navegador: card del historial (sin «Revertir», con «regreso» a 4.° B) y la vista
   de procedencia (16 cargas, I Bimestre de 4.° B). Por modelo: los historiales del I de 4.° A/4.° B ya
   listan a quien lo cursó allí (339: 24 notas en A; 259: 22 en B) y ninguno sale vacío.
-  **Sin probar con sesión DOCENTE**: el chip en la grilla y el enlace del aviso.
+  **Probado con sesión DOCENTE** (07/10, confirmado por el usuario en su navegador):
+  - JANE MORENO JAIMES (Inglés, toda primaria, no tutora): los 2 avisos en la bandeja con su enlace
+    correcto; chip «OTRA SECCIÓN» en las grillas de 4.° A y 4.° B; la procedencia muestra solo su área;
+    los historiales del I muestran a quien lo cursó allí y ya no hay filas vacías; la procedencia de un
+    estudiante de secundaria (mat. 162) da 404.
+  - EDINZON ZAMBRANO (Geometría, solo secundaria): procedencia de 259/339 → 404; su grilla sin cambios.
+  - Los avisos de 259/339 se GENERARON A MANO solo en LOCAL (12 por cambio) para esta prueba; en
+    producción el script de la fase 5 no avisa.
+  Sin probar aún: sesión de TUTOR y de AUXILIAR (sus pantallas entran en el inventario de la fase 4).
   **Siguiente: fase 4** (inventario de las ~100 consultas con `m.seccion_id`).
 - Fallos PREEXISTENTES (iguales con `HEAD`): `verif_asistencia_jornadas.php` (no halla escenario de
   prueba) y `verif_criterios_filtros_cascada.php` (§ 7, «el árbol NO queda vacío»). No tocados.
