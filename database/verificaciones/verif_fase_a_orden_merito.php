@@ -91,8 +91,16 @@ $evaluar(190, 1, true,  'DENTRO (retorno, oficial: curso el I en su grado)');
 $evaluar(692, 2, true,  'DENTRO (retorno: el II esta en el tramo de la operativa)');
 
 // ── Casos de ESTADO, derivados de la base ───────────────────────────────────
-// Se busca, en cada periodo con notas bloqueadas, una matrícula por estado.
-// `pendiente` y `desactivado` deben quedar fuera; `aprobada`, dentro.
+// Se busca, en cada periodo CERRADO con notas bloqueadas, una matrícula por
+// estado. `pendiente` y `desactivado` deben quedar fuera; `aprobada`, dentro.
+//
+// SOLO BIMESTRES CERRADOS (07/10/2026): en un bimestre en curso los bloqueos
+// son PARCIALES y el ranking aún no es un dato afirmable. Hasta esa fecha se
+// tomaba cualquier periodo con un bloqueo, y en el III en curso —donde lo único
+// bloqueado eran competencias TRANSVERSALES, que el mérito excluye— eligió a la
+// matrícula 174 y esperó verla en un ranking donde nadie puede estar todavía.
+// El fallo era del aserto, no del mérito. Primero el periodo cerrado; después,
+// dentro de él, la búsqueda de notas bloqueadas.
 echo "\n=== Roster del mérito — por ESTADO de matrícula (regla del 12/08/2026) ===\n";
 $periodos = $m->query("
     SELECT DISTINCT cal.periodo_id AS id, p.nombre_display
@@ -102,6 +110,7 @@ $periodos = $m->query("
             ON bc.carga_id       = cal.carga_id
            AND bc.competencia_id = cal.competencia_id
            AND bc.periodo_id     = cal.periodo_id
+    WHERE p.estado = 'cerrado'
     ORDER BY p.numero");
 
 $vistos = 0;
