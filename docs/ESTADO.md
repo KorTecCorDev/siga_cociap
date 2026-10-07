@@ -39,7 +39,11 @@
   la compuerta del cierre del I acusaba en falso a 259/339 (corregido); el snapshot PUBLICADO del I
   los ubica en su sección de hoy (inmutable, sin efecto visible); MariaDB 10.4 no admite la
   subconsulta de sección dentro de un EXISTS convertido a IN (usar JOIN DISTINCT).
-  **Pendiente**: probar con sesión de TUTORA el panel del I (tutoría y conducta).
+  **Probado con sesión de TUTORA** (07/10, NELLY TRUJILLO, 4.° A): tutoría y conducta del I listan
+  a GALICIA MENDOZA (339, cursó el I en 4.° A) con sus notas y NO a DIEGO LOPEZ (259); en el III, al
+  revés (sección de hoy). Sin errores. Conducta del III vacía = datos reales (la auxiliar aún no
+  registra; 0 respuestas en la BD), no regresión. Auxiliar no probada: solo tiene 4.° A/B desde el III.
+  **Siguiente**: merge a `main` (preguntar) y despliegue: 075 → código → script 259/339.
 - Fallos PREEXISTENTES (iguales con `HEAD`): `verif_asistencia_jornadas.php` (no halla escenario de
   prueba) y `verif_criterios_filtros_cascada.php` (§ 7, «el árbol NO queda vacío»). No tocados.
 - ⚠️ La `075` se MODIFICÓ tras su primer commit (rd_* NULL + CHECK): en otra BD local que ya
