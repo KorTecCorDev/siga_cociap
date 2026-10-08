@@ -322,6 +322,11 @@ class AsistenciaModel extends BaseModel
     // conteo de sus `asistencia_incidencias`. Los escribe SOLO
     // `recalcularContadores()`, en la misma transacción que cada cambio de día:
     // fechas y números no pueden contradecirse porque hay una sola fuente.
+    // El conteo lo define `sqlConteoContadores()`: una FJ va a
+    // `faltas_justificadas` SOLO con el ANCLA del bimestre
+    // (`AsistenciaMotivoModel::anclaDelPeriodo`); con otro motivo, a `faltas`
+    // (08/10/2026, migración 076). La única otra escritura es
+    // `recontarPorCambioDeAncla()`, con la misma regla, al trasladar el ancla.
     //
     // Flujo (el de los docentes): marcar un día = BORRADOR (desconfirma si
     // cambió algo); «Confirmar» = visto bueno (exige motivo en cada FJ/TJ);
@@ -329,7 +334,11 @@ class AsistenciaModel extends BaseModel
 
     public const TIPOS = ['F', 'FJ', 'T', 'TJ'];
 
-    /** Tipo → contador de `inasistencias` (mismo orden que CAMPOS). */
+    /**
+     * Tipo → contador de `inasistencias` (mismo orden que CAMPOS). ⚠️ Una FJ con
+     * un motivo distinto del ancla del bimestre NO va a `faltas_justificadas` sino a
+     * `faltas`: la regla completa está en `sqlConteoContadores()`.
+     */
     public const TIPO_CAMPO = [
         'F'  => 'faltas',
         'FJ' => 'faltas_justificadas',
@@ -531,22 +540,49 @@ class AsistenciaModel extends BaseModel
     }
 
     /**
+     * 🔴 PUNTO ÚNICO de la REGLA DE CONTEO de los 4 contadores (08/10/2026,
+     * migración 076): las 4 expresiones, en el orden de CAMPOS, sobre
+     * `asistencia_incidencias x`.
+     *
+     * Una FALTA solo es justificada con el ANCLA del bimestre (`$anclaId`, de
+     * `AsistenciaMotivoModel::anclaDelPeriodo`); una FJ con otro motivo cuenta
+     * como F. Las TARDANZAS justificadas suman todos los motivos. La marca del
+     * día NO cambia (sigue siendo FJ con su motivo): solo dónde se cuenta.
+     * Lo usan `recalcularContadores`, `recontarPorCambioDeAncla` y
+     * `verif_asistencia_fechas.php`.
+     *
+     * @return list<string>  [faltas, faltas_justificadas, tardanzas, tardanzas_justificadas]
+     */
+    public static function sqlConteoContadores(?int $anclaId): array
+    {
+        $ancla = (int) ($anclaId ?? 0); // entero: se interpola sin riesgo
+        // COALESCE: sin motivo (no debería existir: CHECK de la 070) la FJ cuenta
+        // como F, nunca se pierde de los dos contadores por un NULL.
+        $fjPrincipal = "(x.tipo = 'FJ' AND COALESCE(x.motivo_id, 0) = {$ancla})";
+        return [
+            "COALESCE(SUM(x.tipo = 'F' OR (x.tipo = 'FJ' AND NOT {$fjPrincipal})), 0)",
+            "COALESCE(SUM({$fjPrincipal}), 0)",
+            "COALESCE(SUM(x.tipo = 'T'),  0)",
+            "COALESCE(SUM(x.tipo = 'TJ'), 0)",
+        ];
+    }
+
+    /**
      * 🔴 PUNTO ÚNICO que escribe los 4 contadores de un bimestre por fechas:
-     * los CUENTA de `asistencia_incidencias` y deja la fila como BORRADOR
-     * (desconfirmada). Crea la fila si no existía. Sin transacción propia: la
-     * owna quien llama (`marcarDia`, `confirmar`).
+     * los CUENTA de `asistencia_incidencias` (regla de `sqlConteoContadores`) y
+     * deja la fila como BORRADOR (desconfirmada). Crea la fila si no existía.
+     * Sin transacción propia: la owna quien llama (`marcarDia`, `confirmar`).
      */
     private function recalcularContadores(int $matriculaId, int $periodoId, int $userId): void
     {
+        $ancla  = (new AsistenciaMotivoModel())->anclaDelPeriodo($periodoId);
+        $conteo = implode(",\n                   ", self::sqlConteoContadores($ancla));
         $this->execute("
             INSERT INTO inasistencias
                 (matricula_id, periodo_id, faltas, faltas_justificadas,
                  tardanzas, tardanzas_justificadas, registrado_por)
             SELECT ?, ?,
-                   COALESCE(SUM(x.tipo = 'F'),  0),
-                   COALESCE(SUM(x.tipo = 'FJ'), 0),
-                   COALESCE(SUM(x.tipo = 'T'),  0),
-                   COALESCE(SUM(x.tipo = 'TJ'), 0),
+                   {$conteo},
                    ?
             FROM asistencia_incidencias x
             WHERE x.matricula_id = ? AND x.periodo_id = ?
@@ -560,6 +596,40 @@ class AsistenciaModel extends BaseModel
                 confirmado_en          = NULL,
                 confirmado_por         = NULL
         ", [$matriculaId, $periodoId, $userId, $matriculaId, $periodoId]);
+    }
+
+    /**
+     * RECUENTO por CAMBIO DE ANCLA (08/10/2026, migración 076): rehace los 4
+     * contadores de toda fila de un bimestre por fechas que aún sigue al ancla
+     * del catálogo (sin ancla congelada), con la misma regla de
+     * `sqlConteoContadores`. NO desconfirma (decisión del usuario: las marcas
+     * del día no cambian, solo dónde se cuentan). Los bimestres congelados no se
+     * tocan. Sin transacción propia: la owna `AsistenciaMotivoModel::hacerPrincipal`.
+     *
+     * @return int  filas cuyos contadores cambiaron
+     */
+    public function recontarPorCambioDeAncla(int $anclaId): int
+    {
+        [$f, $fj, $t, $tj] = self::sqlConteoContadores($anclaId);
+        $stmt = $this->db->prepare("
+            UPDATE inasistencias i
+            INNER JOIN periodos p ON p.id = i.periodo_id
+                   AND p.asistencia_por_fechas = 1 AND p.asistencia_motivo_principal_id IS NULL
+            INNER JOIN (
+                SELECT x.matricula_id, x.periodo_id,
+                       {$f} AS f, {$fj} AS fj, {$t} AS t, {$tj} AS tj
+                FROM asistencia_incidencias x
+                GROUP BY x.matricula_id, x.periodo_id
+            ) c ON c.matricula_id = i.matricula_id AND c.periodo_id = i.periodo_id
+            SET i.faltas = c.f, i.faltas_justificadas = c.fj,
+                i.tardanzas = c.t, i.tardanzas_justificadas = c.tj,
+                i.modificado_en = NOW()
+            WHERE i.extraordinaria = 0
+              AND (i.faltas <> c.f OR i.faltas_justificadas <> c.fj
+                OR i.tardanzas <> c.t OR i.tardanzas_justificadas <> c.tj)
+        ");
+        $stmt->execute();
+        return $stmt->rowCount();
     }
 
     /** Los 4 contadores y el estado de confirmación de la fila (o ceros). */

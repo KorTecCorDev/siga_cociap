@@ -64,6 +64,19 @@ class AsistenciaMotivoController extends BaseController
         $this->intentar(fn() => $this->model->retirar((int) $id, $uid), 'Motivo retirado.');
     }
 
+    // POST /admin/asistencia/motivos/{id}/principal
+    // Traslada el ANCLA (08/10/2026, migración 076): se recuentan las faltas de los
+    // bimestres en curso; se niega con secciones ya bloqueadas.
+    public function principal(string $id): void
+    {
+        $uid  = $this->antesDeEscribir();
+        $filas = 0;
+        $this->intentar(function () use ($id, $uid, &$filas): void {
+            $filas = $this->model->hacerPrincipal((int) $id, $uid);
+        }, fn(): string => 'Motivo principal actualizado. Se recontaron las faltas de '
+            . $filas . ' registro(s) de asistencia del bimestre en curso.');
+    }
+
     // POST /admin/asistencia/motivos/{id}/mover   (direccion=arriba|abajo)
     public function mover(string $id): void
     {
@@ -82,8 +95,11 @@ class AsistenciaMotivoController extends BaseController
         return (int) Session::user()['id'];
     }
 
-    /** Ejecuta la acción; una regla rota vuelve a la pantalla con su mensaje. */
-    private function intentar(callable $accion, string $exito): void
+    /**
+     * Ejecuta la acción; una regla rota vuelve a la pantalla con su mensaje. El
+     * mensaje de éxito puede ser un callable cuando depende del resultado.
+     */
+    private function intentar(callable $accion, string|callable $exito): void
     {
         $volver = url('admin/asistencia/motivos');
         try {
@@ -91,6 +107,6 @@ class AsistenciaMotivoController extends BaseController
         } catch (\DomainException $e) {
             $this->redirectWithError($volver, $e->getMessage());
         }
-        $this->redirectWithSuccess($volver, $exito);
+        $this->redirectWithSuccess($volver, is_callable($exito) ? $exito() : $exito);
     }
 }

@@ -133,6 +133,7 @@ $router->get( '/admin/asistencia/motivos',              'Admin\AsistenciaMotivoC
 $router->post('/admin/asistencia/motivos/crear',        'Admin\AsistenciaMotivoController@crear');
 $router->post('/admin/asistencia/motivos/{id}/editar',  'Admin\AsistenciaMotivoController@actualizar');
 $router->post('/admin/asistencia/motivos/{id}/retirar', 'Admin\AsistenciaMotivoController@retirar');
+$router->post('/admin/asistencia/motivos/{id}/principal', 'Admin\AsistenciaMotivoController@principal');
 $router->post('/admin/asistencia/motivos/{id}/mover',   'Admin\AsistenciaMotivoController@mover');
 // Días no lectivos (30/09/2026, migración 070): literales, ANTES de `/{id}`.
 $router->get( '/admin/asistencia/no-lectivos',                 'Admin\AsistenciaCalendarioController@index');

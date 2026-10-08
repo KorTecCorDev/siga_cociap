@@ -4,6 +4,7 @@ namespace App\Controllers\Director;
 
 use App\Controllers\BaseController;
 use App\Models\AnioAcademicoModel;
+use App\Models\AsistenciaMotivoModel;
 use App\Models\ControlOperativoModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\PublicacionBoletaModel;
@@ -199,6 +200,10 @@ class PeriodoController extends BaseController
             // documentos de este bimestre. Inmutable: un re-cierre tras reabrir
             // conserva el primero. Mismo PDO singleton → misma transacción.
             (new TutorPeriodoModel())->congelarPeriodo($id, $usuarioId);
+            // ANCLA DEL BIMESTRE (076): congela el motivo principal con que se
+            // contaron sus faltas justificadas. Inmutable como el tutor: un cambio
+            // posterior del ancla no toca este bimestre ni sus boletas.
+            (new AsistenciaMotivoModel())->congelarAnclaPeriodo($id);
             // Cierre de boletas: deja la boleta en estado OFICIAL. El flag asegura
             // que, si luego se REABRE, vuelva a BORRADOR hasta re-cerrar.
             $this->model->marcarBoletasAprobadas($id, $usuarioId);

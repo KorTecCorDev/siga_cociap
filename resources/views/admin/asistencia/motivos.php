@@ -5,7 +5,8 @@
  * en solo lectura. Reusa las clases de la pantalla de criterios de conducta
  * (`_criterios-conducta.scss`): es el mismo tipo de catálogo.
  *
- * @var array $motivos  AsistenciaMotivoModel::listar() (vigentes primero, luego retirados)
+ * @var array $motivos  AsistenciaMotivoModel::listar() (vigentes primero, luego retirados;
+ *                      `es_principal` = el ANCLA, migración 076)
  * @var bool  $editor   admin o RA
  * @var int   $editarId motivo en edición (0 = ninguno)
  */
@@ -24,7 +25,9 @@ $urlBase   = url('admin/asistencia/motivos');
         <h1 class="page-title">Motivos de justificación</h1>
         <p class="page-subtitle">
             Toda falta o tardanza justificada (FJ, TJ) lleva uno de estos motivos: sin él no se guarda.
-            Se guardan para los reportes.
+            Se guardan para los reportes. Una falta solo cuenta como justificada con el motivo
+            <strong>principal</strong>; con cualquier otro, cuenta como falta. Las tardanzas justificadas
+            cuentan con cualquier motivo.
         </p>
     </div>
     <?php // Dirección llega aquí desde su card; los días no lectivos van al lado. ?>
@@ -74,6 +77,9 @@ $urlBase   = url('admin/asistencia/motivos');
                             <tr>
                                 <td>
                                     <?= e($m['nombre']) ?>
+                                    <?php if (!empty($m['es_principal'])): ?>
+                                        <span class="badge badge--info" title="Con este motivo una falta cuenta como justificada">Principal</span>
+                                    <?php endif; ?>
                                     <?php if (!empty($m['modificado_en'])): ?>
                                         <span class="criterios-tabla__traza">
                                             Corregido<?= $m['modificado_por_nombre'] !== '' ? ' por ' . e($m['modificado_por_nombre']) : '' ?>
@@ -94,7 +100,15 @@ $urlBase   = url('admin/asistencia/motivos');
                                                 </form>
                                             <?php endif; ?>
                                         <?php endforeach; ?>
-                                        <?php if (count($vigentes) > 1): ?>
+                                        <?php // El ANCLA no se retira ni se «hace principal»: solo se traslada desde otro motivo. ?>
+                                        <?php if (empty($m['es_principal'])): ?>
+                                            <form method="POST" action="<?= url('admin/asistencia/motivos/' . $mid . '/principal') ?>"
+                                                  data-confirm="¿Hacer principal a «<?= e($m['nombre']) ?>»? Desde ahora solo las faltas justificadas con este motivo contarán como justificadas, y se recontarán las del bimestre en curso. Los bimestres cerrados no cambian.">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn--secondary btn--sm">Hacer principal</button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <?php if (count($vigentes) > 1 && empty($m['es_principal'])): ?>
                                             <form method="POST" action="<?= url('admin/asistencia/motivos/' . $mid . '/retirar') ?>"
                                                   data-confirm="¿Retirar «<?= e($m['nombre']) ?>»? Dejará de ofrecerse; las justificaciones que ya lo usan lo conservan.">
                                                 <?= csrf_field() ?>
