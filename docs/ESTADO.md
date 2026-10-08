@@ -16,11 +16,14 @@ usuario). Detalle de cada fase más abajo, en esta misma sección.
 2. **BD local de casa**: aplicar `database/migrations/075_cambio_seccion.sql` (sin ella el formulario
    de TRASLADO falla: `TrasladoModel` lee `cambios_seccion`). Huella: `SHOW TABLES LIKE
    'cambios_seccion%'` → 4 tablas. Si la BD de casa es una copia fresca de producción, igual.
+   ✅ **Hecho el 08/10/2026** (por consola; en phpMyAdmin fallaba con #1044, ver punto 5).
 3. `php database/aplicar_cambios_seccion_259_339.php` (simula) → si los dos dan `PUEDE_REGISTRAR`,
    repetir con `--confirmar`. Los avisos de prueba de 259/339 existen SOLO en la BD de la oficina.
 4. Correr `verif_seccion_del_periodo.php`, `verif_cambio_seccion.php` y `verif_numeracion_rd.php`.
 5. **Producción** (con su autorización del merge): **(a)** aplicar la `075` en la BD de producción
-   ANTES del merge; **(b)** merge `dev` → `main` (auto-deploy); **(c)** el script de 259/339 por SSH,
+   ANTES del merge — **la versión corregida del 08/10** (cierra con `SHOW TABLES`; la anterior
+   terminaba en `SELECT ... information_schema` y phpMyAdmin la corría entera ahí, #1044; ver
+   `docs/infraestructura.md`); **(b)** merge `dev` → `main` (auto-deploy); **(c)** el script de 259/339 por SSH,
    primero sin `--confirmar`, luego con él; **(d)** actualizar la CABECERA de
    `docs/modulos/cambio-seccion.md` («desplegado») y la sección Git de este archivo.
 
