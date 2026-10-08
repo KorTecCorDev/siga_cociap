@@ -103,6 +103,37 @@ se rastrean en `docs/ESTADO.md`.
 - **Impresora objetivo del colegio:** RICOH MP4054 PCL6 — probar la boleta A4 ahí
   ante cualquier cambio de layout de impresión.
 
+## Migraciones: reglas para que importen en phpMyAdmin (08/10/2026)
+
+🔴 **Una migración NUNCA termina con `SELECT ... FROM information_schema.*`.**
+phpMyAdmin 5.2.1, con archivos de menos de 50 sentencias, analiza la **última**
+sentencia y, si es un `SELECT`, toma su base y tabla como contexto y ejecuta **todo el
+archivo** en esa base. Con `information_schema` el import entero falla con
+`#1044 - Acceso negado ... 'information_schema'` y la página queda en
+`Tabla: TABLES`, **aunque se haya elegido la base correcta**. No se crea nada.
+Lo sufrió la 075 (verificado con el log general de MySQL: `Init DB information_schema`
+antes de cada `CREATE`). Aplica igual al phpMyAdmin de Hostinger.
+
+- La verificación final va con **`SHOW TABLES LIKE '...'`**, `SHOW COLUMNS FROM t LIKE '...'`
+  o `SHOW INDEX FROM t`: los `SHOW` no cambian la base.
+- Un `SELECT` a una tabla **propia** sin prefijo de base (p. ej. `SELECT COUNT(*) FROM t`)
+  es inocuo. El problema es solo el prefijo de otra base.
+- Si hace falta consultar `information_schema`, que **no sea la última** sentencia: cerrar
+  con un `SHOW`.
+- **059, 060, 062 y 063 tienen la trampa** (anteriores a esta regla; no se reescriben).
+  Si alguna vez se re-ejecutan, hacerlo por consola.
+- Los avisos de «Análisis estático» sobre `CONSTRAINT ... CHECK` son un defecto del
+  parser de phpMyAdmin: **cosméticos**, el `CHECK` se crea bien en MariaDB 10.4.
+- **Alternativa sin phpMyAdmin** (siempre fiable, nombra la base):
+  `mysql -u root siga_cociap < database/migrations/0XX_nombre.sql` (local;
+  `C:/xampp/mysql/bin/mysql`), y por SSH con el usuario/BD de prod en Hostinger.
+
+**Banner rojo «almacenamiento de configuración no está completamente configurado»**
+(local): el usuario `pma` pierde su GRANT cuando se restauran las tablas de sistema de
+MySQL (runbook de tablas corruptas). Se repara con
+`GRANT SELECT, INSERT, UPDATE, DELETE ON phpmyadmin.* TO 'pma'@'localhost'; FLUSH PRIVILEGES;`
+No afecta al sistema, solo a phpMyAdmin.
+
 ## Orden de ejecución SQL (setup desde cero)
 ```
 1. migrations/000_crear_base_de_datos.sql

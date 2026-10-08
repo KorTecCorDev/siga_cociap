@@ -141,7 +141,8 @@ CREATE TABLE IF NOT EXISTS cambios_seccion_omision (
     CONSTRAINT fk_cso_criterio FOREIGN KEY (criterio_id) REFERENCES criterios (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5) Verificación.
-SELECT TABLE_NAME, TABLE_ROWS
-FROM information_schema.TABLES
-WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'cambios_seccion%';
+-- 5) Verificación: deben salir 4 tablas.
+-- SHOW y no SELECT FROM information_schema: phpMyAdmin toma la base de la ULTIMA
+-- sentencia SELECT del archivo y corre TODO el import en ella (#1044). Ver
+-- docs/infraestructura.md, "Migraciones: reglas para que importen en phpMyAdmin".
+SHOW TABLES LIKE 'cambios_seccion%';
