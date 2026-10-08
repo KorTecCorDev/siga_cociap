@@ -25,7 +25,22 @@ asistencia, conducta y calificaciones.
   - Probado sobre una copia: OK, e idempotente.
 - La asistencia del III llega a la 190 como **borrador**: la auxiliar de 2.° B la confirma.
 
-## 🆕 FJ SOLO CON EL MOTIVO PRINCIPAL — EN `dev`, commiteado y sin desplegar (08/10/2026, migración 076; `452e643`..`b0e97fd`)
+## 🟢 FJ SOLO CON EL MOTIVO PRINCIPAL — DESPLEGADO el 08/10/2026 (merge `3d58934`, migración 076; sigue v1.0.5)
+
+- [x] **Producción (08/10/2026, el usuario):** `076` aplicada a mano ANTES del merge.
+  Resultado: `anclas_vigentes = 1`, `contadores_incoherentes = 0`; el recuento tocó **41 filas**
+  del III (34 confirmadas, siguen confirmadas; **0 en secciones bloqueadas**); el III **no**
+  estaba publicado (`periodos_publicacion` vacío para periodos por fechas). Producción corre
+  MariaDB 11.8.9.
+  - El PREVIEW ya no muestra nada una vez aplicada: lo que cambió se reconstruye agrupando
+    `inasistencias.modificado_en` (el recuento pone el mismo `NOW()` a todas sus filas).
+- [ ] Probar en producción: grilla del III con FJ de otro motivo sumando en F; «Principal» en
+  Motivos; pastilla FJ con papel en el encabezado.
+- Recomendación sin hacer: en la 076, guardar el recuento con `AND @ancla IS NOT NULL` (con el
+  ancla sin sembrar, toda FJ pasaría a F y la verificación b) daría 0 igual). Ya no afecta a
+  producción ni a local; solo a una BD montada desde cero.
+
+Texto original del bloque (en `dev`, 08/10/2026; `452e643`..`b0e97fd`):
 
 Una FJ cuenta como FJ solo con el **motivo ancla** del bimestre (al principio, «Justificación
 escrita autorizada»). Con otro motivo cuenta como F; TJ no cambia. El icono de documento sale solo
@@ -60,6 +75,14 @@ con el ancla.
 
 
 ## 🔜 RETOMAR AQUÍ (07/10/2026, fin del turno tarde en la oficina → escritorio de casa)
+
+**✅ ACTUALIZACIÓN (08/10/2026): CAMBIO DE SECCIÓN DESPLEGADO** (merge `3d58934`, sigue v1.0.5).
+Hecho el paso 5 completo: (a) `075` aplicada en producción ANTES del merge (4 tablas
+`cambios_seccion*`); (b) merge `--no-ff` y push; (c) script de 259/339 por SSH, primero simulado
+y luego con `--confirmar`: 339 → N° 059-2026-CAVVG-DA y 259 → N° 060-2026-CAVVG-DA, del 01/09,
+vigentes desde el II, verificadas en conexión nueva; (d) cabecera de `cambio-seccion.md` y
+sección Git actualizadas. Pendiente: abrir el formulario de traslado en producción (lee
+`cambios_seccion`). Lo que sigue es el texto original.
 
 **Cambio de sección: TERMINADO Y PROBADO EN LOCAL (oficina).** `origin/dev` = `eab278d`.
 `origin/main` sin tocar. **El merge `dev` → `main` se hace en el escritorio de casa** (decisión del
@@ -5297,6 +5320,15 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **08/10/2026 — DEPLOY, sigue v1.0.5.** `main` pasó de `29dc6d4` a `3d58934` (merge
+  `--no-ff` de `dev` en `f2e661f`, 37 commits, 81 archivos): cambio de sección (fases 1 a 5),
+  FJ solo con el motivo ancla, avance en % del panel del auxiliar y verificador del tramo del
+  retorno. Migraciones `075` y `076` aplicadas a mano en producción por el usuario ANTES del
+  merge; después, `aplicar_cambios_seccion_259_339.php --confirmar` por SSH. Verificado antes:
+  merge sin conflictos, árbol de `main` idéntico a `dev`, `php -l` limpio, compilados
+  (`app.css`, `asistencia-fechas.js`, `matriculas.js`) incluidos, batería 61/64 (los 3 fallos
+  conocidos: `verif_asistencia_jornadas`, `verif_criterios_filtros_cascada`,
+  `verif_direccion_superficies`; ninguno es regresión).
 - 🟢 **06/10/2026 (noche) — DEPLOY, sigue v1.0.5.** `main` pasó de `52db789` a `db8dbb0`
   (merge `--no-ff` de `dev`, 7 commits: sesión + autoguardado de los 5 formularios + refuerzo
   de pestaña oculta). Migración `074` aplicada a mano en producción por el usuario ANTES del

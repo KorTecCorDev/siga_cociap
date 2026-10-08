@@ -4,7 +4,10 @@
 > aplicadas a mano en producción antes del push. Las rondas de abajo son el historial.
 
 > **SÉPTIMA RONDA (08/10/2026, regla del colegio; migración 076) — una falta solo es
-> justificada con el MOTIVO PRINCIPAL.** En `dev`, sin desplegar.
+> justificada con el MOTIVO PRINCIPAL.** **DESPLEGADO el 08/10/2026** (merge `3d58934`, sigue
+> v1.0.5), con la `076` aplicada a mano en producción ANTES del merge: 1 ancla vigente,
+> 0 contadores incoherentes, 41 filas del III recontadas (34 confirmadas, ninguna en sección
+> bloqueada) y el III sin publicar.
 > 1. **Regla:** una FJ cuenta en `faltas_justificadas` solo si su motivo es el **ANCLA** (motivo
 >    principal) del bimestre. Al principio es «Justificación escrita autorizada». Con cualquier
 >    otro motivo (p. ej. la verbal) cuenta en **`faltas`**. Las **tardanzas no cambian**: TJ suma
