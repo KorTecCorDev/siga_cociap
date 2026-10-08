@@ -300,7 +300,13 @@ Versión de una línea; el porqué completo está en el doc del módulo.
 - **Asistencia POR FECHAS** (migración 069): en un periodo con
   `asistencia_por_fechas = 1`, los 4 contadores de una fila con `extraordinaria = 0` son
   **el conteo de sus `asistencia_incidencias`**, y solo los escribe
-  `AsistenciaModel::recalcularContadores` (el `guardar` de números se niega). I y II
+  `AsistenciaModel::recalcularContadores` (el `guardar` de números se niega).
+  **Una FJ cuenta como FJ SOLO con el ANCLA (motivo principal) del bimestre**; con otro
+  motivo cuenta como **F**. TJ suma todos los motivos (08/10/2026, migración 076). Regla en
+  `sqlConteoContadores()`, ancla en `AsistenciaMotivoModel::anclaDelPeriodo` (congelada al
+  CERRAR el bimestre; si no, la del catálogo). **Siempre hay EXACTAMENTE una ancla vigente**
+  (`es_principal`: UNIQUE + CHECK); se TRASLADA con `hacerPrincipal`, nunca se quita ni se
+  retira, y no se traslada con secciones bloqueadas en un bimestre sin congelar. I y II
   Bimestre 2026 son histórico de solo números. Protegido por
   `verif_asistencia_fechas.php` y `verif_confirmacion_conducta.php`. Ver
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.

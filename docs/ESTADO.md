@@ -1,8 +1,42 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **07/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **08/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
+
+
+## 🆕 FJ SOLO CON EL MOTIVO PRINCIPAL — EN `dev`, sin commit (08/10/2026, migración 076)
+
+Una FJ cuenta como FJ solo con el **motivo ancla** del bimestre (al principio, «Justificación
+escrita autorizada»). Con otro motivo cuenta como F; TJ no cambia. El icono de documento sale solo
+con el ancla.
+- **El ancla:** admin y RA la eligen en Motivos («Hacer principal»). Siempre hay exactamente una y
+  no se retira. Cada bimestre la congela al cerrarse.
+- **Encabezado FJ = la pastilla de una celda FJ con motivo principal** (papel en la esquina) en
+  registro, imprimible, Dirección y cuadros. No va en las boletas.
+- Las **estadísticas de justificaciones** de Cuadros se alinearon con los contadores.
+- El detalle está en `docs/modulos/confirmacion-y-asistencia-por-fechas.md` (SÉPTIMA RONDA).
+- ⚠️ **Desde este código, la 076 es OBLIGATORIA:** sin sus columnas, la asistencia por fechas
+  falla.
+- **Probado sobre una copia de la BD local con la 076:** la migración es idempotente y los dos
+  candados (UNIQUE y CHECK) funcionan. `verif_asistencia_fechas.php` da TODO OK (81). La batería
+  queda con los 5 fallos que ya existían.
+- **Local:** aplicar `database/migrations/076_fj_motivo_principal.sql`. Su SELECT previo da
+  39 filas y 85 FJ que pasan a F. Después, el verificador debe dar TODO OK.
+- **Producción, ANTES del merge:**
+  1. correr el SELECT previo de la 076 y comprobar que «Justificación escrita autorizada» NO
+     esté retirada (el CHECK rechazaría el ancla);
+  2. comprobar `periodos_publicacion` del III. Si ya está publicado para algún nivel, las
+     boletas publicadas cambiarían sus faltas: **detenerse y decidir con el usuario**;
+  3. aplicar la 076;
+  4. comprobar «anclas_vigentes = 1» y «contadores_incoherentes = 0».
+  - ⚠️ Sin la 076, los contadores viejos quedan con la regla anterior hasta que se toque
+    cada fila.
+- Pendiente: probar en Chrome con tu sesión:
+  - la grilla y la vista por estudiante del III;
+  - el icono en vivo;
+  - en Motivos, «Hacer principal» y que el ancla no muestre «Retirar»;
+  - la pastilla FJ con su papel en el encabezado, en Cuadros y en el imprimible.
 
 
 ## 🔜 RETOMAR AQUÍ (07/10/2026, fin del turno tarde en la oficina → escritorio de casa)
