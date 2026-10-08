@@ -341,6 +341,31 @@ III y se comunicó tarde) la reversión es el **espejo de `store()`**:
 Protegido por `database/verificaciones/verif_reversion_retorno.php`. Ejecuta el
 `revertir()` real en un subproceso que nunca confirma y prueba las dos ramas de cada guarda.
 
+### 🔴 El tramo de un revertido termina en un bimestre CERRADO (08/10/2026)
+
+**Por qué importa:**
+- `sqlRosterDelPeriodo` (grillas de asistencia, conducta y calificaciones) da lo mismo que
+  `roster_evaluacion()` en el bimestre en curso **solo si** `periodo_hasta_id` apunta a un
+  bimestre cerrado. Es lo que pone `revertir()` (`finDelTramoAlRevertir`).
+- Si apunta a uno sin cerrar, el bimestre en curso «se cursó» en la operativa:
+  - el estudiante sale en la sección del grado inferior y **falta en la suya**;
+  - la fila de la grilla no se puede guardar, porque `matriculaEnRoster` usa
+    `roster_evaluacion()`.
+
+**Caso real (BD local de casa, retorno #1, BALTAZAR PINTO):**
+- La 073 se aplicó con el retorno ya revertido por el código viejo.
+- Su relleno toma «el último bimestre con cualquier dato en la operativa». Una fila de
+  asistencia del III en ceros dejó `hasta = III`, sin cerrar.
+- Efecto: en el III salía en 1.° B y faltaba en 2.° B.
+- Producción no lo tuvo: ahí se revirtió después de la 073 y se corrigió con
+  `reparar_retorno_1_tramo.sql` (`hasta = 2`).
+- Ese script corrige desde ahora también el caso `hasta = 3`.
+
+**Guarda:** la sección 4 de `verif_reversion_retorno.php` revisa el **dato** de los retornos
+reales: un activo tiene el tramo abierto, y un revertido lo cierra en un bimestre cerrado ≥
+desde. Ya lo señalaban `verif_roster_asistencia.php` y `verif_roster_evaluacion.php`
+(«1.° B sobra 692 · 2.° B falta 190»), pero por el síntoma, no por la causa.
+
 ## Historial de defectos (05/08/2026)
 
 - **Doble conteo de asistencia.** Ambas matrículas con fila en B2 → la boleta

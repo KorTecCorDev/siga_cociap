@@ -27,6 +27,9 @@
  *      curso a la oficial, CON su confirmación, o COMO BORRADOR con la casilla.
  *   3. GUARDAS: rechaza con un cierre de conducta vigente, con un criterio con
  *      nota sin promedio y con filas propias de la oficial; y no toca nada.
+ *   4. TRAMO REAL (08/10/2026): en los retornos de la BD, uno activo tiene el
+ *      tramo abierto y uno revertido lo cierra en un bimestre CERRADO. Si no, el
+ *      roster del bimestre en curso pone al estudiante en la sección equivocada.
  */
 
 define('ROOT_PATH', dirname(__DIR__, 2));
@@ -283,6 +286,28 @@ foreach ([
 $chk("\nlos subprocesos no dejaron nada escrito",
     $pdo->query("SELECT GROUP_CONCAT(CONCAT(id, estado)) FROM retornos_grado")->fetchColumn() === $retornosAntes
     && (int) $pdo->query("SELECT COUNT(*) FROM criterios WHERE nombre = 'VERIF reversion'")->fetchColumn() === 0);
+
+// ── 4. TRAMO de los retornos REALES (08/10/2026) ───────────────────────
+// El roster de cada bimestre (`sqlRosterDelPeriodo`) da lo mismo que
+// `roster_evaluacion()` en el bimestre en curso SOLO si el tramo de un retorno
+// revertido termina en un bimestre CERRADO, que es lo que pone `revertir()`.
+// El relleno de la 073 dejó en una BD local `hasta` = el III sin cerrar: la
+// estudiante salía en 1.° B y faltaba en 2.° B (asistencia, conducta y notas),
+// y ninguna verificación del retorno lo veía porque todas usan fixtures.
+echo "\n4. Tramo guardado de los retornos reales\n";
+$malos = $pdo->query("
+    SELECT r.id, r.estado, pd.numero AS desde, ph.numero AS hasta, ph.estado AS estado_hasta
+    FROM retornos_grado r
+    INNER JOIN periodos pd ON pd.id = r.periodo_desde_id
+    LEFT  JOIN periodos ph ON ph.id = r.periodo_hasta_id
+    WHERE (r.estado = 'activo'    AND r.periodo_hasta_id IS NOT NULL)
+       OR (r.estado = 'revertido' AND r.periodo_hasta_id IS NOT NULL
+           AND (ph.estado <> 'cerrado' OR ph.numero < pd.numero))
+")->fetchAll(PDO::FETCH_ASSOC);
+$detalle = implode('; ', array_map(static fn(array $x): string =>
+    "#{$x['id']} {$x['estado']} desde {$x['desde']} hasta {$x['hasta']} ({$x['estado_hasta']})", $malos));
+$chk('un retorno ACTIVO tiene el tramo abierto, y uno REVERTIDO lo cierra en un bimestre CERRADO ≥ desde '
+    . '(si falla: corregir el tramo, ver database/reparar_retorno_1_tramo.sql)', $malos === [], $detalle);
 
 echo $ok ? "\nTODO OK\n" : "\nHAY FALLOS\n";
 exit($ok ? 0 : 1);

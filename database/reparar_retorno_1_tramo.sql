@@ -19,6 +19,15 @@
 -- Guardas medidas antes sobre la copia de producción del 05/10/2026: la 692 sin
 -- evaluación en el III, la 190 sin filas propias del III/IV, sin cierres vigentes.
 --
+-- SEGUNDO CASO (08/10/2026, BD local de casa). Allí el retorno ya estaba revertido
+-- con el código viejo cuando se aplicó la 073, y el relleno de la 073 tomó «el
+-- último bimestre con cualquier dato en la operativa»: una fila de asistencia del
+-- III (en ceros) dejó periodo_hasta_id = 3, un bimestre SIN CERRAR. Efecto: en el
+-- III salía en 1.° B (asistencia, conducta y calificaciones) y faltaba en 2.° B.
+-- El paso 1 corrige también ese 3 (revertir() nunca lo pondría: usa el último
+-- CERRADO). Guardas medidas igual el 08/10: todo en cero. Lo detecta desde ese día
+-- `verif_reversion_retorno.php` (tramo de un revertido en un bimestre sin cerrar).
+--
 -- IDEMPOTENTE: ejecutarlo dos veces no cambia nada. El paso «borrador» actúa sobre
 -- las filas de la 692 ANTES de moverlas, así que nunca desconfirma lo que la
 -- auxiliar de 2.° B confirme después.
@@ -29,14 +38,15 @@
 
 START TRANSACTION;
 
--- 1) Fin del tramo: II Bimestre (solo si quedó vacío por el código viejo).
+-- 1) Fin del tramo: II Bimestre. Si quedó vacío por el código viejo (producción)
+--    o en el III sin cerrar por el relleno de la 073 (BD local, 08/10/2026).
 UPDATE retornos_grado
 SET periodo_hasta_id = 2
 WHERE id = 1
   AND estado = 'revertido'
   AND matricula_oficial_id = 190
   AND matricula_operativa_id = 692
-  AND periodo_hasta_id IS NULL;
+  AND (periodo_hasta_id IS NULL OR periodo_hasta_id = 3);
 
 -- 2) «Como borrador», sobre lo que todavía está en la 692 (III y IV).
 DELETE FROM conducta_confirmaciones WHERE matricula_id = 692 AND periodo_id IN (3, 4);

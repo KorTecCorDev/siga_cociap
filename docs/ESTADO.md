@@ -5,7 +5,27 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🆕 FJ SOLO CON EL MOTIVO PRINCIPAL — EN `dev`, sin commit (08/10/2026, migración 076)
+## 🆕 RETORNO #1 EN LA BD LOCAL: tramo en el III sin cerrar (08/10/2026)
+
+BALTAZAR PINTO (oficial 190 en 2.° B, operativa 692 en 1.° B), retorno revertido.
+
+**Síntoma en la BD local de casa:** en el III salía en **1.° B** y faltaba en **2.° B**, en
+asistencia, conducta y calificaciones.
+
+**Causa:** `periodo_hasta_id = 3`, un bimestre sin cerrar, que dejó el relleno de la 073 (ver
+`docs/modulos/retorno-grado.md` § «El tramo de un revertido termina en un bimestre CERRADO»).
+
+**Producción no tiene el defecto:** allí `hasta = 2` desde el 05/10.
+
+- [ ] **Local:** ejecutar `database/reparar_retorno_1_tramo.sql`, extendido hoy para el caso
+  `hasta = 3`, en UN solo envío.
+  - Huella: `SELECT periodo_hasta_id FROM retornos_grado WHERE id = 1` debe dar **2**.
+  - Después, `verif_reversion_retorno.php`, `verif_roster_asistencia.php` y
+    `verif_roster_evaluacion.php` deben dar OK.
+  - Probado sobre una copia: OK, e idempotente.
+- La asistencia del III llega a la 190 como **borrador**: la auxiliar de 2.° B la confirma.
+
+## 🆕 FJ SOLO CON EL MOTIVO PRINCIPAL — EN `dev`, commiteado y sin desplegar (08/10/2026, migración 076; `452e643`..`b0e97fd`)
 
 Una FJ cuenta como FJ solo con el **motivo ancla** del bimestre (al principio, «Justificación
 escrita autorizada»). Con otro motivo cuenta como F; TJ no cambia. El icono de documento sale solo
