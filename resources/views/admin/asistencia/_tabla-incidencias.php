@@ -27,6 +27,9 @@
  * @var array  $fechasDetalle opcional, SOLO LECTURA (29/09/2026): [matricula_id =>
  *                          «F: 03/09 · FJ: 10/09 (motivo)»]. Con él sale la columna
  *                          «Fechas» (Dirección, bimestre por fechas).
+ * @var string|null $nombreAnclaFj opcional (08/10/2026, migración 076): motivo principal
+ *                          del bimestre POR FECHAS. Con él, el encabezado FJ es la pastilla
+ *                          de `_pastilla-fj.php`. En los bimestres de solo números, null.
  */
 
 use App\Models\AsistenciaModel;
@@ -36,6 +39,7 @@ $editable      = $editable ?? false;
 $csrfToken     = $csrfToken ?? '';
 $topeMax       = $topeMax ?? 99;
 $fechasDetalle = $editable ? null : ($fechasDetalle ?? null);
+$nombreAnclaFj = $nombreAnclaFj ?? null;
 
 // Abreviaturas de las columnas. El `title` se conserva, pero NO es la
 // explicacion: un tooltip no existe en movil ni con teclado. La leyenda de
@@ -56,7 +60,11 @@ $abreviaturas = [
                 <th class="col-nombre">Apellidos y Nombres</th>
                 <?php foreach ($campos as $campo): ?>
                     <th class="asistencia-th-contador" title="<?= e($abreviaturas[$campo][1]) ?>">
-                        <?= e($abreviaturas[$campo][0]) ?>
+                        <?php if ($campo === 'faltas_justificadas' && !empty($nombreAnclaFj)): ?>
+                            <?php require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php'; ?>
+                        <?php else: ?>
+                            <?= e($abreviaturas[$campo][0]) ?>
+                        <?php endif; ?>
                     </th>
                 <?php endforeach; ?>
                 <?php if ($editable): ?>

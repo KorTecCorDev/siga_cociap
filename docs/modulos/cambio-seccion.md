@@ -1,148 +1,368 @@
-# Cambio de sección a mitad de bimestre
+# Cambio de sección
 
-> **Estado: PLAN DISEÑADO Y APROBADO por el usuario el 09/07/2026. NADA construido.**
-> Portado a `docs/` el **17/08/2026** desde la memoria de sesión, donde vivía sin versionar.
-> Verificado ese día contra el código: **la función no existe** — 0 rutas, sin
-> `CambioSeccionModel`, sin tablas `cambios_seccion*` y **ningún `UPDATE` de
-> `matriculas.seccion_id`** en toda la aplicación. Hoy un cambio de sección solo se hace
-> a mano en la BD.
+> **Estado (07/10/2026): CONSTRUIDO Y PROBADO EN `dev` — SIN DESPLEGAR.** Fases 1 a 5 hechas
+> (fase 4 completa; § 6). Falta: migración `075` en producción → merge a `main` → script de
+> 259/339 (pasos en `docs/ESTADO.md`, «RETOMAR AQUÍ»). **Al desplegar, actualizar esta línea.**
+> **Reemplaza al plan del 09/07/2026**, que nunca se construyó y quedó desactualizado frente a
+> los módulos 066–074 (auxiliares, confirmación, asistencia por fechas, tutor por periodo,
+> retorno con tramo, borradores). Varias de sus decisiones se **derogaron** (ver § 3).
+> Plan rediseñado y aprobado el 07/10/2026; reemplaza al del 09/07 (nunca construido).
 > Estado vivo y prioridades: `docs/ESTADO.md`. Módulos que toca: `matriculas.md`,
-> `calificaciones.md`, `boletas.md`, `admin.md`.
+> `calificaciones.md`, `boletas.md`, `admin.md`, `retorno-grado.md`,
+> `confirmacion-y-asistencia-por-fechas.md`, `notificaciones.md`.
 >
-> ⚠️ **La migración se renumeró a `053`.** El plan original reservaba la `039`, pero
-> `039_areas_codigo_siagie.sql` se creó el **12/07/2026**, tres días después de escribirse
-> el plan. Al retomar, verificar de nuevo cuál es el siguiente número libre.
+> **Migración: `075_cambio_seccion.sql`** (decidido el 07/10/2026). La reserva de la `053`
+> queda LIBERADA: usarla habría puesto el esquema «antes» de la 054–074 en el setup.
 
 ## 1. Motivo del negocio
 
-Cambios de sección casuales, principalmente por problemas de convivencia o conducta —que
-el alumno esté cómodo—. Hoy se espera al FIN del bimestre para mover; se quiere soportar el
-caso **a mitad de bimestre**.
+Los cambios de sección se dan por muchos motivos (convivencia, conducta, nivel) y **en
+cualquier momento**, según la urgencia. Cada cambio está ordenado por una **Resolución
+Directoral** (R.D.), que se emite fuera de SIGA.
 
-Flujo deseado: el docente de la carga en la sección **destino** «recibe» las notas de la
-sección **origen** (por carga, competencia y criterio) y **él decide, criterio por criterio**,
-si convalidar —teclear la nota de origen en un criterio suyo— o calificar en limpio.
+Lo que el colegio necesita:
 
-## 2. El hecho técnico que manda (raíz de todo)
+- que el cambio quede registrado con su sustento (R.D.);
+- que los **docentes de la sección nueva puedan VER las calificaciones** que el estudiante
+  obtuvo en su sección anterior, sin poder editarlas;
+- que la autonomía de cada docente se respete: nadie recibe en su carga notas que no puso.
 
-**Los bloqueos (`bloqueos_competencia`) son POR CARGA, no por alumno.** `getBoletaAlumno`
-cruza el bloqueo por `(carga_id, competencia_id, periodo_id)`.
+## 2. Los hechos técnicos que mandan
 
-Si se hace un simple `UPDATE matriculas.seccion_id`, las filas de notas de la sección origen
-quedan colgadas del `carga_id` de origen. Cuando el docente de origen bloquee su competencia,
-**ese bloqueo matchea también al alumno mudado** → sus notas viejas **reaparecen en la
-boleta** y, si la sección destino ya calificó, la competencia sale **DUPLICADA**.
+1. **«Confirmada» y «bloqueada» NO son estados del estudiante.** `criterios.confirmado_en`
+   es del **criterio** y `bloqueos_competencia` es de la **carga** `(carga, competencia,
+   periodo)`. Por eso una nota no se puede «llevar» a otra carga sin cambiarle de dueño.
+2. **Si las notas del bimestre en curso se quedan vivas en la carga de origen, se filtran a
+   la boleta**: cuando el docente de origen bloquea, el bloqueo matchea también al estudiante
+   que se fue, y si destino ya calificó, la competencia sale **duplicada**. Por eso, en el
+   bimestre abierto, se **archivan y retiran**.
+3. **Hoy la lista de estudiantes de una sección es la de su sección ACTUAL**
+   (`getResumenCompetencia`, `CalificacionModel.php`, `WHERE s.id = sección de la carga`),
+   para cualquier bimestre. Medido con los casos reales: en el historial del I Bimestre, el
+   docente de **destino** ve al estudiante **con las celdas vacías** y el de **origen ya no
+   lo ve**, aunque su nota siga saliendo en la boleta.
+4. **Lo que es de la MATRÍCULA viaja solo** (la matrícula es la misma):
+   `conducta_respuestas`, `inasistencias`, `asistencia_incidencias`,
+   `conclusiones_transversales`, `exoneraciones`, `notas_autorizadas_siagie`,
+   `notas_externas`. **Lo que es de la SECCIÓN no viaja** y no debe viajar (es historia de
+   esa sección): `asistencia_jornadas`, `cierres_conducta`, `cierres_transversales`,
+   `auxiliar_secciones`, `tutor_periodo`, criterios y bloqueos. **El único problema real es
+   lo que es de la CARGA**: notas por criterio, promedios, omisiones y transversales
+   registradas por carga.
+5. Medido el 07/10/2026: **67 de 119 combinaciones (grado, área) tienen docentes DISTINTOS
+   por sección (56 %)**. Que el docente de destino sea otro es el caso mayoritario, no un
+   caso borde.
 
-Por eso la mudanza **debe archivar y retirar** las notas activas de la sección origen. No es
-un detalle de implementación: es la razón de que exista el snapshot. Ver
-`docs/modulos/boletas.md` (invariante «Boleta = solo competencias bloqueadas»).
+## 3. Decisiones cerradas (07/10/2026 — no re-preguntar)
 
-## 3. Decisiones cerradas (no re-preguntar)
+1. **Misma matrícula** (`UPDATE matriculas.seccion_id`), mismo grado y año.
+2. **Bimestres CERRADOS:** las notas bloqueadas **se quedan en la carga de origen** (boleta,
+   acta y mérito ya las leen bien desde allí) y los **docentes de destino las VEN, solo
+   lectura**.
+3. **Bimestre ABIERTO:** **no se toma ninguna nota**, ni siquiera las aprobadas y
+   bloqueadas. Se **archivan con copia** (criterio, competencia y omisiones) y se retiran de
+   las tablas vivas. **Destino califica de cero**, sin botón para convalidar.
+   ⇒ **Deroga** el candado del plan de julio («no mover si hay ≥1 competencia bloqueada») y
+   el botón «Convalidar».
+4. El docente de destino **ve las notas archivadas del bimestre abierto como referencia**, en
+   un bloque visualmente separado e inconfundible («No oficiales — archivadas al cambiar de
+   sección»). Requisito del usuario: **acceso fácil y sin posibilidad de confusión**.
+5. **La vista es una pantalla aparte, de solo lectura, centrada en la CARGA ACADÉMICA**: el
+   docente ve lo que corresponde a sus cargas, **con las transversales y el detalle por
+   criterio**.
+6. **Causa raíz: la lista de estudiantes se arma POR BIMESTRE.** El historial de origen
+   conserva al estudiante en los bimestres que cursó allí y el de destino no le muestra una
+   fila vacía (§ 6).
+7. **R.D.:** el número, la fecha y el motivo son obligatorios. **SIGA no genera el
+   documento** (a diferencia del traslado, que emite su *Constancia de traslado* con
+   correlativo). **Nomenclatura = la del traslado** (decisión del 07/10/2026):
+   `N° 000-{AÑO}-CAVVG-DA`. Se arma SIEMPRE con `TrasladoModel::formatearNumero()` y el
+   sufijo de `config('institucion_datos')['sufijo_constancia']`; el formulario pide solo el
+   correlativo, nunca el texto libre, para que no diverja del formato.
+   **La numeración es COMPARTIDA con las constancias de traslado** y admite cualquier
+   número libre; un cambio revertido LIBERA el suyo. **La reversión no lleva R.D.**: solo
+   el motivo. Regla completa en `matriculas.md` § «Numeración COMPARTIDA de R.D.».
+8. **Avisos** (con `NotificacionModel`): tutores, docentes y auxiliares de origen y de
+   destino, y los directores (`ROLES_DIRECCION`).
+9. **Reversión SÍ, recuperando las notas archivadas.** Lo que haya registrado destino
+   también se archiva, así que no se pierde nada. Cierra el único punto abierto del plan de
+   julio.
+10. **Asistencia por fechas:** todo el bimestre se ve en la sección de destino, sin fecha
+    efectiva. Los totales no cambian (las incidencias son por matrícula).
+11. **Retorno de grado:** no se puede cambiar de sección una matrícula **operativa** ni una
+    **oficial con retorno vigente**. Una oficial con retorno **revertido** sí se puede.
+12. **Las matrículas 259 y 339 se registran en el módulo**, vigentes desde el II Bimestre,
+    **con su R.D. real, ambas del 01/09/2026**:
+    **339 (GALICIA MENDOZA, hoy 4.° B) → R.D. `N° 059-2026-CAVVG-DA`** y
+    **259 (DIEGO LOPEZ, hoy 4.° A) → R.D. `N° 060-2026-CAVVG-DA`**.
+    ⚠️ La R.D. es del III Bimestre pero **el cambio rige desde el II** (las dos ya tienen
+    notas del II en su sección actual): la R.D. formalizó un cambio hecho antes. El
+    `periodo_id` sale de los DATOS, no de `rd_fecha`.
 
-1. **Identidad = la MISMA matrícula** (`UPDATE seccion_id`), mismo grado y año. El historial
-   cerrado, la conducta y la asistencia siguen al alumno. Ver `matriculas.md`.
-2. **Notas del bimestre ACTIVO en origen** = snapshot a nivel de criterio como referencia
-   **+ DELETE de las tablas vivas** (`calificaciones` y `calificaciones_criterio`).
-3. **Bimestres cerrados anteriores = intactos en la sección origen.** Siguen saliendo en la
-   boleta desde la carga de origen, porque el alumno realmente estuvo allí esos bimestres.
-   Sin duplicar: origen único por bimestre.
-4. **Candado:** se permite mover salvo que haya ≥1 competencia **BLOQUEADA** en origen en el
-   periodo activo. Las confirmadas-sin-bloquear **sí** se pueden mover. Ver
-   `calificaciones.md`.
-5. **Conducta activa sigue al alumno** (`conducta_respuestas` es por matrícula, no por
-   sección; la cuenta el cierre de la sección destino). Ver `admin.md`.
-6. **Convalidar = CON botón** en la v1 (copia el valor de origen al criterio de destino que
-   el docente elija).
-7. **Reversión = CON deshacer** en la v1 (restaura las notas archivadas de origen).
+13. **Revertir ≠ regresar** (07/10/2026). **Revertir** = deshacer un cambio **mientras su
+    bimestre sigue abierto** (como si no hubiera ocurrido). Si ese bimestre **ya cerró**,
+    volver a la sección anterior es un **cambio NUEVO** (el *regreso*): el bimestre cerrado
+    queda en la sección donde se cursó. Escenario del usuario: A en I–II, B en el III,
+    regreso a A en el IV → I, II y IV del primer docente, III del segundo (probado en
+    `verif_cambio_seccion.php` § 5b). `CambioSeccionModel::tipoDeMovimiento()` decide entre
+    `normal`, `regreso` y `revertir`; `ejecutar()` rechaza la vuelta dentro del mismo
+    bimestre y remite a revertir.
+14. **El regreso NO lleva R.D.**: solo el motivo, y no ocupa número (`rd_*` en NULL; el CHECK
+    `chk_cs_rd_completa` exige los tres llenos o los tres vacíos). Un cambio `normal` sin R.D.
+    se rechaza.
+15. Al regresar, el docente de la sección original **NO ve sus propias notas parciales** del
+    bimestre en que el estudiante se fue (quedan en el archivo, solo para auditoría). Ve lo
+    oficial del bimestre cursado fuera y, como referencia, lo archivado del bimestre abierto.
+16. **Revertir DESCONFIRMA** los criterios que reciben notas restauradas (invariante
+    «`criterios.confirmado_en` es la única verdad de oficial»); el docente vuelve a confirmar.
 
-## 4. Modelo de datos — migración `053_cambio_seccion.sql` (solo esquema)
+17. **Revertir con competencias BLOQUEADAS en origen: NO se permite** (opción a, 07/10/2026).
+    Si en origen ya se bloqueó una competencia que recibiría notas restauradas, la reversión se
+    rechaza y el aviso nombra esas competencias; se desbloquea primero con el flujo de siempre.
+    La reversión nunca toca una competencia oficial. En DESTINO no hay guarda: lo suyo se
+    archiva igual que cuando un estudiante llega (decisión 3).
+    ⚠️ **Costo medido** (verificador, matrícula 162): revertir desconfirmó **8 criterios** de
+    origen (6 con nota y 2 con omisión: restaurar una omisión también muta el criterio). Mientras
+    el docente no los reconfirme, el resumen de esas competencias no está disponible para la
+    sección entera. El aviso al docente de origen (fase 2) debe decirlo.
 
-- **`cambios_seccion`** (el evento): `id`, `matricula_id`, `anio_id`, `periodo_id`,
-  `seccion_origen_id`, `seccion_destino_id`, `motivo TEXT NOT NULL`,
-  `estado ENUM('vigente','revertido') DEFAULT 'vigente'`, `movido_por`, `movido_en`,
-  `revertido_por NULL`, `revertido_en NULL`. `KEY (matricula_id, periodo_id, estado)`.
-- **`cambios_seccion_competencia`**: `id`, `cambio_id` FK `ON DELETE CASCADE`,
-  `carga_id_origen`, `competencia_id`, `nota_numerica TINYINT NULL`,
-  `conclusion_descriptiva TEXT NULL`. `UNIQUE (cambio_id, carga_id_origen, competencia_id)`.
-- **`cambios_seccion_criterio`**: `id`, `cambio_id` FK `ON DELETE CASCADE`,
-  `carga_id_origen`, `competencia_id`, `criterio_id_origen` FK a `criterios` **NULL**
-  (queda NULL si el docente de origen lo borra después), `criterio_nombre VARCHAR(120)`
-  **denormalizado**, `nota TINYINT`. `UNIQUE (cambio_id, criterio_id_origen)`.
+⚠️ **«Archivo del cambio» NO es la tabla de borradores.** `borradores_formulario` (074) guarda
+lo tecleado en un formulario y se BORRA tras el guardado oficial; `cambios_seccion_*` es un
+archivo PERMANENTE (auditoría, referencia y reversión). Se archiva TODO lo del bimestre
+abierto, también lo bloqueado (decisión 3).
 
-El snapshot sirve **a la vez** como referencia visual para el docente destino y como fuente
-para **restaurar** en la reversión.
+## 3b. Lo construido (fases 1 y 2, 07/10/2026)
 
-## 5. Backend — `CambioSeccionModel` (nuevo)
+- **Modelo** (`CambioSeccionModel`): `seccionDelPeriodo` / `sqlSeccionDelPeriodo`,
+  `motivoNoElegible`, `tipoDeMovimiento`, `ejecutar`, `motivoNoRevertible`,
+  `bloqueosQueImpidenRevertir`, `revertir`, `avisar`, `periodoCerrado`.
+- **Rutas** (solo POST; el formulario vive en el detalle):
+  `POST /matriculas/{id}/cambiar-seccion` y `POST /matriculas/{id}/cambiar-seccion/revertir`
+  → `Matricula\CambioSeccionController` (admin y registro académico; CSRF; avisos FUERA de la
+  transacción).
+- **Pantalla** `/matriculas/{id}`:
+  - card «Cambios de sección» (historial a la vista, con su reversión desplegable mientras el
+    bimestre del cambio siga abierto, o el aviso de por qué no se puede);
+  - en «Gestión de la matrícula», la acción «Cambiar de sección» (destino, N.° y fecha de R.D.
+    con el número sugerido, motivo). La opción de **regreso** se marca en el select y el JS
+    **deshabilita** los campos de R.D. (no se envían: no ocupa número). La vuelta en el mismo
+    bimestre abierto no se ofrece como destino: es la reversión.
+- **Avisos** (`NotificacionModel::TIPO_CAMBIO_SECCION`): un aviso por persona, sin el emisor;
+  texto distinto para origen, destino y dirección. Todavía **sin enlace**: el de los docentes
+  de destino apuntará a la vista de solo lectura de la fase 3.
+- **Verificador** `verif_cambio_seccion.php` (§ 1–6, transacción + rollback).
 
-- `seccionesDestino(matriculaId)` — secciones del mismo grado y año, distintas de la actual.
-- `elegible(matriculaId)` — `estado IN ('aprobada','pendiente')`, no estar en un retorno de
-  grado activo, y el candado de la decisión 4.
-- `ejecutar(matriculaId, destinoId, motivo, userId)` — **TRANSACCIÓN**: INSERT en
-  `cambios_seccion` → snapshot de `calificaciones` a `cambios_seccion_competencia` y de
-  `calificaciones_criterio` a `cambios_seccion_criterio` (solo periodo activo) → DELETE de
-  esas filas vivas → `UPDATE seccion_id`. La conducta **no se toca**. Devuelve `cambio_id`.
-- `revertir(cambioId, userId)` — **TRANSACCIÓN** con guarda: rechaza si la sección destino
-  tiene una competencia bloqueada del alumno en el periodo activo; restaura el snapshot a
-  las tablas vivas (por `criterio_id_origen`, omitiendo con aviso si el criterio ya no
-  existe); `UPDATE seccion_id` de vuelta; marca `'revertido'`.
-- `getReferenciaParaCarga(matriculaId, cargaDestinoId, periodoId)` — competencias y criterios
-  archivados cuya competencia pertenece a la **misma área** que la carga destino. Alimenta
-  el panel del docente.
-- **Convalidar NO necesita endpoint:** el botón copia el valor al input del criterio de
-  destino y dispara el **autosave existente** (`/docente/calificaciones/{carga}/autosave`).
-  Reusa el flujo actual completo (guardar / omisión / confirmar). Ver `calificaciones.md`.
+## 4. Casos reales en la BD (medido el 07/10/2026)
 
-## 6. Rutas
+- **Hay 2 cambios de sección hechos a mano**, un intercambio dentro de 4.° grado: la matrícula
+  259 (hoy en 4.° A) cursó el I Bimestre en 4.° B, y la 339 (hoy en 4.° B) lo cursó en
+  4.° A. Sus notas del I Bimestre siguen bloqueadas en la carga de origen y salen bien en la
+  boleta.
+- ⚠️ **La matrícula 692 NO es un cambio de sección**, aunque tiene filas del I Bimestre en
+  una carga de otra sección: es la **operativa del retorno n.° 1** (oficial 190, revertido
+  el 05/10) y esas filas son **copias inertes** que dejó el registro del retorno el 21/06
+  (`retorno-grado.md`). ⇒ **Toda detección, script o verificador de este módulo excluye
+  las matrículas presentes en `retornos_grado`.** Compararlas solo por
+  «sección de la matrícula ≠ sección de la carga» las clasifica mal.
 
-- `GET`/`POST` `/matriculas/{id}/cambiar-seccion` y
-  `POST /matriculas/{id}/cambiar-seccion/revertir`, con `requireRole` admin /
-  `registro_academico` + `validateCsrf`.
-- ⚠️ **Literales ANTES del patrón `GET /matriculas/{id}`** — invariante del router.
-- Docente: `formulario()` adjunta la referencia a cada alumno con cambio vigente cuyo destino
-  sea la sección de la carga. **Sin rutas de escritura nuevas.**
+## 5. Diseño
 
-## 7. Frontend
+### 5.1 Datos (migración `075`)
+
+- `cambios_seccion` (el evento): `matricula_id`, `anio_id`, `periodo_id` (desde qué
+  bimestre rige el destino), `seccion_origen_id`, `seccion_destino_id`, `rd_numero`,
+  `rd_fecha`, `motivo`, `estado ENUM('vigente','revertido')`, `movido_por/en`,
+  `revertido_por/en`, `motivo_reversion`.
+- `cambios_seccion_competencia`, `cambios_seccion_criterio` y `cambios_seccion_omision`:
+  copia de lo retirado del bimestre abierto, con `lado ENUM('origen','destino')` para la
+  reversión simétrica. El criterio queda **denormalizado** (nombre, carga, competencia),
+  con su FK a `criterios` en `ON DELETE SET NULL`.
+
+### 5.2 Punto único — `CambioSeccionModel`
+
+- `seccionDelPeriodo(matriculaId, periodoId)` y `sqlSeccionDelPeriodo($m, $colPeriodo)`:
+  usan el destino del último cambio vigente con `periodo ≤ P` (por `orden`); si no hay, el
+  origen del primer cambio posterior; si no hay ningún cambio, `m.seccion_id`. Mismo modelo
+  que `RetornoGradoModel::sqlRosterDelPeriodo`.
+- `elegible`: estado de la matrícula, retorno (decisión 11), destino del mismo grado y año,
+  distinto del actual.
+- `ejecutar`, en TRANSACCIÓN: INSERT del evento → copia → DELETE de las filas vivas del
+  bimestre abierto en las cargas de origen → `UPDATE seccion_id` →
+  `OrdenMeritoModel::sincronizarRosterPorMatricula`. Los avisos van **fuera** de la
+  transacción (patrón de las notas de origen: que falle un aviso no tumba un registro
+  válido).
+- `revertir`, en TRANSACCIÓN: archiva lo de destino, restaura lo de origen (avisa si un
+  criterio ya no existe), vuelve la sección y marca el cambio como `'revertido'`.
+- `notasCursadasEnOtraSeccion(matriculaId, cargaDestinoId)`: por cada bimestre cerrado
+  cursado en otra sección, ubica la carga equivalente de origen (misma área o subárea) y
+  arma bloques {competencia (incl. transversales), criterios, notas, omisiones, conclusión}
+  reutilizando `bloquesBloqueadosDeCarga` / `getResumenCompetencia` filtrados a una sola
+  matrícula. Fuente oficial: `calificaciones` con INNER JOIN a `bloqueos_competencia` (la
+  misma regla que la boleta). Le suma, aparte, el bloque de referencia archivado.
+
+### 5.3 Interfaz
 
 - `/matriculas/{id}`, card «Gestión de la matrícula»: fila desplegable «Cambiar de sección»
-  (mismo patrón *disclosure* que Desactivar y Exonerar): select de destino + textarea de
-  motivo `required`. Si hay un cambio vigente → bloque «Revertir cambio de sección» con el
-  resumen del snapshot.
-- Grilla del docente (`calificaciones.php`): panel de referencia colapsable por alumno mudado
-  + botón «Convalidar → [select de criterio]» que copia el valor y guarda.
-- SASS: `pages/_matriculas.scss` (`.mat-cambio-seccion-form`) y `pages/_dashboard.scss`
-  (`.referencia-convalidacion`). JS: `matriculas.js` (toggle) y `calificaciones.js`
-  (copiar → autosave). Recordar `gulp build`.
+  (destino, N.° de R.D., fecha de la R.D. y motivo, todos obligatorios) y el bloque «Revertir»
+  si hay un cambio vigente. Mismo patrón que Desactivar y Exonerar.
+- Docente: `GET /docente/calificaciones/{carga}/procedencia/{matricula}`, de solo lectura.
+  Acceso: `validarCargaDocente` + pertenencia de la matrícula a la sección de la carga.
+  Arriba, la tarjeta de procedencia (sección de origen, R.D. y fecha); luego los bimestres
+  cerrados (oficiales) y al final, aparte y con su propio rótulo, la referencia archivada.
+  Se llega por un **chip** en la fila del estudiante (grilla e historial), sin reestructurar
+  la tabla, y por el enlace de la notificación. Patrón a imitar:
+  `/docente/notas-origen/{matricula}` (`PanelController::notasOrigen`).
+- Rutas literales ANTES de los patrones `{param}`. SASS en `resources/sass/`, sin CSS
+  inline, comillas ASCII y luego `gulp build`.
 
-## 8. No-regresión (verificar al construir)
+## 6. Lista de estudiantes por bimestre — INVENTARIO (07/10/2026)
 
-- **Boleta:** al borrar las filas activas de origen no queda match de bloqueo → sin fuga ni
-  duplicado. `getBoletaAlumno` **no se toca**. Los bimestres cerrados de origen, intactos.
-- **Orden de mérito:** el alumno pasa a competir en la sección destino en el periodo activo;
-  los snapshots ya cerrados no cambian.
-- **Conducta:** las respuestas siguen al alumno y el cierre de la sección destino las cuenta.
+Medido el 07/10/2026: **111 líneas en 91 funciones** cruzan la matrícula con su sección
+(`m.seccion_id` y equivalentes; búsqueda: `(m|mat|m2|mm|mo)\.seccion_id|matriculas\.seccion_id`
+más 3 guardas sin alias). Criterio: ¿la consulta pregunta por **HOY** o por **UN BIMESTRE**
+(recibe un periodo, o lee notas, asistencia, conducta o cierres de un periodo)?
 
-## 9. Casos borde ya definidos
+En el bimestre en curso las dos respuestas coinciden (la sección del periodo abierto es la
+actual), así que convertir una consulta DEL PERIODO **no cambia nada hoy**: solo corrige los
+bimestres cerrados cursados en otra sección. PUNTO ÚNICO: `sqlEnSeccionDelPeriodo` /
+`sqlSeccionDelPeriodo`.
 
-- **Mudanzas encadenadas A→B→C:** un solo cambio `'vigente'` por matrícula y periodo; una
-  mudanza nueva supersede a la anterior y la referencia es el snapshot más reciente.
-- **Criterio de origen borrado tras el snapshot:** el display usa `criterio_nombre`
-  (denormalizado) y la restauración lo omite con aviso.
-- **No hace falta recalcular** a los demás alumnos de la sección origen: las filas son por
-  alumno, y la completitud y el cierre se actualizan solos.
+### 6.1 HOY — no se tocan (≈ 45 funciones)
 
-## 10. Orden de construcción
+Gestión, identidad y documentos que se entregan HOY: `MatriculaModel` (listar, contar,
+nómina, resumen, cuadro, `findById`, sugerir sección, año anterior), `NominaModel`,
+`SeccionModel::listarConTutor`, `EstudianteModel::buscarEnAnioActivo`, `TrasladoModel`,
+`ApoderadoModel::getHijos`, `ExoneracionController` (index, revocar),
+`ExoneracionModel::getParaSeccion` / `getAlumnosSeccion` (la exoneración es anual),
+`ControlOperativoModel::matriculasPendientes`, `RectificacionModel::getMatriculaInfo`,
+cabeceras de boleta (`BoletaModel::getAlumno`, `BoletaPublicaController::getAlumno`,
+`BoletaController::resolverBoletaDocente` / `resolveToken`: la boleta es anual y nombra la
+sección de hoy), `CalificacionModel::estructuraCompetenciasSeccion` (el plan es del grado),
+`Padre\PanelController` (getHijo, contextoMerito), `ConductaModel::contextoMatricula`,
+`AuxiliarSeccionModel::seccionesConHijos`, accesos del docente
+(`NotaExternaModel::docenteTieneAcceso` / `areasDelDocenteEnSeccion`, `procedencia`,
+`notasOrigen`), `NotificacionModel::crearParaDocentesDeSeccion`, todo lo de retorno de grado
+(`mo.seccion_id`: `RetornoGradoController`, `MatriculaController::show`,
+`SituacionFinalModel::areasQueCuentan` / `ubicacionOficialRetornos`), las 3 guardas de
+escritura del tutor (`TutoriaController` ×2, `ConductaTutorController`: escriben en el
+bimestre en curso) y los conteos por GRADO del mérito (`gradosConRanking`,
+`gradosConEmpatesPendientesDetalle`, `Director\OrdenMeritoController::getConteosGrado`:
+el grado no cambia).
 
-1. Migración `053` → 2. `CambioSeccionModel` (`ejecutar` + `revertir`) → 3. UI de la
-matrícula → 4. panel de referencia y botón convalidar en la grilla del docente →
-5. verificación local end-to-end → 6. documentación (`matriculas.md`, nota en
-`calificaciones.md`, y `docs/ESTADO.md`).
+### 6.2 DEL PERIODO — se convierten (≈ 40 funciones), por módulo
 
-## 11. 🔴 LO ÚNICO ABIERTO — preguntar al usuario antes de construir
+| # | Módulo | Funciones | Por qué importa |
+|---|---|---|---|
+| A ✅ | **Boleta (datos)** | `ConductaModel::getParaBoleta` / `getParaPeriodo` (cierre de conducta), `CalificacionModel::getTransversalesAgregadas` (cierre de transversales), `BoletaModel::getTutorSeccion`, `BoletaPublicaController::getTutorSeccion` | Un bimestre cursado en otra sección se publica con el **cierre y el tutor de ESA sección** (invariante «documentos = el tutor del bimestre»). Hoy saldría con guion o con el tutor equivocado. |
+| B ✅ | **Rectificación / extraordinarias** | `RectificacionModel::sqlInsertables`, `sqlTransversalesInsertables` (`matriculasSinNotasEnCerrados` solo filtra y rotula por la sección de HOY: queda en 6.1; su conteo hereda la corrección) | Hoy ofrecería insertar notas de un bimestre cerrado en las cargas de la sección ACTUAL, no en las de donde lo cursó. |
+| C ✅ | **Acta SIAGIE** | `SiagieExportModel::estudiantesDeSeccion` / `estudiantesDeOtrasSecciones` (hoy SIN periodo: hay que dárselo) | El acta de un bimestre lista a quien lo cursó en esa sección. |
+| D ✅ | **Tutoría** | `TutoriaController::getAlumnosSeccion` y sus 2 guardas de escritura (reciben el bimestre: pasan de 6.1 a aquí), `TransversalModel::getPromediosSeccion` / `getConclusionesSeccion`, `ConclusionReplicaModel::getSeccion` | El panel del tutor de un bimestre cerrado. |
+| E ✅ | **Conducta** | guarda de escritura de `ConductaTutorController` (recibe el bimestre), `ConductaModel::getEstudiantesParaRegistro`, `getEstudiantesParaTutor`, `completitudSeccion`, `getLiteralesLegado`, `getRegistroLegado`, `getProgresoConductaPorSeccion`, `getIncumplimientoCriterios` | Registro y cierre de conducta por bimestre. |
+| F ✅ | **Asistencia** | `AsistenciaModel::getEstudiantesConIncidencias`, `getProgresoPorSeccion`, `getIncidenciasPorSeccion`, `getTopIncidenciasPorSeccion`, `AsistenciaJornadaModel::incidenciasDelDia`, `AsistenciaEstadisticaModel::roster` | Decisión 10: el bimestre se ve en la sección donde rigió el cambio. |
+| G ✅ | **Calificaciones del docente y cierre** | `Docente\CalificacionController::getAlumnosSeccion`, `ExoneracionModel::getActivasParaCarga` (EXO en un historial pasado), `ControlOperativoModel::alertasEvaluacionIncompleta`, `AnioAcademicoModel::competenciasVaciasDelPeriodo` | Grilla, historial y la compuerta del cierre. |
+| H ✅ | **Mérito y situación final** | `OrdenMeritoModel::rankingPorSeccionLive`, `rankingGradoLive` / `calcularFilasRanking` (etiqueta de sección), `DesempateMeritoModel::getActaPorPeriodo`, `SituacionFinalModel::rosterDelPeriodo`, `planPorMatricula`, `transversalesDelActa`, `fueraDelColegio` | Ranking por sección y acta del bimestre. Snapshots publicados: INTOCABLES. |
+| I ➖ | **Estadísticas** (SIN CAMBIOS, ver abajo) | `AnioAcademicoModel::getResumenBimestre` / `getEvolucionAnual`, `AsistenciaModel::getEvolucionIncidenciasAnual`, `ConductaModel::getDistribucionLiteralesAnual` | Cifras por sección y bimestre. |
 
-**Semántica de la reversión cuando la sección destino YA cargó notas activas del alumno.**
+### 6.3 Decisión cerrada (07/10/2026)
 
-- **Propuesta:** archivarlas **simétricamente** (no se pierde nada) y luego restaurar las de
-  origen.
-- **Alternativa:** descartar lo que cargó destino.
+- **Lote de boletas por sección = la sección de HOY** (`BoletaPublicaModel`:
+  `getMatriculasAprobadasParaBoleta`, `getEstudiantesParaPeriodo`, `getSeccionesParaPeriodo`,
+  `getPorPeriodo` → quedan en 6.1). El lote es lo que el tutor ACTUAL entrega; los DATOS de
+  cada bimestre ya salen de donde se cursó (bloque A). Orden de conversión: A → I, un commit
+  y un A/B por bloque.
 
-El usuario **no ha elegido**. Es la única decisión pendiente del plan.
+**Bloque A HECHO (07/10/2026).** `BoletaPublicaController::getTutorSeccion` NO se tocó: sus
+rutas están comentadas (boleta pública dormida). A/B: 2148 boletas (537 matrículas × 4
+bimestres) idénticas a `HEAD`; con los datos reales no cambia nada porque la boleta firma con
+el tutor del ÚLTIMO bimestre con datos. El efecto lo prueba `verif_seccion_del_periodo.php` § 4
+con un escenario que anula los cierres de destino: pasa con el código nuevo y FALLA con `HEAD`.
+
+**Bloque B HECHO (07/10/2026).** A/B sobre 537 matrículas: solo cambian 259 y 339 (con `HEAD`
+se les ofrecía insertar 26 notas del I en la sección ACTUAL; ahora 6 y 4, en la sección donde lo
+cursaron). Otras 10 difieren SOLO en la «carga dueña» de una transversal: es un **empate
+preexistente** (`ORDER BY COUNT(*) DESC LIMIT 1` sin desempate; todas las cargas de la sección
+tienen las mismas notas) que el cambio de plan hizo aflorar. Inocuo para la boleta (promedia por
+competencia). Recomendación NO aplicada: desempate fijo `, cal2.carga_id`.
+
+**Bloque C HECHO (07/10/2026).** `estudiantesDeSeccion` y `estudiantesDeOtrasSecciones`
+reciben un `?int $periodoId` OPCIONAL (sin él, la sección de hoy, como antes); `LlenadorSiagie`
+les pasa el bimestre del archivo. A/B en 92 rosters (secciones × bimestres cerrados): solo
+cambian 4.° A y 4.° B de primaria en el I Bimestre, intercambiando a 259 y 339.
+
+**Bloque D HECHO (07/10/2026).** También lo leen la consulta de notas
+(`ConsultaNotasController`) y la compuerta del cierre del tutor
+(`conclusionesObligatoriasPendientes`). A/B en 276 claves (secciones × bimestres): los promedios
+solo cambian en 4.° A/4.° B del I (259 ↔ 339); las conclusiones difieren SOLO en el orden de las
+filas (la consulta no tiene `ORDER BY`): con el contenido ordenado son idénticas; la compuerta del
+cierre, idéntica. La guarda de conducta del tutor (`ConductaTutorController`) va con el bloque E.
+
+**Bloque E HECHO (07/10/2026).** `sqlEnSeccionDelPeriodo` acepta ahora también una COLUMNA de
+sección (`s.id`) para las consultas que recorren todas las secciones. A/B en 351 claves: solo
+cambian 4.° A/4.° B del I (registro, panel del tutor y literales legado: 259 ↔ 339); el
+progreso por sección, el incumplimiento y la completitud del cierre, idénticos.
+
+**Bloque F HECHO (07/10/2026).** A/B en 150 claves: solo cambian la lista de 4.° A/4.° B del I
+(259 ↔ 339) y, por eso, las incidencias por sección y el top de inasistencias del I; el avance
+por sección, las justificaciones y las listas del día, idénticos.
+
+**Bloque G HECHO (07/10/2026).** `ExoneracionModel::getActivasParaCarga` recibe un
+`?int $periodoId` OPCIONAL; las 10 llamadas le pasan su bimestre. A/B en 1305 claves: la grilla
+cambia solo en 4.° A/4.° B del I; exonerados y competencias vacías, idénticos; y
+`alertasEvaluacionIncompleta` del I **deja de acusar en falso a 259 y 339** (con `HEAD` les
+faltaban notas en las cargas de su sección de hoy: habría impedido volver a cerrar el I).
+`verif_roster_evaluacion.php` se ajustó al bimestre en curso (su premisa «el roster no depende
+del periodo» ya no es cierta).
+
+**Bloque H HECHO (07/10/2026).** Convertidas: `rankingPorSeccionLive` (se compite por sección
+donde se cursó), `rankingGradoLive` (solo la etiqueta), `DesempateMeritoModel::getActaPorPeriodo`,
+`SituacionFinalModel::rosterDelPeriodo` / `planPorMatricula` / `transversalesDelActa`.
+`fueraDelColegio` queda en 6.1 (trasladados y retirados: su ÚLTIMA sección). A/B en 85 claves:
+puestos del grado idénticos (solo cambia la etiqueta de 259/339 en el I); ranking en vivo por
+sección del I con 259/339 donde lo cursaron; situación final idéntica salvo esas 2 etiquetas.
+⚠️ `transversalesDelActa` usa un JOIN a los cierres vigentes con `DISTINCT` en vez de `EXISTS`:
+**MariaDB 10.4 convierte ese EXISTS en IN y rechaza la subconsulta de la sección en el lado
+izquierdo (error 1235)**. Si otra consulta lo necesita, usar el mismo patrón.
+⚠️ **Snapshot publicado del I**: ya ubica a 259 en 4.° A y a 339 en 4.° B (sus secciones de HOY),
+aunque cursaron el I en la otra: el cambio a mano se hizo tras calificar el I y antes de generar
+su snapshot. Es INMUTABLE y no se toca; no cambia nada visible (las pantallas de un bimestre
+publicado leen el snapshot). Solo una rectificación futura del I los ubicaría, en la versión NO
+oficial de `/admin/control`, en la sección donde lo cursaron.
+
+**Bloque I: NO necesita cambios (07/10/2026).** Ninguna de sus 4 consultas agrupa por sección
+(`getResumenBimestre` y `getEvolucionAnual` por nivel/grado, `getEvolucionIncidenciasAnual` por
+bimestre, `getDistribucionLiteralesAnual` por matrícula y bimestre) y un cambio de sección es
+SIEMPRE dentro del mismo grado y nivel: leer una sección u otra da el mismo número. Pasan a 6.1.
+
+**FASE 4 COMPLETA (07/10/2026):** bloques A–H convertidos, I sin cambios. Lo protege
+`verif_seccion_del_periodo.php` (§ 1–11, cada escenario FALLA con el código anterior).
+
+### 6.4 Cómo se verifica
+
+Cada bloque se convierte con un **A/B contra `HEAD`**: sin cambios de sección las salidas
+deben ser idénticas, y con los dos casos reales (259, 339) solo pueden diferir en
+4.° A / 4.° B de primaria y en el I Bimestre. Lo protege `verif_seccion_del_periodo.php`.
+
+## 7. Orden de construcción
+
+1. Migración + `CambioSeccionModel` (ejecutar, revertir y el punto único).
+2. Interfaz de la matrícula + avisos.
+3. Vista del docente + chip.
+4. Lista por bimestre: inventario → cambio de las consultas DEL PERIODO → verificador.
+5. Registro de las matrículas 259 y 339 con su R.D. real, por script en simulación y
+   `--confirmar` (patrón de `aplicar_054`).
+6. Documentación: este doc, `matriculas.md`, `calificaciones.md` y `ESTADO.md`.
+
+## 8. Verificación (al construir)
+
+- Verificador con transacción y rollback: cambio en el bimestre abierto → boleta sin
+  duplicados ni fuga, origen sin filas vivas, destino vacío, copia completa; revertir →
+  todo restaurado y lo de destino archivado.
+- Las dos ramas de cada guarda (retorno vigente, mismo grado, R.D. vacía).
+- Historial del I Bimestre de 4.° A y 4.° B con las matrículas 259 y 339, antes y después:
+  origen las recupera y destino no muestra fila vacía.
+- Contadores de asistencia y conducta confirmada idénticos antes y después.
+- Navegador: vista de procedencia con una sesión de DOCENTE (no admin), chip y notificación.
+
+## 9. Pendiente del usuario antes de construir
+
+Nada. Datos completos el 07/10/2026.

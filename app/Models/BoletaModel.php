@@ -524,8 +524,13 @@ class BoletaModel extends BaseModel
      */
     private function getTutorSeccion(int $matriculaId, ?int $periodoId): ?array
     {
+        // La sección donde CURSÓ ese bimestre (cambio de sección, 07/10/2026):
+        // el tutor que firma es el de esa sección en ese bimestre. Sin bimestre,
+        // la de hoy. Punto único: CambioSeccionModel::sqlSeccionDelPeriodo.
         $seccion = $this->queryOne("
-            SELECT m.seccion_id
+            SELECT " . ($periodoId !== null
+                ? CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId)
+                : 'm.seccion_id') . " AS seccion_id
             FROM matriculas m
             WHERE m.id = ?
             LIMIT 1

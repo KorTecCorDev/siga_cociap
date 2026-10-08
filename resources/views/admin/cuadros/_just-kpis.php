@@ -16,7 +16,8 @@ $k = $just['kpis'];
     </div>
     <div class="cuadros-kpi">
         <span class="cuadros-kpi__n"><?= $fmtPct($k['pct_fj']) ?></span>
-        <span class="cuadros-kpi__t">Faltas justificadas</span>
+        <span class="cuadros-kpi__t"><?php
+            $nombreAnclaFj = $just['motivo_principal'] ?? null; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php'; ?> Faltas justificadas</span>
     </div>
     <div class="cuadros-kpi">
         <span class="cuadros-kpi__n"><?= $fmtPct($k['pct_tj']) ?></span>
@@ -40,7 +41,8 @@ $k = $just['kpis'];
                 <tr>
                     <th class="col-nombre">Nivel</th>
                     <th class="text-center">Tasa de asistencia</th>
-                    <th class="text-center">Faltas justificadas</th>
+                    <th class="text-center"><?php
+                        $nombreAnclaFj = $just['motivo_principal'] ?? null; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php'; ?> Faltas justificadas</th>
                     <th class="text-center">Tardanzas justificadas</th>
                     <th class="text-center">Justificaciones verbales</th>
                     <th class="text-center">Registro confirmado</th>

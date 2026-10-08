@@ -13,7 +13,8 @@
  * `registro-estudiante.js` añade «← Anterior» / «Confirmar y siguiente →».
  *
  * Variables heredadas de `estudiante.php`: $est, $inc, $pos, $ultimo, $csrfToken,
- * $periodo, $siguienteUrl, $anteriorUrl, $calendario, $dias, $motivos, $jornadas.
+ * $periodo, $siguienteUrl, $anteriorUrl, $calendario, $dias, $motivos, $jornadas,
+ * $motivoPrincipal, $motivoPrincipalId.
  */
 
 use App\Models\AsistenciaModel;
@@ -25,6 +26,7 @@ $etiquetasAf = [
     'tardanzas_justificadas' => ['TJ', 'Tardanzas justificadas'],
 ];
 $cabeceraSemana = ['L', 'Mar.', 'Mié.', 'J', 'V'];
+$motPrincipal   = $motivoPrincipalId ?? null;   // icono de documento en `_af-celda.php`
 ?>
 
 <section class="asistencia-fila af-fila registro-estudiante<?= !empty($inc['confirmado']) ? ' asistencia-fila--registrada' : '' ?>"
@@ -47,7 +49,9 @@ $cabeceraSemana = ['L', 'Mar.', 'Mié.', 'J', 'V'];
     <dl class="af-totales">
         <?php foreach (AsistenciaModel::CAMPOS as $c): [$corta, $larga] = $etiquetasAf[$c]; ?>
             <div class="af-totales__item" title="<?= e($larga) ?>">
-                <dt><span class="af-tipo af-tipo--<?= strtolower($corta) ?>"><?= e($corta) ?></span></dt>
+                <dt><?php if ($c === 'faltas_justificadas' && !empty($motivoPrincipal)):
+                        $nombreAnclaFj = $motivoPrincipal; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php';
+                    else: ?><span class="af-tipo af-tipo--<?= strtolower($corta) ?>"><?= e($corta) ?></span><?php endif; ?></dt>
                 <dd class="af-total" data-campo="<?= $c ?>"><?= (int) $inc[$c] ?></dd>
             </div>
         <?php endforeach; ?>
@@ -85,6 +89,12 @@ $cabeceraSemana = ['L', 'Mar.', 'Mié.', 'J', 'V'];
             <?php endforeach; ?>
             <span class="tabla-pie__item"><span class="af-tipo af-tipo--sin-tomar">⚠</span> Sin tomar lista</span>
             <span class="tabla-pie__item"><span class="af-tipo af-tipo--nl">NL</span> No lectivo</span>
+            <?php if (!empty($motivoPrincipal)): ?>
+                <span class="tabla-pie__item tabla-pie__item--bloque">
+                    En el total <strong>F</strong> también se cuentan las FJ cuyo motivo no es
+                    «<?= e($motivoPrincipal) ?>».
+                </span>
+            <?php endif; ?>
         </p>
     </div>
 

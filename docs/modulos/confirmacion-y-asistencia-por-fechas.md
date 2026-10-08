@@ -3,6 +3,89 @@
 > **ESTADO: DESPLEGADO en v1.0.5 (30/09/2026)**, con las migraciones `068`, `069` y `070`
 > aplicadas a mano en producción antes del push. Las rondas de abajo son el historial.
 
+> **SÉPTIMA RONDA (08/10/2026, regla del colegio; migración 076) — una falta solo es
+> justificada con el MOTIVO PRINCIPAL.** En `dev`, sin desplegar.
+> 1. **Regla:** una FJ cuenta en `faltas_justificadas` solo si su motivo es el **ANCLA** (motivo
+>    principal) del bimestre. Al principio es «Justificación escrita autorizada». Con cualquier
+>    otro motivo (p. ej. la verbal) cuenta en **`faltas`**. Las **tardanzas no cambian**: TJ suma
+>    todos los motivos.
+> 2. **La marca del día NO cambia:** la celda sigue diciendo FJ con su motivo, y el anexo «Detalle
+>    de incidencias» la lista como FJ. Solo cambia en qué contador cae.
+>    - **Icono de documento SOLO con el ancla** (decisión del usuario, 08/10/2026). Lo pintan
+>      `_af-celda.php` y `pintarCelda()`; el JS lo lee del `<option data-principal>` del menú.
+>    - Las demás justificaciones no llevan icono, pero su motivo sale al pasar el cursor.
+> 3. **Alcance: todo el sistema** (decisión del usuario). Se cambió el punto único
+>    `recalcularContadores`, cuya regla vive en `AsistenciaModel::sqlConteoContadores()`. Boleta,
+>    imprimible, Dirección, SIAGIE y cuadros de contadores leen los mismos números. No toca I y II
+>    (solo números) ni la vía extraordinaria.
+> 4. **Datos ya guardados:** la 076 los **recuenta sin desconfirmar** (decisión del usuario). Las
+>    marcas no cambian, así que la confirmación sigue valiendo. En local: 39 filas, 85 FJ verbales
+>    pasan a F, 33 filas confirmadas, ninguna en sección bloqueada.
+> 5. **Estadísticas de justificaciones de Cuadros: ALINEADAS** (08/10/2026). El usuario derogó
+>    su «no tocar» del mismo día al pedir el icono también ahí.
+>    - **F/FJ con la regla de los contadores:** una FJ fuera del ancla cuenta como F, en
+>      `AsistenciaEstadisticaModel::tipoQueCuenta`. Afecta a «% F justificadas», las cifras por
+>      estudiante y por sección y la tabla por nivel.
+>    - **Lo que mide el MOTIVO sigue contando cada MARCA:** usos por motivo, verbales y su
+>      alerta. Su base es el contador `justificaciones` (FJ + TJ de cualquier motivo), no FJ + TJ,
+>      que ya no incluye las FJ verbales y dejaría el % de verbales por encima de 100.
+>    - Tendencias y días críticos no cambian: F y FJ son ausencias en los dos casos.
+>    - En local (III): F 212 · FJ 60, idénticos a los contadores oficiales confirmados.
+>    - ⚠️ `tipoQueCuenta` es la versión PHP de `sqlConteoContadores`: al tocar una, revisar la
+>      otra. Lo comprueba `verif_asistencia_estadisticas.php`.
+> 6. **Leyenda** en la grilla y en la vista por estudiante: «En el total F también se cuentan las
+>    FJ cuyo motivo no es "…"». El nombre es el del ancla del bimestre.
+>    - **El ENCABEZADO de la columna FJ ES la pastilla de una celda FJ con el motivo
+>      principal** (08/10/2026, aclaración del usuario: el papel es PARTE de la pastilla,
+>      no un icono aparte). Contorno de FJ y documento en la esquina superior derecha.
+>      - Punto único: el parcial `admin/asistencia/_pastilla-fj.php` (`af-tipo--fj
+>        af-tipo--con-motivo`).
+>      - El dibujo de la esquina es el mixin `af-esquina-motivo` de `_asistencia.scss`, que
+>        comparten la celda y la pastilla: no pueden divergir.
+>      - Tooltip: «Faltas justificadas: solo cuenta las de "<ancla>"».
+>      - Solo en bimestres por fechas. Sin ancla, cada vista conserva su rótulo de siempre
+>        (texto «FJ», «Faltas justif.», «F. just.»).
+>      - Donde el rótulo era la sigla, la pastilla lo reemplaza. Donde eran palabras (tarjeta
+>        y tabla por nivel de Cuadros), la pastilla va delante del texto.
+>    - **Dónde va:**
+>      - grilla y vista por estudiante;
+>      - tabla compartida `_tabla-incidencias` (consulta de Dirección; con `$nombreAnclaFj`);
+>      - imprimible del registro, con la nota al pie que lo explica en papel;
+>      - cuadros: «F. just.» del top de incidencias, y la tarjeta, la tabla por nivel y la de
+>        estudiantes de Justificaciones.
+>    - **NO va en:**
+>      - las boletas (decisión del usuario: mezclan I/II, que no siguen la regla);
+>      - el lote extraordinario (números a mano);
+>      - los bimestres de solo números;
+>      - los gráficos.
+> 7. **ANCLA ELEGIBLE, ÚNICA Y NUNCA AUSENTE** (decisiones del usuario, 08/10/2026):
+>    - **Datos:** `asistencia_motivos.es_principal` (1 o NULL) con UNIQUE `uq_es_principal`
+>      (nunca dos) y CHECK `chk_principal_vigente` (solo vale 1 y nunca en un retirado).
+>    - **Nunca cero:** no hay acción que quite el ancla. `hacerPrincipal()` la TRASLADA en una
+>      transacción, y `retirar()` se niega con el ancla.
+>    - **Quién:** admin y RA, en Motivos, con el botón «Hacer principal» y confirmación.
+>      Dirección ve la insignia «Principal» en solo lectura.
+>    - **Alcance del cambio: solo los bimestres en curso.** Cada bimestre **CONGELA su ancla al
+>      CERRARSE** (`periodos.asistencia_motivo_principal_id`, `congelarAnclaPeriodo` en
+>      `PeriodoController::cerrar`).
+>      - Es inmutable como el tutor de la 071: un re-cierre tras reabrir conserva la primera.
+>      - Un bimestre reabierto sigue contando con su ancla congelada.
+>      - PUNTO ÚNICO: `anclaDelPeriodo()`.
+>    - **Con secciones bloqueadas** (cierre vigente) en un bimestre sin congelar, el traslado
+>      **se niega** y las lista: hay que reabrir su asistencia primero.
+>    - **Al trasladar se recuentan** los bimestres sin congelar **sin desconfirmar**
+>      (`AsistenciaModel::recontarPorCambioDeAncla`, con la misma regla de conteo).
+>    - **Caso límite aceptado:** si se retira un motivo que es el ancla congelada de un bimestre
+>      y ese bimestre se reabre, el motivo ya no se ofrece. Sus FJ nuevas contarían como F.
+> 8. **Verificador** `verif_asistencia_fechas.php`:
+>    - casos f2 (regla de conteo) y 2c (ancla): única, no retirable, no se traslada con
+>      secciones bloqueadas, recuenta sin desconfirmar, bimestre congelado intacto, re-congelar
+>      no cambia nada;
+>    - coherencia global, bimestre por bimestre, con su ancla;
+>    - sin la 076, se detiene y lo dice.
+>    - Probado sobre una COPIA de la BD local con la 076: TODO OK (81). La batería queda con los
+>      mismos 5 fallos que ya existían antes de este trabajo.
+
 > **SEXTA RONDA (30/09/2026, decisiones del usuario, CERRADAS) — el estilo establecido manda:**
 > las grillas del III Bimestre se ven como los registros del I y II (solo lectura de
 > `/admin/conducta/{id}` y tabla de números de asistencia) y como la grilla del tutor.

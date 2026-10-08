@@ -147,6 +147,14 @@ Para notificar desde otro módulo:
 el controlador, **fuera de la transacción del dato**: que falle un aviso no puede tumbar
 un registro ya válido.
 
+### Excepción: `cambio_seccion` (07/10/2026)
+
+El aviso de **cambio de sección** (y de su reversión) lo reciben también **DIRECCIÓN** y los
+**AUXILIARES**, que normalmente solo reciben comunicados: decisión explícita del usuario. Los
+destinatarios los resuelve un solo punto, `CambioSeccionModel::avisar()` (tutor, docentes y
+auxiliar de origen y destino + `ROLES_DIRECCION`, sin repetir y sin el emisor). Ver
+`docs/modulos/cambio-seccion.md`.
+
 ## 8. Verificación
 
 `database/verificaciones/verif_notificaciones.php` (16/09/2026, **37 comprobaciones** al 22/09),

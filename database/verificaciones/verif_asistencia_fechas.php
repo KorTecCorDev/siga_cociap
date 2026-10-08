@@ -55,6 +55,14 @@ final class AsistenciaModelPrueba extends App\Models\AsistenciaModel
 
 $m = new AsistenciaModelPrueba();
 
+// Sin la 076 (ancla del motivo principal) el conteo no puede ni ejecutarse.
+if ($m->queryOne("SHOW COLUMNS FROM periodos LIKE 'asistencia_motivo_principal_id'") === null
+    || $m->queryOne("SHOW COLUMNS FROM asistencia_motivos LIKE 'es_principal'") === null) {
+    $chk('migración 076 aplicada (es_principal y asistencia_motivo_principal_id)', false);
+    echo "\nHAY FALLOS: aplica database/migrations/076_fj_motivo_principal.sql\n";
+    exit(1);
+}
+
 // ── 1) Estructura ─────────────────────────────────────────────────
 echo "1) Puntos únicos y ganchos\n";
 $src = str_replace("\r\n", "\n", (string) file_get_contents(ROOT_PATH . '/app/Models/AsistenciaModel.php'));
@@ -74,6 +82,16 @@ $chk('el guardado viejo de 4 números se niega en un bimestre por fechas',
     str_contains($cuerpoDe($src, 'guardar'), 'periodoPorFechas('));
 $chk('marcarDia recalcula los contadores', str_contains($cuerpoDe($src, 'marcarDia'), 'recalcularContadores('));
 $chk('confirmar recalcula antes de confirmar', str_contains($cuerpoDe($src, 'confirmar'), 'recalcularContadores('));
+$chk('recalcularContadores cuenta con la regla del ancla del bimestre (sqlConteoContadores + anclaDelPeriodo)',
+    str_contains($cuerpoDe($src, 'recalcularContadores'), 'self::sqlConteoContadores($ancla)')
+    && str_contains($cuerpoDe($src, 'recalcularContadores'), '->anclaDelPeriodo($periodoId)'));
+$chk('recontarPorCambioDeAncla usa la misma regla y solo bimestres sin ancla congelada',
+    str_contains($cuerpoDe($src, 'recontarPorCambioDeAncla'), 'self::sqlConteoContadores($anclaId)')
+    && str_contains($cuerpoDe($src, 'recontarPorCambioDeAncla'), 'asistencia_motivo_principal_id IS NULL')
+    && !str_contains($cuerpoDe($src, 'recontarPorCambioDeAncla'), 'confirmado_en'));
+$periodoCtl = (string) file_get_contents(ROOT_PATH . '/app/Controllers/Director/PeriodoController.php');
+$chk('cerrar un bimestre CONGELA su ancla (congelarAnclaPeriodo)',
+    (bool) preg_match('/function cerrar\(.*?congelarAnclaPeriodo\(\$id\).*?commit\(\)/s', $periodoCtl));
 $chk('diasMarcables reusa la definición de día hábil de la planilla',
     str_contains($cuerpoDe($src, 'diasMarcables'), 'PlanillaAsistenciaModel::diasPlanilla('));
 $retorno = (string) file_get_contents(ROOT_PATH . '/app/Controllers/Matricula/RetornoGradoController.php');
@@ -107,27 +125,37 @@ $fila = $per ? $m->queryOne("
 ", [(int) $per['id'], (int) $per['id']]) : null;
 $usuario = $m->queryOne("SELECT u.id FROM usuarios u INNER JOIN roles r ON r.id = u.rol_id
                          WHERE r.codigo = 'admin' ORDER BY u.id LIMIT 1");
-$motivo  = $m->queryOne("SELECT id FROM asistencia_motivos WHERE retirado_en IS NULL ORDER BY orden LIMIT 1");
+// ANCLA del bimestre (FJ cuenta como FJ) y un motivo que NO lo es (FJ cuenta
+// como F), nunca por orden ni por código (08/10/2026, migración 076).
+$anclaPer   = $per ? (new App\Models\AsistenciaMotivoModel())->anclaDelPeriodo((int) $per['id']) : null;
+$motivo     = $anclaPer !== null ? ['id' => $anclaPer] : null;
+$motivoOtro = $m->queryOne("SELECT id FROM asistencia_motivos WHERE retirado_en IS NULL AND id <> ? ORDER BY orden LIMIT 1",
+                           [(int) $anclaPer]);
 $dias    = $per ? App\Models\AsistenciaModel::diasMarcables($per) : [];
 
-if (!$fila || !$usuario || !$motivo || count($dias) < 3) {
-    $chk('escenario de prueba (bimestre por fechas activo, estudiante sin registro, motivo y ≥ 3 días)', false);
+if (!$fila || !$usuario || !$motivo || !$motivoOtro || count($dias) < 4) {
+    $chk('escenario de prueba (bimestre por fechas activo, estudiante sin registro, motivo principal y otro, ≥ 4 días)', false);
 } else {
     $pid = (int) $per['id'];
     $mid = (int) $fila['matricula_id'];
     $sid = (int) $fila['seccion_id'];
     $uid = (int) $usuario['id'];
     $mot = (int) $motivo['id'];
-    [$d1, $d2, $d3] = [$dias[0], $dias[1], $dias[2]];
+    $otro = (int) $motivoOtro['id'];
+    [$d1, $d2, $d3, $d4] = [$dias[0], $dias[1], $dias[2], $dias[3]];
     printf("     escenario: matrícula %d, sección %d, periodo %d, días %s · %s · %s\n", $mid, $sid, $pid, $d1, $d2, $d3);
 
     $cont   = fn(): array => $m->contadoresDe($mid, $pid);
     $fechas = fn(): array => $m->incidenciasDe([$mid], $pid)[$mid] ?? [];
-    // INVARIANTE: los 4 contadores = conteo de las fechas por tipo.
-    $invariante = function () use ($cont, $fechas): bool {
+    // INVARIANTE: los 4 contadores = conteo de las fechas por tipo, con la regla
+    // del motivo principal (una FJ con otro motivo cuenta como F; 08/10/2026).
+    $invariante = function () use ($cont, $fechas, $mot): bool {
         $c = $cont();
         $n = ['F' => 0, 'FJ' => 0, 'T' => 0, 'TJ' => 0];
-        foreach ($fechas() as $x) { $n[$x['tipo']]++; }
+        foreach ($fechas() as $x) {
+            $t = ($x['tipo'] === 'FJ' && $x['motivo_id'] !== $mot) ? 'F' : $x['tipo'];
+            $n[$t]++;
+        }
         foreach (App\Models\AsistenciaModel::TIPO_CAMPO as $t => $campo) {
             if ($c[$campo] !== $n[$t]) { return false; }
         }
@@ -185,6 +213,28 @@ if (!$fila || !$usuario || !$motivo || count($dias) < 3) {
         $m->marcarDia($mid, $pid, $d3, null, null, $uid);
         $chk('f) desmarcar borra el día y recalcula', !isset($fechas()[$d3]) && $cont()['tardanzas'] === 0);
         $chk('f) INVARIANTE tras desmarcar', $invariante());
+
+        // f2) Motivo principal (08/10/2026, migración 076): una FJ con OTRO motivo
+        //     cuenta como F; una TJ cuenta como TJ con cualquier motivo.
+        $m->marcarDia($mid, $pid, $d3, 'FJ', $otro, $uid);
+        $c = $cont();
+        $chk('f2) FJ con otro motivo suma en F, no en FJ', $c['faltas'] === 2 && $c['faltas_justificadas'] === 1);
+        $chk('f2) y la marca del día sigue siendo FJ con su motivo',
+            ($fechas()[$d3]['tipo'] ?? '') === 'FJ' && ($fechas()[$d3]['motivo_id'] ?? null) === $otro);
+        $chk('f2) INVARIANTE con FJ de otro motivo', $invariante());
+        $m->confirmar($mid, $pid, $uid);
+        $m->marcarDia($mid, $pid, $d3, 'FJ', $mot, $uid);
+        $c = $cont();
+        $chk('f2) pasarla al motivo principal la mueve a FJ y DESCONFIRMA',
+            $c['faltas'] === 1 && $c['faltas_justificadas'] === 2 && !$c['confirmado']);
+        $m->marcarDia($mid, $pid, $d4, 'TJ', $otro, $uid);
+        $c = $cont();
+        $chk('f2) TJ con otro motivo suma en TJ', $c['tardanzas_justificadas'] === 1 && $c['tardanzas'] === 0);
+        $chk('f2) INVARIANTE con TJ de otro motivo', $invariante());
+        $m->marcarDia($mid, $pid, $d3, null, null, $uid);
+        $m->marcarDia($mid, $pid, $d4, null, null, $uid);
+        $chk('f2) desmarcadas, vuelve a F1 FJ1', ($c = $cont()) && $c['faltas'] === 1 && $c['faltas_justificadas'] === 1
+            && $c['tardanzas_justificadas'] === 0);
 
         // g) El guardado viejo de números se niega en un bimestre por fechas.
         $chk('g) guardar 4 números sueltos se niega', !$m->guardar($mid, $pid, 9, 9, 9, 9, $uid) && $cont()['faltas'] === 1);
@@ -256,16 +306,103 @@ try {
     $chk('retirar: un motivo retirado no se puede asignar',
         !($m->marcarDia((int) ($fila['matricula_id'] ?? 0), (int) ($per['id'] ?? 0), $dias[0] ?? '', 'FJ', (int) $nuevo['id'], $uid2)['ok'] ?? true));
 
-    // El ÚLTIMO vigente no se puede retirar.
-    $vig = $mm->vigentes();
-    foreach (array_slice($vig, 1) as $v) { $mm->retirar((int) $v['id'], $uid2); }
+    // El ÚLTIMO vigente no se puede retirar (queda el ancla, que tampoco se retira).
+    $queda = (int) $mm->idPrincipal();
+    foreach ($mm->vigentes() as $v) {
+        if ((int) $v['id'] !== $queda) { $mm->retirar((int) $v['id'], $uid2); }
+    }
     $chk('retirar: el ÚLTIMO motivo vigente no se puede retirar',
-        $falla(fn() => $mm->retirar((int) $vig[0]['id'], $uid2)) && count($mm->vigentes()) === 1);
+        $falla(fn() => $mm->retirar($queda, $uid2)) && count($mm->vigentes()) === 1);
 } finally {
     $pdo2->rollBack();
 }
 $chk('el rollback devolvió el catálogo a como estaba', count($mm->vigentes()) >= 2
     && $mm->queryOne("SELECT 1 AS x FROM asistencia_motivos WHERE codigo = 'cita_medica'") === null);
+
+// ── 2c) ANCLA: motivo principal único, nunca ausente (migración 076) ──
+echo "2c) Ancla del motivo principal (transacción revertida)\n";
+
+final class AsistenciaMotivoModelPrueba extends App\Models\AsistenciaMotivoModel
+{
+    public function beginTransaction(): void { $this->db->exec('SAVEPOINT verif_ancla'); }
+    public function commit(): void           { $this->db->exec('RELEASE SAVEPOINT verif_ancla'); }
+    public function rollback(): void         { $this->db->exec('ROLLBACK TO SAVEPOINT verif_ancla'); }
+}
+
+$anclas = fn(): int => (int) $m->queryOne("SELECT COUNT(*) AS n FROM asistencia_motivos WHERE es_principal = 1")['n'];
+$chk('hay EXACTAMENTE un ancla, y vigente',
+    (int) $m->queryOne("SELECT COUNT(*) AS n FROM asistencia_motivos
+                        WHERE es_principal = 1 AND retirado_en IS NULL")['n'] === 1 && $anclas() === 1);
+$chk('la base impide dos anclas (UNIQUE uq_es_principal)',
+    $m->queryOne("SHOW INDEX FROM asistencia_motivos WHERE Key_name = 'uq_es_principal' AND Non_unique = 0") !== null);
+$chk('la base impide un ancla retirada (CHECK chk_principal_vigente)',
+    $m->queryOne("SELECT 1 AS x FROM information_schema.TABLE_CONSTRAINTS
+                  WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'asistencia_motivos'
+                    AND CONSTRAINT_NAME = 'chk_principal_vigente'") !== null);
+$chk('ruta POST /motivos/{id}/principal registrada',
+    str_contains($rutas, "'/admin/asistencia/motivos/{id}/principal'"));
+
+$ma = new AsistenciaMotivoModelPrueba();
+$a0 = $ma->idPrincipal();
+$pdo3 = $m->pdo();
+$pdo3->beginTransaction();
+try {
+    $chk('retirar el ANCLA se rechaza', $a0 !== null && $falla(fn() => $ma->retirar($a0, $uid2)) && $ma->esVigente($a0));
+    $chk('hacer principal al que ya lo es se rechaza', $falla(fn() => $ma->hacerPrincipal((int) $a0, $uid2)));
+    $ma->crear('Motivo de prueba ancla', $uid2);
+    $tmp = (int) $ma->queryOne("SELECT id FROM asistencia_motivos ORDER BY id DESC LIMIT 1")['id'];
+    $ma->retirar($tmp, $uid2);
+    $chk('un motivo RETIRADO no puede ser ancla', $falla(fn() => $ma->hacerPrincipal($tmp, $uid2)) && $ma->idPrincipal() === $a0);
+
+    if ($fila && $motivoOtro && count($dias) >= 3 && $ma->seccionesQueImpidenCambiarAncla() === []) {
+        $pid  = (int) $per['id'];
+        $mid  = (int) $fila['matricula_id'];
+        $sid  = (int) $fila['seccion_id'];
+        $otro = (int) $motivoOtro['id'];
+        // Asimétrico a propósito: 2 FJ con el ancla y 1 con el otro motivo.
+        $m->marcarDia($mid, $pid, $dias[0], 'FJ', (int) $a0, $uid2);
+        $m->marcarDia($mid, $pid, $dias[1], 'FJ', $otro, $uid2);
+        $m->marcarDia($mid, $pid, $dias[2], 'FJ', (int) $a0, $uid2);
+        $m->confirmar($mid, $pid, $uid2);
+        $c = $m->contadoresDe($mid, $pid);
+        $chk('antes del traslado: F1 FJ2 confirmado', $c['faltas'] === 1 && $c['faltas_justificadas'] === 2 && $c['confirmado']);
+
+        // Con una sección bloqueada en el bimestre en curso, el traslado se niega.
+        $m->bloquearRA($sid, $pid, $uid2, true);
+        $chk('con una sección BLOQUEADA, el traslado se rechaza y la nombra',
+            $falla(fn() => $ma->hacerPrincipal($otro, $uid2)) && $ma->idPrincipal() === $a0
+            && $ma->seccionesQueImpidenCambiarAncla() !== []);
+        $m->execute("UPDATE cierres_asistencia SET anulado_en = NOW() WHERE seccion_id = ? AND periodo_id = ? AND anulado_en IS NULL",
+            [$sid, $pid]);
+
+        $n = $ma->hacerPrincipal($otro, $uid2);
+        $c = $m->contadoresDe($mid, $pid);
+        $chk('trasladar: sigue habiendo UNA ancla, la nueva', $anclas() === 1 && $ma->idPrincipal() === $otro);
+        $chk('trasladar: recuenta (F1 FJ2 → F2 FJ1: las del ancla vieja pasan a F) SIN desconfirmar',
+            $n >= 1 && $c['faltas'] === 2 && $c['faltas_justificadas'] === 1 && $c['confirmado']
+            && ($m->incidenciasDe([$mid], $pid)[$mid][$dias[1]]['motivo_id'] ?? null) === $otro);
+        $traza = $ma->queryOne("SELECT modificado_por FROM asistencia_motivos WHERE id = ?", [$otro]);
+        $chk('trasladar: deja la traza en el motivo nuevo', (int) $traza['modificado_por'] === $uid2);
+
+        // Un bimestre CONGELADO no se recuenta y conserva su ancla.
+        $ma->congelarAnclaPeriodo($pid);
+        $chk('congelar: el bimestre guarda el ancla vigente', $ma->anclaDelPeriodo($pid) === $otro);
+        $antesCongelado = $m->queryOne("SELECT faltas, faltas_justificadas FROM inasistencias WHERE matricula_id = ? AND periodo_id = ?", [$mid, $pid]);
+        $ma->hacerPrincipal((int) $a0, $uid2);
+        $despues = $m->queryOne("SELECT faltas, faltas_justificadas FROM inasistencias WHERE matricula_id = ? AND periodo_id = ?", [$mid, $pid]);
+        $chk('un bimestre CONGELADO no se recuenta al trasladar el ancla', $despues === $antesCongelado);
+        $chk('y sigue contando con SU ancla congelada', $ma->anclaDelPeriodo($pid) === $otro && $ma->idPrincipal() === $a0);
+        $ma->congelarAnclaPeriodo($pid);
+        $chk('re-congelar (re-cierre) NO cambia el ancla congelada', $ma->anclaDelPeriodo($pid) === $otro);
+    } else {
+        $chk('escenario del traslado (estudiante sin registro, otro motivo, sin secciones bloqueadas)', false);
+    }
+} finally {
+    $pdo3->rollBack();
+}
+$chk('el rollback devolvió el ancla y el bimestre a como estaban',
+    $ma->idPrincipal() === $a0 && $anclas() === 1
+    && $m->queryOne("SELECT asistencia_motivo_principal_id AS a FROM periodos WHERE id = ?", [(int) ($per['id'] ?? 0)])['a'] === null);
 
 // ── 3) Los bimestres de solo números siguen intactos ─────────────
 echo "3) I y II Bimestre (histórico de números)\n";
@@ -275,6 +412,30 @@ $chk('los bimestres cerrados siguen como histórico de números (asistencia_por_
 $sinConf = $m->queryOne("SELECT COUNT(*) AS n FROM inasistencias i INNER JOIN periodos p ON p.id = i.periodo_id
                          WHERE p.estado = 'cerrado' AND i.confirmado_en IS NULL");
 $chk('ninguna fila de un bimestre cerrado quedó como borrador', (int) $sinConf['n'] === 0);
+
+// ── 4) Coherencia GLOBAL con la regla del ancla (migración 076) ──
+//    Bimestre por bimestre, cada uno con SU ancla (congelada o del catálogo).
+echo "4) Contadores guardados = conteo de fechas (regla del ancla de cada bimestre)\n";
+$mm4   = new App\Models\AsistenciaMotivoModel();
+$incoh = 0;
+foreach ($m->query("SELECT id FROM periodos WHERE asistencia_por_fechas = 1") as $pp) {
+    $conteo = App\Models\AsistenciaModel::sqlConteoContadores($mm4->anclaDelPeriodo((int) $pp['id']));
+    $incoh += (int) $m->queryOne("
+        SELECT COUNT(*) AS n
+        FROM inasistencias i
+        LEFT JOIN (
+            SELECT x.matricula_id,
+                   {$conteo[0]} AS f, {$conteo[1]} AS fj, {$conteo[2]} AS t, {$conteo[3]} AS tj
+            FROM asistencia_incidencias x
+            WHERE x.periodo_id = ?
+            GROUP BY x.matricula_id
+        ) c ON c.matricula_id = i.matricula_id
+        WHERE i.periodo_id = ? AND i.extraordinaria = 0
+          AND (i.faltas <> COALESCE(c.f, 0) OR i.faltas_justificadas <> COALESCE(c.fj, 0)
+            OR i.tardanzas <> COALESCE(c.t, 0) OR i.tardanzas_justificadas <> COALESCE(c.tj, 0))
+    ", [(int) $pp['id'], (int) $pp['id']])['n'];
+}
+$chk('0 filas con contadores distintos del conteo (si falla: aplicar la 076)', $incoh === 0);
 
 echo $ok ? "\nTODO OK\n" : "\nHAY FALLOS\n";
 exit($ok ? 0 : 1);

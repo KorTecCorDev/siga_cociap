@@ -111,8 +111,10 @@ class PanelController extends BaseController
             'periodo'        => $periodo,
             'secciones'      => $secciones,
             'estudiantes'    => array_sum(array_column($secciones, 'estudiantes')),
-            'bloqConducta'   => count(array_filter($secciones, static fn($s) => $s['conducta']['bloqueada'])),
-            'bloqAsistencia' => count(array_filter($secciones, static fn($s) => $s['asistencia']['bloqueada'])),
+            // Avance = % de secciones BLOQUEADAS (08/10/2026, decisión del usuario):
+            // mismo cálculo que «Avance del bimestre» del panel docente.
+            'avConducta'     => self::avance($secciones, 'conducta'),
+            'avAsistencia'   => self::avance($secciones, 'asistencia'),
             'diasCierre'     => $diasCierre,
         ]);
     }
@@ -175,6 +177,22 @@ class PanelController extends BaseController
         if ($periodo === null || !$aux->puedeRegistrar(Session::user() ?? [], $seccionId, (int) $periodo['id'])) {
             $this->forbidden();
         }
+    }
+
+    /**
+     * AVANCE de un módulo en el panel: % de las secciones a cargo con ese módulo
+     * BLOQUEADO (decisión del usuario, 08/10/2026; antes se mostraba la fracción
+     * «1/2»). Mismo redondeo que «Avance del bimestre» del panel docente
+     * (`Docente\PanelController`). Sin secciones, 0.
+     */
+    private static function avance(array $secciones, string $modulo): int
+    {
+        $n = count($secciones);
+        if ($n === 0) {
+            return 0;
+        }
+        $bloqueadas = count(array_filter($secciones, static fn($s) => $s[$modulo]['bloqueada']));
+        return (int) round($bloqueadas / $n * 100);
     }
 
     /**

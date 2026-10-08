@@ -146,12 +146,18 @@ $secciones = $pdo->query("
     ORDER BY g.nivel_id, g.numero, s.nombre
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Un periodo cualquiera del año activo sirve: el roster NO depende del periodo,
-// y esa independencia es justo lo que se quiere comprobar.
+// El bimestre EN CURSO (primer periodo no cerrado). Hasta el 07/10/2026 servía
+// «un periodo cualquiera» porque el roster no dependía del periodo; desde el
+// cambio de sección SÍ depende (lista por bimestre, CambioSeccionModel): en un
+// bimestre cerrado cursado en otra sección el estudiante está donde lo cursó.
+// En el bimestre en curso la sección del periodo es la de HOY, así que el
+// control escrito a mano (m.seccion_id) sigue siendo válido y lo que se prueba
+// —las exclusiones por tipo y por retorno— no cambia. El roster por bimestre
+// lo protege verif_seccion_del_periodo.php.
 $periodo = $pdo->query("
     SELECT p.id FROM periodos p
     INNER JOIN anios_academicos a ON a.id = p.anio_id AND a.estado = 'activo'
-    ORDER BY p.numero LIMIT 1
+    ORDER BY (p.estado = 'cerrado'), p.numero LIMIT 1
 ")->fetchColumn();
 
 $desajustes = [];

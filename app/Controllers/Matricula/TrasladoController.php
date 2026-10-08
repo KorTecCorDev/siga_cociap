@@ -141,7 +141,7 @@ class TrasladoController extends BaseController
             $err('El número de constancia debe ser mayor o igual a 1.');
         }
         if (!$this->traslados->correlativoDisponible($anioId, $correlativo)) {
-            $err('El número ' . $correlativo . ' ya está en uso por otra constancia vigente de '
+            $err('El número ' . $correlativo . ' ya está en uso por otra resolución vigente de '
                 . $anio . '. Elige otro.');
         }
 

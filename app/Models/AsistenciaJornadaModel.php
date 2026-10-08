@@ -112,8 +112,10 @@ class AsistenciaJornadaModel extends BaseModel
             SELECT COUNT(*) AS n
             FROM asistencia_incidencias x
             INNER JOIN matriculas m ON m.id = x.matricula_id
-            WHERE m.seccion_id = ? AND x.periodo_id = ? AND x.fecha = ?
-        ", [$seccionId, $periodoId, $fecha])['n'] ?? 0);
+            -- Quien CURSÓ el bimestre en la sección (cambio de sección, 07/10/2026).
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
+              AND x.periodo_id = ? AND x.fecha = ?
+        ", [$periodoId, $fecha])['n'] ?? 0);
     }
 
     /**

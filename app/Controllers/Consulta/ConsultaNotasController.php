@@ -677,7 +677,11 @@ class ConsultaNotasController extends BaseController
         // el anexo «Detalle de justificaciones» con sus motivos (solo lo confirmado).
         $fechasDetalle   = null;
         $justificaciones = [];
+        $nombreAnclaFj   = null;
         if ($this->asistenciaModel->periodoPorFechas($periodoId)) {
+            // Ancla del bimestre (076): icono de la columna FJ de la tabla.
+            $motivosM      = new \App\Models\AsistenciaMotivoModel();
+            $nombreAnclaFj = $motivosM->nombreDe($motivosM->anclaDelPeriodo($periodoId));
             $fechasDetalle = [];
             $incidencias   = $this->asistenciaModel->incidenciasDe(array_column($alumnos, 'matricula_id'), $periodoId, true);
             foreach ($incidencias as $mid => $dias) {
@@ -705,6 +709,7 @@ class ConsultaNotasController extends BaseController
             'cierre'  => $this->asistenciaModel->getCierreDetalle($seccionId, $periodoId),
             'fechasDetalle'   => $fechasDetalle,
             'justificaciones' => $justificaciones,
+            'nombreAnclaFj'   => $nombreAnclaFj,
         ]);
     }
 
@@ -740,7 +745,7 @@ class ConsultaNotasController extends BaseController
             'docente'        => $this->nombreDocente($primera),
         ];
 
-        $exonerados   = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id']);
+        $exonerados   = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
         $competencias = [];
 
         foreach ($filas as $c) {

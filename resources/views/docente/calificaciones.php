@@ -345,7 +345,18 @@
                                                 ?>
                                                     <tr class="<?= $esExonerado ? 'fila-exonerado' : '' ?>">
                                                         <td class="col-num"><?= $i + 1 ?></td>
-                                                        <td class="col-nombre"><?= e($alumno['nombre_completo']) ?></td>
+                                                        <td class="col-nombre">
+                                                            <?= e($alumno['nombre_completo']) ?>
+                                                            <?php // Llegó por cambio de sección: enlace a sus calificaciones
+                                                                  // anteriores, de solo lectura (fase 3, 07/10/2026). ?>
+                                                            <?php if (isset($procedencias[(int) $alumno['matricula_id']])): ?>
+                                                                <a href="<?= url('docente/procedencia/' . (int) $alumno['matricula_id']) ?>"
+                                                                   class="proc-chip-enlace"
+                                                                   title="Viene de la sección <?= e($procedencias[(int) $alumno['matricula_id']]) ?>: ver sus calificaciones anteriores (solo lectura)">
+                                                                    <?php $proc = PROCEDENCIA_OTRA_SECCION; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
+                                                                </a>
+                                                            <?php endif; ?>
+                                                        </td>
                                                         <td class="text-center">
                                                             <?php if ($esExonerado): ?>
                                                                 <span class="exo-badge"

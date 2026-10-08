@@ -68,6 +68,11 @@ function nombreMotivo(id) {
     return document.querySelector(`#af-menu-motivo option[value="${id}"]`)?.textContent ?? '';
 }
 
+// ¿Es el MOTIVO PRINCIPAL? Lo marca el servidor en su <option> (08/10/2026).
+function esMotivoPrincipal(id) {
+    return document.querySelector(`#af-menu-motivo option[value="${id}"]`)?.dataset.principal === '1';
+}
+
 // Pinta una celda según su tipo, su motivo y la LISTA DEL DÍA. Mismos estados que
 // `_af-celda.php`. La celda grande de la vista por estudiante lleva además su
 // columna (`af-col-N`) y el número del día (`.af-celda__num`): no se tocan.
@@ -79,8 +84,8 @@ function pintarCelda(celda) {
     if (tipo)        celda.classList.add(`af-celda--${tipo.toLowerCase()}`);
     else if (tomada) celda.classList.add('af-celda--asistio');
     else             celda.classList.add('af-celda--sin-tomar');
-    // Icono de documento = la justificación tiene su motivo (siempre, desde la 070).
-    if (motivo) celda.classList.add('af-celda--con-motivo');
+    // Icono de documento SOLO con el motivo principal (08/10/2026), como `_af-celda.php`.
+    if (motivo && esMotivoPrincipal(motivo)) celda.classList.add('af-celda--con-motivo');
 
     const texto = celda.querySelector('.af-celda__tipo') ?? celda;
     texto.textContent = tipo || (tomada ? '✓' : '');

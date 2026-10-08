@@ -294,14 +294,16 @@ class RectificacionModel extends BaseModel
                     AND cal2.competencia_id = c.id
                     AND cal2.periodo_id     = per.id) AS notas_seccion
             FROM matriculas m
-            INNER JOIN cargas_academicas ca ON ca.seccion_id = m.seccion_id
+            INNER JOIN periodos per ON per.anio_id = m.anio_id
+            -- Cargas de la sección donde CURSÓ cada bimestre (cambio de sección,
+            -- 07/10/2026): punto único CambioSeccionModel::sqlSeccionDelPeriodo.
+            INNER JOIN cargas_academicas ca ON ca.seccion_id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', 'per.id') . "
                                            AND ca.estado     = 'activa'
             INNER JOIN competencias c
                     ON (c.subarea_id IS NOT NULL AND c.subarea_id = ca.subarea_id)
                     OR (c.area_id    IS NOT NULL AND c.area_id    = ca.area_id)
             LEFT  JOIN subareas sa ON sa.id = ca.subarea_id
             LEFT  JOIN areas a     ON a.id  = COALESCE(ca.area_id, sa.area_id)
-            INNER JOIN periodos per ON per.anio_id = m.anio_id
             LEFT  JOIN bloqueos_competencia bc
                     ON bc.carga_id       = ca.id
                    AND bc.competencia_id = c.id
@@ -644,6 +646,18 @@ class RectificacionModel extends BaseModel
      * @param string $filtroMatriculas condición sobre `m` (y opcionalmente
      *               `per`), SOLO con placeholders.
      */
+    /**
+     * `$otra` cursó el periodo en la MISMA sección que `$m` (cambio de sección,
+     * 07/10/2026). El primer término deja usar el índice; el segundo es la regla.
+     */
+    private static function sqlMismaSeccionEnPeriodo(string $otra, string $m, string $colPeriodo): string
+    {
+        $secM = CambioSeccionModel::sqlSeccionDelPeriodo($m, $colPeriodo);
+        return "({$otra}.seccion_id = {$secM}
+                 OR {$otra}.id IN (SELECT msp.matricula_id FROM cambios_seccion msp))
+                AND " . CambioSeccionModel::sqlSeccionDelPeriodo($otra, $colPeriodo) . " = {$secM}";
+    }
+
     private function sqlTransversalesInsertables(string $filtroMatriculas): string
     {
         return "
@@ -671,7 +685,7 @@ class RectificacionModel extends BaseModel
                        FROM calificaciones cal2
                        INNER JOIN matriculas m2
                                ON m2.id = cal2.matricula_id
-                              AND m2.seccion_id = m.seccion_id
+                              AND " . self::sqlMismaSeccionEnPeriodo('m2', 'm', 'per.id') . "
                        INNER JOIN bloqueos_competencia bc2
                                ON bc2.carga_id       = cal2.carga_id
                               AND bc2.competencia_id = cal2.competencia_id
@@ -685,7 +699,7 @@ class RectificacionModel extends BaseModel
                        FROM calificaciones cal3
                        INNER JOIN matriculas m3
                                ON m3.id = cal3.matricula_id
-                              AND m3.seccion_id = m.seccion_id
+                              AND " . self::sqlMismaSeccionEnPeriodo('m3', 'm', 'per.id') . "
                       WHERE cal3.competencia_id = c.id
                         AND cal3.periodo_id     = per.id) AS notas_seccion
                 FROM matriculas m
@@ -697,7 +711,7 @@ class RectificacionModel extends BaseModel
                                          AND per.estado  = 'cerrado'
                 -- Sin cierre vigente la nota no llegaria a la boleta.
                 INNER JOIN cierres_transversales ct
-                        ON ct.seccion_id = m.seccion_id
+                        ON ct.seccion_id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', 'per.id') . "
                        AND ct.periodo_id = per.id
                        AND ct.anulado_en IS NULL
                 WHERE {$filtroMatriculas}

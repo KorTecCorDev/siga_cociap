@@ -81,6 +81,13 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
   naranja de Nómina). **Semáforo por sección:** ámbar «Registrados X de N» /
   «Listo para bloquear» (conducta completa), verde «Bloqueada el dd/mm/aaaa», gris
   = no puede actuar (fuera de plazo / sin estudiantes).
+  - **KPIs «Avance de conducta» / «Avance de asistencia» en %** (08/10/2026, decisión
+    del usuario; antes «Conducta bloqueada 1/2»).
+    - Miden el % de las secciones a cargo con ese módulo **BLOQUEADO**, no a los
+      estudiantes confirmados: con 2 secciones solo dan 0, 50 o 100 %.
+    - Mismo redondeo y colores que «Avance del bimestre» del panel docente: verde al 100,
+      ámbar a medias, gris en 0.
+    - Se calcula en `Auxiliar\PanelController::avance()`; la vista solo lo pinta.
 - **F4 se divide** en F4a (nómina de matriculados + horario) → F4b (nómina de
   docentes) → F4c (planilla), cada una probada antes de la siguiente.
 - **Card «Nómina de matriculados»** (naranja): una fila por sección con dos acciones,

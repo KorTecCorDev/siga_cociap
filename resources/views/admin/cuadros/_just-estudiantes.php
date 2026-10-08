@@ -28,7 +28,9 @@
                             <th class="col-nombre">Estudiante</th>
                             <th class="text-center cuadros-top__n">Ausencias</th>
                             <th class="text-center cuadros-top__n">F</th>
-                            <th class="text-center cuadros-top__n">FJ</th>
+                            <th class="text-center cuadros-top__n"><?php if (!empty($just['motivo_principal'])):
+                                $nombreAnclaFj = $just['motivo_principal']; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php';
+                            else: ?>FJ<?php endif; ?></th>
                             <th class="text-center cuadros-top__n">T</th>
                             <th class="text-center cuadros-top__n">TJ</th>
                             <th>Motivo más frecuente</th>

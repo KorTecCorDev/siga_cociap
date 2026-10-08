@@ -69,6 +69,20 @@
         -webkit-mask-image: url('../assets/icons/doc-add.svg');
                 mask-image: url('../assets/icons/doc-add.svg');
     }
+    &--round-double-alt-arrow-right {
+        -webkit-mask-image: url('../assets/icons/round-double-alt-arrow-right.svg');
+                mask-image: url('../assets/icons/round-double-alt-arrow-right.svg');
+    }
+}
+
+// Chip que ENLAZA (cambio de sección, 07/10/2026): en la grilla del docente,
+// junto al nombre, lleva a las calificaciones de su sección anterior.
+.proc-chip-enlace {
+    margin-left: $spacing-xs;
+    text-decoration: none;
+
+    &:hover .proc-chip,
+    &:focus-visible .proc-chip { border-style: solid; }
 }
 
 // Línea que dice A DÓNDE VA la nota. Es la diferencia real entre las tres y

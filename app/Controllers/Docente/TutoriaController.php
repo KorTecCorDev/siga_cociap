@@ -4,6 +4,7 @@ namespace App\Controllers\Docente;
 
 use App\Controllers\BaseController;
 use App\Models\CalificacionModel;
+use App\Models\CambioSeccionModel;
 use App\Models\ConclusionReplicaModel;
 use App\Models\TransversalModel;
 use Core\Session;
@@ -93,7 +94,7 @@ class TutoriaController extends BaseController
                      && $estadoCargas['bloqueadas'] >= $estadoCargas['total'];
 
         $competencias = $this->transModel->getCompetencias((int) $seccion['nivel_id']);
-        $alumnos      = $this->getAlumnosSeccion($sid);
+        $alumnos      = $this->getAlumnosSeccion($sid, $pid);
         $promedios    = $this->transModel->getPromediosSeccion($sid, $pid);
         $conclusiones = $this->transModel->getConclusionesSeccion($sid, $pid);
 
@@ -143,10 +144,12 @@ class TutoriaController extends BaseController
             $this->json(['success' => false, 'mensaje' => 'Datos incompletos.'], 400);
         }
 
-        // La matrícula debe pertenecer a la sección del tutor.
+        // La matrícula debe haber CURSADO ese bimestre en la sección del tutor
+        // (cambio de sección, 07/10/2026: punto único sqlEnSeccionDelPeriodo).
         $pertenece = $this->calModel->queryOne("
-            SELECT id FROM matriculas WHERE id = ? AND seccion_id = ?
-        ", [$matriculaId, (int) $seccion['id']]);
+            SELECT m.id FROM matriculas m
+            WHERE m.id = ? AND " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', (int) $seccion['id'], $periodoId) . "
+        ", [$matriculaId]);
         if (!$pertenece) {
             $this->json(['success' => false, 'mensaje' => 'El alumno no pertenece a tu sección.'], 403);
         }
@@ -214,8 +217,9 @@ class TutoriaController extends BaseController
         }
 
         $pertenece = $this->calModel->queryOne("
-            SELECT id FROM matriculas WHERE id = ? AND seccion_id = ?
-        ", [$matriculaId, $sid]);
+            SELECT m.id FROM matriculas m
+            WHERE m.id = ? AND " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $sid, $periodoId) . "
+        ", [$matriculaId]);
         if (!$pertenece) {
             $this->json(['success' => false, 'mensaje' => 'El alumno no pertenece a tu sección.'], 403);
         }
@@ -303,7 +307,8 @@ class TutoriaController extends BaseController
 
     // ── Privados ─────────────────────────────────────────────────
 
-    private function getAlumnosSeccion(int $seccionId): array
+    /** Quien CURSÓ el bimestre en la sección (cambio de sección, 07/10/2026). */
+    private function getAlumnosSeccion(int $seccionId, int $periodoId): array
     {
         return $this->calModel->query("
             SELECT
@@ -319,9 +324,9 @@ class TutoriaController extends BaseController
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas p    ON p.id = e.persona_id
-            WHERE m.seccion_id = ?
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               AND m.tipo      NOT IN ('trasladado', 'retirado')
             ORDER BY " . orden_alfabetico('p') . "
-        ", [$seccionId]);
+        ");
     }
 }

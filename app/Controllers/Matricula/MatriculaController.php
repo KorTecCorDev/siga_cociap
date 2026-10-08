@@ -18,6 +18,7 @@ use App\Models\RectificacionModel;
 use App\Models\BoletaModel;
 use App\Models\RetornoGradoModel;
 use App\Models\BorradorModel;
+use App\Models\CambioSeccionModel;
 use Core\Session;
 use Core\View;
 
@@ -854,7 +855,48 @@ class MatriculaController extends BaseController
 
         $notasExternas = $this->notasExternasModel->getDeMatricula((int) $id);
 
+        // Cambio de sección (07/10/2026). El historial lo ve todo el que entra;
+        // el formulario y la reversión, solo admin/RA. Punto único de las
+        // reglas: CambioSeccionModel.
+        $cambiosModel   = new CambioSeccionModel();
+        $cambiosSeccion = $cambiosModel->historial((int) $id);
+        $cambioVigente  = $cambiosModel->ultimoVigente((int) $id);
+        $cambio = [
+            'historial'      => $cambiosSeccion,
+            'vigente'        => $cambioVigente,
+            // Revertir solo existe mientras el bimestre del cambio sigue abierto.
+            'revertible'     => $cambioVigente !== null
+                                && !$cambiosModel->periodoCerrado((int) $cambioVigente['periodo_id']),
+            'noRevertible'   => null,
+            'puede'          => false,
+            'destinos'       => [],
+            'rdSugerido'     => null,
+            'periodo'        => null,
+        ];
+        if ($puedeGestionar) {
+            if ($cambio['revertible']) {
+                $cambio['noRevertible'] = $cambiosModel->motivoNoRevertible((int) $cambioVigente['id']);
+            }
+            $cambio['puede'] = $cambiosModel->motivoNoElegible((int) $id) === null;
+            if ($cambio['puede']) {
+                foreach ($cambiosModel->seccionesDestino((int) $id) as $s) {
+                    $tipo = $cambiosModel->tipoDeMovimiento((int) $id, (int) $s['id']);
+                    // Volver en el mismo bimestre abierto NO es un cambio: se revierte.
+                    if ($tipo !== 'revertir') {
+                        $cambio['destinos'][] = $s + ['regreso' => $tipo === 'regreso'];
+                    }
+                }
+                $anioId = (int) $matricula['anio_id'];
+                $config = $this->traslados->getConfigAnio($anioId);
+                $cambio['rdSugerido'] = $this->traslados->siguienteCorrelativo(
+                    $anioId, (int) ($config['correlativo_traslado_inicial'] ?? 1)
+                );
+                $cambio['periodo'] = $cambiosModel->periodoDelCambio($anioId);
+            }
+        }
+
         $this->view('matriculas/show', [
+            'cambio'               => $cambio,
             'tieneBoleta'          => $tieneBoleta,
             'registraLlegadaTarde' => $registraLlegadaTarde,
             'pendientesExtra'      => $pendientesExtra,

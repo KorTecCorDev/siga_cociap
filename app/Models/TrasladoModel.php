@@ -45,20 +45,30 @@ class TrasladoModel extends BaseModel
      * Los números liberados por anulación NO se autosugieren, pero siguen
      * disponibles para reuso manual (lo permite correlativoDisponible(), que
      * solo bloquea números en uso por constancias 'vigentes').
+     *
+     * NUMERACIÓN COMPARTIDA (07/10/2026, migración 075): las R.D. de cambio de
+     * sección usan la MISMA secuencia, así que el máximo se toma de las dos
+     * tablas (incluidos los cambios revertidos, que también fueron emitidos).
      */
     public function siguienteCorrelativo(int $anioId, int $inicial): int
     {
         $r = $this->queryOne(
-            "SELECT MAX(correlativo) AS maxc FROM traslados WHERE anio_id = ?",
-            [$anioId]
+            "SELECT GREATEST(
+                        COALESCE((SELECT MAX(correlativo)    FROM traslados       WHERE anio_id = ?), 0),
+                        COALESCE((SELECT MAX(rd_correlativo) FROM cambios_seccion WHERE anio_id = ?), 0)
+                    ) AS maxc",
+            [$anioId, $anioId]
         );
         $max = (int) ($r['maxc'] ?? 0);
         return max($max + 1, max(1, $inicial));
     }
 
     /**
-     * ¿El correlativo está libre entre las constancias 'vigentes' del año?
-     * (excluye opcionalmente un id, p.ej. al re-editar).
+     * ¿El correlativo está libre en el año? PUNTO ÚNICO de la numeración
+     * COMPARTIDA de R.D. (07/10/2026, migración 075): está ocupado si lo usa una
+     * constancia de traslado 'vigente' O un cambio de sección 'vigente'. Una
+     * constancia anulada o un cambio revertido LIBERAN su número.
+     * (`$exceptoId` excluye una constancia de traslado, p.ej. al re-editar.)
      */
     public function correlativoDisponible(int $anioId, int $correlativo, ?int $exceptoId = null): bool
     {
@@ -70,7 +80,15 @@ class TrasladoModel extends BaseModel
             $params[] = $exceptoId;
         }
         $sql .= " LIMIT 1";
-        return $this->queryOne($sql, $params) === null;
+        if ($this->queryOne($sql, $params) !== null) {
+            return false;
+        }
+        return $this->queryOne(
+            "SELECT id FROM cambios_seccion
+             WHERE anio_id = ? AND rd_correlativo = ? AND estado = 'vigente'
+             LIMIT 1",
+            [$anioId, $correlativo]
+        ) === null;
     }
 
     /** Formatea el número oficial: N° 003-2026-CAVVG-DA */

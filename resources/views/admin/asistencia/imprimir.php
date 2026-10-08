@@ -15,6 +15,7 @@
  * @var bool   $porFechas    bimestre por fechas (29/09/2026): siglas en las columnas y
  *                           guion (no ceros) para quien no tiene registro confirmado
  * @var array  $detalle      filas del anexo «Detalle de incidencias»
+ * @var string|null $motivoPrincipal ancla del bimestre (076): icono de la columna FJ
  *                           (AsistenciaModel::detalleIncidencias), en hoja aparte
  *
  * Con anexo, las FIRMAS van al final del anexo, no de la hoja principal: se firma
@@ -70,7 +71,9 @@ $conAnexo  = $porFechas && $detalle !== [];
                 <th class="tr-nombre">Apellidos y Nombres</th>
                 <?php // Por fechas, las columnas son estrechas: van las siglas de la leyenda. ?>
                 <th class="tr-contador"><?= $porFechas ? 'F' : 'Faltas' ?></th>
-                <th class="tr-contador"><?= $porFechas ? 'FJ' : 'Faltas justif.' ?></th>
+                <th class="tr-contador"><?php if ($porFechas && !empty($motivoPrincipal)):
+                    $nombreAnclaFj = $motivoPrincipal; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php';
+                else: ?><?= $porFechas ? 'FJ' : 'Faltas justif.' ?><?php endif; ?></th>
                 <th class="tr-contador"><?= $porFechas ? 'T' : 'Tardanzas' ?></th>
                 <th class="tr-contador"><?= $porFechas ? 'TJ' : 'Tardanzas justif.' ?></th>
                 <?php // Sin columna «Fechas»: van en el anexo (decisión del usuario). ?>
@@ -105,6 +108,10 @@ $conAnexo  = $porFechas && $detalle !== [];
     <p class="registro-doc__nota">
         <?php if ($porFechas): ?>
             F: falta · FJ: falta justificada · T: tardanza · TJ: tardanza justificada.
+            <?php if (!empty($motivoPrincipal)): ?>
+                <?php $nombreAnclaFj = $motivoPrincipal; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php'; ?>
+                solo cuenta las justificadas con «<?= e($motivoPrincipal) ?>»; con otro motivo cuentan como F.
+            <?php endif; ?>
             Los contadores se calculan de las fechas registradas. Un estudiante sin registro
             confirmado figura con guion (—): no tiene asistencia en la boleta de este bimestre.
         <?php else: ?>

@@ -252,8 +252,8 @@ try {
     }
 
     echo "\n=== 7d. PROCEDENCIAS — el punto único de las categorías ===\n";
-    $ok(count(PROCEDENCIAS_NOTA) === 3, 'hay 3 procedencias declaradas');
-    foreach ([PROCEDENCIA_EXTRAORDINARIA, PROCEDENCIA_ORIGEN, PROCEDENCIA_SIAGIE] as $clave) {
+    $ok(count(PROCEDENCIAS_NOTA) === 4, 'hay 4 procedencias declaradas (otra_seccion desde el 07/10/2026)');
+    foreach ([PROCEDENCIA_EXTRAORDINARIA, PROCEDENCIA_ORIGEN, PROCEDENCIA_SIAGIE, PROCEDENCIA_OTRA_SECCION] as $clave) {
         $p = procedencia_nota($clave);
         $ok($p !== null && $p['corto'] !== '' && $p['nombre'] !== '' && $p['destino'] !== '',
             "'{$clave}': nombre, chip y destino completos");

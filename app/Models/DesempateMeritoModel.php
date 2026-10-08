@@ -232,7 +232,8 @@ class DesempateMeritoModel extends BaseModel
                 INNER JOIN matriculas  m ON m.id = dmo.matricula_id
                 INNER JOIN estudiantes e ON e.id = m.estudiante_id
                 INNER JOIN personas    p ON p.id = e.persona_id
-                INNER JOIN secciones   s ON s.id = m.seccion_id
+                -- La sección donde CURSÓ el bimestre (cambio de sección, 07/10/2026).
+                INNER JOIN secciones   s ON s.id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
                 WHERE dmo.desempate_id = ?
                 ORDER BY dmo.orden_manual
             ", [(int) $res['id']]);

@@ -133,6 +133,7 @@ $router->get( '/admin/asistencia/motivos',              'Admin\AsistenciaMotivoC
 $router->post('/admin/asistencia/motivos/crear',        'Admin\AsistenciaMotivoController@crear');
 $router->post('/admin/asistencia/motivos/{id}/editar',  'Admin\AsistenciaMotivoController@actualizar');
 $router->post('/admin/asistencia/motivos/{id}/retirar', 'Admin\AsistenciaMotivoController@retirar');
+$router->post('/admin/asistencia/motivos/{id}/principal', 'Admin\AsistenciaMotivoController@principal');
 $router->post('/admin/asistencia/motivos/{id}/mover',   'Admin\AsistenciaMotivoController@mover');
 // Días no lectivos (30/09/2026, migración 070): literales, ANTES de `/{id}`.
 $router->get( '/admin/asistencia/no-lectivos',                 'Admin\AsistenciaCalendarioController@index');
@@ -248,6 +249,10 @@ $router->post('/matriculas/{id}/notas-siagie',          'Matricula\MatriculaCont
 // Exoneraciones desde el detalle (solo admin/RA — lo exige el controlador;
 // candado de notas vivas incluido).
 $router->post('/matriculas/{id}/exonerar',       'Admin\ExoneracionController@registrarDesdeMatricula');
+// Cambio de sección (07/10/2026, docs/modulos/cambio-seccion.md). Solo POST: el
+// formulario vive en el detalle de la matrícula. La ruta larga va primero.
+$router->post('/matriculas/{id}/cambiar-seccion/revertir', 'Matricula\CambioSeccionController@revertir');
+$router->post('/matriculas/{id}/cambiar-seccion',          'Matricula\CambioSeccionController@store');
 // Retorno de grado
 $router->get( '/matriculas/{id}/retorno/revertir', 'Matricula\RetornoGradoController@confirmarReversion');
 $router->post('/matriculas/{id}/retorno/revertir', 'Matricula\RetornoGradoController@revertir');
@@ -319,6 +324,8 @@ $router->get( '/docente/nomina/{seccion_id}/imprimir', 'Docente\PanelController@
 // (tener carga activa en esa seccion) esta en el controlador, que responde 404
 // si no se cumple. Se llega desde la notificacion que genera Registro Academico.
 $router->get( '/docente/notas-origen/{matricula}',     'Docente\PanelController@notasOrigen');
+// Cambio de sección (fase 3): calificaciones de su sección anterior, solo lectura.
+$router->get( '/docente/procedencia/{matricula}',      'Docente\CalificacionController@procedencia');
 $router->get( '/docente/horario/imprimir',             'Docente\PanelController@horarioImprimir');
 // Boletas del docente (validadas por nivel). La literal /imprimir va ANTES del
 // patron generico para que el router no capture "imprimir" como matricula_id.

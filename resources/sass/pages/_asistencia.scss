@@ -327,6 +327,27 @@ $af-asistio:  $text-secondary;
     &--no-lectivo { border-color: $border-color; background: $bg-secondary; color: $text-muted; }
 }
 
+// ICONO DE DOCUMENTO en la esquina superior derecha: la FJ/TJ con el MOTIVO
+// PRINCIPAL (08/10/2026, migración 076). PUNTO ÚNICO del dibujo: lo usan la
+// celda del calendario (`af-celda--con-motivo`) y la pastilla del encabezado FJ
+// (`af-tipo--con-motivo`), que debe verse IGUAL a esa celda. Máscara sobre
+// `currentColor`: toma el color del tipo.
+@mixin af-esquina-motivo {
+    position: relative;
+
+    &::after {
+        content: '';
+        position: absolute;
+        top: 1px;
+        right: 1px;
+        width: 9px;
+        height: 9px;
+        background-color: currentColor;
+        -webkit-mask: url('../assets/icons/doc-add.svg') center / contain no-repeat;
+                mask: url('../assets/icons/doc-add.svg') center / contain no-repeat;
+    }
+}
+
 // Pastilla del tipo (encabezados de los totales, leyendas, totales por estudiante).
 .af-tipo {
     display: inline-flex;
@@ -341,6 +362,22 @@ $af-asistio:  $text-secondary;
     line-height: 1.4;
 
     @include af-tipo-colores;
+
+    // Encabezado FJ = una celda FJ con el motivo principal (08/10/2026): el
+    // contador SOLO cuenta esas. Parcial `admin/asistencia/_pastilla-fj.php`.
+    // Mismo ancho mínimo que la celda (32px) y un poco más de aire a la derecha
+    // para que el icono no pise la «J».
+    &--con-motivo {
+        @include af-esquina-motivo;
+        min-width: 32px;
+        padding-right: 9px;
+        cursor: help;
+    }
+
+    // En el A4 (registro, cuadros) la pastilla conserva su contorno, fondo e
+    // icono: son parte del rótulo, no un adorno.
+    -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
 }
 
 // Columna «Fechas» de la tabla de solo lectura (Dirección, bimestre por fechas).
@@ -494,23 +531,10 @@ $af-asistio:  $text-secondary;
     // «No lectivo»: rótulo pequeño, sin acción.
     &--no-lectivo { font-size: 10px; cursor: default; }
 
-    // Justificación con su motivo (siempre, desde la 070): icono de documento en
-    // la esquina. Máscara sobre `currentColor`: toma el color del tipo.
-    &--con-motivo {
-        position: relative;
-
-        &::after {
-            content: '';
-            position: absolute;
-            top: 1px;
-            right: 1px;
-            width: 9px;
-            height: 9px;
-            background-color: currentColor;
-            -webkit-mask: url('../assets/icons/doc-add.svg') center / contain no-repeat;
-                    mask: url('../assets/icons/doc-add.svg') center / contain no-repeat;
-        }
-    }
+    // Justificación con el MOTIVO PRINCIPAL (08/10/2026; antes, con cualquier
+    // motivo): icono de documento en la esquina. Mismo dibujo que la pastilla del
+    // encabezado FJ (`af-tipo--con-motivo`): ambas usan `af-esquina-motivo`.
+    &--con-motivo { @include af-esquina-motivo; }
     // El autoguardado de ese día falló.
     &--error { box-shadow: 0 0 0 2px rgba($color-error, .35); }
 

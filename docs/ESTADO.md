@@ -1,9 +1,143 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **06/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **08/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+
+## 🆕 RETORNO #1 EN LA BD LOCAL: tramo en el III sin cerrar (08/10/2026)
+
+BALTAZAR PINTO (oficial 190 en 2.° B, operativa 692 en 1.° B), retorno revertido.
+
+**Síntoma en la BD local de casa:** en el III salía en **1.° B** y faltaba en **2.° B**, en
+asistencia, conducta y calificaciones.
+
+**Causa:** `periodo_hasta_id = 3`, un bimestre sin cerrar, que dejó el relleno de la 073 (ver
+`docs/modulos/retorno-grado.md` § «El tramo de un revertido termina en un bimestre CERRADO»).
+
+**Producción no tiene el defecto:** allí `hasta = 2` desde el 05/10.
+
+- [ ] **Local:** ejecutar `database/reparar_retorno_1_tramo.sql`, extendido hoy para el caso
+  `hasta = 3`, en UN solo envío.
+  - Huella: `SELECT periodo_hasta_id FROM retornos_grado WHERE id = 1` debe dar **2**.
+  - Después, `verif_reversion_retorno.php`, `verif_roster_asistencia.php` y
+    `verif_roster_evaluacion.php` deben dar OK.
+  - Probado sobre una copia: OK, e idempotente.
+- La asistencia del III llega a la 190 como **borrador**: la auxiliar de 2.° B la confirma.
+
+## 🆕 FJ SOLO CON EL MOTIVO PRINCIPAL — EN `dev`, commiteado y sin desplegar (08/10/2026, migración 076; `452e643`..`b0e97fd`)
+
+Una FJ cuenta como FJ solo con el **motivo ancla** del bimestre (al principio, «Justificación
+escrita autorizada»). Con otro motivo cuenta como F; TJ no cambia. El icono de documento sale solo
+con el ancla.
+- **El ancla:** admin y RA la eligen en Motivos («Hacer principal»). Siempre hay exactamente una y
+  no se retira. Cada bimestre la congela al cerrarse.
+- **Encabezado FJ = la pastilla de una celda FJ con motivo principal** (papel en la esquina) en
+  registro, imprimible, Dirección y cuadros. No va en las boletas.
+- Las **estadísticas de justificaciones** de Cuadros se alinearon con los contadores.
+- El detalle está en `docs/modulos/confirmacion-y-asistencia-por-fechas.md` (SÉPTIMA RONDA).
+- ⚠️ **Desde este código, la 076 es OBLIGATORIA:** sin sus columnas, la asistencia por fechas
+  falla.
+- **Probado sobre una copia de la BD local con la 076:** la migración es idempotente y los dos
+  candados (UNIQUE y CHECK) funcionan. `verif_asistencia_fechas.php` da TODO OK (81). La batería
+  queda con los 5 fallos que ya existían.
+- **Local:** aplicar `database/migrations/076_fj_motivo_principal.sql`. Su SELECT previo da
+  39 filas y 85 FJ que pasan a F. Después, el verificador debe dar TODO OK.
+- **Producción, ANTES del merge:**
+  1. correr el SELECT previo de la 076 y comprobar que «Justificación escrita autorizada» NO
+     esté retirada (el CHECK rechazaría el ancla);
+  2. comprobar `periodos_publicacion` del III. Si ya está publicado para algún nivel, las
+     boletas publicadas cambiarían sus faltas: **detenerse y decidir con el usuario**;
+  3. aplicar la 076;
+  4. comprobar «anclas_vigentes = 1» y «contadores_incoherentes = 0».
+  - ⚠️ Sin la 076, los contadores viejos quedan con la regla anterior hasta que se toque
+    cada fila.
+- Pendiente: probar en Chrome con tu sesión:
+  - la grilla y la vista por estudiante del III;
+  - el icono en vivo;
+  - en Motivos, «Hacer principal» y que el ancla no muestre «Retirar»;
+  - la pastilla FJ con su papel en el encabezado, en Cuadros y en el imprimible.
+
+
+## 🔜 RETOMAR AQUÍ (07/10/2026, fin del turno tarde en la oficina → escritorio de casa)
+
+**Cambio de sección: TERMINADO Y PROBADO EN LOCAL (oficina).** `origin/dev` = `eab278d`.
+`origin/main` sin tocar. **El merge `dev` → `main` se hace en el escritorio de casa** (decisión del
+usuario). Detalle de cada fase más abajo, en esta misma sección.
+
+**En el escritorio, en este orden:**
+1. `git pull` en `dev`.
+2. **BD local de casa**: aplicar `database/migrations/075_cambio_seccion.sql` (sin ella el formulario
+   de TRASLADO falla: `TrasladoModel` lee `cambios_seccion`). Huella: `SHOW TABLES LIKE
+   'cambios_seccion%'` → 4 tablas. Si la BD de casa es una copia fresca de producción, igual.
+   ✅ **Hecho el 08/10/2026** (por consola; en phpMyAdmin fallaba con #1044, ver punto 5).
+3. `php database/aplicar_cambios_seccion_259_339.php` (simula) → si los dos dan `PUEDE_REGISTRAR`,
+   repetir con `--confirmar`. Los avisos de prueba de 259/339 existen SOLO en la BD de la oficina.
+4. Correr `verif_seccion_del_periodo.php`, `verif_cambio_seccion.php` y `verif_numeracion_rd.php`.
+5. **Producción** (con su autorización del merge): **(a)** aplicar la `075` en la BD de producción
+   ANTES del merge — **la versión corregida del 08/10** (cierra con `SHOW TABLES`; la anterior
+   terminaba en `SELECT ... information_schema` y phpMyAdmin la corría entera ahí, #1044; ver
+   `docs/infraestructura.md`); **(b)** merge `dev` → `main` (auto-deploy); **(c)** el script de 259/339 por SSH,
+   primero sin `--confirmar`, luego con él; **(d)** actualizar la CABECERA de
+   `docs/modulos/cambio-seccion.md` («desplegado») y la sección Git de este archivo.
+
+### Detalle del día (07/10/2026)
+
+- **Plan aprobado** en `docs/modulos/cambio-seccion.md` (17 decisiones; reemplaza al del 09/07).
+- **Fase 1 HECHA** en `dev` (`84386fb`, sin push): `CambioSeccionModel` con sección por bimestre,
+  `ejecutar`, regreso sin R.D. y `revertir` (opción a). `verif_cambio_seccion.php` verde.
+- **Fase 2 HECHA** (`2922344` + `9ff3f4a`): acción «Cambiar de sección» y card del historial en
+  `/matriculas/{id}`, rutas POST y avisos. **Probado en navegador con sesión ADMIN** (07/10, mat. 162):
+  despliegue/cancelar, R.D. sugerida, toggle del regreso (simulado en el DOM) y un POST real
+  RECHAZADO por R.D. ocupada (0 filas escritas). **Sin ver aún**: la card del historial y la
+  reversión en pantalla (no hay ningún cambio registrado) — se verán al registrar 259/339 (fase 5).
+- **Fase 3 HECHA** (`331ba51` raíz en `getResumenCompetencia` + `740ecd1` vista): `/docente/procedencia/{matricula}`,
+  chip «OTRA SECCIÓN» en la grilla y enlace en el aviso. A/B de la raíz: 1924/1924 resúmenes idénticos.
+- **Fase 5 APLICADA EN LOCAL** (07/10, escritorio PROBOOK450): `database/aplicar_cambios_seccion_259_339.php
+  --confirmar` registró 339 → R.D. 059 y 259 → R.D. 060 (vigentes desde el II). **PENDIENTE EN PRODUCCIÓN**:
+  1) aplicar la `075`; 2) correr el script SIN `--confirmar`, revisar veredictos; 3) con `--confirmar`.
+  Probado con ADMIN en navegador: card del historial (sin «Revertir», con «regreso» a 4.° B) y la vista
+  de procedencia (16 cargas, I Bimestre de 4.° B). Por modelo: los historiales del I de 4.° A/4.° B ya
+  listan a quien lo cursó allí (339: 24 notas en A; 259: 22 en B) y ninguno sale vacío.
+  **Probado con sesión DOCENTE** (07/10, confirmado por el usuario en su navegador):
+  - JANE MORENO JAIMES (Inglés, toda primaria, no tutora): los 2 avisos en la bandeja con su enlace
+    correcto; chip «OTRA SECCIÓN» en las grillas de 4.° A y 4.° B; la procedencia muestra solo su área;
+    los historiales del I muestran a quien lo cursó allí y ya no hay filas vacías; la procedencia de un
+    estudiante de secundaria (mat. 162) da 404.
+  - EDINZON ZAMBRANO (Geometría, solo secundaria): procedencia de 259/339 → 404; su grilla sin cambios.
+  - Los avisos de 259/339 se GENERARON A MANO solo en LOCAL (12 por cambio) para esta prueba; en
+    producción el script de la fase 5 no avisa.
+  Sin probar aún: sesión de TUTOR y de AUXILIAR (sus pantallas entran en el inventario de la fase 4).
+- **Fase 4 COMPLETA** (07/10, `3f4c591`…`817de4f`): inventario de 91 funciones en
+  `docs/modulos/cambio-seccion.md` § 6; bloques A–H convertidos a «sección donde se cursó el
+  bimestre», I sin cambios. Cada bloque con A/B contra `HEAD` (solo cambian 259/339 en el I) y
+  escenario en `verif_seccion_del_periodo.php` que FALLA con el código anterior. Hallazgos:
+  la compuerta del cierre del I acusaba en falso a 259/339 (corregido); el snapshot PUBLICADO del I
+  los ubica en su sección de hoy (inmutable, sin efecto visible); MariaDB 10.4 no admite la
+  subconsulta de sección dentro de un EXISTS convertido a IN (usar JOIN DISTINCT).
+  **Probado con sesión de TUTORA** (07/10, NELLY TRUJILLO, 4.° A): tutoría y conducta del I listan
+  a GALICIA MENDOZA (339, cursó el I en 4.° A) con sus notas y NO a DIEGO LOPEZ (259); en el III, al
+  revés (sección de hoy). Sin errores. Conducta del III vacía = datos reales (la auxiliar aún no
+  registra; 0 respuestas en la BD), no regresión. Auxiliar no probada: solo tiene 4.° A/B desde el III.
+  **Siguiente**: merge a `main` (preguntar) y despliegue: 075 → código → script 259/339.
+- Fallos PREEXISTENTES (iguales con `HEAD`): `verif_asistencia_jornadas.php` (no halla escenario de
+  prueba) y `verif_criterios_filtros_cascada.php` (§ 7, «el árbol NO queda vacío»). No tocados.
+- ⚠️ La `075` se MODIFICÓ tras su primer commit (rd_* NULL + CHECK): en otra BD local que ya
+  la tenga, borrar sus 4 tablas vacías y volver a aplicarla.
+- **Migración `075_cambio_seccion.sql`** (solo esquema): escrita y **aplicada en la BD local del
+  escritorio** el 07/10. **NO aplicada en producción.**
+- **Numeración COMPARTIDA de R.D.** (traslado + cambio de sección) ya implementada en
+  `TrasladoModel` (sin commit). ⚠️ Desde ahí `TrasladoModel` **lee `cambios_seccion`**: la `075`
+  debe aplicarse en producción **ANTES** del merge a `main`, y en cada BD local antes de usar el
+  formulario de traslado. Verificador: `verif_numeracion_rd.php` (verde).
+- Registro pendiente (fase 5): matrícula 339 → `N° 059-2026-CAVVG-DA`, 259 →
+  `N° 060-2026-CAVVG-DA`, ambas del 01/09/2026, vigentes desde el II Bimestre.
+- `verif_fase_a_orden_merito.php`: **el fallo era del ASERTO, no del mérito** (corregido el
+  07/10). Elegía «cualquier aprobada con un bloqueo» también en el III EN CURSO, donde solo había
+  transversales bloqueadas (que el mérito excluye) → esperaba a la mat. 174 en un ranking vacío.
+  Ahora solo evalúa **bimestres CERRADOS**. Verde.
+- `verif_boleta_sin_calificaciones.php` no pasa: su rama «sin boleta» no se puede ejercitar con
+  estos datos (no hay ninguna matrícula sin notas). No es un defecto del código.
 
 ## 🔜 RETOMAR AQUÍ (06/10/2026, fin del turno tarde en la laptop → escritorio de casa)
 
@@ -2951,7 +3085,8 @@ pregunta siempre antes.
     veredicto y UPDATE como sentencias sueltas, así que pegarlo entero ejecuta el cambio
     **aunque el veredicto salga en rojo** — lección de la 048.
   - La **`053` está RESERVADA** para `cambio_seccion` (ver `docs/modulos/cambio-seccion.md`),
-    por eso esta corrección toma la `054`.
+    por eso esta corrección toma la `054`. **Reserva LIBERADA el 07/10/2026**: el cambio de sección usará
+    la `075` (ver `docs/modulos/cambio-seccion.md`).
 - **`052_alias_huerfano_etica_secundaria`** (17/08): corrección de DATOS (no toca esquema).
   Pone en NULL el `alias_boleta` «(Ética y Valores)» del área **Ed. Religiosa de
   SECUNDARIA**. Es el **paso 3 del plan de encendido de Ética del 07/07**, que este archivo

@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\AnioAcademicoModel;
 use App\Models\AsistenciaEstadisticaModel;
 use App\Models\AsistenciaModel;
+use App\Models\AsistenciaMotivoModel;
 use App\Models\ConductaModel;
 use App\Models\ControlOperativoModel;
 use App\Models\DirectorEbrModel;
@@ -436,6 +437,11 @@ class CuadrosEstadisticosController extends BaseController
             'conducta_criterios'   => $this->conductaModel->getIncumplimientoCriterios($periodoId),
             'asistencia_secciones' => $this->asistenciaModel->getIncidenciasPorSeccion($periodoId),
             'asistencia_top'       => $this->asistenciaModel->getTopIncidenciasPorSeccion($periodoId),
+            // Ancla del bimestre POR FECHAS (076): icono de la columna FJ. En los
+            // bimestres de solo números, null (FJ no distinguía motivo).
+            'asistencia_ancla'     => $this->asistenciaModel->periodoPorFechas($periodoId)
+                ? (new AsistenciaMotivoModel())->nombreDe((new AsistenciaMotivoModel())->anclaDelPeriodo($periodoId))
+                : null,
             'asistencia_evolucion' => $this->asistenciaModel->getEvolucionIncidenciasAnual($anioId),
 
             // ── Justificaciones (29/09/2026) ─────────────────────────

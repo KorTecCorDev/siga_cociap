@@ -26,15 +26,149 @@ class AsistenciaMotivoModel extends BaseModel
      */
     public const CODIGO_VERBAL = 'verbal';
 
-    /** Motivos que se OFRECEN al registrar (no retirados), en su orden. */
-    public function vigentes(): array
+    // ── ANCLA: el MOTIVO PRINCIPAL (08/10/2026, migración 076) ──────
+    //
+    // Regla del colegio: una FALTA solo cuenta como justificada con el motivo
+    // principal; una FJ con cualquier otro cuenta como F (las tardanzas no
+    // distinguen motivo). Lo aplica `AsistenciaModel::sqlConteoContadores`.
+    //
+    // 🔴 SIEMPRE HAY EXACTAMENTE UNA ANCLA, y vigente:
+    //   - nunca dos: UNIQUE `uq_es_principal`;
+    //   - nunca retirada: CHECK `chk_principal_vigente` + `retirar()` se niega;
+    //   - nunca cero: no existe acción que la QUITE, solo `hacerPrincipal()`,
+    //     que la TRASLADA en una transacción.
+    // Cada bimestre CONGELA su ancla al cerrarse (`congelarAnclaPeriodo`): un
+    // cambio posterior no toca sus contadores ni sus boletas.
+
+    /** Id del ancla del CATÁLOGO (la vigente hoy), o null si faltara. */
+    public function idPrincipal(): ?int
+    {
+        $r = $this->queryOne("SELECT id FROM asistencia_motivos WHERE es_principal = 1");
+        return $r !== null ? (int) $r['id'] : null;
+    }
+
+    /**
+     * 🔴 PUNTO ÚNICO del ancla con que se CUENTA un bimestre: la congelada al
+     * cerrarlo o, si aún no se cerró, la del catálogo. Lo usan el recuento, el
+     * icono de documento de las celdas y las leyendas.
+     */
+    public function anclaDelPeriodo(int $periodoId): ?int
+    {
+        $r = $this->queryOne("
+            SELECT COALESCE(p.asistencia_motivo_principal_id,
+                            (SELECT am.id FROM asistencia_motivos am WHERE am.es_principal = 1)) AS ancla
+            FROM periodos p WHERE p.id = ?
+        ", [$periodoId]);
+        return isset($r['ancla']) ? (int) $r['ancla'] : $this->idPrincipal();
+    }
+
+    /** Nombre de un motivo (para las leyendas), o null si no existe. */
+    public function nombreDe(?int $motivoId): ?string
+    {
+        if ($motivoId === null) {
+            return null;
+        }
+        $r = $this->queryOne("SELECT nombre FROM asistencia_motivos WHERE id = ?", [$motivoId]);
+        return $r !== null ? (string) $r['nombre'] : null;
+    }
+
+    /**
+     * CONGELA el ancla del bimestre al CERRARLO (lo llama
+     * `Director\PeriodoController::cerrar`, en su transacción). Inmutable: un
+     * re-cierre tras reabrir conserva la primera, como el tutor de la 071.
+     */
+    public function congelarAnclaPeriodo(int $periodoId): void
+    {
+        $this->execute("
+            UPDATE periodos
+            SET asistencia_motivo_principal_id = (SELECT id FROM asistencia_motivos WHERE es_principal = 1)
+            WHERE id = ? AND asistencia_motivo_principal_id IS NULL
+        ", [$periodoId]);
+    }
+
+    /**
+     * Secciones con la asistencia BLOQUEADA en un bimestre por fechas que aún
+     * sigue al ancla del catálogo (no congelado). Con alguna, el ancla NO se
+     * cambia (decisión del usuario): su boleta cambiaría sin que nadie la reabra.
+     *
+     * @return list<string>  «4.° C · III Bimestre»
+     */
+    public function seccionesQueImpidenCambiarAncla(): array
+    {
+        return array_map(static fn(array $r): string => (string) $r['etiqueta'], $this->query("
+            SELECT CONCAT(g.nombre_display, ' ', s.nombre, ' · ',
+                          COALESCE(p.nombre_display, CONCAT('Bimestre ', p.numero))) AS etiqueta
+            FROM cierres_asistencia z
+            INNER JOIN periodos  p ON p.id = z.periodo_id
+            INNER JOIN secciones s ON s.id = z.seccion_id
+            INNER JOIN grados    g ON g.id = s.grado_id
+            WHERE z.anulado_en IS NULL
+              AND p.asistencia_por_fechas = 1
+              AND p.asistencia_motivo_principal_id IS NULL
+            ORDER BY p.numero, g.nivel_id, g.numero, s.nombre
+        "));
+    }
+
+    /**
+     * TRASLADA el ancla a otro motivo VIGENTE, en una transacción: quita la marca
+     * del actual, se la pone al nuevo (nunca queda sin ancla: si algo falla, se
+     * revierte) y recuenta los contadores de los bimestres que siguen al
+     * catálogo, SIN DESCONFIRMAR (las marcas no cambian; decisión del usuario).
+     * Se niega si hay secciones bloqueadas en esos bimestres. Deja la traza en
+     * modificado_en/por.
+     *
+     * @return int  filas de asistencia cuyos contadores cambiaron
+     * @throws \DomainException con el motivo del rechazo
+     */
+    public function hacerPrincipal(int $id, int $userId): int
+    {
+        $this->vigenteOFalla($id);
+        if ($this->idPrincipal() === $id) {
+            throw new \DomainException('Ese motivo ya es el principal.');
+        }
+        $bloqueadas = $this->seccionesQueImpidenCambiarAncla();
+        if ($bloqueadas !== []) {
+            throw new \DomainException(
+                'No se puede cambiar el motivo principal: estas secciones ya tienen la asistencia '
+                . 'bloqueada y sus faltas cambiarían (' . implode('; ', $bloqueadas) . '). '
+                . 'Reabre su asistencia primero.'
+            );
+        }
+
+        $this->beginTransaction();
+        try {
+            $this->execute("UPDATE asistencia_motivos SET es_principal = NULL WHERE es_principal = 1");
+            $this->execute("
+                UPDATE asistencia_motivos SET es_principal = 1, modificado_en = NOW(), modificado_por = ?
+                WHERE id = ? AND retirado_en IS NULL
+            ", [$userId, $id]);
+            if ($this->idPrincipal() !== $id) {
+                throw new \RuntimeException('El ancla no quedó en el motivo elegido.');
+            }
+            $recontadas = (new AsistenciaModel())->recontarPorCambioDeAncla($id);
+            $this->commit();
+            return $recontadas;
+        } catch (\Throwable $ex) {
+            $this->rollback();
+            log_error('asistencia_motivos.hacerPrincipal', ['id' => $id, 'err' => $ex->getMessage()]);
+            throw new \DomainException('No se pudo cambiar el motivo principal. Intenta de nuevo.');
+        }
+    }
+
+    /**
+     * Motivos que se OFRECEN al registrar (no retirados), en su orden.
+     * `es_principal` marca el ANCLA DEL BIMESTRE que se registra (`$anclaId`, de
+     * `anclaDelPeriodo`): el menú de la celda la lleva en su <option> y el JS
+     * decide el icono con ella (sin copia del id en el JS).
+     */
+    public function vigentes(?int $anclaId = null): array
     {
         return $this->query("
-            SELECT id, codigo, nombre, orden
+            SELECT id, codigo, nombre, orden, (id = ?) AS es_principal
             FROM asistencia_motivos
             WHERE retirado_en IS NULL
             ORDER BY orden, id
-        ");
+        ", [$anclaId ?? 0]);
     }
 
     /** ¿Existe y no está retirado? (guarda de escritura: no se asigna uno retirado). */
@@ -58,6 +192,7 @@ class AsistenciaMotivoModel extends BaseModel
     {
         return $this->query("
             SELECT am.id, am.codigo, am.nombre, am.orden, am.retirado_en, am.modificado_en,
+                   (am.es_principal = 1) AS es_principal,
                    (SELECT COUNT(*) FROM asistencia_incidencias x WHERE x.motivo_id = am.id) AS usos,
                    CASE WHEN pm.id IS NULL THEN ''
                         ELSE CONCAT(pm.apellido_paterno, ', ', pm.nombres) END AS modificado_por_nombre
@@ -138,6 +273,11 @@ class AsistenciaMotivoModel extends BaseModel
     public function retirar(int $id, int $userId): void
     {
         $this->vigenteOFalla($id);
+        // El ANCLA no se retira (también lo impide el CHECK `chk_principal_vigente`):
+        // sin ella ninguna falta podría contar como justificada.
+        if ($this->idPrincipal() === $id) {
+            throw new \DomainException('Es el motivo principal: primero elige otro motivo principal.');
+        }
         $vigentes = (int) ($this->queryOne("SELECT COUNT(*) AS n FROM asistencia_motivos WHERE retirado_en IS NULL")['n'] ?? 0);
         if ($vigentes <= 1) {
             throw new \DomainException('Debe quedar al menos un motivo: sin él no se podría confirmar ninguna justificación.');

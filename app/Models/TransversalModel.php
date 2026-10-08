@@ -169,11 +169,12 @@ class TransversalModel extends BaseModel
             INNER JOIN competencias comp ON comp.id = cal.competencia_id
             INNER JOIN areas a           ON a.id = comp.area_id AND a.tipo = 'transversal'
             INNER JOIN matriculas m      ON m.id = cal.matricula_id
-            WHERE m.seccion_id   = ?
+            -- Quien CURSÓ el bimestre en la sección (cambio de sección).
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               AND m.tipo        NOT IN ('trasladado', 'retirado')
               AND cal.periodo_id = ?
             GROUP BY cal.matricula_id, cal.competencia_id
-        ", [$seccionId, $periodoId]);
+        ", [$periodoId]);
 
         $out = [];
         foreach ($filas as $f) {
@@ -191,9 +192,9 @@ class TransversalModel extends BaseModel
             SELECT ct.matricula_id, ct.competencia_id, ct.conclusion
             FROM conclusiones_transversales ct
             INNER JOIN matriculas m ON m.id = ct.matricula_id
-            WHERE m.seccion_id = ?
+            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               AND ct.periodo_id = ?
-        ", [$seccionId, $periodoId]);
+        ", [$periodoId]);
 
         $out = [];
         foreach ($filas as $f) {

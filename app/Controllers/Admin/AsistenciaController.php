@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\AsistenciaJornadaModel;
 use App\Models\AsistenciaModel;
+use App\Models\AsistenciaMotivoModel;
 use App\Models\AuxiliarSeccionModel;
 use Core\Session;
 use Core\View;
@@ -203,13 +204,19 @@ class AsistenciaController extends BaseController
                     $mesVer = date('Y-m');
                 }
             }
+            $motivosM = new AsistenciaMotivoModel();
+            $ancla    = $motivosM->anclaDelPeriodo((int) $periodoVer['id']);
             $fechas = [
                 'calendario' => $calendario,
                 'mesVer'     => $mesVer,
                 'incidencias'=> $this->model->incidenciasDe(
                     array_column($estudiantes ?? [], 'matricula_id'), (int) $periodoVer['id'], !$editable
                 ),
-                'motivos'    => (new \App\Models\AsistenciaMotivoModel())->vigentes(),
+                'motivos'    => $motivosM->vigentes($ancla),
+                // ANCLA del bimestre (08/10/2026, migración 076): leyenda de cómo
+                // se cuenta una FJ e icono de documento solo en FJ/TJ con ella.
+                'motivoPrincipal'   => $motivosM->nombreDe($ancla),
+                'motivoPrincipalId' => $ancla,
                 'progreso'   => $this->model->getProgresoPorSeccion((int) $periodoVer['id'])[$seccionId]
                                 ?? ['esperados' => 0, 'registrados' => 0],
                 'jornadas'   => $jornadasM->tomadasDe($seccionId, (int) $periodoVer['id']),
@@ -300,6 +307,8 @@ class AsistenciaController extends BaseController
         // Por fechas (29/09/2026): calendario del bimestre entero y sus fechas.
         $porFechas = (int) ($periodo['asistencia_por_fechas'] ?? 0) === 1;
         $mid       = (int) $estudiantes[$pos]['matricula_id'];
+        $motivosM  = new AsistenciaMotivoModel();
+        $ancla     = $porFechas ? $motivosM->anclaDelPeriodo((int) $periodo['id']) : null;
 
         $this->view('admin/asistencia/estudiante', [
             'titulo'       => 'Asistencia — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
@@ -316,7 +325,10 @@ class AsistenciaController extends BaseController
                 ? AsistenciaModel::calendario($periodo, null, (new AsistenciaJornadaModel())->noLectivos($periodo)) : [],
             'jornadas'     => $porFechas ? (new AsistenciaJornadaModel())->tomadasDe($seccionId, (int) $periodo['id']) : [],
             'dias'         => $porFechas ? ($this->model->incidenciasDe([$mid], (int) $periodo['id'])[$mid] ?? []) : [],
-            'motivos'      => $porFechas ? (new \App\Models\AsistenciaMotivoModel())->vigentes() : [],
+            'motivos'      => $porFechas ? $motivosM->vigentes($ancla) : [],
+            // ANCLA del bimestre (08/10/2026): leyenda e icono de documento.
+            'motivoPrincipal'   => $motivosM->nombreDe($ancla),
+            'motivoPrincipalId' => $ancla,
             'page_scripts' => [$porFechas ? 'asistencia-fechas' : 'asistencia', 'registro-estudiante'],
         ]);
     }
@@ -421,6 +433,9 @@ class AsistenciaController extends BaseController
             'institucion' => config('institucion'),
             'porFechas'   => $porFechas,
             'detalle'     => $detalle,
+            // Ancla del bimestre (076): icono y nota de la columna FJ.
+            'motivoPrincipal' => $porFechas
+                ? (new AsistenciaMotivoModel())->nombreDe((new AsistenciaMotivoModel())->anclaDelPeriodo($periodoId)) : null,
         ]);
     }
 

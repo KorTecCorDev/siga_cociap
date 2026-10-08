@@ -7,15 +7,16 @@
  * @var array|null $periodo        bimestre activo {id, nombre_display, anio, editable, limite_notas}
  * @var array      $secciones      [{id, etiqueta, nivel, estudiantes, conducta{bloqueada,badge,texto}, asistencia{…}}]
  * @var int        $estudiantes    estudiantes a cargo (roster de evaluación)
- * @var int        $bloqConducta   secciones con la conducta bloqueada
- * @var int        $bloqAsistencia secciones con la asistencia bloqueada
+ * @var int        $avConducta     % de secciones con la conducta bloqueada (0–100)
+ * @var int        $avAsistencia   % de secciones con la asistencia bloqueada (0–100)
  * @var int|null   $diasCierre
  * @var array      $auth_user
  */
 
 $nSec = count($secciones);
-// Avance de bloqueo: verde completo, ámbar a medias, gris sin empezar.
-$kpiBloq = static fn(int $n): string => $nSec > 0 && $n >= $nSec ? 'completo' : ($n > 0 ? 'parcial' : 'vacio');
+// Avance de bloqueo (%): verde completo, ámbar a medias, gris sin empezar. Misma
+// regla que «Avance del bimestre» del panel docente.
+$kpiAvance = static fn(int $pct): string => $pct >= 100 ? 'completo' : ($pct > 0 ? 'parcial' : 'vacio');
 
 $saludo = match ($auth_user['sexo'] ?? null) {
     'M'     => 'Bienvenido',
@@ -83,12 +84,12 @@ $cards = [
             <span class="dpanel-kpi__label">Estudiantes a mi cargo</span>
         </div>
         <div class="dpanel-kpi">
-            <span class="dpanel-kpi__num dpanel-kpi__num--<?= $kpiBloq($bloqConducta) ?>"><?= $bloqConducta ?>/<?= $nSec ?></span>
-            <span class="dpanel-kpi__label">Conducta bloqueada</span>
+            <span class="dpanel-kpi__num dpanel-kpi__num--<?= $kpiAvance($avConducta) ?>"><?= $avConducta ?>%</span>
+            <span class="dpanel-kpi__label">Avance de conducta</span>
         </div>
         <div class="dpanel-kpi">
-            <span class="dpanel-kpi__num dpanel-kpi__num--<?= $kpiBloq($bloqAsistencia) ?>"><?= $bloqAsistencia ?>/<?= $nSec ?></span>
-            <span class="dpanel-kpi__label">Asistencia bloqueada</span>
+            <span class="dpanel-kpi__num dpanel-kpi__num--<?= $kpiAvance($avAsistencia) ?>"><?= $avAsistencia ?>%</span>
+            <span class="dpanel-kpi__label">Avance de asistencia</span>
         </div>
         <?php // Umbrales en el punto único compartido con el panel docente. ?>
         <?php require VIEW_PATH . '/shared/_kpi-dias-cierre.php'; ?>

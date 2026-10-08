@@ -85,7 +85,8 @@ class LlenadorSiagie
         }
 
         // 2. Universo SIGA y catálogo de competencias del nivel
-        $estudiantes = $this->modelo->estudiantesDeSeccion($destino['seccion_id']);
+        // Quien CURSÓ el bimestre del archivo en esa sección (cambio de sección).
+        $estudiantes = $this->modelo->estudiantesDeSeccion($destino['seccion_id'], $destino['periodo_id']);
         // Cada alumno de la sección lleva su origen para distinguirlo de los de
         // otras secciones (que se cargan bajo demanda para detectar cambios de
         // sección sin tramitar).
@@ -272,7 +273,7 @@ class LlenadorSiagie
                     }
                     if ($hayDudosas || $resoluciones !== []) {
                         $otras = $this->modelo->estudiantesDeOtrasSecciones(
-                            $destino['grado_id'], $destino['anio_id'], $destino['seccion_id']
+                            $destino['grado_id'], $destino['anio_id'], $destino['seccion_id'], $destino['periodo_id']
                         );
                         foreach ($otras as $oe) {
                             $rosterPorId[(int) $oe['estudiante_id']] = $oe;
