@@ -14,6 +14,8 @@
  * tardanzas aparecía dos veces con la mitad del dato cada vez.
  *
  * @var array $asisTop  salida de AsistenciaModel::getTopIncidenciasPorSeccion
+ * @var string|null $asisAncla ancla del bimestre por fechas (076): «F. just.» pasa a la
+ *                             pastilla FJ con motivo principal (`_pastilla-fj.php`)
  */
 
 if (empty($asisTop)) {
@@ -43,7 +45,9 @@ if (empty($asisTop)) {
                         <th class="col-nombre">Estudiante</th>
                         <th class="text-center cuadros-top__n">Faltas</th>
                         <th class="text-center cuadros-top__n">Tardanzas</th>
-                        <th class="text-center cuadros-top__n">F. just.</th>
+                        <th class="text-center cuadros-top__n"><?php if (!empty($asisAncla)):
+                            $nombreAnclaFj = $asisAncla; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php';
+                        else: ?>F. just.<?php endif; ?></th>
                         <th class="text-center cuadros-top__n">T. just.</th>
                     </tr>
                 </thead>

@@ -53,12 +53,20 @@ class AsistenciaEstadisticaModel extends BaseModel
         $dias = AsistenciaModel::diasMarcables($periodo);
         [$estudiantes, $secciones] = $this->roster($periodoId);
         $incidencias = $this->incidencias($periodoId, array_keys($estudiantes));
+        $ancla       = (new AsistenciaMotivoModel())->anclaDelPeriodo($periodoId);
 
         // Contadores y motivos por estudiante, desde las fechas.
         foreach ($incidencias as $x) {
             $e = &$estudiantes[$x['matricula_id']];
-            $e[$x['tipo']]++;
+            // F/FJ/T/TJ con la MISMA regla que los contadores oficiales (08/10/2026,
+            // migración 076): una FJ cuenta como FJ solo con el ANCLA del bimestre;
+            // con otro motivo, como F. Decisión del usuario: estas cifras se alinean
+            // con la boleta.
+            $e[self::tipoQueCuenta($x, $ancla)]++;
+            // Lo que mide el MOTIVO (usos por motivo, verbales y su alerta) sigue
+            // contando cada MARCA justificada tal como se registró.
             if (in_array($x['tipo'], ['FJ', 'TJ'], true)) {
+                $e['justificaciones']++;
                 $clave = $x['motivo'] ?? '';
                 $e['motivos'][$clave] = ($e['motivos'][$clave] ?? 0) + 1;
                 if ($x['motivo_codigo'] === AsistenciaMotivoModel::CODIGO_VERBAL) {
@@ -71,6 +79,8 @@ class AsistenciaEstadisticaModel extends BaseModel
         $confirmados = array_filter($estudiantes, static fn(array $e): bool => $e['confirmado']);
 
         return [
+            // Ancla del bimestre: el icono de la columna FJ dice con qué motivo cuenta.
+            'motivo_principal' => (new AsistenciaMotivoModel())->nombreDe($ancla),
             'dias_habiles' => count($dias),
             'kpis'         => $this->kpis($confirmados, count($dias), count($estudiantes)),
             'niveles'      => $this->porNivel($confirmados, count($dias), $estudiantes),
@@ -83,6 +93,16 @@ class AsistenciaEstadisticaModel extends BaseModel
             'criticos'     => $this->diasCriticos($incidencias, count($confirmados)),
             'oportunidad'  => $this->oportunidad($incidencias, $estudiantes, $secciones),
         ];
+    }
+
+    /**
+     * Contador en que cae una marca: el mismo de `AsistenciaModel::sqlConteoContadores`
+     * (una FJ fuera del ancla cuenta como F). Mantener las dos en sintonía: lo
+     * comprueba `verif_asistencia_estadisticas.php`.
+     */
+    private static function tipoQueCuenta(array $x, ?int $ancla): string
+    {
+        return ($x['tipo'] === 'FJ' && (int) ($x['motivo_id'] ?? 0) !== (int) ($ancla ?? 0)) ? 'F' : (string) $x['tipo'];
     }
 
     // ── Base ────────────────────────────────────────────────────────
@@ -142,6 +162,8 @@ class AsistenciaEstadisticaModel extends BaseModel
                 'nivel_id'     => (int) $f['nivel_id'],
                 'confirmado'   => $confirmado,
                 'F' => 0, 'FJ' => 0, 'T' => 0, 'TJ' => 0,
+                // Marcas FJ/TJ de cualquier motivo: base de los verbales y su alerta.
+                'justificaciones' => 0,
                 'verbales'     => 0,
                 'motivos'      => [],
             ];
@@ -159,7 +181,7 @@ class AsistenciaEstadisticaModel extends BaseModel
             return [];
         }
         $filas = $this->query("
-            SELECT x.matricula_id, x.fecha, x.tipo, x.registrado_en,
+            SELECT x.matricula_id, x.fecha, x.tipo, x.motivo_id, x.registrado_en,
                    am.codigo AS motivo_codigo, am.nombre AS motivo
             FROM asistencia_incidencias x
             INNER JOIN inasistencias i
@@ -186,7 +208,7 @@ class AsistenciaEstadisticaModel extends BaseModel
     /** Suma de contadores de un grupo de estudiantes. */
     private static function sumar(array $grupo): array
     {
-        $t = ['F' => 0, 'FJ' => 0, 'T' => 0, 'TJ' => 0, 'verbales' => 0];
+        $t = ['F' => 0, 'FJ' => 0, 'T' => 0, 'TJ' => 0, 'justificaciones' => 0, 'verbales' => 0];
         foreach ($grupo as $e) {
             foreach ($t as $k => $_) {
                 $t[$k] += $e[$k];
@@ -218,7 +240,9 @@ class AsistenciaEstadisticaModel extends BaseModel
             'tasa_asistencia'   => $n > 0 && $dias > 0 ? round(100 - $ausencias / ($n * $dias) * 100, 1) : null,
             'pct_fj'            => self::pct($t['FJ'], $t['F'] + $t['FJ']),
             'pct_tj'            => self::pct($t['TJ'], $t['T'] + $t['TJ']),
-            'pct_verbales'      => self::pct($t['verbales'], $t['FJ'] + $t['TJ']),
+            // Sobre las MARCAS justificadas (cualquier motivo), no sobre FJ + TJ:
+            // una FJ verbal ya cuenta como F y el % saldría por encima de 100.
+            'pct_verbales'      => self::pct($t['verbales'], $t['justificaciones']),
             'pct_confirmado'    => self::pct($n, $esperados),
             'totales'           => $t,
         ];
@@ -401,7 +425,9 @@ class AsistenciaEstadisticaModel extends BaseModel
     {
         $out = [];
         foreach ($confirmados as $e) {
-            $just = $e['FJ'] + $e['TJ'];
+            // Marcas justificadas de cualquier motivo (no FJ + TJ: una FJ verbal ya
+            // cuenta como F, y es justo la que esta alerta vigila).
+            $just = $e['justificaciones'];
             if ($just >= self::MIN_JUSTIFICACIONES_VERBALES && mas_de_la_mitad($e['verbales'], $just)) {
                 $out[] = [
                     'nombre'          => $e['nombre'],

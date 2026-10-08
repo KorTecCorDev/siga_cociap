@@ -36,6 +36,7 @@ $condLit  = $bloques['conducta_literales'] ?? ['periodos' => [], 'niveles' => []
 $condCrit = $bloques['conducta_criterios'] ?? ['criterios' => [], 'secciones' => []];
 $asisSecc = $bloques['asistencia_secciones'] ?? [];
 $asisTop  = $bloques['asistencia_top'] ?? [];
+$asisAncla = $bloques['asistencia_ancla'] ?? null;   // icono de la columna FJ (076)
 
 $pidVista = (int) ($periodo['id'] ?? 0);
 

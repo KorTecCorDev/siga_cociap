@@ -102,8 +102,12 @@ $usuario = $m->queryOne("SELECT u.id FROM usuarios u INNER JOIN roles r ON r.id 
                          WHERE r.codigo = 'admin' ORDER BY u.id LIMIT 1");
 $verbal  = $m->queryOne("SELECT id, nombre FROM asistencia_motivos WHERE codigo = ? AND retirado_en IS NULL",
     [App\Models\AsistenciaMotivoModel::CODIGO_VERBAL]);
-$otro    = $m->queryOne("SELECT id, nombre FROM asistencia_motivos WHERE codigo <> ? AND retirado_en IS NULL ORDER BY orden LIMIT 1",
-    [App\Models\AsistenciaMotivoModel::CODIGO_VERBAL]);
+// «Otro» = el ANCLA del bimestre (076): sus FJ cuentan como FJ; las verbales, como F.
+$anclaId = $per ? (new App\Models\AsistenciaMotivoModel())->anclaDelPeriodo((int) $per['id']) : null;
+$otro    = $anclaId !== null
+    ? $m->queryOne("SELECT id, nombre FROM asistencia_motivos WHERE id = ? AND codigo <> ? AND retirado_en IS NULL",
+        [$anclaId, App\Models\AsistenciaMotivoModel::CODIGO_VERBAL])
+    : null;
 $dias    = $per ? App\Models\AsistenciaModel::diasMarcables($per) : [];
 
 if (count($par) < 2 || !$usuario || !$verbal || !$otro || count($dias) < 6) {
@@ -155,9 +159,22 @@ if (count($par) < 2 || !$usuario || !$verbal || !$otro || count($dias) < 6) {
         $chk('b) confirmar los dos funciona',
             $m->confirmar($a, $pid, $uid)['ok'] && $m->confirmar($b, $pid, $uid)['ok']);
         $desp = $est->justificaciones($pid);
-        $chk('b) CONFIRMADO: +12 faltas justificadas y +8 verbales',
-            $desp['kpis']['totales']['FJ'] === $antes['kpis']['totales']['FJ'] + 12
+        // 12 marcas FJ: 4 con el ancla (cuentan como FJ) y 8 verbales (cuentan como
+        // F, la misma regla que la boleta; 08/10/2026, migración 076).
+        $chk('b) CONFIRMADO: +4 FJ (ancla) y +8 F (las verbales), igual que los contadores',
+            $desp['kpis']['totales']['FJ'] === $antes['kpis']['totales']['FJ'] + 4
+            && $desp['kpis']['totales']['F'] === $antes['kpis']['totales']['F'] + 8);
+        $chk('b) CONFIRMADO: +12 justificaciones registradas y +8 verbales (por marca)',
+            $desp['kpis']['totales']['justificaciones'] === $antes['kpis']['totales']['justificaciones'] + 12
             && $desp['kpis']['totales']['verbales'] === $antes['kpis']['totales']['verbales'] + 8);
+        $suma = fn(int $mid): array => $m->queryOne("SELECT faltas, faltas_justificadas FROM inasistencias
+                                                    WHERE matricula_id = ? AND periodo_id = ?", [$mid, $pid]);
+        $chk('b) las estadísticas cuentan F/FJ como los contadores oficiales (A: F5 FJ1 · B: F3 FJ3)',
+            $suma($a) == ['faltas' => 5, 'faltas_justificadas' => 1]
+            && $suma($b) == ['faltas' => 3, 'faltas_justificadas' => 3]);
+        $chk('b) el % de verbales nunca supera 100', ($desp['kpis']['pct_verbales'] ?? 0) <= 100);
+        $chk('b) devuelve el nombre del motivo principal (tooltip del icono FJ)',
+            ($desp['motivo_principal'] ?? null) === $otro['nombre']);
         $chk('b) CONFIRMADO: +2 estudiantes con registro', $desp['kpis']['estudiantes'] === $antes['kpis']['estudiantes'] + 2);
         $usoVerbal = fn(array $j): int => (int) array_sum(array_map(
             fn($x) => $x['motivo'] === $verbal['nombre'] ? $x['FJ'] : 0, $j['motivos']));
@@ -177,7 +194,7 @@ if (count($par) < 2 || !$usuario || !$verbal || !$otro || count($dias) < 6) {
         // e) Lista de ausencias con motivo más frecuente.
         $alB = $enTop($est->justificaciones($pid), $nomB);
         $chk('e) quien más falta en su sección figura en la lista',
-            $alB !== null && $alB['ausencias'] === 6 && $alB['FJ'] === 6);
+            $alB !== null && $alB['ausencias'] === 6 && $alB['FJ'] === 3 && $alB['F'] === 3);
         $chk('e) su motivo más frecuente sale del empate 3-3 por nombre (el primero alfabético)',
             $alB !== null && $alB['motivo'] === min($verbal['nombre'], $otro['nombre']));
     } finally {
