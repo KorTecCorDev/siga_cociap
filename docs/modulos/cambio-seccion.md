@@ -1,8 +1,9 @@
 # Cambio de sección
 
-> **Estado (07/10/2026): CONSTRUIDO Y PROBADO EN `dev` — SIN DESPLEGAR.** Fases 1 a 5 hechas
-> (fase 4 completa; § 6). Falta: migración `075` en producción → merge a `main` → script de
-> 259/339 (pasos en `docs/ESTADO.md`, «RETOMAR AQUÍ»). **Al desplegar, actualizar esta línea.**
+> **Estado: DESPLEGADO el 08/10/2026** (merge `3d58934`, sigue v1.0.5). Fases 1 a 5 hechas
+> (fase 4 completa; § 6). En producción: `075` aplicada a mano ANTES del merge (4 tablas) y,
+> después, el script de 259/339 con `--confirmar` (R.D. 059 y 060, vigentes desde el II,
+> comprobadas en conexión nueva).
 > **Reemplaza al plan del 09/07/2026**, que nunca se construyó y quedó desactualizado frente a
 > los módulos 066–074 (auxiliares, confirmación, asistencia por fechas, tutor por periodo,
 > retorno con tramo, borradores). Varias de sus decisiones se **derogaron** (ver § 3).
