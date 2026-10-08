@@ -35,6 +35,7 @@ use App\Models\AsistenciaModel;
 $mes         = $fechas['calendario'][$fechas['mesVer']] ?? ['nombre' => '', 'dias' => []];
 $diasMes     = $mes['dias'];
 $jornadas    = $fechas['jornadas'] ?? [];
+$motPrincipal = $fechas['motivoPrincipalId'] ?? null;   // icono de documento en `_af-celda.php`
 $campos      = AsistenciaModel::CAMPOS;
 $abrev       = ['faltas' => 'F', 'faltas_justificadas' => 'FJ', 'tardanzas' => 'T', 'tardanzas_justificadas' => 'TJ'];
 $nombreTipo  = ['faltas' => 'Falta', 'faltas_justificadas' => 'Falta justificada', 'tardanzas' => 'Tardanza', 'tardanzas_justificadas' => 'Tardanza justificada'];
@@ -118,7 +119,12 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
                 <?php foreach ($campos as $i => $c): ?>
                     <th class="asistencia-th-contador<?= $i === 0 ? ' col-resultado--inicio' : '' ?> col-resultado"
                         title="<?= e($nombreTipo[$c]) ?> · total del bimestre">
-                        <span class="af-tipo af-tipo--<?= strtolower($abrev[$c]) ?>"><?= $abrev[$c] ?></span>
+                        <?php // FJ = la pastilla de una celda FJ con el motivo principal (076). ?>
+                        <?php if ($c === 'faltas_justificadas' && !empty($fechas['motivoPrincipal'])): ?>
+                            <?php $nombreAnclaFj = $fechas['motivoPrincipal']; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php'; ?>
+                        <?php else: ?>
+                            <span class="af-tipo af-tipo--<?= strtolower($abrev[$c]) ?>"><?= $abrev[$c] ?></span>
+                        <?php endif; ?>
                     </th>
                 <?php endforeach; ?>
             </tr>
@@ -181,7 +187,10 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
         <span class="tabla-pie__item tabla-pie__item--bloque">
             Los totales son del <strong>bimestre entero</strong>, no solo del mes. Los días en gris aún no
             transcurren. En el encabezado, <strong>⚠</strong> marca un día sin lista tomada<?php if ($editable): ?>:
-            tócalo para pasar lista<?php endif; ?>. Toda justificación lleva su motivo (icono de documento).<?php if ($editable): ?>
+            tócalo para pasar lista<?php endif; ?>. Toda justificación lleva su motivo; el icono de documento marca las de
+            «<?= e($fechas['motivoPrincipal'] ?? '') ?>».<?php if (!empty($fechas['motivoPrincipal'])): ?>
+            En el total <strong>F</strong> también se cuentan las FJ cuyo motivo no es
+            «<?= e($fechas['motivoPrincipal']) ?>».<?php endif; ?><?php if ($editable): ?>
             Franja del N°: <strong>verde</strong> confirmado, <strong>ámbar</strong> sin confirmar. Para confirmar a un
             solo estudiante, usa <em>Registrar por estudiante</em>.<?php endif; ?>
         </span>

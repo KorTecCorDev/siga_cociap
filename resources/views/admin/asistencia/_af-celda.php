@@ -6,7 +6,8 @@
  *
  *   no lectivo        «NL» gris, sin acción (motivo en el title)
  *   futuro            gris punteado, sin acción
- *   con incidencia    pastilla F/FJ/T/TJ; FJ/TJ con icono de documento
+ *   con incidencia    pastilla F/FJ/T/TJ; icono de documento SOLO en FJ/TJ con
+ *                     el MOTIVO PRINCIPAL (08/10/2026)
  *   lista tomada      ✓ (asistió): la sección pasó lista y no hay incidencia
  *   sin tomar         vacía: nadie pasó lista ese día, no se afirma nada
  *
@@ -21,6 +22,7 @@
  * @var bool        $grande     celda grande del calendario (con el número del día)
  * @var string      $etiqueta   nombre del estudiante para el aria-label (grilla)
  * @var string      $colClase   clase de columna del calendario (`af-col-N`), o ''
+ * @var int|null    $motPrincipal ancla del bimestre (`AsistenciaMotivoModel::anclaDelPeriodo`)
  */
 
 $tipo  = $x['tipo'] ?? '';
@@ -36,7 +38,7 @@ elseif (!$d['marcable']) { $clases[] = 'af-celda--futuro'; $texto = ''; }
 elseif ($tipo !== '')   { $clases[] = 'af-celda--' . strtolower($tipo); }
 elseif ($tomada)        { $clases[] = 'af-celda--asistio'; }
 else                    { $clases[] = 'af-celda--sin-tomar'; }
-if ($mot !== null && $nl === null) { $clases[] = 'af-celda--con-motivo'; }
+if ($mot !== null && $nl === null && $mot === ($motPrincipal ?? null)) { $clases[] = 'af-celda--con-motivo'; }
 
 // `$tituloCelda`, nunca `$titulo`: ese es el <title> de la página.
 $tituloCelda = $d['fecha'] . match (true) {

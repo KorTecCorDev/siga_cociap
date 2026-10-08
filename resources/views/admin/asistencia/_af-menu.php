@@ -39,7 +39,7 @@ $opcionesMenu = [
         <select id="af-menu-motivo" class="form-select">
             <option value="" disabled selected>— Elige el motivo —</option>
             <?php foreach ($motivos as $mo): ?>
-                <option value="<?= (int) $mo['id'] ?>"><?= e($mo['nombre']) ?></option>
+                <option value="<?= (int) $mo['id'] ?>"<?= !empty($mo['es_principal']) ? ' data-principal="1"' : '' ?>><?= e($mo['nombre']) ?></option>
             <?php endforeach; ?>
         </select>
         <button type="button" class="btn btn--primary btn--sm af-menu__guardar" disabled>Guardar</button>
