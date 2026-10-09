@@ -57,7 +57,8 @@ class PeriodoController extends BaseController
 
         $fechaInicio = trim((string) $this->input('fecha_inicio', ''));
         $fechaFin    = trim((string) $this->input('fecha_fin', ''));
-        $limiteRaw   = trim((string) $this->input('limite_notas', ''));
+        $limiteNotas = self::fechaHoraSql((string) $this->input('limite_notas', ''));
+        $limiteAux   = self::fechaHoraSql((string) $this->input('limite_auxiliares', ''));
 
         if ($fechaInicio === '' || $fechaFin === '') {
             $this->redirectWithError($volverUrl, 'La fecha de inicio y la de fin son obligatorias.');
@@ -66,18 +67,37 @@ class PeriodoController extends BaseController
             $this->redirectWithError($volverUrl, 'La fecha de fin debe ser posterior a la de inicio.');
         }
 
-        // El input datetime-local llega como "Y-m-dTH:i"; lo normalizamos a datetime SQL.
-        $limiteNotas = null;
-        if ($limiteRaw !== '') {
-            $limiteNotas = str_replace('T', ' ', $limiteRaw);
-            if (strlen($limiteNotas) === 16) {
-                $limiteNotas .= ':00';
+        // Fecha de los AUXILIARES (F4 del plan de bloqueos, 09/10/2026): va entre
+        // el último día del bimestre (la asistencia solo se bloquea desde ese día)
+        // y la fecha de los docentes (el tutor cierra la conducta después).
+        if ($limiteAux !== null) {
+            if (substr($limiteAux, 0, 10) < $fechaFin) {
+                $this->redirectWithError($volverUrl,
+                    'La fecha límite de los auxiliares no puede ser anterior al último día del bimestre.');
+            }
+            if ($limiteNotas !== null && $limiteAux > $limiteNotas) {
+                $this->redirectWithError($volverUrl,
+                    'La fecha límite de los auxiliares no puede ser posterior a la fecha límite de notas.');
             }
         }
 
-        $this->model->actualizarFechasPeriodo($id, $fechaInicio, $fechaFin, $limiteNotas);
+        $this->model->actualizarFechasPeriodo($id, $fechaInicio, $fechaFin, $limiteNotas, $limiteAux);
 
         $this->redirectWithSuccess($volverUrl, "Fechas del {$periodo['nombre_display']} actualizadas.");
+    }
+
+    /**
+     * El input datetime-local llega como "Y-m-dTH:i"; lo normaliza a datetime
+     * SQL. Vacío = null (sin fecha límite / vale la de docentes).
+     */
+    private static function fechaHoraSql(string $raw): ?string
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+        $valor = str_replace('T', ' ', $raw);
+        return strlen($valor) === 16 ? $valor . ':00' : $valor;
     }
 
     // POST /director/periodos/{id}/abrir

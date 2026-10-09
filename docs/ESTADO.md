@@ -34,7 +34,20 @@ fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
   `verif_guard_cierre_registros.php` en verde; su rama del controlador hace SKIP en local
   porque antes corta la evaluación incompleta del III. ⚠️ **Antes de desplegar F3**, medir
   en PROD con las consultas 3.5 del runbook que el III pueda cumplirla.
-- **Pendiente:** F4 (migración) → F5 (migración; cerrar su diseño con el usuario antes). Pruebas en navegador pendientes con sesión de **tutor** (transversales fuera de
+- **F4 HECHA en `dev`** (**migración 078**, `periodos.limite_auxiliares`): fecha propia de
+  los auxiliares, opcional (vacía = la de notas), en el modal «Editar fechas» de
+  `/director/anios/{id}`; se valida `fecha_fin ≤ auxiliares ≤ notas`. Conducta etapa 1 y
+  asistencia la siguen para TODOS (también RA/admin); el tutor y los docentes, la de notas.
+  `verif_plazo_edicion.php` § 5 en verde.
+  - **078 aplicada en la BD LOCAL** de la oficina (09/10/2026). ⚠️ **Producción: aplicar
+    `078_periodos_limite_auxiliares.sql` a mano ANTES del merge** (el código lee la columna
+    en cuanto se despliega). En otro equipo, aplicarla también en su BD local.
+- **F5 — decisiones del usuario (09/10/2026), sin implementar:** rectificación por RA/admin
+  de los **Sí/No por criterio** de conducta (la nota se recalcula con la del tutor) y de la
+  **marca de un día** en asistencia por fechas (los contadores se recalculan); si el tutor
+  ya cerró la etapa 2, **solo deja la traza** (no la reabre). Abiertas: tabla de auditoría
+  (una común o una por registro) y cómo se refleja en una boleta ya publicada.
+- **Pendiente:** F5 (migración). Pruebas en navegador pendientes con sesión de **tutor** (transversales fuera de
   plazo), **auxiliar** (semáforo «Bloqueo desde») y **RA** (panel con bimestre cerrado). La F2 pone plazo a las transversales del tutor: **avisar antes a los
   tutores**.
 

@@ -455,8 +455,10 @@ Versión de una línea; el porqué completo está en el doc del módulo.
 - **Plazo de registro: PUNTO ÚNICO `EdicionPeriodoModel`** (09/10/2026). Toda pregunta
   «¿se puede registrar en este periodo?» y todo «días para el cierre» pasan por él, con el
   ROL de quien registra el dato: `ROL_DOCENTE` (académicas, TIC/GAMA y todo lo del tutor)
-  o `ROL_AUXILIAR` (conducta etapa 1 y asistencia, aunque las registre RA). NUNCA comparar
-  `limite_notas` a mano (lo barre `verif_plazo_edicion.php`). Ver
+  o `ROL_AUXILIAR` (conducta etapa 1 y asistencia, aunque las registre RA). **Dos fechas**
+  (migración 078): docentes = `limite_notas`; auxiliares = `limite_auxiliares`, ANTERIOR,
+  vacía = la de notas (solo `limiteDe()` elige). El tutor NO tiene plazo extra. NUNCA
+  comparar `limite_notas` a mano (lo barre `verif_plazo_edicion.php`). Ver
   `docs/modulos/cierre-cuatro-registros.md` §0.
 - **PDO preparado siempre**; `cargas_academicas` y `criterios` NO tienen UNIQUE KEY →
   proteger duplicados con `WHERE NOT EXISTS`.

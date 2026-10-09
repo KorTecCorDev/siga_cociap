@@ -51,7 +51,7 @@ class ConductaModel extends BaseModel
     {
         $periodos = $this->query("
             SELECT
-                p.id, p.numero, p.nombre_display, p.estado, p.limite_notas, a.anio
+                p.id, p.numero, p.nombre_display, p.estado, p.limite_notas, p.limite_auxiliares, a.anio
             FROM periodos p
             INNER JOIN anios_academicos a ON a.id = p.anio_id
             WHERE a.estado = 'activo'

@@ -37,6 +37,30 @@ spl_autoload_register(function (string $c): void {
     }
 });
 
+$_SERVER['HTTP_HOST'] = 'localhost';
+$_SESSION = [];
+
+// ── Modo SUBPROCESO: `PeriodoController::editar` real; nunca hace commit ──
+// Uso interno: --editar <usuario> <periodo> <fecha_inicio> <fecha_fin> <limite_notas> <limite_aux>
+// (los límites en formato datetime-local, «-» = vacío).
+if (($argv[1] ?? '') === '--editar') {
+    [, , $usuarioId, $periodoId, $ini, $fin, $lim, $aux] = $argv;
+    $pdo = Core\Database::connect();
+    $pdo->beginTransaction();
+    register_shutdown_function(static function () use ($pdo, $periodoId): void {
+        echo json_encode([
+            'flash' => $_SESSION['_flash'] ?? [],
+            'fila'  => $pdo->query("SELECT limite_notas, limite_auxiliares FROM periodos WHERE id = " . (int) $periodoId)->fetch(PDO::FETCH_ASSOC),
+        ], JSON_UNESCAPED_UNICODE);
+    });
+    $_SESSION['_csrf_token'] = 'verif';
+    $_SESSION['auth_user']   = ['id' => (int) $usuarioId, 'rol_codigo' => 'admin', 'nombres' => 'Prueba', 'apellido_paterno' => 'Verificador'];
+    $_POST = ['_csrf_token' => 'verif', 'fecha_inicio' => $ini, 'fecha_fin' => $fin,
+              'limite_notas' => $lim === '-' ? '' : $lim, 'limite_auxiliares' => $aux === '-' ? '' : $aux];
+    (new App\Controllers\Director\PeriodoController())->editar($periodoId);
+    exit(0);
+}
+
 use App\Models\AsistenciaModel;
 use App\Models\CalificacionModel;
 use App\Models\ConductaModel;
@@ -172,6 +196,62 @@ $chk('ninguna comparación de `limite_notas` fuera del punto único', $copias ==
 $tutor = (string) file_get_contents(ROOT_PATH . '/app/Controllers/Docente/ConductaTutorController.php');
 $chk('la etapa 2 del tutor pregunta con ROL_DOCENTE (no con el del auxiliar)',
     str_contains($tutor, 'EdicionPeriodoModel::ROL_DOCENTE') && !str_contains($tutor, '->periodoEditable('));
+
+// ── 5. Fechas por ROL (F4, migración 078) ────────────────────────────────
+echo "5. Fecha propia de los auxiliares (limite_auxiliares)\n";
+$tieneCol = (bool) $pdo->query("SHOW COLUMNS FROM periodos LIKE 'limite_auxiliares'")->fetch();
+$chk('la migración 078 está aplicada en esta BD', $tieneCol);
+$activo = (int) $pdo->query("SELECT id FROM periodos WHERE estado = 'activo' LIMIT 1")->fetchColumn();
+if ($tieneCol && $activo) {
+    $pdo->beginTransaction();
+    try {
+        $fut = date('Y-m-d H:i:s', time() + 7200);
+        $pas = date('Y-m-d H:i:s', time() - 7200);
+        $pdo->prepare("UPDATE periodos SET limite_notas = ?, limite_auxiliares = ? WHERE id = ?")->execute([$fut, $pas, $activo]);
+        $chk('auxiliares VENCIDA y docentes vigente: el auxiliar no registra',
+            !$edicion->esEditable($activo, E::ROL_AUXILIAR)
+            && $edicion->motivoNoEditable($activo, E::ROL_AUXILIAR) === E::MOTIVO_PLAZO_VENCIDO);
+        $chk('…y el docente (y el tutor) sí', $edicion->esEditable($activo, E::ROL_DOCENTE) && !$calif->periodoEstaBloqueado($activo));
+        $chk('…conducta, asistencia y sus flags siguen la fecha del auxiliar',
+            !$cond->periodoEditable($activo) && !$asis->periodoEditable($activo)
+            && $flagDe($cond->listarPeriodosActivos(), $activo) === false
+            && $flagDe($asis->listarPeriodosActivos(), $activo) === false);
+        $fila = $pdo->query("SELECT estado, limite_notas, limite_auxiliares FROM periodos WHERE id = $activo")->fetch(PDO::FETCH_ASSOC);
+        $chk('limiteDe: cada rol lee su fecha', E::limiteDe($fila, E::ROL_AUXILIAR) === $pas && E::limiteDe($fila, E::ROL_DOCENTE) === $fut);
+
+        $pdo->prepare("UPDATE periodos SET limite_auxiliares = NULL WHERE id = ?")->execute([$activo]);
+        $chk('auxiliares VACÍA: vale la de docentes', $edicion->esEditable($activo, E::ROL_AUXILIAR) === $edicion->esEditable($activo, E::ROL_DOCENTE)
+            && E::limiteDe($pdo->query("SELECT estado, limite_notas, limite_auxiliares FROM periodos WHERE id = $activo")->fetch(PDO::FETCH_ASSOC), E::ROL_AUXILIAR) === $fut);
+    } finally {
+        $pdo->rollBack();
+    }
+
+    // editar(): validación del orden de las fechas (controlador real).
+    $admin = (int) $pdo->query("SELECT u.id FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.codigo = 'admin' ORDER BY u.id LIMIT 1")->fetchColumn();
+    $per   = $pdo->query("SELECT fecha_inicio, fecha_fin, limite_notas, limite_auxiliares FROM periodos WHERE id = $activo")->fetch(PDO::FETCH_ASSOC);
+    $fin   = substr($per['fecha_fin'], 0, 10);
+    $ed = static fn(string $lim, string $aux): array => json_decode((string) shell_exec(sprintf(
+        'php %s --editar %d %d %s %s %s %s', escapeshellarg(__FILE__), $admin, $activo,
+        substr($per['fecha_inicio'], 0, 10), $fin, escapeshellarg($lim), escapeshellarg($aux))), true) ?? [];
+    $antesFin = date('Y-m-d', strtotime("$fin -1 day")) . 'T10:00';
+    $r = $ed("{$fin}T23:00", $antesFin);
+    $chk('editar: auxiliares ANTES del último día del bimestre se rechaza',
+        str_contains((string) ($r['flash']['error'] ?? ''), 'anterior al último día'), (string) ($r['flash']['error'] ?? json_encode($r)));
+    $r = $ed("{$fin}T10:00", "{$fin}T12:00");
+    $chk('editar: auxiliares DESPUÉS de la de notas se rechaza',
+        str_contains((string) ($r['flash']['error'] ?? ''), 'posterior a la fecha límite de notas'), (string) ($r['flash']['error'] ?? json_encode($r)));
+    $r = $ed("{$fin}T23:00", "{$fin}T12:00");
+    $chk('editar: en orden se guarda (dentro de la transacción del subproceso)',
+        isset($r['flash']['success']) && ($r['fila']['limite_auxiliares'] ?? '') === "$fin 12:00:00", json_encode($r, JSON_UNESCAPED_UNICODE));
+    $r = $ed("{$fin}T23:00", '-');
+    $chk('editar: auxiliares vacía se guarda como NULL',
+        isset($r['flash']['success']) && is_array($r['fila'] ?? null)
+        && array_key_exists('limite_auxiliares', $r['fila']) && $r['fila']['limite_auxiliares'] === null,
+        json_encode($r, JSON_UNESCAPED_UNICODE));
+    $chk('rollback: las fechas del bimestre activo quedaron como estaban',
+        $pdo->query("SELECT limite_notas, limite_auxiliares FROM periodos WHERE id = $activo")->fetch(PDO::FETCH_ASSOC)
+        === ['limite_notas' => $per['limite_notas'], 'limite_auxiliares' => $per['limite_auxiliares']]);
+}
 
 echo $ok ? "\nTODO OK\n" : "\nHAY FALLOS\n";
 exit($ok ? 0 : 1);

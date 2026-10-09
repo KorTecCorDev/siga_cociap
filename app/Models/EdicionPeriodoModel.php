@@ -24,7 +24,8 @@ namespace App\Models;
  *    conclusiones y cierre de transversales).
  *  - ROL_AUXILIAR → conducta etapa 1 y asistencia, la registre el auxiliar, RA
  *    o admin.
- * Hoy los dos leen `limite_notas`; la F4 del plan les dará fechas distintas.
+ * Docentes leen `limite_notas`; auxiliares, `limite_auxiliares` (migración 078,
+ * F4), que vacía vale `limite_notas`. La regla está SOLO en `limiteDe()`.
  *
  * ZONA HORARIA — el «ahora» lo calcula PHP (America/Lima, fijado en
  * public/index.php), igual que `PublicacionBoletaModel::ahora()`. Nunca NOW():
@@ -56,14 +57,14 @@ class EdicionPeriodoModel extends BaseModel
      */
     public function motivoNoEditable(int $periodoId, string $rol): ?string
     {
-        $p = $this->queryOne("SELECT estado, limite_notas FROM periodos WHERE id = ?", [$periodoId]);
+        $p = $this->queryOne("SELECT estado, limite_notas, limite_auxiliares FROM periodos WHERE id = ?", [$periodoId]);
         return $p ? self::motivoSobre($p, $rol) : self::MOTIVO_CERRADO;
     }
 
     /**
-     * La misma regla sobre una fila de `periodos` ya leída (necesita `estado`
-     * y `limite_notas`). La usan los listados que antes calculaban la columna
-     * `editable` en SQL.
+     * La misma regla sobre una fila de `periodos` ya leída (necesita `estado`,
+     * `limite_notas` y, para auxiliares, `limite_auxiliares`). La usan los
+     * listados que antes calculaban la columna `editable` en SQL.
      */
     public static function motivoSobre(array $periodo, string $rol, ?int $ahora = null): ?string
     {
@@ -80,10 +81,17 @@ class EdicionPeriodoModel extends BaseModel
         return null;
     }
 
-    /** Fecha límite que rige al rol en esa fila de `periodos` (null = sin límite). */
+    /**
+     * Fecha límite que rige al rol en esa fila de `periodos` (null = sin límite).
+     * Auxiliares: `limite_auxiliares` (migración 078); vacía, vale la de docentes,
+     * así que nada cambia hasta que se fije.
+     */
     public static function limiteDe(array $periodo, string $rol): ?string
     {
         $limite = $periodo['limite_notas'] ?? null;
+        if ($rol === self::ROL_AUXILIAR && !empty($periodo['limite_auxiliares'])) {
+            $limite = $periodo['limite_auxiliares'];
+        }
         return ($limite === null || $limite === '') ? null : (string) $limite;
     }
 

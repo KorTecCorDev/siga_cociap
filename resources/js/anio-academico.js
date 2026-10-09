@@ -27,6 +27,11 @@
         document.getElementById('fecha_inicio').value = inicio;
         document.getElementById('fecha_fin').value     = fin;
         document.getElementById('limite_notas').value  = limite;
+        // Fecha de los auxiliares (migración 078): vacía = la de notas.
+        var limiteAux = document.getElementById('limite_auxiliares');
+        if (limiteAux) {
+            limiteAux.value = btn.getAttribute('data-limite-aux') || '';
+        }
 
         if (window.Modal) {
             window.Modal.abrir('modalFechas');

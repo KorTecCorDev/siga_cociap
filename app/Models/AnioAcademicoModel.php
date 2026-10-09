@@ -344,18 +344,24 @@ class AnioAcademicoModel extends BaseModel
         );
     }
 
-    /** Actualiza las fechas y la fecha límite de notas de un bimestre. */
+    /**
+     * Actualiza las fechas de un bimestre y sus dos fechas límite: la de los
+     * docentes (`limite_notas`) y la de los auxiliares (`limite_auxiliares`,
+     * migración 078; null = vale la de docentes). La validación de su orden la
+     * hace el controlador.
+     */
     public function actualizarFechasPeriodo(
         int $id,
         string $fechaInicio,
         string $fechaFin,
-        ?string $limiteNotas
+        ?string $limiteNotas,
+        ?string $limiteAuxiliares = null
     ): bool {
         return $this->execute("
             UPDATE periodos
-            SET fecha_inicio = ?, fecha_fin = ?, limite_notas = ?
+            SET fecha_inicio = ?, fecha_fin = ?, limite_notas = ?, limite_auxiliares = ?
             WHERE id = ?
-        ", [$fechaInicio, $fechaFin, $limiteNotas, $id]);
+        ", [$fechaInicio, $fechaFin, $limiteNotas, $limiteAuxiliares, $id]);
     }
 
     /** Cambia el estado de un bimestre. */

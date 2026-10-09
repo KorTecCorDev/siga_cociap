@@ -151,6 +151,16 @@ if (is_array($cv)) {
                     <?php endif; ?>
                 </dd>
             </div>
+            <div>
+                <dt>Límite de auxiliares</dt>
+                <dd>
+                    <?php if (!empty($p['limite_auxiliares'])): ?>
+                        <?= e(fecha_es($p['limite_auxiliares'])) ?> &middot; <?= e(substr($p['limite_auxiliares'], 11, 5)) ?>
+                    <?php else: ?>
+                        <span class="text-muted">Igual al límite de notas</span>
+                    <?php endif; ?>
+                </dd>
+            </div>
         </dl>
 
         <div class="bimestre-card__acciones">
@@ -162,7 +172,8 @@ if (is_array($cv)) {
                     data-nombre="<?= e($p['nombre_display']) ?>"
                     data-inicio="<?= e($p['fecha_inicio']) ?>"
                     data-fin="<?= e($p['fecha_fin']) ?>"
-                    data-limite="<?= e($toLocalInput($limite)) ?>">
+                    data-limite="<?= e($toLocalInput($limite)) ?>"
+                    data-limite-aux="<?= e($toLocalInput($p['limite_auxiliares'] ?? null)) ?>">
                 Editar fechas
             </button>
 
@@ -229,6 +240,15 @@ if (is_array($cv)) {
                     <p class="form-hint">
                         Opcional. Pasada esta fecha y hora, los docentes no podrán registrar
                         ni modificar notas del bimestre. Déjalo vacío para no aplicar límite.
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="limite_auxiliares">Fecha límite para auxiliares (conducta y asistencia)</label>
+                    <input type="datetime-local" name="limite_auxiliares" id="limite_auxiliares" class="form-input">
+                    <p class="form-hint">
+                        Opcional. Pasada esta fecha y hora, ya no se podrá registrar la conducta
+                        ni la asistencia del bimestre. Va desde el último día del bimestre y no
+                        después de la fecha límite de notas. Vacío = la misma fecha límite de notas.
                     </p>
                 </div>
             </div>

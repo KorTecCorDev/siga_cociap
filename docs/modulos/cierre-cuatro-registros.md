@@ -29,8 +29,29 @@
 | F1 | Punto único del plazo `EdicionPeriodoModel` (las 5 copias de la regla + las 3 de «días para el cierre»; corrige el «0 días» tras vencer) | no | **HECHA en `dev` (09/10/2026)** — `verif_plazo_edicion.php` |
 | F2 | Coherencia: semáforo del auxiliar con `bimestreTerminado`; transversales del tutor bajo la compuerta; forzados solo con el periodo `activo`; comentarios vencidos | no | **HECHA en `dev` (09/10/2026)** — `verif_coherencia_bloqueos.php`. ⚠️ **Avisar a los tutores ANTES de desplegarla** |
 | F3 | Guard del cierre: asistencia bloqueada y conducta en sus dos etapas, todas las secciones del año | no | **HECHA en `dev` (09/10/2026)** — `verif_guard_cierre_registros.php`. ⚠️ Antes de desplegar, medir en PROD que el III Bimestre pueda cumplirla |
-| F4 | `periodos.limite_auxiliares` (NULL = vale `limite_notas`); `fecha_fin ≤ limite_auxiliares ≤ limite_notas` | **sí** | pendiente |
-| F5 | Rectificación de conducta y asistencia (RA/admin, motivo + auditoría) | **sí** | pendiente — **diseño a cerrar con el usuario** (qué se rectifica en conducta y en asistencia por fechas, tabla de auditoría, etapa 2 ya cerrada, boleta publicada) |
+| F4 | `periodos.limite_auxiliares` (NULL = vale `limite_notas`); `fecha_fin ≤ limite_auxiliares ≤ limite_notas` | **sí (078)** | **HECHA en `dev` (09/10/2026)** — `verif_plazo_edicion.php` § 5. 078 aplicada solo en la BD local de la oficina |
+| F5 | Rectificación de conducta y asistencia (RA/admin, motivo + auditoría) | **sí** | pendiente — decisiones abajo; **abiertas**: tabla de auditoría y boleta ya publicada |
+
+### F4 — cómo quedó (09/10/2026)
+- Campo opcional «Fecha límite para auxiliares (conducta y asistencia)» en el modal
+  «Editar fechas» de `/director/anios/{id}`, y su fila en la tarjeta del bimestre («Igual al
+  límite de notas» si está vacía). `PeriodoController::editar` valida
+  `fecha_fin ≤ auxiliares ≤ notas` (la asistencia solo se bloquea desde el último día).
+- `EdicionPeriodoModel::limiteDe()` es el ÚNICO sitio que elige la fecha por rol. Rige
+  para el registro de conducta etapa 1 y de asistencia **de cualquier usuario** (también
+  RA/admin por la vía normal). Pasada esa fecha, quedan el forzado del panel y la F5.
+- KPI «días para el cierre»: el del auxiliar mide su fecha y el del docente, la de notas.
+
+### F5 — decisiones del usuario (09/10/2026, CERRADAS)
+- **Conducta:** RA/admin rectifican los **Sí/No por criterio** del auxiliar; la nota se
+  recalcula sola con la del tutor (`promediar`), como la rectificación de notas por criterio.
+- **Asistencia por fechas:** se rectifica **la marca de un día** (F/FJ/T/TJ/asistió) y los
+  contadores se recalculan con `recalcularContadores` (respeta el invariante de 069).
+- **Etapa 2 ya cerrada por el tutor:** la rectificación **solo deja la traza**; no reabre.
+- Solo sobre un registro **bloqueado** o un bimestre **cerrado**, con **motivo obligatorio**,
+  como `RectificacionModel::esRectificable`.
+- **Abiertas:** una tabla de auditoría común o una por registro; cómo se refleja en una
+  boleta ya publicada (en notas, al instante).
 
 ### F1 — cómo quedó (09/10/2026)
 - **`app/Models/EdicionPeriodoModel.php`**: `esEditable(periodo, rol)`, `motivoNoEditable()`

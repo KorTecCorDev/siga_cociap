@@ -77,6 +77,7 @@ class AsistenciaModel extends BaseModel
                 p.nombre_display,
                 p.estado,
                 p.limite_notas,
+                p.limite_auxiliares,
                 -- Asistencia por fechas (migración 069): el calendario necesita el
                 -- rango del bimestre y saber si el bimestre se registra por fechas.
                 p.fecha_inicio,
