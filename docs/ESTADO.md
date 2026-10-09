@@ -5,6 +5,26 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🆕 BLOQUEOS Y PLAZOS DE REGISTRO — PLAN REPLANTEADO (09/10/2026, F0 en `dev`)
+
+El análisis de los bloqueos de docentes, auxiliares y tutor retomó el plan de los 4 registros
+y lo amplió: **dos fechas por rol** (auxiliares antes; docentes y tutor con `limite_notas`,
+sin plazo extra para el tutor) y una **rectificación de conducta y asistencia**. Decisiones y
+fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
+- **F0 HECHA en `dev`** (sin migración): la ruta vieja `POST /docente/calificaciones/conclusion`
+  —sin uso y capaz de escribir la conclusión de cualquier carga, bloqueada o no— se retiró;
+  `guardarConclusionAlumno` exige la carga propia y el plazo; aprobar una competencia exige
+  en el servidor la conclusión obligatoria. `verif_guardas_conclusion.php` en verde.
+- Batería tras F0: mismos fallos que en `HEAD` y todos de los datos locales
+  (`verif_asistencia_fechas`, `verif_boleta_sin_calificaciones`,
+  `verif_criterios_filtros_cascada`, `verif_direccion_superficies`, `verif_rol_auxiliar`,
+  `verif_stats_competencia`; este último descuadra un roster de cambio de sección también
+  en `HEAD`).
+- **Pendiente:** F1 → F2 → F3 → F4 (migración) → F5 (migración; cerrar su diseño con el
+  usuario antes). La F2 pone plazo a las transversales del tutor: **avisar antes a los
+  tutores**.
+
+
 ## 🆕 ASISTENCIA: ✓ POR ESTUDIANTE — DOS MODOS DEL AUXILIAR (09/10/2026, en `dev`, migración 077)
 
 Marca individual = solo ese estudiante; ⚠ del día / aviso de hoy = ✓ a los que faltan;

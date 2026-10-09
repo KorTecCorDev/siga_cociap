@@ -596,6 +596,24 @@ Variables calculadas por competencia justo tras `$esTransversal` (líneas ~106):
 > todos los alumnos con nota u omisión. El camino "No se evaluó" (sin criterios)
 > se evalúa antes de la puerta y no se ve afectado.
 
+> **Conclusión obligatoria EN EL SERVIDOR (09/10/2026, F0 del plan de bloqueos).**
+> Hasta ese día solo la exigía `resumen.js`: un POST directo a `bloquear()` aprobaba
+> una competencia con conclusiones obligatorias vacías. `errorBloqueoCompetencia`
+> las exige ahora, por el punto único `CalificacionModel::conclusionObligatoria`
+> (primaria B/C, secundaria C), salvo los exonerados y las **transversales** (su
+> conclusión es del tutor). El navegador exige además 10 caracteres; el servidor,
+> como la rectificación, solo que no esté vacía. Medido el 09/10 en la BD local:
+> ningún bloqueo de docente tenía una obligatoria vacía, así que la regla no
+> cambia nada de lo ya aprobado.
+>
+> **Ruta retirada:** `POST /docente/calificaciones/conclusion`
+> (`guardarConclusion`) ya no existe. Ninguna vista la usaba (el bloque de
+> `calificaciones.js` buscaba un botón que no se pinta) y escribía la conclusión de
+> **cualquier** carga, bloqueada o no, sin plazo. La única vía es
+> `/{carga}/conclusion/{competencia}` (`guardarConclusionAlumno`), que ahora exige
+> además la carga propia y el plazo vigente. Protegido por
+> `verif_guardas_conclusion.php`.
+
 ### "No se evaluó" — acción
 Reusa el endpoint existente `POST /docente/calificaciones/{carga}/bloquear/{comp}`
 con `sin_calificaciones=1` (mismo backend que el botón "no se trabajó" del resumen,

@@ -97,7 +97,7 @@ $guarda = $rc->getMethod('errorBloqueoCompetencia');
 $guarda->setAccessible(true);
 $periodoArr = $pdo->query("SELECT id, anio_id FROM periodos WHERE id = " . PERIODO_ENSAYO)->fetch(PDO::FETCH_ASSOC);
 $bloquearSinNotas = static fn(int $carga, int $comp): ?string
-    => $guarda->invoke($ctrl, $carga, $comp, $periodoArr, true);
+    => $guarda->invoke($ctrl, $carga, $comp, $periodoArr, true, ''); // nivel: no aplica a «No se evaluó»
 
 // Copia de CONTROL de las vacías, escrita aquí a propósito (sin exoneraciones:
 // en el ensayo no hay secciones enteras exoneradas, y el paso 2c lo prueba aparte).

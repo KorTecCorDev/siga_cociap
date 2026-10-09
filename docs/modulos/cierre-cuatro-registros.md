@@ -1,5 +1,41 @@
 # Plan — Los cuatro registros del bimestre y el contrato del cierre
 
+> 🔴 **REPLANTEADO el 09/10/2026 — leer §0 antes que el resto.** El plan del 04/08
+> sigue válido en su diagnóstico, pero el usuario **derogó la D2** («una sola fecha») y
+> amplió el alcance. El orden y las fases vigentes son las de §0.
+
+## 0. Plan vigente (09/10/2026)
+
+### Decisiones del usuario (09/10/2026 — CERRADAS, no re-preguntar)
+- **Dos fechas por ROL** (deroga la D2 del 04/08):
+  - **Auxiliares** (conducta y asistencia): fecha propia, **anterior**.
+  - **Docentes** (académicas, TIC/GAMA y **todo lo del tutor**: conducta etapa 2,
+    conclusiones y cierre de transversales): `limite_notas`, la fecha final.
+  - **El tutor NO tiene plazo extra**: un tutor es también docente de otras secciones,
+    y un plazo mayor lo llevaría a registrar sus notas el último día mientras sus
+    colegas esperan.
+- **Las transversales del tutor quedan bajo la fecha docente** (es la F4 de abajo). Hay
+  que avisar antes a los tutores.
+- **La conducta se sigue pudiendo bloquear antes de `fecha_fin`** (la asistencia no).
+- **Después de «Bloquear y aprobar» nadie registra ni edita.** Para corregir: desbloquear
+  desde `/director/bloqueos`, o una **RECTIFICACIÓN de conducta y asistencia** por RA/admin,
+  con auditoría, como la de notas. Lectura aplicada: vencida la fecha de los auxiliares,
+  RA/admin tampoco registran por la vía normal (quedan el bloqueo forzado y la rectificación).
+
+### Fases vigentes (cada una desplegable sola, en este orden)
+| Fase | Qué | Migración | Estado |
+|---|---|---|---|
+| F0 | Correcciones urgentes: ruta vieja de conclusión retirada; `guardarConclusionAlumno` con carga propia y plazo; conclusión obligatoria en el servidor al aprobar | no | **HECHA en `dev` (09/10/2026)** — `verif_guardas_conclusion.php` |
+| F1 | Punto único del plazo `EdicionPeriodoModel` (las 5 copias de la regla + las 3 de «días para el cierre»; corrige el «0 días» tras vencer) | no | pendiente |
+| F2 | Coherencia: semáforo del auxiliar con `bimestreTerminado`; transversales del tutor bajo la compuerta; forzados solo con el periodo `activo`; comentarios vencidos | no | pendiente |
+| F3 | Guard del cierre: asistencia bloqueada y conducta en sus dos etapas, todas las secciones del año | no | pendiente |
+| F4 | `periodos.limite_auxiliares` (NULL = vale `limite_notas`); `fecha_fin ≤ limite_auxiliares ≤ limite_notas` | **sí** | pendiente |
+| F5 | Rectificación de conducta y asistencia (RA/admin, motivo + auditoría) | **sí** | pendiente — **diseño a cerrar con el usuario** (qué se rectifica en conducta y en asistencia por fechas, tabla de auditoría, etapa 2 ya cerrada, boleta publicada) |
+
+- La F3 vieja (guard de sección vacía de asistencia) ya la cubren el 100 % confirmado y
+  «cada estudiante, cada día» (29/09 y 09/10/2026): no se implementa.
+- La F4 vieja (transversales bajo la compuerta) pasa a la F2 nueva.
+
 > **Estado: PLAN APROBADO EN SUS DECISIONES, SIN IMPLEMENTAR.** Redactado el
 > **04/08/2026**. Se ejecutaba **después de cerrar y publicar el II Bimestre**, para que
 > el primer bimestre bajo las reglas nuevas fuera el **III**.

@@ -1245,43 +1245,6 @@ class CalificacionController extends BaseController
         ]);
     }
 
-    /**
-     * POST /docente/calificaciones/conclusion
-     * Guarda la conclusión descriptiva de una competencia.
-     */
-    public function guardarConclusion(): void
-    {
-        $this->validateCsrf();
-
-        $matriculaId   = (int) $this->input('matricula_id');
-        $cargaId       = (int) $this->input('carga_id');
-        $competenciaId = (int) $this->input('competencia_id');
-        $conclusion    = trim($this->input('conclusion', ''));
-        $periodo       = $this->getPeriodoActivo();
-
-        if (!$periodo) {
-            $this->json([
-                'success' => false,
-                'mensaje' => 'Sin periodo activo.',
-            ], 400);
-        }
-
-        $ok = $this->calModel->execute("
-            UPDATE calificaciones
-            SET conclusion_descriptiva = ?,
-                modificado_en          = NOW()
-            WHERE matricula_id   = ?
-              AND carga_id       = ?
-              AND competencia_id = ?
-              AND periodo_id     = ?
-        ", [$conclusion, $matriculaId, $cargaId, $competenciaId, $periodo['id']]);
-
-        $this->json([
-            'success' => $ok,
-            'mensaje' => $ok ? 'Conclusión guardada.' : 'Error al guardar.',
-        ]);
-    }
-
     // ── Métodos privados ─────────────────────────────────────
 
     private function getPeriodoActivo(): ?array
@@ -1714,6 +1677,19 @@ class CalificacionController extends BaseController
             $this->json(['success' => false, 'mensaje' => 'Sin periodo activo.'], 400);
         }
 
+        // La carga debe ser del docente en sesión y el plazo estar vigente
+        // (09/10/2026): mismas guardas que `bloquear()`. Antes el endpoint
+        // aceptaba cualquier carga_id.
+        if (!$this->validarCargaDocente($cargaId)) {
+            $this->json(['success' => false, 'mensaje' => 'Carga no encontrada.'], 403);
+        }
+        if ($this->calModel->periodoEstaBloqueado((int) $periodo['id'])) {
+            $this->json([
+                'success' => false,
+                'mensaje' => 'El plazo para registrar calificaciones venció.',
+            ], 403);
+        }
+
         if ($this->calModel->competenciaBloqueada($cargaId, $competenciaId, $periodo['id'])) {
             $this->json(['success' => false, 'mensaje' => 'Competencia bloqueada.'], 403);
         }
@@ -1734,9 +1710,13 @@ class CalificacionController extends BaseController
             $this->json(['success' => true, 'mensaje' => 'Conclusión guardada.']);
 
         } catch (\Exception $e) {
+            log_error('Error al guardar conclusion descriptiva', [
+                'carga_id' => $cargaId, 'competencia_id' => $competenciaId,
+                'matricula_id' => $matriculaId, 'error' => $e->getMessage(),
+            ]);
             $this->json([
                 'success' => false,
-                'mensaje' => 'Error: ' . $e->getMessage(),
+                'mensaje' => 'No se pudo guardar la conclusión. Inténtalo de nuevo.',
             ], 500);
         }
     }
@@ -1765,7 +1745,8 @@ class CalificacionController extends BaseController
 
         // La carga debe ser del docente en sesión (01/10/2026). Antes solo lo
         // filtraban las pantallas; el endpoint aceptaba cualquier carga_id.
-        if (!$this->validarCargaDocente($cargaId)) {
+        $carga = $this->validarCargaDocente($cargaId);
+        if (!$carga) {
             $this->json(['success' => false, 'mensaje' => 'Carga no encontrada.'], 403);
         }
 
@@ -1785,7 +1766,7 @@ class CalificacionController extends BaseController
 
         // Validar la competencia que se quiere bloquear (propia o transversal).
         $error = $this->errorBloqueoCompetencia(
-            $cargaId, $competenciaId, $periodo, $confirmaSinNotas
+            $cargaId, $competenciaId, $periodo, $confirmaSinNotas, (string) $carga['nivel_codigo']
         );
         if ($error !== null) {
             $this->json(['success' => false, 'mensaje' => $error], 400);
@@ -1811,7 +1792,8 @@ class CalificacionController extends BaseController
         int $cargaId,
         int $competenciaId,
         array $periodo,
-        bool $confirmaSinNotas
+        bool $confirmaSinNotas,
+        string $nivelCodigo
     ): ?string {
         $resumen = $this->calModel->getResumenCompetencia(
             $cargaId, $competenciaId, (int) $periodo['id']
@@ -1881,6 +1863,31 @@ class CalificacionController extends BaseController
 
         if (!empty($sinNota)) {
             return 'Hay ' . count($sinNota) . ' alumno(s) sin nota ni motivo de omisión registrado.';
+        }
+
+        // Conclusión descriptiva obligatoria (09/10/2026): antes solo la exigía
+        // el navegador (`resumen.js`). Mismo punto único que la rectificación
+        // (`conclusionObligatoria`). Las transversales no aplican: su conclusión
+        // la registra el tutor.
+        $esTransversal = (bool) ($this->calModel->queryOne("
+            SELECT (a.tipo = 'transversal') AS es_transversal
+            FROM competencias c
+            LEFT JOIN areas a ON a.id = c.area_id
+            WHERE c.id = ?
+        ", [$competenciaId])['es_transversal'] ?? false);
+
+        if (!$esTransversal) {
+            $sinConclusion = array_filter(
+                $resumen['alumnos'],
+                fn($a) => $a['literal'] !== null
+                    && !in_array((int) $a['matricula_id'], $exonerados, true)
+                    && CalificacionModel::conclusionObligatoria($a['literal'], $nivelCodigo)
+                    && trim((string) ($a['conclusion_descriptiva'] ?? '')) === ''
+            );
+            if (!empty($sinConclusion)) {
+                return 'Hay ' . count($sinConclusion) . ' conclusión(es) descriptiva(s) '
+                     . 'obligatoria(s) sin guardar.';
+            }
         }
 
         return null;

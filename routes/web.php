@@ -358,7 +358,9 @@ $router->post('/docente/calificaciones/{carga_id}/omisiones', 'Docente\Calificac
 $router->post('/docente/criterios/crear',             'Docente\CalificacionController@crearCriterio');
 $router->post('/docente/criterios/{id}/renombrar',   'Docente\CalificacionController@renombrarCriterio');
 $router->post('/docente/criterios/{id}/eliminar',    'Docente\CalificacionController@eliminarCriterio');
-$router->post('/docente/calificaciones/conclusion', 'Docente\CalificacionController@guardarConclusion');
+// `POST /docente/calificaciones/conclusion` se retiró el 09/10/2026: ninguna vista
+// la usaba y escribía la conclusión de cualquier carga, bloqueada o no. La única
+// vía es `/{carga_id}/conclusion/{competencia_id}` (guardarConclusionAlumno).
 
 
 // ─── Panel padre ─────────────────────────────────────────────
