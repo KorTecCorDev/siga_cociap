@@ -51,9 +51,10 @@ $etiquetas = [
     </div>
 </div>
 
-<?php // Selector de estudiante: funciona sin JS (botón «Ir»); con JS cambia solo
-      // al elegir y avisa si hay cambios sin guardar. ✓ = registro guardado; en
-      // un bimestre por fechas, CONFIRMADO (29/09/2026). ?>
+<?php // Selector de estudiante: con JS cambia solo al elegir y avisa si hay
+      // cambios sin guardar; el botón «Ir» queda solo para un navegador sin JS
+      // (09/10/2026). ✓ = registro guardado; en un bimestre por fechas,
+      // CONFIRMADO (29/09/2026). ?>
 <form method="get" action="<?= url('admin/asistencia/' . $sid . '/estudiante') ?>"
       class="registro-estudiante-selector" data-selector-estudiante>
     <label class="form-label" for="selector-estudiante">Estudiante</label>
@@ -65,7 +66,7 @@ $etiquetas = [
             </option>
         <?php endforeach; ?>
     </select>
-    <button type="submit" class="btn btn--secondary btn--sm">Ir</button>
+    <noscript><button type="submit" class="btn btn--secondary btn--sm">Ir</button></noscript>
 </form>
 
 <div id="asistencia-feedback" class="asistencia-feedback" hidden role="status" aria-live="polite"></div>

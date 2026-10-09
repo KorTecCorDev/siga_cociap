@@ -146,6 +146,7 @@ $router->post('/admin/asistencia/{id}/jornada', 'Admin\AsistenciaController@jorn
 $router->post('/admin/asistencia/{id}/bloquear','Admin\AsistenciaController@bloquear');
 $router->get( '/admin/asistencia/{id}/imprimir/{periodo_id}', 'Admin\AsistenciaController@imprimir');
 $router->get( '/admin/asistencia/{id}/estudiante', 'Admin\AsistenciaController@estudiante');
+$router->get( '/admin/asistencia/{id}/justificaciones', 'Admin\AsistenciaController@justificaciones');
 $router->get( '/admin/asistencia/{id}',       'Admin\AsistenciaController@seccion');
 $router->post('/admin/asistencia/guardar',    'Admin\AsistenciaController@guardar');
 

@@ -415,6 +415,29 @@ $af-asistio:  $text-secondary;
     .tr-anexo-tipo   { width: 64px; text-align: center; font-weight: 700; }
 }
 
+// Vista «Justificaciones» de la sección (09/10/2026). Cifras con las cajas de
+// los cuadros (`.cuadros-kpi`) y tablas con el formato del anexo.
+.just-seccion {
+    &__kpis { margin-bottom: $spacing-sm; }
+    &__nota { margin: 0 0 $spacing-md; }
+
+    &__ancla {
+        display: inline-flex;
+        align-items: center;
+        gap: $spacing-xs;
+        margin-left: $spacing-sm;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+    }
+
+    &__tabla {
+        th               { white-space: nowrap; }
+        .tr-anexo-motivo { text-align: left; }
+        .tr-anexo-estado { width: 130px; text-align: center; }
+        .tr-nombre .af-estado { margin-left: $spacing-xs; }
+    }
+}
+
 // Selector de mes (mismo patrón que el de años de los criterios de conducta).
 .af-meses {
     display: flex;
@@ -735,14 +758,47 @@ $af-asistio:  $text-secondary;
     &.af-celda--con-motivo::after { top: 4px; right: 4px; width: 14px; height: 14px; }
 }
 
+// Justificaciones del estudiante (09/10/2026): chips con el color de la pastilla
+// del contador (`.af-tipo--fj|tj`, mixin `af-tipo-colores`) y tabla por fecha.
 .af-justificaciones {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $spacing-xs;
     margin: $spacing-md 0 0;
-    padding: 0;
-    list-style: none;
 
     &[hidden] { display: none; }
+
+    &__titulo {
+        margin: 0 0 $spacing-xs;
+        font-size: $font-size-base;
+        font-weight: 700;
+    }
+
+    &__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+        margin: 0 0 $spacing-sm;
+        padding: 0;
+        list-style: none;
+    }
+
     &__falta { border-style: dashed; color: $color-warning; }
+
+    // Tamaño de botón sobre la pastilla: el color no se toca.
+    .af-tipo.af-justificaciones__chip {
+        min-height: 36px;
+        padding: $spacing-xs $spacing-sm;
+        font-size: $font-size-sm;
+        font-weight: 700;
+        cursor: pointer;
+
+        &.af-tipo--con-motivo { padding-right: 16px; }
+        &:focus-visible { outline: 2px solid $brand-mid; outline-offset: 2px; }
+    }
+
+    &__tabla th { white-space: nowrap; }
+
+    &__fila {
+        cursor: pointer;
+
+        &:focus-visible { outline: 2px solid $brand-mid; outline-offset: -2px; }
+    }
 }

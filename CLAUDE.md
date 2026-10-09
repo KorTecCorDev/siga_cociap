@@ -310,16 +310,22 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   Bimestre 2026 son histórico de solo números. Protegido por
   `verif_asistencia_fechas.php` y `verif_confirmacion_conducta.php`. Ver
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
-- **Lista del día y justificación con motivo** (migración 070, 30/09/2026):
-  - **✓ asistió NO es un dato por estudiante.** Es «la sección tiene su lista
-    (`asistencia_jornadas`) ese día» más «el estudiante no tiene incidencia». Sin lista,
-    el día está «Sin tomar» y no se afirma nada.
-  - Cualquier marca toma la lista (`marcarDia`).
-  - El bloqueo del auxiliar/RA exige **0 días sin tomar**; el del director es forzado.
+- **Lista del día, ✓ por estudiante y justificación con motivo** (migraciones 070 y
+  077; deroga el 09/10/2026 la regla «✓ asistió NO es un dato por estudiante»):
+  - Un día de un estudiante está **cubierto** si tiene incidencia, su **propio ✓**
+    (`asistencia_presencias`) o la **lista de la sección** (`asistencia_jornadas` =
+    «todos los que no tienen marca propia asistieron»). Si no, está «Sin tomar» y no se
+    afirma nada. Sirve a los dos modos del auxiliar: en bloque o uno por uno.
+  - **Una marca individual afirma SOLO sobre ese estudiante**: `marcarDia` ya NO toma la
+    lista. Presencia e incidencia de un día nunca conviven (misma transacción). Los dos
+    ✓ se ven IGUAL. **No hay «deshacer lista»**: un día se corrige marcando.
+  - El bloqueo del auxiliar/RA exige **cada estudiante, cada día** (`pendientesPorDia`);
+    el del director es forzado.
   - **FJ/TJ SIEMPRE con motivo**: lo exigen el modelo y el CHECK
     `chk_justificada_con_motivo`, así que no existen ni como borrador.
   - Los **días no lectivos** son de todo el colegio y se excluyen de `diasMarcables`.
-  - PUNTO ÚNICO: `AsistenciaJornadaModel`. Protegido por `verif_asistencia_jornadas.php`.
+  - PUNTO ÚNICO: `AsistenciaJornadaModel` (las tres tablas). Protegido por
+    `verif_asistencia_jornadas.php` y `verif_asistencia_presencias.php`.
 - **Orden de mérito excluye áreas `tipo IN ('transversal','tutoria')`, con UNA excepción:
   ÉTICA Y VALORES cuenta en TODA secundaria, 5.º incluido** (decisión cerrada 05/08/2026).
   **Ética NO es tutoría**: es la nota del área-curso **Educación Religiosa de secundaria**,

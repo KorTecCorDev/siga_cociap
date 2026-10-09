@@ -339,7 +339,8 @@ class RetornoGradoController extends BaseController
      * fechas (invariante) y deben vivir en la misma matrícula.
      */
     private const TABLAS_DEL_BIMESTRE = [
-        'inasistencias', 'asistencia_incidencias',
+        // `asistencia_presencias`: el ✓ propio de cada día (migración 077).
+        'inasistencias', 'asistencia_incidencias', 'asistencia_presencias',
         'conducta_respuestas', 'conducta_confirmaciones', 'calificaciones_conducta',
     ];
 

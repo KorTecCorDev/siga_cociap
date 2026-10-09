@@ -3,21 +3,28 @@
 namespace App\Models;
 
 /**
- * AsistenciaJornadaModel — LISTA DEL DÍA y DÍAS NO LECTIVOS (30/09/2026,
- * migración 070). Ver docs/modulos/confirmacion-y-asistencia-por-fechas.md.
+ * AsistenciaJornadaModel — LISTA DEL DÍA, ✓ POR ESTUDIANTE y DÍAS NO LECTIVOS
+ * (30/09/2026, migración 070; presencias desde el 09/10/2026, migración 077).
+ * Ver docs/modulos/confirmacion-y-asistencia-por-fechas.md (décima ronda).
  *
- * 🔴 «✓ asistió» NO es un dato por estudiante: es «la sección tiene su lista
- * tomada ese día» + «el estudiante no tiene incidencia ese día». Sin lista, el
- * día está «Sin tomar» y la pantalla no afirma nada. Es el PUNTO ÚNICO de las
- * dos tablas; nadie más las escribe:
+ * 🔴 Un día de un estudiante está CUBIERTO si tiene una incidencia, o su propio
+ * «✓ asistió» (presencia), o si su sección tiene la LISTA de ese día («todos los
+ * que no tienen marca propia asistieron»). Sin nada de eso está «Sin tomar» y la
+ * pantalla no afirma nada. Sirve a los dos modos del auxiliar: en bloque (lista)
+ * o uno por uno (presencias); ninguna marca individual toma la lista.
+ *
+ * Es el PUNTO ÚNICO de las tres tablas; nadie más las escribe:
  *   - `asistencia_jornadas`: una fila por sección, BIMESTRE y fecha (los
- *     bimestres se solapan). La crea cualquier marca (`AsistenciaModel::marcarDia`
- *     llama a `tomar` en su transacción) o el botón «Pasar lista». Solo se
- *     deshace si ningún estudiante de la sección tiene incidencia ese día.
+ *     bimestres se solapan). Solo la crea «Pasar lista» (⚠ del día o el aviso de
+ *     hoy). No se deshace (decisión del usuario, 09/10/2026): un día se corrige
+ *     marcando a cada estudiante, y un día no lectivo borra sus listas solo.
+ *   - `asistencia_presencias`: el ✓ de un estudiante en un día. La escribe
+ *     `AsistenciaModel::marcarDia`, que en su transacción garantiza que nunca
+ *     conviva con una incidencia del mismo día.
  *   - `asistencia_dias_no_lectivos`: feriados y suspensiones de TODO el colegio.
  *     Un día no lectivo no se marca ni se exige al bloquear.
  *
- * En 2027 el ingreso por QR abrirá la misma lista con `origen = 'qr'`.
+ * En 2027 el ingreso por QR escribirá presencias con `origen = 'qr'`.
  */
 class AsistenciaJornadaModel extends BaseModel
 {
@@ -53,8 +60,8 @@ class AsistenciaJornadaModel extends BaseModel
     }
 
     /**
-     * Toma la lista del día (idempotente: si ya estaba, no cambia nada). SIN
-     * transacción propia: la abre quien llama (`marcarDia`) o `pasarLista`.
+     * Toma la lista del día (idempotente: si ya estaba, no cambia nada). Solo la
+     * llama `pasarLista`: desde la 077 ninguna marca individual la toma.
      */
     public function tomar(int $seccionId, int $periodoId, string $fecha, ?int $userId, string $origen = 'manual'): void
     {
@@ -87,22 +94,88 @@ class AsistenciaJornadaModel extends BaseModel
         return ['ok' => true, 'mensaje' => 'Lista tomada.'];
     }
 
+    // ── ✓ por estudiante (migración 077) ─────────────────────────
+
     /**
-     * Deshace la lista de un día: SOLO si ningún estudiante de la sección tiene
-     * incidencia ese día en el bimestre (decisión del usuario, 30/09/2026). Con
-     * incidencias, primero hay que quitarlas: así nunca se borra un dato de paso.
-     *
-     * @return array{ok:bool, mensaje:string}
+     * «✓ asistió» de UN estudiante en un día (idempotente). SIN transacción
+     * propia: la abre `AsistenciaModel::marcarDia`, que antes borra la incidencia
+     * del día (presencia e incidencia nunca conviven).
      */
-    public function deshacer(int $seccionId, int $periodoId, string $fecha): array
+    public function marcarPresente(int $matriculaId, int $periodoId, string $fecha, int $userId): void
     {
-        if ($this->incidenciasDelDia($seccionId, $periodoId, $fecha) > 0) {
-            return ['ok' => false, 'mensaje' => 'Ese día tiene incidencias registradas: quítalas antes de deshacer la lista.'];
-        }
         $this->execute("
-            DELETE FROM asistencia_jornadas WHERE seccion_id = ? AND periodo_id = ? AND fecha = ?
-        ", [$seccionId, $periodoId, $fecha]);
-        return ['ok' => true, 'mensaje' => 'Lista deshecha.'];
+            INSERT INTO asistencia_presencias (matricula_id, periodo_id, fecha, registrado_por)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE periodo_id = VALUES(periodo_id)
+        ", [$matriculaId, $periodoId, $fecha, $userId]);
+    }
+
+    /** Quita el ✓ propio de un día (al marcarle una incidencia). Sin transacción propia. */
+    public function quitarPresente(int $matriculaId, string $fecha): void
+    {
+        $this->execute("
+            DELETE FROM asistencia_presencias WHERE matricula_id = ? AND fecha = ?
+        ", [$matriculaId, $fecha]);
+    }
+
+    /**
+     * ✓ propios de varias matrículas en un bimestre.
+     *
+     * @return array<int, array<string, true>> [matricula_id => [fecha => true]]
+     */
+    public function presenciasDe(array $matriculaIds, int $periodoId): array
+    {
+        $ids = array_values(array_filter(array_map('intval', $matriculaIds)));
+        if ($ids === []) {
+            return [];
+        }
+        $ph  = implode(',', array_fill(0, count($ids), '?'));
+        $out = [];
+        foreach ($this->query("
+            SELECT matricula_id, fecha FROM asistencia_presencias
+            WHERE periodo_id = ? AND matricula_id IN ({$ph})
+        ", array_merge([$periodoId], $ids)) as $r) {
+            $out[(int) $r['matricula_id']][(string) $r['fecha']] = true;
+        }
+        return $out;
+    }
+
+    /**
+     * Estudiantes SIN CUBRIR por día: para cada día marcable del bimestre (hasta
+     * hoy, sin no lectivos), cuántos del roster no tienen incidencia, ni ✓ propio,
+     * ni la lista de la sección. El roster es el de la grilla
+     * (`getEstudiantesConIncidencias`); quien ya lo tiene lo pasa en $matriculaIds.
+     *
+     * @return array<string, int> [fecha => sin cubrir] (incluye los días en 0)
+     */
+    public function pendientesPorDia(int $seccionId, array $periodo, ?array $matriculaIds = null, ?string $hoy = null): array
+    {
+        $pid = (int) $periodo['id'];
+        $ids = $matriculaIds ?? array_column(
+            (new AsistenciaModel())->getEstudiantesConIncidencias($seccionId, $pid), 'matricula_id'
+        );
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+
+        $tomadas  = $this->tomadasDe($seccionId, $pid);
+        $cubiertos = [];   // [fecha => [matricula_id => true]]
+        if ($ids !== []) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            foreach ($this->query("
+                SELECT matricula_id, fecha FROM asistencia_incidencias
+                WHERE periodo_id = ? AND matricula_id IN ({$ph})
+                UNION
+                SELECT matricula_id, fecha FROM asistencia_presencias
+                WHERE periodo_id = ? AND matricula_id IN ({$ph})
+            ", array_merge([$pid], $ids, [$pid], $ids)) as $r) {
+                $cubiertos[(string) $r['fecha']][(int) $r['matricula_id']] = true;
+            }
+        }
+
+        $out = [];
+        foreach (AsistenciaModel::diasMarcables($periodo, $hoy, $this->noLectivos()) as $f) {
+            $out[$f] = isset($tomadas[$f]) ? 0 : count($ids) - count($cubiertos[$f] ?? []);
+        }
+        return $out;
     }
 
     /** Incidencias de CUALQUIER matrícula de la sección ese día y bimestre. */
@@ -119,17 +192,17 @@ class AsistenciaJornadaModel extends BaseModel
     }
 
     /**
-     * Días MARCABLES del bimestre (hasta hoy, sin no lectivos) que la sección aún
-     * no tiene tomados. El bloqueo del auxiliar/RA exige que esté vacío.
+     * Días MARCABLES del bimestre (hasta hoy, sin no lectivos) con AL MENOS UN
+     * estudiante sin cubrir (077: cada estudiante, cada día). El bloqueo del
+     * auxiliar/RA exige que esté vacío.
      *
      * @return list<string>
      */
-    public function diasSinTomar(int $seccionId, array $periodo, ?string $hoy = null): array
+    public function diasSinTomar(int $seccionId, array $periodo, ?string $hoy = null, ?array $matriculaIds = null): array
     {
-        $tomadas = $this->tomadasDe($seccionId, (int) $periodo['id']);
-        return array_values(array_filter(
-            AsistenciaModel::diasMarcables($periodo, $hoy, $this->noLectivos()),
-            static fn(string $f): bool => !isset($tomadas[$f])
+        return array_keys(array_filter(
+            $this->pendientesPorDia($seccionId, $periodo, $matriculaIds, $hoy),
+            static fn(int $n): bool => $n > 0
         ));
     }
 
@@ -171,8 +244,9 @@ class AsistenciaJornadaModel extends BaseModel
     /**
      * Declara un día NO LECTIVO para todo el colegio. Rechaza fines de semana,
      * días repetidos y días en que ALGÚN estudiante ya tiene incidencia (habría
-     * que quitarla antes: no se borran datos de paso). Las listas de ese día se
-     * borran en la misma transacción: sin incidencias no llevan ningún dato.
+     * que quitarla antes: no se borran datos de paso). Las listas y los ✓ propios
+     * de ese día se borran en la misma transacción: sin incidencias no llevan
+     * ningún dato que cuente.
      *
      * @return array{ok:bool, mensaje:string}
      */
@@ -203,6 +277,10 @@ class AsistenciaJornadaModel extends BaseModel
                 INSERT INTO asistencia_dias_no_lectivos (fecha, motivo, registrado_por) VALUES (?, ?, ?)
             ", [$fecha, $motivo, $userId]);
             $this->execute("DELETE FROM asistencia_jornadas WHERE fecha = ?", [$fecha]);
+            // Los ✓ propios (077) corren la suerte de la lista: no suman a ningún
+            // contador, y como no hay «quitar marca» rechazarlos dejaría el día
+            // trabado para siempre (decisión del 09/10/2026).
+            $this->execute("DELETE FROM asistencia_presencias WHERE fecha = ?", [$fecha]);
             $this->commit();
         } catch (\Throwable $ex) {
             $this->rollback();

@@ -47,6 +47,12 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
         <a href="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/estudiante') ?>"
            class="btn btn--primary btn--sm">Registrar por estudiante</a>
     <?php endif; ?>
+    <?php // Detalle de justificaciones (09/10/2026): solo hay fechas y motivos en
+          // un bimestre POR FECHAS; también en historial o con la sección bloqueada. ?>
+    <?php if ($periodoVer && $porFechas): ?>
+        <a href="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/justificaciones?periodo=' . $pidVer) ?>"
+           class="btn btn--secondary btn--sm">Justificaciones</a>
+    <?php endif; ?>
 </div>
 
 <?php if (!empty($periodosNav)): ?>
@@ -127,7 +133,7 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
             <?php if (!$terminado): ?>
                 <span class="text-muted">— podrás bloquear desde el <?= e($fechas['finDdmm']) ?>, último día del bimestre</span>
             <?php elseif (!$completo): ?>
-                <span class="text-muted">— confirma a todos y pasa lista de cada día para poder bloquear</span>
+                <span class="text-muted">— confirma a todos y marca a cada estudiante en cada día para poder bloquear</span>
             <?php endif; ?>
         </div>
         <button type="submit" class="btn btn--success" <?= $completo ? '' : 'disabled' ?>>
@@ -147,5 +153,10 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
         </button>
     </form>
 <?php endif; ?>
+
+<?php // Leyenda de la grilla por fechas: DESPUÉS del bloqueo (09/10/2026). ?>
+<?php if ($porFechas && $periodoVer && !empty($estudiantes)) {
+    require VIEW_PATH . '/admin/asistencia/_leyenda-fechas.php';
+} ?>
 
 <?php endif; ?>

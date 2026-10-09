@@ -3,6 +3,84 @@
 > **ESTADO: DESPLEGADO en v1.0.5 (30/09/2026)**, con las migraciones `068`, `069` y `070`
 > aplicadas a mano en producción antes del push. Las rondas de abajo son el historial.
 
+> **DÉCIMA RONDA (09/10/2026, decisiones del usuario; migración 077) — ✓ por estudiante:
+> los dos modos de trabajo del auxiliar.** En `dev`. **Deroga** de la quinta ronda «✓ asistió
+> NO es un dato por estudiante», «cualquier marca toma la lista» y «Deshacer lista».
+> 1. **El problema:** unos auxiliares pasan lista en bloque y marcan solo las incidencias;
+>    otros registran uno por uno. Como cualquier marca tomaba la lista de la sección, marcar
+>    ✓ a un estudiante afirmaba que todos los demás asistieron. Obligar a un solo modo no
+>    mejoraba el dato (boleta y SIAGIE solo cuentan F/FJ/T/TJ): fue un requisito que no se
+>    relevó el 30/09.
+> 2. **Modelo:** tabla `asistencia_presencias` (✓ de un estudiante en un día, `origen`
+>    manual/qr). Un día de un estudiante está **cubierto** si tiene incidencia, ✓ propio o
+>    la lista de la sección (que ahora significa «todos los que no tienen marca propia
+>    asistieron»). `marcarDia` escribe el ✓ o lo borra al marcar una incidencia, en su
+>    transacción: **nunca conviven**. El ✓ no toca contadores ni desconfirma.
+> 3. **Pantalla, sin acciones nuevas:**
+>    - el menú de la celda no cambia;
+>    - ⚠ del encabezado = «faltan N, tocar para marcar ✓ a los que faltan»;
+>    - ✓ del encabezado = día completo, **solo indicador**.
+>    - **«Deshacer lista» se eliminó:** un no lectivo ya borra sus listas, y un error se
+>      corrige marcando. Además era un botón con forma de indicador que se tocaba sin querer.
+>    - «Quitar marca» se descartó: un día nunca termina «Sin tomar».
+>    - ✓ propio y ✓ de la lista se ven **igual**.
+> 4. **Aviso de hoy** (`.af-aviso-hoy`, reemplaza a «Pasar lista de hoy» y al texto de la
+>    barra):
+>    - «Hoy, jueves 09/10: todavía no se toma lista. [Todos asistieron]»;
+>    - «faltan N estudiante(s) por marcar. [Marcar a los N como asistentes]»;
+>    - «lista completa · X falta(s) · Y tardanza(s).».
+>    - Va siempre `alert--info`, porque `auth.js` cierra solos los `--success`/`--warning`.
+>    - La grilla abre desplazada hasta la columna de hoy.
+> 5. **Bloqueo:** cada estudiante, cada día (`AsistenciaJornadaModel::pendientesPorDia`). El
+>    mensaje lista «07/10 (3 estudiantes)». `diasSinTomar` = días con al menos uno sin cubrir
+>    (panel del auxiliar y pie de la grilla, que se refresca con cada marca). El forzado del
+>    director no lo exige.
+> 6. **Día no lectivo:** se sigue negando con incidencias. Los ✓ propios de ese día se borran
+>    con sus listas: no suman a ningún contador y, sin «quitar marca», rechazarlos trabaría
+>    el día. Esto **cambia lo dicho en el plan** («se rechaza»), y se avisó al usuario.
+> 7. **Retorno de grado:** `asistencia_presencias` está en `TABLAS_DEL_BIMESTRE` (se mueve y
+>    se revierte con la matrícula).
+> 8. **Datos existentes:** no se tocaron. Las 928 listas locales siguen significando «sección
+>    completa». Los contadores, comparados antes y después de la 077 (suma y huella), salieron
+>    idénticos.
+> 9. **Leyenda y bloqueo** (mismo día): el bloque «Bloquear y aprobar» va ANTES de la leyenda
+>    (`_leyenda-fechas.php`). La leyenda quedó solo con símbolos y una línea («Los totales son
+>    del bimestre entero»).
+> 10. **Verificadores:**
+>     - `verif_asistencia_presencias.php` (nuevo, 30 asertos);
+>     - `verif_asistencia_jornadas.php` reescrito (marcarDia ya NO toma la lista, no existe
+>       deshacer, el bloqueo usa `pendientesPorDia`);
+>     - `verif_reversion_retorno.php` incluye la tabla;
+>     - `verif_asistencia_partial_compartido.php` registra el rol de `justificaciones`.
+>     - Pendiente: `incidenciasDelDia` quedó sin uso (solo la llamaba `deshacer`).
+
+> **NOVENA RONDA (09/10/2026, decisiones del usuario; sin migración) — vista por estudiante
+> y vista «Justificaciones» de la sección.** En `dev`, probada en Chrome con AUXILIAR
+> (ESPINOZA), ADMIN y RA (COLONIA).
+> 1. **Chips → día:** tocar un chip (o una fila de su tabla) desplaza al día del calendario y
+>    abre su menú (`irAlDia` en `asistencia-fechas.js`). El desplazamiento es INMEDIATO a
+>    propósito: el menú enfoca el selector de motivo, y ese foco cortaba un `smooth` a medio
+>    camino.
+> 2. **Chips con la pastilla del contador** (`af-tipo--fj|tj`, + `--con-motivo` con el ancla)
+>    y **tabla** N° · Fecha (con día) · Tipo · Motivo · **Cuenta como** (FJ con el ancla, F con
+>    otro motivo; TJ siempre TJ). Las arma el JS en cada cambio, para seguir al autoguardado.
+>    **El chip dice solo tipo y fecha** («FJ 10/08»): con 40 justificaciones, los chips con
+>    motivo eran una pared. El motivo va en la tabla y en el `title`/`aria-label` del chip.
+> 3. **Los 4 totales viven DENTRO de la cabecera sticky** (`.registro-estudiante__cabecera
+>    .af-totales`, versión compacta), así que siguen a la vista al bajar hasta los últimos meses.
+> 4. **«Ir» del selector solo en `<noscript>`**: con JS, el `change` ya navega.
+> 5. **Vista nueva `/admin/asistencia/{id}/justificaciones`** (botón «Justificaciones» en la
+>    tabla de la sección, solo en bimestres por fechas). Muestra los KPI, una tabla por motivo,
+>    otra por estudiante y el detalle por fecha. **«Autorizada» = FJ con el MOTIVO PRINCIPAL**
+>    (decisión del usuario): la que cuenta como FJ. La regla no se copia:
+>    `AsistenciaModel::resumenJustificaciones` llama a
+>    `AsistenciaEstadisticaModel::tipoQueCuenta`, que pasó a `public`. Roles y alcance son los
+>    de la tabla (admin, RA y el auxiliar de la sección, con 403 fuera de ella; resolución
+>    compartida en `resolverPeriodoVista`). Con el bimestre editable muestra el BORRADOR y
+>    marca «Sin confirmar». En historial o con la sección bloqueada, solo lo oficial.
+>    Cruzada contra los contadores guardados en la BD local: 46 secciones, 153
+>    justificaciones, 0 diferencias.
+
 > **OCTAVA RONDA (09/10/2026, decisiones del usuario; sin migración) — no se bloquea antes
 > del fin del bimestre, y el índice muestra las secciones bloqueadas.** En `dev`.
 > 1. **Hueco:** `diasSinTomar` corta en `min(fecha_fin, hoy)`, así que los días FUTUROS no

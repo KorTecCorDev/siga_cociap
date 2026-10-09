@@ -98,9 +98,10 @@ class AsistenciaEstadisticaModel extends BaseModel
     /**
      * Contador en que cae una marca: el mismo de `AsistenciaModel::sqlConteoContadores`
      * (una FJ fuera del ancla cuenta como F). Mantener las dos en sintonía: lo
-     * comprueba `verif_asistencia_estadisticas.php`.
+     * comprueba `verif_asistencia_estadisticas.php`. Pública desde el 09/10/2026:
+     * la usa también `AsistenciaModel::resumenJustificaciones` (vista de la sección).
      */
-    private static function tipoQueCuenta(array $x, ?int $ancla): string
+    public static function tipoQueCuenta(array $x, ?int $ancla): string
     {
         return ($x['tipo'] === 'FJ' && (int) ($x['motivo_id'] ?? 0) !== (int) ($ancla ?? 0)) ? 'F' : (string) $x['tipo'];
     }

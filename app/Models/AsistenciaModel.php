@@ -501,6 +501,86 @@ class AsistenciaModel extends BaseModel
     }
 
     /**
+     * Vista «JUSTIFICACIONES» de una sección (09/10/2026): las FJ/TJ registradas,
+     * resumidas por tipo, por motivo y por estudiante, más el detalle por fecha.
+     *
+     * Una FJ es AUTORIZADA si su motivo es el ANCLA del bimestre: es la que cuenta
+     * como FJ; con otro motivo cuenta como F. La regla NO se repite aquí: sale de
+     * `AsistenciaEstadisticaModel::tipoQueCuenta` (espejo de `sqlConteoContadores`).
+     *
+     * Función pura sobre el MISMO roster y las MISMAS incidencias que pinta la
+     * pantalla: el llamador decide si son borrador u oficiales.
+     *
+     * @param array    $estudiantes  roster en orden de lista (getEstudiantesConIncidencias)
+     * @param array    $incidencias  incidenciasDe(...) [mid => [fecha => {tipo, motivo_id, motivo}]]
+     * @param int|null $ancla        AsistenciaMotivoModel::anclaDelPeriodo()
+     */
+    public static function resumenJustificaciones(array $estudiantes, array $incidencias, ?int $ancla): array
+    {
+        $kpis = ['total' => 0, 'fj' => 0, 'tj' => 0, 'fj_autorizadas' => 0, 'fj_como_f' => 0, 'estudiantes' => 0];
+        $motivos = $porEstudiante = $detalle = [];
+
+        foreach (array_values($estudiantes) as $i => $est) {
+            $mid        = (int) $est['matricula_id'];
+            $confirmado = !empty($est['incidencias']['confirmado']);
+            $fila = ['num' => $i + 1, 'nombre' => (string) $est['nombre_completo'], 'confirmado' => $confirmado,
+                     'fj_autorizadas' => 0, 'fj_como_f' => 0, 'tj' => 0, 'total' => 0];
+
+            foreach ($incidencias[$mid] ?? [] as $fecha => $x) {
+                if (!in_array($x['tipo'], ['FJ', 'TJ'], true)) {
+                    continue;
+                }
+                $cuenta = AsistenciaEstadisticaModel::tipoQueCuenta($x, $ancla);
+                $motivoId = (int) ($x['motivo_id'] ?? 0);
+
+                $kpis['total']++;
+                $fila['total']++;
+                if ($x['tipo'] === 'TJ') {
+                    $kpis['tj']++;
+                    $fila['tj']++;
+                } else {
+                    $kpis['fj']++;
+                    $clave = $cuenta === 'FJ' ? 'fj_autorizadas' : 'fj_como_f';
+                    $kpis[$clave]++;
+                    $fila[$clave]++;
+                }
+
+                $motivos[$motivoId] ??= ['motivo' => (string) ($x['motivo'] ?? ''), 'ancla' => $ancla !== null && $motivoId === $ancla,
+                                         'fj' => 0, 'tj' => 0, 'total' => 0];
+                $motivos[$motivoId][$x['tipo'] === 'TJ' ? 'tj' : 'fj']++;
+                $motivos[$motivoId]['total']++;
+
+                $detalle[] = [
+                    'num'        => $i + 1,
+                    'nombre'     => (string) $est['nombre_completo'],
+                    'fecha'      => (string) $fecha,
+                    'tipo'       => $x['tipo'],
+                    'motivo'     => (string) ($x['motivo'] ?? ''),
+                    'ancla'      => $ancla !== null && $motivoId === $ancla,
+                    'cuenta'     => $cuenta,
+                    'confirmado' => $confirmado,
+                ];
+            }
+
+            if ($fila['total'] > 0) {
+                $kpis['estudiantes']++;
+                $porEstudiante[] = $fila;
+            }
+        }
+
+        // Motivos: el más usado primero; a igualdad, por nombre.
+        uasort($motivos, static fn(array $a, array $b): int
+            => [$b['total'], $a['motivo']] <=> [$a['total'], $b['motivo']]);
+
+        return [
+            'kpis'        => $kpis,
+            'motivos'     => array_values($motivos),
+            'estudiantes' => $porEstudiante,
+            'detalle'     => $detalle,
+        ];
+    }
+
+    /**
      * Incidencias por fecha de varias matrículas en un periodo, con el nombre
      * del motivo. Con $soloConfirmadas, solo las de filas CONFIRMADAS y que no
      * sean de la vía extraordinaria (lectura oficial: imprimible, Dirección).
@@ -652,12 +732,16 @@ class AsistenciaModel extends BaseModel
      * AUTOGUARDADO de UN día: marca (`$tipo` en TIPOS) o desmarca (`$tipo` null
      * = «✓ asistió») la fecha. FJ/TJ EXIGEN motivo del catálogo vigente (30/09/2026,
      * migración 070: también un CHECK en la base). Si algo CAMBIÓ, recalcula los
-     * contadores y la fila queda como borrador. En la MISMA transacción toma la
-     * LISTA DEL DÍA de la sección (`AsistenciaJornadaModel::tomar`): cualquier
-     * marca significa que ese día se pasó lista. Valida el DÍA contra
+     * contadores y la fila queda como borrador. Valida el DÍA contra
      * `diasMarcables` (sin no lectivos).
      *
-     * @return array{ok:bool, mensaje:string, contadores?:array, jornada_tomada?:bool}
+     * 🔴 La marca afirma SOLO sobre ESTE estudiante (09/10/2026, migración 077):
+     * ya NO toma la lista de la sección. «✓ asistió» guarda su presencia
+     * (`AsistenciaJornadaModel::marcarPresente`) y una incidencia la borra, en la
+     * MISMA transacción: presencia e incidencia de un día nunca conviven. El ✓ no
+     * toca contadores ni desconfirma; solo un cambio de incidencia lo hace.
+     *
+     * @return array{ok:bool, mensaje:string, contadores?:array}
      */
     public function marcarDia(int $matriculaId, int $periodoId, string $fecha, ?string $tipo, ?int $motivoId, int $userId): array
     {
@@ -690,7 +774,11 @@ class AsistenciaModel extends BaseModel
 
         $this->beginTransaction();
         try {
-            $jornadas->tomar($seccionId, $periodoId, $fecha, $userId);
+            if ($tipo === null) {
+                $jornadas->marcarPresente($matriculaId, $periodoId, $fecha, $userId);
+            } else {
+                $jornadas->quitarPresente($matriculaId, $fecha);
+            }
 
             $previa = $this->queryOne("
                 SELECT id, tipo, motivo_id FROM asistencia_incidencias
@@ -724,7 +812,7 @@ class AsistenciaModel extends BaseModel
         }
 
         return ['ok' => true, 'mensaje' => 'Guardado como borrador.',
-                'contadores' => $this->contadoresDe($matriculaId, $periodoId), 'jornada_tomada' => true];
+                'contadores' => $this->contadoresDe($matriculaId, $periodoId)];
     }
 
     /**
@@ -1113,12 +1201,20 @@ class AsistenciaModel extends BaseModel
                         'El bimestre aún no termina: podrás bloquear desde el ' .
                         self::ddmm((string) $periodo['fecha_fin']) . ', su último día.'];
                 }
-                $sinTomar = (new AsistenciaJornadaModel())->diasSinTomar($seccionId, $periodo);
+                // Cada estudiante, cada día (09/10/2026, migración 077): cubierto
+                // por su marca o por la lista de la sección.
+                $sinTomar = array_filter(
+                    (new AsistenciaJornadaModel())->pendientesPorDia($seccionId, $periodo),
+                    static fn(int $n): bool => $n > 0
+                );
                 if ($sinTomar !== []) {
-                    $lista = implode(', ', array_map(static fn(string $f): string => substr($f, 8, 2) . '/' . substr($f, 5, 2), $sinTomar));
+                    $lista = implode(', ', array_map(
+                        static fn(string $f, int $n): string => self::ddmm($f) . ' (' . $n . ($n === 1 ? ' estudiante' : ' estudiantes') . ')',
+                        array_keys($sinTomar), $sinTomar
+                    ));
                     return ['ok' => false, 'mensaje' =>
-                        'Hay ' . count($sinTomar) . " día(s) sin lista tomada ({$lista}). " .
-                        'Pasa lista de esos días (o que se declaren no lectivos) antes de bloquear.'];
+                        'Hay ' . count($sinTomar) . " día(s) con estudiantes sin marcar: {$lista}. " .
+                        'Márcalos antes de bloquear.'];
                 }
             }
         }

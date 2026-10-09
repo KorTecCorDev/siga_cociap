@@ -14,7 +14,7 @@
  *
  * Variables heredadas de `estudiante.php`: $est, $inc, $pos, $ultimo, $csrfToken,
  * $periodo, $siguienteUrl, $anteriorUrl, $calendario, $dias, $motivos, $jornadas,
- * $motivoPrincipal, $motivoPrincipalId.
+ * $presentes (✓ propios, migración 077), $motivoPrincipal, $motivoPrincipalId.
  */
 
 use App\Models\AsistenciaModel;
@@ -42,20 +42,23 @@ $motPrincipal   = $motivoPrincipalId ?? null;   // icono de documento en `_af-ce
         <span class="registro-estudiante__numero" title="N.° de lista">N.° <?= $pos + 1 ?></span>
         <h2 class="registro-estudiante__nombre"><?= e($est['nombre_completo']) ?></h2>
         <span class="af-estado"></span>
+
+        <?php // Totales del BIMESTRE: los calcula el servidor de las fechas. Van
+              // DENTRO de la cabecera fija (09/10/2026, pedido del usuario): al
+              // recorrer los últimos meses siguen a la vista. ?>
+        <dl class="af-totales">
+            <?php foreach (AsistenciaModel::CAMPOS as $c): [$corta, $larga] = $etiquetasAf[$c]; ?>
+                <div class="af-totales__item" title="<?= e($larga) ?>">
+                    <dt><?php if ($c === 'faltas_justificadas' && !empty($motivoPrincipal)):
+                            $nombreAnclaFj = $motivoPrincipal; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php';
+                        else: ?><span class="af-tipo af-tipo--<?= strtolower($corta) ?>"><?= e($corta) ?></span><?php endif; ?></dt>
+                    <dd class="af-total" data-campo="<?= $c ?>"><?= (int) $inc[$c] ?></dd>
+                </div>
+            <?php endforeach; ?>
+        </dl>
+
         <span class="asistencia-status" aria-live="polite"></span>
     </header>
-
-    <?php // Totales del BIMESTRE: los calcula el servidor de las fechas. ?>
-    <dl class="af-totales">
-        <?php foreach (AsistenciaModel::CAMPOS as $c): [$corta, $larga] = $etiquetasAf[$c]; ?>
-            <div class="af-totales__item" title="<?= e($larga) ?>">
-                <dt><?php if ($c === 'faltas_justificadas' && !empty($motivoPrincipal)):
-                        $nombreAnclaFj = $motivoPrincipal; require VIEW_PATH . '/admin/asistencia/_pastilla-fj.php';
-                    else: ?><span class="af-tipo af-tipo--<?= strtolower($corta) ?>"><?= e($corta) ?></span><?php endif; ?></dt>
-                <dd class="af-total" data-campo="<?= $c ?>"><?= (int) $inc[$c] ?></dd>
-            </div>
-        <?php endforeach; ?>
-    </dl>
 
     <?php foreach ($calendario as $clave => $mes): ?>
         <h3 class="af-mes__titulo"><?= e($mes['nombre']) ?></h3>
@@ -69,7 +72,8 @@ $motPrincipal   = $motivoPrincipalId ?? null;   // icono de documento en `_af-ce
                 // de un mes o bimestre que no empieza en lunes.
                 $colClase = 'af-col-' . (int) date('N', strtotime($d['fecha']));
                 $x        = $dias[$d['fecha']] ?? null;
-                $tomada   = isset($jornadas[$d['fecha']]);
+                // ✓ = su propia marca o la lista de la sección (077).
+                $tomada   = isset($jornadas[$d['fecha']]) || isset($presentes[$d['fecha']]);
                 $editable = true;
                 $grande   = true;
                 $etiqueta = '';
@@ -98,8 +102,27 @@ $motPrincipal   = $motivoPrincipalId ?? null;   // icono de documento en `_af-ce
         </p>
     </div>
 
-    <?php // Sus FJ/TJ con el motivo: tocar una abre el menú del día (lo arma el JS). ?>
-    <ul class="af-justificaciones" hidden></ul>
+    <?php // Sus FJ/TJ con el motivo (09/10/2026): chips con el color de la pastilla
+          // del contador y una tabla ordenada por fecha. Los arma el JS en cada
+          // cambio; tocar un chip o una fila lleva al día y abre su menú. ?>
+    <div class="af-justificaciones" hidden>
+        <h3 class="af-justificaciones__titulo">Justificaciones</h3>
+        <ul class="af-justificaciones__chips"></ul>
+        <div class="tabla-notas-wrapper">
+            <table class="tabla-notas asistencia-tabla tabla-anexo af-justificaciones__tabla">
+                <thead>
+                    <tr>
+                        <th class="tr-num">N&deg;</th>
+                        <th class="tr-anexo-fecha">Fecha</th>
+                        <th class="tr-anexo-tipo">Tipo</th>
+                        <th class="tr-anexo-motivo">Motivo</th>
+                        <th class="tr-anexo-tipo">Cuenta como</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
 
     <div class="registro-estudiante__acciones">
         <?php if ($anteriorUrl !== null): ?>

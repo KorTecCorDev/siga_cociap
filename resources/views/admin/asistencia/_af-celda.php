@@ -8,8 +8,9 @@
  *   futuro            gris punteado, sin acción
  *   con incidencia    pastilla F/FJ/T/TJ; icono de documento SOLO en FJ/TJ con
  *                     el MOTIVO PRINCIPAL (08/10/2026)
- *   lista tomada      ✓ (asistió): la sección pasó lista y no hay incidencia
- *   sin tomar         vacía: nadie pasó lista ese día, no se afirma nada
+ *   asistió           ✓: su propia marca o la lista de la sección, sin incidencia
+ *                     (077: las dos se ven IGUAL, decisión del usuario)
+ *   sin tomar         vacía: nada lo cubre ese día, no se afirma nada
  *
  * 🔴 CONTRATO DE DOM con `asistencia-fechas.js` (modo editable):
  * `button.af-celda[data-fecha][data-tipo][data-motivo][data-tomada]`; el JS
@@ -17,7 +18,7 @@
  *
  * @var array       $d          día del calendario {fecha, dia, marcable, no_lectivo}
  * @var array|null  $x          incidencia del día {tipo, motivo_id, motivo} o null
- * @var bool        $tomada     la sección tiene la lista del día
+ * @var bool        $tomada     el día está cubierto como «asistió»: ✓ propio o lista de la sección
  * @var bool        $editable   pintar botón (true) o texto de solo lectura
  * @var bool        $grande     celda grande del calendario (con el número del día)
  * @var string      $etiqueta   nombre del estudiante para el aria-label (grilla)

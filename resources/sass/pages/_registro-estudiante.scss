@@ -69,9 +69,28 @@
         .conducta-status,
         .asistencia-status {
             flex: 1 0 100%;
-            order: 4;
+            order: 5;
             text-align: left;
             &:empty { display: none; }
+        }
+
+        // Totales del bimestre (asistencia por fechas, 09/10/2026): fila propia
+        // dentro de la cabecera fija, compacta para no comerse la pantalla.
+        .af-totales {
+            flex: 1 0 100%;
+            order: 4;
+            gap: $spacing-xs;
+            margin: 0;
+        }
+
+        .af-totales__item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: $spacing-xs;
+            padding: 2px $spacing-xs;
+
+            dd { font-size: $font-size-lg; line-height: 1.2; }
         }
     }
 

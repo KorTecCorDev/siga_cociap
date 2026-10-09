@@ -35,6 +35,8 @@ use App\Models\AsistenciaModel;
 $mes         = $fechas['calendario'][$fechas['mesVer']] ?? ['nombre' => '', 'dias' => []];
 $diasMes     = $mes['dias'];
 $jornadas    = $fechas['jornadas'] ?? [];
+$presencias  = $fechas['presencias'] ?? [];   // ✓ propios (077)
+$pendientes  = $fechas['pendientes'] ?? [];   // sin cubrir por día (077)
 $motPrincipal = $fechas['motivoPrincipalId'] ?? null;   // icono de documento en `_af-celda.php`
 $campos      = AsistenciaModel::CAMPOS;
 $abrev       = ['faltas' => 'F', 'faltas_justificadas' => 'FJ', 'tardanzas' => 'T', 'tardanzas_justificadas' => 'TJ'];
@@ -42,9 +44,10 @@ $nombreTipo  = ['faltas' => 'Falta', 'faltas_justificadas' => 'Falta justificada
 $urlMes      = static fn(string $clave): string =>
     url('admin/asistencia/' . (int) $seccion['id'] . '?periodo=' . $pidVer . '&mes=' . $clave);
 $ddmm        = static fn(string $f): string => substr($f, 8, 2) . '/' . substr($f, 5, 2);
-// «Pasar lista de hoy»: solo si hoy es un día marcable del bimestre aún sin lista.
+// Aviso de HOY (09/10/2026): solo si hoy es día marcable y el mes mostrado lo incluye.
 $hoy         = $fechas['hoy'] ?? date('Y-m-d');
-$hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
+$avisoHoy    = $fechas['avisoHoy'] ?? null;
+$mostrarHoy  = $avisoHoy !== null && substr($hoy, 0, 7) === $fechas['mesVer'];
 ?>
 
 <?php if (count($fechas['calendario']) > 1): ?>
@@ -58,13 +61,31 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
 <?php endif; ?>
 
 <?php if ($editable): ?>
+    <?php // AVISO DE HOY (09/10/2026, reemplaza a «Pasar lista de hoy» y al texto
+          // de ayuda): dice cómo va el día y su botón dice lo que va a pasar.
+          // `--info` siempre: auth.js cierra solos los `--success`/`--warning`.
+          // `asistencia-fechas.js` lo repinta con cada marca. ?>
+    <?php if ($mostrarHoy):
+        $fechaHoyTxt = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'][(int) date('N', strtotime($hoy))]
+                     . ' ' . $ddmm($hoy); ?>
+        <div class="alert alert--info af-aviso-hoy" data-fecha="<?= e($hoy) ?>"
+             data-total="<?= count($estudiantes) ?>" data-faltan="<?= (int) $avisoHoy['faltan'] ?>">
+            <strong>Hoy, <?= e($fechaHoyTxt) ?>:</strong>
+            <span class="af-aviso-hoy__texto"><?php
+                if ((int) $avisoHoy['faltan'] === 0): ?>lista completa · <?= (int) $avisoHoy['faltas'] ?> falta(s) · <?= (int) $avisoHoy['tardanzas'] ?> tardanza(s).<?php
+                elseif ((int) $avisoHoy['faltan'] === count($estudiantes)): ?>todavía no se toma lista.<?php
+                else: ?>faltan <strong><?= (int) $avisoHoy['faltan'] ?></strong> estudiante(s) por marcar.<?php
+                endif; ?></span>
+            <button type="button" class="btn btn--success btn--sm alert__accion af-lista af-lista--hoy"
+                    data-fecha="<?= e($hoy) ?>"<?= (int) $avisoHoy['faltan'] === 0 ? ' hidden' : '' ?>><?=
+                (int) $avisoHoy['faltan'] === count($estudiantes)
+                    ? 'Todos asistieron'
+                    : 'Marcar a los ' . (int) $avisoHoy['faltan'] . ' como asistentes' ?></button>
+        </div>
+    <?php endif; ?>
+
     <div class="conducta-toolbar" data-jornada-url="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/jornada') ?>"
          data-csrf="<?= e($csrfToken) ?>">
-        <?php if ($hoySinTomar): ?>
-            <button type="button" class="btn btn--success btn--sm af-lista af-lista--hoy" data-fecha="<?= e($hoy) ?>" data-accion="tomar">
-                ✓ Pasar lista de hoy
-            </button>
-        <?php endif; ?>
         <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/confirmar-todo') ?>"
               class="af-confirmar-todo">
             <?= csrf_field() ?>
@@ -72,10 +93,6 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
                 <span class="btn-icon btn-icon--save" aria-hidden="true"></span> Confirmar todo
             </button>
         </form>
-        <span class="conducta-toolbar__hint text-muted">
-            Pasa lista y todos quedan con ✓; luego toca solo a quien faltó o llegó tarde.
-            Cada marca se guarda sola como borrador; solo lo confirmado cuenta.
-        </span>
     </div>
 <?php endif; ?>
 
@@ -91,26 +108,27 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
                     <span class="af-th-mes"><?= e($mes['nombre']) ?></span>
                     Apellidos y Nombres
                 </th>
-                <?php // Encabezado del día con el ESTADO DE SU LISTA (30/09/2026):
-                      // ⚠ = sin tomar (tocar = pasar lista), ✓ = tomada (tocar =
-                      // deshacer; el servidor lo niega si hay incidencias). ?>
+                <?php // Encabezado del día con su ESTADO (09/10/2026, migración 077):
+                      // ⚠ = faltan estudiantes por marcar (tocar = ✓ a los que
+                      // faltan); ✓ = día completo, SOLO indicador (sin «deshacer»). ?>
                 <?php foreach ($diasMes as $d):
-                    $f       = $d['fecha'];
-                    $tomada  = isset($jornadas[$f]);
-                    $claseTh = $d['no_lectivo'] !== null ? ' af-th-dia--no-lectivo'
-                        : (!$d['marcable'] ? ' af-th-dia--futuro' : ($tomada ? '' : ' af-th-dia--sin-tomar'));
+                    $f        = $d['fecha'];
+                    $faltanTh = (int) ($pendientes[$f] ?? 0);
+                    $completo = $faltanTh === 0;
+                    $claseTh  = $d['no_lectivo'] !== null ? ' af-th-dia--no-lectivo'
+                        : (!$d['marcable'] ? ' af-th-dia--futuro' : ($completo ? '' : ' af-th-dia--sin-tomar'));
                 ?>
-                    <th class="af-th-dia<?= $claseTh ?>" data-fecha="<?= e($f) ?>" data-tomada="<?= $tomada ? '1' : '0' ?>"
+                    <th class="af-th-dia<?= $claseTh ?>" data-fecha="<?= e($f) ?>" data-tomada="<?= isset($jornadas[$f]) ? '1' : '0' ?>"
                         title="<?= e($f . ($d['no_lectivo'] !== null ? ' · No lectivo: ' . $d['no_lectivo'] : '')) ?>">
                         <span class="af-th-dia__abrev"><?= e($d['abrev']) ?></span>
                         <span class="af-th-dia__num"><?= (int) $d['dia'] ?></span>
-                        <?php if ($editable && $d['marcable']): ?>
+                        <?php if ($editable && $d['marcable'] && !$completo): ?>
                             <button type="button" class="af-lista af-th-dia__lista" data-fecha="<?= e($f) ?>"
-                                    data-accion="<?= $tomada ? 'deshacer' : 'tomar' ?>"
-                                    title="<?= $tomada ? 'Lista tomada · tocar para deshacer' : 'Sin tomar · tocar para pasar lista' ?>"
-                                    aria-label="<?= e(($tomada ? 'Deshacer la lista del ' : 'Pasar lista del ') . $ddmm($f)) ?>"><?= $tomada ? '✓' : '⚠' ?></button>
+                                    title="<?= e('Faltan ' . $faltanTh . ' · tocar para marcar ✓ a los que faltan') ?>"
+                                    aria-label="<?= e('Marcar ✓ a los que faltan el ' . $ddmm($f)) ?>">⚠</button>
                         <?php elseif ($d['marcable']): ?>
-                            <span class="af-th-dia__lista af-th-dia__lista--solo"><?= $tomada ? '✓' : '⚠' ?></span>
+                            <span class="af-th-dia__lista af-th-dia__lista--solo"
+                                  title="<?= $completo ? 'Día completo' : 'Faltan estudiantes por marcar' ?>"><?= $completo ? '✓' : '⚠' ?></span>
                         <?php endif; ?>
                     </th>
                 <?php endforeach; ?>
@@ -153,10 +171,12 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
                         <td class="af-td-dia">
                             <?php
                             $x        = $dias[$d['fecha']] ?? null;
+                            // ✓ = su propia marca o la lista de la sección (077).
                             // Solo lectura: se muestran las incidencias CONFIRMADAS. Un
                             // estudiante sin confirmar (bloqueo forzado del director)
                             // no lleva ✓: sus incidencias no se ven y el ✓ mentiría.
-                            $tomada   = isset($jornadas[$d['fecha']]) && ($editable || !empty($inc['confirmado']));
+                            $tomada   = (isset($jornadas[$d['fecha']]) || isset($presencias[$mid][$d['fecha']]))
+                                        && ($editable || !empty($inc['confirmado']));
                             $grande   = false;
                             $colClase = '';
                             $etiqueta = (string) $est['nombre_completo'];
@@ -174,28 +194,8 @@ $hoySinTomar = $editable && in_array($hoy, $fechas['sinTomar'] ?? [], true);
     </table>
 </div>
 
-<div class="tabla-pie tabla-pie--suelto">
-    <p class="tabla-pie__leyenda">
-        <span class="tabla-pie__item"><span class="af-tipo af-tipo--asistio">✓</span> Asistió (lista tomada)</span>
-        <?php foreach ($campos as $c): ?>
-            <span class="tabla-pie__item">
-                <span class="af-tipo af-tipo--<?= strtolower($abrev[$c]) ?>"><?= $abrev[$c] ?></span> <?= e($nombreTipo[$c]) ?>
-            </span>
-        <?php endforeach; ?>
-        <span class="tabla-pie__item"><span class="af-tipo af-tipo--sin-tomar">⚠</span> Sin tomar lista</span>
-        <span class="tabla-pie__item"><span class="af-tipo af-tipo--nl">NL</span> No lectivo</span>
-        <span class="tabla-pie__item tabla-pie__item--bloque">
-            Los totales son del <strong>bimestre entero</strong>, no solo del mes. Los días en gris aún no
-            transcurren. En el encabezado, <strong>⚠</strong> marca un día sin lista tomada<?php if ($editable): ?>:
-            tócalo para pasar lista<?php endif; ?>. Toda justificación lleva su motivo; el icono de documento marca las de
-            «<?= e($fechas['motivoPrincipal'] ?? '') ?>».<?php if (!empty($fechas['motivoPrincipal'])): ?>
-            En el total <strong>F</strong> también se cuentan las FJ cuyo motivo no es
-            «<?= e($fechas['motivoPrincipal']) ?>».<?php endif; ?><?php if ($editable): ?>
-            Franja del N°: <strong>verde</strong> confirmado, <strong>ámbar</strong> sin confirmar. Para confirmar a un
-            solo estudiante, usa <em>Registrar por estudiante</em>.<?php endif; ?>
-        </span>
-    </p>
-</div>
+<?php // La LEYENDA vive en `_leyenda-fechas.php` y la incluye `seccion.php`
+      // DESPUÉS del bloqueo (09/10/2026): «Bloquear y aprobar» queda a la vista. ?>
 
 <?php if ($editable): ?>
     <?php $motivos = $fechas['motivos']; require VIEW_PATH . '/admin/asistencia/_af-menu.php'; ?>

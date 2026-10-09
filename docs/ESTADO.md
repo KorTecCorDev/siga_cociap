@@ -5,6 +5,44 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🆕 ASISTENCIA: ✓ POR ESTUDIANTE — DOS MODOS DEL AUXILIAR (09/10/2026, en `dev`, migración 077)
+
+Marca individual = solo ese estudiante; ⚠ del día / aviso de hoy = ✓ a los que faltan;
+sin «Deshacer lista»; el bloqueo exige cada estudiante cada día; botón de bloqueo antes de
+la leyenda y leyenda reducida. Detalle en la DÉCIMA RONDA de
+`docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
+- **077 aplicada en la BD LOCAL** de la oficina (09/10/2026). ⚠️ **Producción: aplicar
+  `077_asistencia_presencias.sql` a mano ANTES del merge** (como la 074/076). En otro
+  equipo, aplicarla también en su BD local.
+- Batería: los verificadores de asistencia en verde, salvo uno: `verif_asistencia_fechas.php`
+  no arma su escenario del traslado del ancla mientras 2.° B esté bloqueada en el III (es
+  por los datos: bloqueo de las 11:37 con la sesión de ESPINOZA, sin confirmar quién fue).
+- **Probado en Chrome con AUXILIAR (ESPINOZA), 2.° A** (09/10/2026), quitando a mano y
+  reponiendo idénticas las listas del 07 y del 09/10:
+  - un ✓ suelto cubre solo a ese estudiante y el aviso pasa a «faltan 17»;
+  - «Marcar a los 17…» completa el día y deja el aviso en «lista completa»;
+  - el ⚠ del 07/10 completa ese día;
+  - el encabezado pasa a ✓ (solo indicador) y «Días sin tomar» baja a 0;
+  - al recargar, «Bloquear y aprobar» se habilita (no se pulsó);
+  - la vista por estudiante funciona;
+  - en 375 px la grilla abre en la columna de hoy, tras corregir el cálculo de las
+    columnas fijas.
+  - Al terminar, los contadores salieron idénticos a la foto previa a la 077.
+- **Detalle de siempre:** el botón de bloqueo se habilita solo al recargar, porque su estado
+  lo calcula el servidor. Sin commit.
+
+## 🆕 ASISTENCIA: AJUSTES DE LA VISTA POR ESTUDIANTE + VISTA «JUSTIFICACIONES» (09/10/2026, en `dev`, sin migración)
+
+Chips que llevan al día, chips con el color de la pastilla y una tabla con «Cuenta como»,
+totales dentro de la cabecera fija, «Ir» solo sin JS y una vista nueva
+`/admin/asistencia/{id}/justificaciones` («autorizada» = FJ con el motivo principal).
+Detalle en la NOVENA RONDA de `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
+Probado en Chrome con AUXILIAR y con ADMIN: sección bloqueada (solo lo oficial, sin columna
+Estado), bimestre de solo números (estado vacío), dos motivos (6.° A: 43 autorizadas + 4
+como F = 47 FJ) y 375 px en un marco (sin desborde; cabecera fija con los totales).
+Probado también con RA (vista nueva, botón en la tabla, vista por estudiante). Pruebas
+cerradas. Sin commit.
+
 ## 🆕 RETORNO #1 EN LA BD LOCAL: tramo en el III sin cerrar (08/10/2026)
 
 BALTAZAR PINTO (oficial 190 en 2.° B, operativa 692 en 1.° B), retorno revertido.
