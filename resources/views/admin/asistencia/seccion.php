@@ -119,7 +119,7 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
           // comprobar en `AsistenciaModel::bloquearRA`. ?>
     <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/bloquear') ?>"
           class="conducta-bloqueo-form"
-          onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Después solo Dirección podrá desbloquearla.');">
+          onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Después de esta acción ya no podrás modificarla.');">
         <?= csrf_field() ?>
         <div class="conducta-bloqueo-info">
             Confirmados: <strong><?= (int) $prog['registrados'] ?>/<?= (int) $prog['esperados'] ?></strong>
@@ -137,7 +137,7 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
 <?php elseif ($editable): ?>
     <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/bloquear') ?>"
           class="conducta-bloqueo-form"
-          onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Las filas sin registro cuentan como 0 incidencias. Después solo Dirección podrá desbloquearla.');">
+          onsubmit="return confirm('¿Bloquear y aprobar la asistencia de toda la sección? Después de esta acción ya no podrás modificarla.');">
         <?= csrf_field() ?>
         <div class="conducta-bloqueo-info">
             Las filas sin guardar se consideran <strong>0 incidencias</strong>.

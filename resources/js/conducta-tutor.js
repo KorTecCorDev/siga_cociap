@@ -114,7 +114,7 @@ document.querySelectorAll('.conducta-tutor-fila').forEach(fila => {
 const cerrarForm = document.getElementById('conducta-cerrar-form');
 cerrarForm?.addEventListener('submit', async e => {
     e.preventDefault();
-    if (!confirm('¿Cerrar y aprobar la conducta de la sección? Después solo Dirección podrá reabrirla.')) return;
+    if (!confirm('¿Cerrar y aprobar la conducta de la sección? Después de esta acción ya no podrás modificarla.')) return;
 
     const btn = cerrarForm.querySelector('button[type="submit"]');
     if (btn) btn.disabled = true;

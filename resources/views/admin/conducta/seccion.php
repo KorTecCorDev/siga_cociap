@@ -310,7 +310,7 @@ foreach ($estudiantes as $est) {
 <?php if (!$bloqueada && !$soloLectura): ?>
     <form method="post" action="<?= url('admin/conducta/' . (int) $seccion['id'] . '/bloquear') ?>"
           class="conducta-bloqueo-form"
-          onsubmit="return confirm('¿Bloquear y aprobar la conducta de toda la sección? Después solo Dirección podrá desbloquearla.');">
+          onsubmit="return confirm('¿Bloquear y aprobar la conducta de toda la sección? Después de esta acción ya no podrás modificarla.');">
         <?= csrf_field() ?>
         <div class="conducta-bloqueo-info">
             Confirmados: <strong><?= $completitud['completos'] ?>/<?= $completitud['esperados'] ?></strong>

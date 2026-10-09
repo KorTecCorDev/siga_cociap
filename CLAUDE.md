@@ -537,6 +537,11 @@ lo compila Gulp, `config/database.php` no lleva secretos, `routes/web.php` es la
 - **Estilos:** NUNCA CSS inline en PHP — siempre en SASS bajo `resources/sass/`
 - **config():** la función NO soporta notación de puntos. Usar `config('institucion')`,
   NO `config('app.institucion')`. Las claves son las del array en `config/app.php`.
+- **Los mensajes NO revelan el flujo** (regla del usuario, 06 y 09/10/2026): `confirm()`,
+  alertas, banners, flashes y respuestas JSON dicen QUÉ pasa o QUÉ hacer («Después de esta
+  acción ya no podrás modificarla»), NUNCA quién puede revertirlo, qué regla aplica el
+  servidor, ni cómo funcionan la sesión o las redirecciones. El detalle técnico va a
+  `log_error`. Al tocar una pantalla, auditar también sus textos existentes
 - **Comillas ASCII** en vistas PHP — jamás comillas tipográficas U+201C/U+201D en
   atributos HTML (rompen los `data-*` y el JS en silencio).
 - **`exif_imagetype()` NO disponible en XAMPP local** — usar `\getimagesize($path)[2]`.
