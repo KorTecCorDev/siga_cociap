@@ -111,9 +111,11 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
 <?php if ($editable && $porFechas):
     $prog     = $fechas['progreso'];
     $sinTomar = count($fechas['sinTomar'] ?? []);
-    $completo = $prog['esperados'] > 0 && $prog['registrados'] >= $prog['esperados'] && $sinTomar === 0; ?>
-    <?php // Exige a TODOS confirmados (decisión b, 29/09/2026) y, desde el
-          // 30/09/2026, TODO día con su lista tomada; el servidor lo vuelve a
+    $terminado = !empty($fechas['terminado']);
+    $completo = $terminado && $prog['esperados'] > 0 && $prog['registrados'] >= $prog['esperados'] && $sinTomar === 0; ?>
+    <?php // Exige a TODOS confirmados (decisión b, 29/09/2026), desde el
+          // 30/09/2026 TODO día con su lista tomada y, desde el 09/10/2026, que
+          // haya llegado el último día del bimestre; el servidor lo vuelve a
           // comprobar en `AsistenciaModel::bloquearRA`. ?>
     <form method="post" action="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/bloquear') ?>"
           class="conducta-bloqueo-form"
@@ -122,7 +124,9 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
         <div class="conducta-bloqueo-info">
             Confirmados: <strong><?= (int) $prog['registrados'] ?>/<?= (int) $prog['esperados'] ?></strong>
             · Días sin tomar: <strong class="af-sin-tomar-total"><?= $sinTomar ?></strong>
-            <?php if (!$completo): ?>
+            <?php if (!$terminado): ?>
+                <span class="text-muted">— podrás bloquear desde el <?= e($fechas['finDdmm']) ?>, último día del bimestre</span>
+            <?php elseif (!$completo): ?>
                 <span class="text-muted">— confirma a todos y pasa lista de cada día para poder bloquear</span>
             <?php endif; ?>
         </div>

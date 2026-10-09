@@ -3,6 +3,7 @@
  * @var array       $porNivel       { nivel_nombre => [ seccion[] ] }
  * @var array|null  $periodoActivo  { id, nombre_display, ... } o null
  * @var array       $progreso       [ seccion_id => [esperados, registrados] ]
+ * @var array       $bloqueadas     [ seccion_id => true ] cierre vigente en el bimestre en curso
  */
 ?>
 
@@ -47,13 +48,16 @@
                 $registrados  = $datos['registrados'];
                 $pct          = $esperados > 0 ? (int) round($registrados * 100 / $esperados) : 0;
                 $completo     = $esperados > 0 && $registrados >= $esperados;
+                $bloqueada    = isset($bloqueadas[(int) $s['id']]);
             ?>
                 <a href="<?= url('admin/asistencia/' . $s['id']) ?>"
-                   class="asistencia-seccion-card">
+                   class="asistencia-seccion-card<?= $bloqueada ? ' asistencia-seccion-card--bloqueada' : '' ?>">
                     <span class="asistencia-seccion-card__grado"><?= e($s['grado_nombre']) ?></span>
                     <span class="asistencia-seccion-card__nombre">Sección <?= e($s['seccion_nombre']) ?></span>
 
-                    <?php if ($periodoActivo): ?>
+                    <?php if ($bloqueada): ?>
+                        <span class="asistencia-estado-badge asistencia-estado-badge--bloqueada">🔒 Bloqueada</span>
+                    <?php elseif ($periodoActivo): ?>
                         <div class="asistencia-progreso<?= $completo ? ' asistencia-progreso--completo' : '' ?>">
                             <?php if ($esperados === 0): ?>
                                 <span class="asistencia-progreso__vacio">Sin estudiantes</span>

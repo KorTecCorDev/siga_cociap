@@ -53,6 +53,23 @@
     }
 }
 
+// ── Sección bloqueada en el índice (09/10/2026) ─────────────
+// Mismos valores que .conducta-estado-badge y .conducta-seccion-card--bloqueada.
+.asistencia-estado-badge {
+    display: inline-block;
+    margin-top: $spacing-sm;
+    padding: 2px $spacing-sm;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    font-weight: 600;
+
+    &--bloqueada { background: $color-warning-bg; color: $color-warning; }
+}
+
+.asistencia-seccion-card--bloqueada {
+    border-color: rgba($color-success, 0.4);
+}
+
 // ── Barra de progreso del índice ────────────────────────────
 // Mismo patrón --pct que .conducta-progreso y .carga-progreso.
 .asistencia-progreso {

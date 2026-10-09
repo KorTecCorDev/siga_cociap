@@ -3,6 +3,24 @@
 > **ESTADO: DESPLEGADO en v1.0.5 (30/09/2026)**, con las migraciones `068`, `069` y `070`
 > aplicadas a mano en producción antes del push. Las rondas de abajo son el historial.
 
+> **OCTAVA RONDA (09/10/2026, decisiones del usuario; sin migración) — no se bloquea antes
+> del fin del bimestre, y el índice muestra las secciones bloqueadas.** En `dev`.
+> 1. **Hueco:** `diasSinTomar` corta en `min(fecha_fin, hoy)`, así que los días FUTUROS no
+>    contaban como «sin tomar». Con todo lo pasado al día, el auxiliar/RA podía bloquear a
+>    mitad del bimestre. Después, `dia`, `jornada` y `confirmar` se niegan y el resto del bimestre ya no
+>    se podía registrar. Pasó en local: 1.º A/B y 2.º A/B del III se bloquearon el 07/10 y les
+>    faltan las listas del 08 y 09/10.
+> 2. **Regla:** en un bimestre por fechas, `bloquearRA` (no forzado) se niega mientras
+>    `hoy < fecha_fin` («podrás bloquear desde el DD/MM, su último día»). Punto único
+>    `AsistenciaModel::bimestreTerminado()` (fecha de PHP, no `NOW()`). El panel de la sección
+>    deshabilita el botón y lo dice. **El director (forzado) sigue pudiendo** bloquear antes.
+> 3. ⚠️ **`limite_notas` debe quedar DESPUÉS del último día:** si se apaga antes que
+>    `fecha_fin` termine (el I Bimestre tuvo `limite_notas = fecha_fin 00:00`), el auxiliar/RA
+>    ya no puede bloquear y solo queda el forzado del director.
+> 4. **Índice `/admin/asistencia`:** la card de una sección con cierre vigente en el bimestre
+>    en curso lleva «🔒 Bloqueada» y no pinta la barra, igual que conducta
+>    (`AsistenciaModel::seccionesBloqueadas`, `.asistencia-estado-badge`).
+
 > **SÉPTIMA RONDA (08/10/2026, regla del colegio; migración 076) — una falta solo es
 > justificada con el MOTIVO PRINCIPAL.** **DESPLEGADO el 08/10/2026** (merge `3d58934`, sigue
 > v1.0.5), con la `076` aplicada a mano en producción ANTES del merge: 1 ancla vigente,

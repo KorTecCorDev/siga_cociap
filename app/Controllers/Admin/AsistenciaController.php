@@ -64,6 +64,11 @@ class AsistenciaController extends BaseController
         $progreso = $periodoActivo
             ? $this->model->getProgresoPorSeccion((int) $periodoActivo['id'])
             : [];
+        // Secciones ya bloqueadas en el bimestre en curso: su card lleva
+        // «🔒 Bloqueada» en lugar de la barra (09/10/2026, como conducta).
+        $bloqueadas = $periodoActivo
+            ? $this->model->seccionesBloqueadas((int) $periodoActivo['id'])
+            : [];
 
         // El auxiliar ve SOLO sus secciones del bimestre en curso; sin bimestre
         // abierto no tiene ninguna. Admin y RA siguen viendo todas.
@@ -87,6 +92,7 @@ class AsistenciaController extends BaseController
             'porNivel'      => $porNivel,
             'periodoActivo' => $periodoActivo,
             'progreso'      => $progreso,
+            'bloqueadas'    => $bloqueadas,
         ]);
     }
 
@@ -222,6 +228,9 @@ class AsistenciaController extends BaseController
                 'jornadas'   => $jornadasM->tomadasDe($seccionId, (int) $periodoVer['id']),
                 'sinTomar'   => $jornadasM->diasSinTomar($seccionId, $periodoVer),
                 'hoy'        => date('Y-m-d'),
+                // No se bloquea antes del último día del bimestre (09/10/2026).
+                'terminado'  => AsistenciaModel::bimestreTerminado($periodoVer),
+                'finDdmm'    => AsistenciaModel::ddmm((string) $periodoVer['fecha_fin']),
             ];
         }
 

@@ -1106,6 +1106,13 @@ class AsistenciaModel extends BaseModel
             // (30/09/2026, migración 070). El director (forzado) no lo exige.
             $periodo = $this->periodo($periodoId);
             if ($periodo !== null && (int) $periodo['asistencia_por_fechas'] === 1) {
+                // Y no antes del ÚLTIMO día del bimestre (09/10/2026): `diasSinTomar`
+                // no ve los días futuros, y tras el bloqueo ya no se registrarían.
+                if (!self::bimestreTerminado($periodo)) {
+                    return ['ok' => false, 'mensaje' =>
+                        'El bimestre aún no termina: podrás bloquear desde el ' .
+                        self::ddmm((string) $periodo['fecha_fin']) . ', su último día.'];
+                }
                 $sinTomar = (new AsistenciaJornadaModel())->diasSinTomar($seccionId, $periodo);
                 if ($sinTomar !== []) {
                     $lista = implode(', ', array_map(static fn(string $f): string => substr($f, 8, 2) . '/' . substr($f, 5, 2), $sinTomar));
@@ -1121,6 +1128,42 @@ class AsistenciaModel extends BaseModel
         ", [$seccionId, $periodoId, $userId]);
 
         return ['ok' => $ok, 'mensaje' => $ok ? 'Asistencia bloqueada y aprobada.' : 'Error al bloquear.'];
+    }
+
+    /**
+     * ¿Ya llegó el ÚLTIMO día del bimestre? El auxiliar/RA no bloquea antes
+     * (09/10/2026); el director (forzado) sí. «Hoy» lo da PHP (America/Lima),
+     * no NOW() de MySQL — mismo criterio que `listarPeriodosActivos`.
+     *
+     * @param array{fecha_fin:string} $periodo
+     */
+    public static function bimestreTerminado(array $periodo, ?string $hoy = null): bool
+    {
+        return ($hoy ?? date('Y-m-d')) >= substr((string) ($periodo['fecha_fin'] ?? ''), 0, 10);
+    }
+
+    /** 'AAAA-MM-DD…' → 'DD/MM'. */
+    public static function ddmm(string $fecha): string
+    {
+        return substr($fecha, 8, 2) . '/' . substr($fecha, 5, 2);
+    }
+
+    /**
+     * Ids de las secciones con la asistencia BLOQUEADA (cierre vigente) en un
+     * periodo, para el badge del índice.
+     *
+     * @return array<int, true> [seccion_id => true]
+     */
+    public function seccionesBloqueadas(int $periodoId): array
+    {
+        $out = [];
+        foreach ($this->query("
+            SELECT DISTINCT seccion_id FROM cierres_asistencia
+            WHERE periodo_id = ? AND anulado_en IS NULL
+        ", [$periodoId]) as $r) {
+            $out[(int) $r['seccion_id']] = true;
+        }
+        return $out;
     }
 
     /** Desbloqueo (director/admin): anula el cierre vigente con traza. */
