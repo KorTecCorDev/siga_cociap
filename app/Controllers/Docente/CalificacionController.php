@@ -1757,8 +1757,7 @@ class CalificacionController extends BaseController
         if ($this->calModel->periodoEstaBloqueado((int) $periodo['id'])) {
             $this->json([
                 'success' => false,
-                'mensaje' => 'El plazo para registrar calificaciones venció: ya no se puede '
-                           . 'aprobar. Comunícate con Registro Académico.',
+                'mensaje' => 'El plazo para registrar calificaciones venció: ya no se puede aprobar.',
             ], 403);
         }
 

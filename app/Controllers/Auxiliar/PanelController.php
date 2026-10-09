@@ -60,6 +60,11 @@ class PanelController extends BaseController
             // «Listo para bloquear» y el bloqueo se negaría.
             $perAsis  = $asistencia->periodo($pid);
             $jornadas = ($perAsis && (int) $perAsis['asistencia_por_fechas'] === 1) ? new AsistenciaJornadaModel() : null;
+            // Y no se bloquea antes del ÚLTIMO día del bimestre (09/10/2026), la
+            // misma regla de `AsistenciaModel::bloquearRA`.
+            $asisDesde = ($jornadas && !AsistenciaModel::bimestreTerminado($perAsis))
+                ? AsistenciaModel::ddmm((string) $perAsis['fecha_fin'])
+                : null;
             $todas    = array_values(array_filter(
                 $conducta->listarSeccionesActivas(),
                 static fn($s) => in_array((int) $s['id'], $mias, true)
@@ -94,7 +99,8 @@ class PanelController extends BaseController
                     'asistencia'   => self::estado(
                         $asistencia->getCierreVigente($sid, $pid), $editable,
                         $a['registrados'], $a['esperados'], true,
-                        $jornadas ? count($jornadas->diasSinTomar($sid, $perAsis)) : 0
+                        $jornadas ? count($jornadas->diasSinTomar($sid, $perAsis)) : 0,
+                        $asisDesde
                     ),
                 ];
             }
@@ -206,10 +212,13 @@ class PanelController extends BaseController
      *
      *   - asistencia por fechas (30/09/2026): con todos confirmados pero días sin
      *     lista tomada, «Días sin tomar: N» en lugar de «Listo para bloquear».
+     *   - asistencia por fechas antes del último día del bimestre (09/10/2026):
+     *     gris «Bloqueo desde el dd/mm». Antes decía «Listo para bloquear» y el
+     *     bloqueo se negaba.
      *
      * @return array{bloqueada:bool, badge:string, texto:string}
      */
-    private static function estado(?array $cierre, bool $editable, int $hechos, int $esperados, bool $conCompletitud, int $sinTomar = 0): array
+    private static function estado(?array $cierre, bool $editable, int $hechos, int $esperados, bool $conCompletitud, int $sinTomar = 0, ?string $bloqueoDesde = null): array
     {
         if ($cierre !== null) {
             return ['bloqueada' => true, 'badge' => 'activo',
@@ -223,6 +232,9 @@ class PanelController extends BaseController
         }
         if ($conCompletitud && $hechos >= $esperados && $sinTomar > 0) {
             return ['bloqueada' => false, 'badge' => 'warning', 'texto' => "Días sin tomar: {$sinTomar}"];
+        }
+        if ($conCompletitud && $hechos >= $esperados && $bloqueoDesde !== null) {
+            return ['bloqueada' => false, 'badge' => 'espera', 'texto' => "Bloqueo desde el {$bloqueoDesde}"];
         }
         if ($conCompletitud && $hechos >= $esperados) {
             return ['bloqueada' => false, 'badge' => 'warning', 'texto' => 'Listo para bloquear'];

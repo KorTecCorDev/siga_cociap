@@ -219,9 +219,8 @@ class BloqueoController extends BaseController
             $conductaStats['cerradas']   = count(array_filter($conducta, fn($s) => $s['cerrada']));
         }
 
-        // Asistencia por sección: una sola etapa (Registro Académico bloquea).
-        // El director puede forzar el bloqueo o reabrir. Sin fila = 0 incidencias
-        // (estado válido), así que el bloqueo no exige completitud.
+        // Asistencia por sección: una sola etapa (la bloquea el auxiliar o RA, y
+        // exige completitud). Desde aquí se fuerza el bloqueo o se reabre.
         $asistencia      = [];
         $asistenciaStats = ['total' => 0, 'bloqueadas' => 0];
         if ($periodoId && $periodo) {
@@ -506,6 +505,7 @@ class BloqueoController extends BaseController
         if (!$cargaId || !$competenciaId || !$periodoId) {
             $this->redirectWithError(url('director/bloqueos'), 'Datos incompletos.');
         }
+        $this->abortarSiPeriodoCerrado($periodoId, url("director/bloqueos?periodo_id={$periodoId}"), 'Este bimestre ya está cerrado.');
 
         $ok = $this->calModel->bloquearCompetencia(
             $cargaId, $competenciaId, $periodoId, $user['id']
@@ -542,6 +542,7 @@ class BloqueoController extends BaseController
             $this->redirectWithError(url('director/bloqueos'), 'Periodo no especificado.');
         }
         $back = url("director/bloqueos?periodo_id={$periodoId}");
+        $this->abortarSiPeriodoCerrado($periodoId, $back, 'Este bimestre ya está cerrado.');
 
         $sec = $this->calModel->queryOne("
             SELECT n.codigo AS nivel_codigo
@@ -735,6 +736,7 @@ class BloqueoController extends BaseController
             $this->redirectWithError(url('director/bloqueos'), 'Periodo no especificado.');
         }
         $back = url("director/bloqueos?periodo_id={$periodoId}");
+        $this->abortarSiPeriodoCerrado($periodoId, $back, 'Este bimestre ya está cerrado.');
 
         $nivelId = $this->nivelIdDeSeccion($seccionId);
         if ($nivelId === null) {
@@ -767,6 +769,7 @@ class BloqueoController extends BaseController
             $this->redirectWithError(url('director/bloqueos'), 'Periodo no especificado.');
         }
         $back = url("director/bloqueos?periodo_id={$periodoId}");
+        $this->abortarSiPeriodoCerrado($periodoId, $back, 'Este bimestre ya está cerrado.');
 
         $res = $this->conductaModel->cerrarTutor($seccionId, $periodoId, (int) $user['id']);
 
@@ -817,9 +820,9 @@ class BloqueoController extends BaseController
 
     /**
      * POST /director/bloqueos/asistencia/{seccion_id}/bloquear
-     * Bloqueo forzado por el director: aprueba el registro de asistencia como
-     * lo haría Registro Académico. Sin precondición de completitud (sin fila
-     * de incidencias = 0, estado válido).
+     * Bloqueo FORZADO: aprueba el registro de asistencia como lo haría el
+     * auxiliar, sin exigir completitud; lo no confirmado queda con guion en la
+     * boleta. Solo con el bimestre en curso (09/10/2026).
      */
     public function bloquearAsistencia(string $seccionId): void
     {
@@ -833,6 +836,7 @@ class BloqueoController extends BaseController
             $this->redirectWithError(url('director/bloqueos'), 'Periodo no especificado.');
         }
         $back = url("director/bloqueos?periodo_id={$periodoId}");
+        $this->abortarSiPeriodoCerrado($periodoId, $back, 'Este bimestre ya está cerrado.');
 
         if ($this->nivelIdDeSeccion($seccionId) === null) {
             $this->redirectWithError($back, 'Sección no encontrada.');

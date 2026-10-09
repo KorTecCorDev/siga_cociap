@@ -80,7 +80,9 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
   `#4d7c0f`), también en el hub de `/director/bloqueos` (antes tomaba prestado el
   naranja de Nómina). **Semáforo por sección:** ámbar «Registrados X de N» /
   «Listo para bloquear» (conducta completa), verde «Bloqueada el dd/mm/aaaa», gris
-  = no puede actuar (fuera de plazo / sin estudiantes).
+  = no puede actuar (fuera de plazo / sin estudiantes / **«Bloqueo desde el dd/mm»**:
+  asistencia por fechas completa antes del último día del bimestre, 09/10/2026, ver
+  `cierre-cuatro-registros.md` §0 F2).
   - **KPIs «Avance de conducta» / «Avance de asistencia» en %** (08/10/2026, decisión
     del usuario; antes «Conducta bloqueada 1/2»).
     - Miden el % de las secciones a cargo con ese módulo **BLOQUEADO**, no a los

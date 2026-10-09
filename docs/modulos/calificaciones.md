@@ -491,16 +491,15 @@ competencia se queda sin tabla.
   JS: `resources/js/tutoria.js`.
 
 ### Integración con reaperturas
-- `BloqueoController::desbloquear`: al desbloquear una competencia propia LIBERA
-  en cascada las TIC/GAMA de esa misma carga (`TransversalModel::liberarTransversalesDeCarga`,
-  competencias en área `tipo='transversal'`) y ANULA el cierre vigente de la
-  sección con traza — todo en una transacción. Las transversales se registran
-  bajo la carga del docente pero NO aparecen como filas en el panel; sin la
-  cascada quedaban bloqueadas e inalcanzables. Se repite el ciclo re-bloqueo→re-cierre.
+- ~~`BloqueoController::desbloquear`: al desbloquear una competencia propia LIBERA
+  en cascada las TIC/GAMA de esa misma carga~~ **La cascada se retiró el 07/08/2026**
+  (`verif_desbloqueo_sin_cascada.php`): desbloquear una académica libera SOLO esa
+  competencia y anula el cierre vigente de la sección con traza. Una TIC/GAMA se
+  libera por la vía directa de abajo. `TransversalModel::liberarTransversalesDeCarga`
+  quedó sin uso.
 - **`BloqueoController::liberarTransversalCompetencia` (06/08/2026): la vía DIRECTA.**
   Libera UNA competencia transversal de UNA carga desde el desplegable del panel, sin
-  sacrificar ninguna académica. La cascada de arriba sigue existiendo (es correcta cuando
-  se reabre una carga entera), pero ya no es la única puerta: usarla para corregir una
+  sacrificar ninguna académica. Era la segunda puerta mientras existió la cascada: usarla para corregir una
   TIC/GAMA obligaba a desbloquear una académica que no tenía ningún problema, y no servía
   en absoluto si la carga aún no tenía académicas bloqueadas. Detalle y guards en
   `docs/modulos/admin.md` §"Transversales: los dos niveles".
@@ -619,8 +618,9 @@ Reusa el endpoint existente `POST /docente/calificaciones/{carga}/bloquear/{comp
 con `sin_calificaciones=1` (mismo backend que el botón "no se trabajó" del resumen,
 `errorBloqueoCompetencia` lo acepta solo si NO hay criterios). JS en
 `calificaciones.js` (`.btn-no-evaluo`, con `confirm()` irreversible → recarga).
-Crea un bloqueo `origen='docente'` sin notas. **NO aparece en transversales**
-(no se bloquean individualmente) **ni en periodo bloqueado** (acción de escritura).
+Crea un bloqueo `origen='docente'` sin notas. **NO aparece en periodo bloqueado**
+(acción de escritura). ~~Ni en transversales (no se bloquean individualmente)~~: desde
+el II Bimestre cada TIC/GAMA se aprueba y bloquea por separado, como una académica.
 
 ### Migración `026_criterios_confirmado.sql`
 - `criterios.confirmado_en DATETIME NULL` + `confirmado_por INT UNSIGNED NULL`.

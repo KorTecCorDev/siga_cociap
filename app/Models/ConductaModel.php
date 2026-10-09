@@ -639,8 +639,7 @@ class ConductaModel extends BaseModel
         $cierre = $this->getCierreVigente($seccionId, $periodoId);
         if (!$cierre) {
             return ['ok' => false, 'mensaje' =>
-                'Todavía los auxiliares académicos no han registrado sus calificaciones de conducta. ' .
-                'Consulta con Registro Académico para más información.'];
+                'La conducta de esta sección todavía no está registrada.'];
         }
         if ($cierre['tutor_cerrado_en']) {
             return ['ok' => false, 'mensaje' => 'La conducta de esta sección ya fue cerrada por el tutor.'];

@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\CalificacionModel;
 use App\Models\CambioSeccionModel;
 use App\Models\ConclusionReplicaModel;
+use App\Models\EdicionPeriodoModel;
 use App\Models\TransversalModel;
 use Core\Session;
 
@@ -90,6 +91,8 @@ class TutoriaController extends BaseController
 
         $estadoCargas = $this->transModel->estadoCargasSeccion($sid, $pid);
         $cierre       = $this->transModel->getCierreVigente($sid, $pid);
+        // Plazo de los DOCENTES (09/10/2026): el tutor no tiene plazo extra.
+        $motivoPlazo  = (new EdicionPeriodoModel())->motivoNoEditable($pid, EdicionPeriodoModel::ROL_DOCENTE);
         $listo        = $estadoCargas['total'] > 0
                      && $estadoCargas['bloqueadas'] >= $estadoCargas['total'];
 
@@ -111,6 +114,7 @@ class TutoriaController extends BaseController
             'estadoCargas' => $estadoCargas,
             'cierre'       => $cierre,
             'listo'        => $listo,
+            'motivoPlazo'  => $motivoPlazo,
             'competencias' => $competencias,
             'alumnos'      => $alumnos,
             'promedios'    => $promedios,
@@ -139,6 +143,7 @@ class TutoriaController extends BaseController
         $matriculaId   = (int) $this->input('matricula_id');
         $competenciaId = (int) $this->input('competencia_id');
         $conclusion    = trim($this->input('conclusion', ''));
+        $this->exigirPlazo($periodoId);
 
         if (!$matriculaId || !$competenciaId) {
             $this->json(['success' => false, 'mensaje' => 'Datos incompletos.'], 400);
@@ -208,6 +213,7 @@ class TutoriaController extends BaseController
         $matriculaId = (int) $this->input('matricula_id');
         $areaId      = (int) $this->input('area_id');
         $conclusion  = trim($this->input('conclusion', ''));
+        $this->exigirPlazo($periodoId);
 
         if (!$matriculaId || !$areaId) {
             $this->json(['success' => false, 'mensaje' => 'Datos incompletos.'], 400);
@@ -269,6 +275,7 @@ class TutoriaController extends BaseController
 
         $periodoId = (int) $periodoId;
         $sid       = (int) $seccion['id'];
+        $this->exigirPlazo($periodoId);
 
         if ($this->transModel->getCierreVigente($sid, $periodoId)) {
             $this->json(['success' => false, 'mensaje' => 'Este bimestre ya está cerrado.'], 400);
@@ -306,6 +313,24 @@ class TutoriaController extends BaseController
     }
 
     // ── Privados ─────────────────────────────────────────────────
+
+    /**
+     * Las escrituras del tutor respetan el plazo de los DOCENTES (plan de
+     * bloqueos, 09/10/2026): el tutor no tiene plazo extra. También rechaza un
+     * `periodo_id` cerrado, pendiente o inexistente que llegue por la URL.
+     */
+    private function exigirPlazo(int $periodoId): void
+    {
+        $motivo = (new EdicionPeriodoModel())->motivoNoEditable($periodoId, EdicionPeriodoModel::ROL_DOCENTE);
+        if ($motivo !== null) {
+            $this->json([
+                'success' => false,
+                'mensaje' => $motivo === EdicionPeriodoModel::MOTIVO_PLAZO_VENCIDO
+                    ? 'El plazo para registrar en este bimestre venció.'
+                    : 'Este bimestre no está disponible para registrar.',
+            ], 403);
+        }
+    }
 
     /** Quien CURSÓ el bimestre en la sección (cambio de sección, 07/10/2026). */
     private function getAlumnosSeccion(int $seccionId, int $periodoId): array

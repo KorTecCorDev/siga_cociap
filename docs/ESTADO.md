@@ -24,8 +24,14 @@ fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
   temporal y de «días para el cierre»; la etapa 2 del tutor pregunta con el rol docente;
   el KPI ya no dice «0 días para el cierre» después de vencer. `verif_plazo_edicion.php`
   en verde.
-- **Pendiente:** F2 → F3 → F4 (migración) → F5 (migración; cerrar su diseño con el
-  usuario antes). La F2 pone plazo a las transversales del tutor: **avisar antes a los
+- **F2 HECHA en `dev`** (sin migración): semáforo del auxiliar coherente con el bloqueo;
+  transversales del tutor bajo el plazo docente; forzados del panel solo con el bimestre
+  activo; textos que revelaban el flujo. `verif_coherencia_bloqueos.php` en verde.
+  ⚠️ **ANTES de desplegar F2, avisar a los tutores**: desde ese despliegue no podrán
+  escribir conclusiones transversales ni cerrar después de `limite_notas`.
+- **Pendiente:** F3 → F4 (migración) → F5 (migración; cerrar su diseño con el usuario
+  antes). Pruebas en navegador pendientes con sesión de **tutor** (transversales fuera de
+  plazo), **auxiliar** (semáforo «Bloqueo desde») y **RA** (panel con bimestre cerrado). La F2 pone plazo a las transversales del tutor: **avisar antes a los
   tutores**.
 
 

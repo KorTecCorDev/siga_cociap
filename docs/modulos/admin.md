@@ -221,10 +221,14 @@ sin depender de nadie**.
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 - `$conducta[]` con `estado` ∈ `pendiente_auxiliar` (rojo) / `pendiente_tutor` (ámbar) /
   `cerrada` (verde) + columna "Calificados X/Y".
-- **El director tiene control total:** forzar etapa 1, forzar etapa 2, o **reabrir**
-  (anula con traza). Forzar etapa 1 RESPETA la regla de negocio (exige todos los
-  estudiantes calificados; el botón se deshabilita y `bloquearRA` lo revalida en servidor).
-  ~~Reabrir es libre.~~ **Reabrir exige el bimestre ACTIVO** (06/08/2026, ver abajo).
+- **Admin/RA tienen control total** (Dirección solo mira): forzar etapa 1, forzar etapa 2,
+  o **reabrir** (anula con traza). ~~Forzar etapa 1 RESPETA la regla de negocio (exige todos
+  los estudiantes calificados).~~ **Desde el 29/09/2026 el forzado NO exige completitud**:
+  lo no confirmado queda con guion en la boleta (el `confirm()` dice cuántos).
+  ~~Reabrir es libre.~~ **Reabrir exige el bimestre ACTIVO** (06/08/2026, ver abajo), y
+  **desde el 09/10/2026 forzar también** (las cinco acciones de bloqueo/cierre del panel:
+  competencia, transversales, conducta etapa 1 y 2, asistencia). Sus botones no se pintan
+  con el bimestre cerrado. Ver `docs/modulos/cierre-cuatro-registros.md` §0.
 
 ### No se desbloquea una competencia con calificaciones extraordinarias (18/09/2026)
 
@@ -476,8 +480,10 @@ y `/admin/asistencia`, con copia imprimible firmable. Migracion `043_cierres_asi
 
 ### Cierre de asistencia (nuevo — tabla `cierres_asistencia`)
 - Una sola etapa (espejo parcial de `cierres_conducta`): RA "Bloquear y aprobar"
-  via `POST /admin/asistencia/{id}/bloquear`. **SIN precondicion de completitud**:
-  fila ausente en `inasistencias` = 0 incidencias (estado valido).
+  via `POST /admin/asistencia/{id}/bloquear`. ~~**SIN precondicion de completitud**~~:
+  **desde el 29/09/2026 exige a TODOS confirmados** y, en un bimestre por fechas, cada
+  estudiante cada día y no antes del último día del bimestre. Solo el forzado del panel
+  no lo exige.
 - El cierre vigente es `anulado_en IS NULL` (sin UNIQUE; `getCierreVigente` antes
   de insertar). `guardar()` rechaza edicion con cierre vigente (403), ademas del
   gate de `periodoEditable`.

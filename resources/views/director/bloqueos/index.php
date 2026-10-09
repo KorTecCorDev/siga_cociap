@@ -551,10 +551,10 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <?php if ($puedeEscribir): ?>
+                                <?php if ($puedeEscribir && $periodoActivo): ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/bloquear') ?>"
-                                      onsubmit="return confirm('Bloquear esta competencia? El docente no podra editar las notas.')">
+                                      onsubmit="return confirm('¿Bloquear esta competencia? Sus notas ya no se podrán editar.')">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="carga_id"       value="<?= $fila['carga_id'] ?>">
                                     <input type="hidden" name="competencia_id" value="<?= $fila['competencia_id'] ?>">
@@ -664,10 +664,10 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <?php if ($puedeEscribir): ?>
+                                <?php if ($puedeEscribir && $periodoActivo): ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/transversal/' . $st['seccion_id'] . '/cerrar') ?>"
-                                      onsubmit="return confirm('Cerrar las transversales de esta seccion?')">
+                                      onsubmit="return confirm('¿Cerrar las transversales de esta sección?')">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="periodo_id" value="<?= $periodoId ?>">
                                     <button type="submit" class="btn btn--secondary btn--sm">Cerrar</button>
@@ -820,7 +820,9 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                         </td>
                         <td class="td-acciones-conducta">
                             <?php if ($cc['estado'] === 'pendiente_auxiliar'): ?>
-                                <?php if ($puedeEscribir): ?>
+                                <?php // Solo con el bimestre en curso (09/10/2026): el servidor
+                                      // rechaza el forzado en uno cerrado. ?>
+                                <?php if ($puedeEscribir && $periodoActivo): ?>
                                 <?php // Decisión b (29/09/2026): el director SÍ puede forzar con
                                       // pendientes; el aviso dice cuántos quedan fuera. ?>
                                 <?php $sinConfirmar = max(0, (int) $cc['esperados'] - (int) $cc['calificados']); ?>
@@ -840,7 +842,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 <?php endif; ?>
                             <?php elseif ($cc['estado'] === 'pendiente_tutor'): ?>
                                 <div class="btn-group">
-                                    <?php if ($puedeEscribir): ?>
+                                    <?php if ($puedeEscribir && $periodoActivo): ?>
                                     <form method="POST"
                                           action="<?= url('director/bloqueos/conducta/' . $cc['seccion_id'] . '/cerrar') ?>"
                                           onsubmit="return confirm('Forzar el cierre del tutor para esta sección?')">
@@ -871,7 +873,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 <?php if ($puedeEscribir): ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/conducta/' . $cc['seccion_id'] . '/reabrir') ?>"
-                                      onsubmit="return confirm('Reabrir la conducta de esta sección? El auxiliar y el tutor deberán volver a cerrar.')">
+                                      onsubmit="return confirm('¿Reabrir la conducta de esta sección? Se anulará su bloqueo y su cierre.')">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="periodo_id" value="<?= $periodoId ?>">
                                     <button type="submit" class="btn btn--danger btn--sm">Reabrir</button>
@@ -943,7 +945,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                         </td>
                         <td class="td-acciones-conducta">
                             <?php if (!$sa['bloqueada']): ?>
-                                <?php if ($puedeEscribir): ?>
+                                <?php if ($puedeEscribir && $periodoActivo): ?>
                                 <?php $sinConfirmarA = max(0, (int) $sa['esperados'] - (int) $sa['registrados']); ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/asistencia/' . $sa['seccion_id'] . '/bloquear') ?>"
@@ -964,7 +966,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 <?php if ($puedeEscribir): ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/asistencia/' . $sa['seccion_id'] . '/reabrir') ?>"
-                                      onsubmit="return confirm('Reabrir la asistencia de esta sección? Registro Académico deberá volver a bloquearla.')">
+                                      onsubmit="return confirm('¿Reabrir la asistencia de esta sección? Se anulará su bloqueo.')">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="periodo_id" value="<?= $periodoId ?>">
                                     <button type="submit" class="btn btn--danger btn--sm">Reabrir</button>

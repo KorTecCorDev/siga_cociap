@@ -8,6 +8,8 @@
  * @var array      $estadoCargas  { total, bloqueadas, cargas[] }
  * @var array|null $cierre        cierre vigente o null
  * @var bool       $listo         todas las cargas bloqueadas
+ * @var string|null $motivoPlazo  null = dentro del plazo de los docentes; si no, por qué
+ *                                no se puede registrar (EdicionPeriodoModel, 09/10/2026)
  * @var array      $competencias  TIC/GAMA del nivel
  * @var array      $alumnos
  * @var array      $promedios     [matricula_id => [competencia_id => nota]]
@@ -20,6 +22,7 @@
 $nivel    = $seccion['nivel_codigo'] === 'prim' ? 'primaria' : 'secundaria';
 $cerrado  = $cierre !== null;
 $pid      = (int) $periodoSel['id'];
+$enPlazo  = $motivoPlazo === null;
 ?>
 
 <div class="page-header">
@@ -46,6 +49,13 @@ $pid      = (int) $periodoSel['id'];
 </div>
 
 <!-- Estado del bimestre transversal -->
+<?php if (!$cerrado && !$enPlazo): ?>
+    <div class="flash flash--warning">
+        <?= $motivoPlazo === \App\Models\EdicionPeriodoModel::MOTIVO_PLAZO_VENCIDO
+            ? 'El plazo para registrar en este bimestre venció: las conclusiones quedan en solo lectura.'
+            : 'Este bimestre no está disponible para registrar: las conclusiones quedan en solo lectura.' ?>
+    </div>
+<?php endif; ?>
 <?php if ($cerrado): ?>
     <div class="flash flash--success">
         Bimestre transversal cerrado el
@@ -124,7 +134,7 @@ $pid      = (int) $periodoSel['id'];
             <?php endif; ?>
         </div>
     </div>
-<?php else: ?>
+<?php elseif ($enPlazo): ?>
     <div class="flash flash--info">
         Todas las cargas de la sección están aprobadas. Revisa los promedios y
         registra las conclusiones descriptivas: puedes escribir una para cualquier
@@ -140,7 +150,7 @@ $pid      = (int) $periodoSel['id'];
 // aprobadas y un guion donde todavía no hay aporte. Escribir conclusiones se
 // habilita cuando todas las cargas aportaron — el guard vive en el servidor
 // (TutoriaController::guardarConclusion), esto es solo su cara visible.
-$editable = !$cerrado && $listo;
+$editable = !$cerrado && $listo && $enPlazo;
 ?>
 <?php if (empty($alumnos)): ?>
     <div class="empty-state"><p>No hay alumnos matriculados en la sección.</p></div>
@@ -345,7 +355,7 @@ $editable = !$cerrado && $listo;
 // guarda y el mismo control de obligatorias los exige.
 $nombresComp = array_column($competencias, 'nombre_corto', 'id');
 $filasReplica = [];
-if ($replicas !== [] && ($editable || $cerrado)) {
+if ($replicas !== [] && ($listo || $cerrado)) {
     foreach ($alumnos as $al) {
         $mid = (int) $al['matricula_id'];
         foreach ($replicas[$mid] ?? [] as $compId => $req) {

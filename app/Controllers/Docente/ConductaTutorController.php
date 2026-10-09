@@ -188,8 +188,7 @@ class ConductaTutorController extends BaseController
         $cierre = $this->model->getCierreVigente($sid, $pid);
         if (!$cierre) {
             $this->json(['success' => false, 'mensaje' =>
-                'Todavía los auxiliares académicos no han registrado sus calificaciones de conducta. ' .
-                'Consulta con Registro Académico para más información.'], 403);
+                'La conducta de esta sección todavía no está registrada.'], 403);
         }
         if (!empty($cierre['tutor_cerrado_en'])) {
             $this->json(['success' => false, 'mensaje' => 'La conducta de esta sección ya fue cerrada.'], 403);

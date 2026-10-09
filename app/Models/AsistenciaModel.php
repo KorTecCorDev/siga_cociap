@@ -1133,9 +1133,10 @@ class AsistenciaModel extends BaseModel
     }
 
     // ── Cierre (aprobacion y bloqueo) por seccion ────────────────
-    // Espejo de una sola etapa del cierre de conducta: RA bloquea la
-    // seccion y el registro queda de solo lectura. Sin fila = 0
-    // incidencias (estado valido), asi que NO exige completitud.
+    // Espejo de una sola etapa del cierre de conducta: el auxiliar (o RA)
+    // bloquea la seccion y el registro queda de solo lectura. Desde el
+    // 29/09/2026 el bloqueo SI exige completitud: todos confirmados y, por
+    // fechas, cada estudiante cada dia (`bloquearRA`). Solo el forzado no.
 
     /** Cierre vigente (anulado_en IS NULL) de una seccion+periodo, o null. */
     public function getCierreVigente(int $seccionId, int $periodoId): ?array
