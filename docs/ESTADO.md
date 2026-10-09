@@ -1,7 +1,7 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **08/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **09/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
@@ -48,11 +48,15 @@ fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
   ya cerró la etapa 2, **solo deja la traza** (no la reabre). Abiertas: tabla de auditoría
   (una común o una por registro) y cómo se refleja en una boleta ya publicada.
 - **Pendiente:** F5 (migración).
-- **PRUEBAS EN NAVEGADOR — en curso, bloque por bloque (09/10/2026; vamos en el Bloque 1).**
+- **PRUEBAS EN NAVEGADOR — en curso, bloque por bloque (09/10/2026). Bloque 1 ✓; seguir con el Bloque 2.**
+  **En otro equipo (casa):** antes del Bloque 2, aplicar **077 y 078** en su BD local y comprobar
+  que el III tenga las fechas de partida de abajo.
   Antes, anotar los valores del III en `/director/anios/1` y restaurarlos al final: fin
   **09/10/2026**, notas **16/10/2026 04:00**, auxiliares **vacía**. Nunca pulsar «Cerrar
   bimestre» ni aceptar un «Reabrir» (leer el `confirm()` y Cancelar). Anotar con qué ROL.
-  - [ ] **1. Fechas normales.** DOCENTE (YAURI, DNI 75563239): indicador = 7; resumen
+  - [x] **1. Fechas normales** — ✓ todo correcto (09/10/2026, BD local de la oficina, con DOCENTE
+        YAURI, AUXILIAR ESPINOZA y RA; los dos POST por `fetch` en consola). El III quedó con las
+        fechas de partida, sin tocar. DOCENTE (YAURI, DNI 75563239): indicador = 7; resumen
         `/docente/calificaciones/207/resumen/22` con «Aprobar» deshabilitado; un `fetch` POST a
         `/docente/calificaciones/207/bloquear/22` responde «Hay 1 conclusión(es)… sin guardar»;
         POST a `/docente/calificaciones/conclusion` da **404**; guardar una opcional funciona
