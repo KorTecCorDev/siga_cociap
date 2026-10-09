@@ -47,7 +47,32 @@ fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
   **marca de un día** en asistencia por fechas (los contadores se recalculan); si el tutor
   ya cerró la etapa 2, **solo deja la traza** (no la reabre). Abiertas: tabla de auditoría
   (una común o una por registro) y cómo se refleja en una boleta ya publicada.
-- **Pendiente:** F5 (migración). Pruebas en navegador pendientes con sesión de **tutor** (transversales fuera de
+- **Pendiente:** F5 (migración).
+- **PRUEBAS EN NAVEGADOR — en curso, bloque por bloque (09/10/2026; vamos en el Bloque 1).**
+  Antes, anotar los valores del III en `/director/anios/1` y restaurarlos al final: fin
+  **09/10/2026**, notas **16/10/2026 04:00**, auxiliares **vacía**. Nunca pulsar «Cerrar
+  bimestre» ni aceptar un «Reabrir» (leer el `confirm()` y Cancelar). Anotar con qué ROL.
+  - [ ] **1. Fechas normales.** DOCENTE (YAURI, DNI 75563239): indicador = 7; resumen
+        `/docente/calificaciones/207/resumen/22` con «Aprobar» deshabilitado; un `fetch` POST a
+        `/docente/calificaciones/207/bloquear/22` responde «Hay 1 conclusión(es)… sin guardar»;
+        POST a `/docente/calificaciones/conclusion` da **404**; guardar una opcional funciona
+        (y luego dejarla vacía). AUXILIAR (ESPINOZA): indicador = 7, estados de siempre. RA:
+        `/director/bloqueos` del III con sus botones; del II (cerrado) sin botones de
+        bloquear/cerrar; `confirm()` de reabrir sin mencionar a Registro Académico.
+  - [ ] **2. Fecha de auxiliares** (ADMIN/RA, «Editar fechas»): tarjeta «Igual al límite de
+        notas»; 08/10 10:00 rechazada (antes del fin); 17/10 10:00 rechazada (después de notas);
+        09/10 08:00 se guarda.
+  - [ ] **3. Auxiliares vencida, docentes vigente:** AUXILIAR «1 días desde el cierre», secciones
+        «Fuera de plazo», grillas de solo lectura; RA no registra en `/admin/conducta` ni
+        `/admin/asistencia` pero sí ve el forzado del panel; TUTOR mantiene la etapa 2 y las
+        transversales editables; DOCENTE editable con indicador 7. Al final, auxiliares vacía.
+  - [ ] **4. Docentes vencida** (notas = hoy, 2 h antes): DOCENTE «1 días desde el cierre» y
+        banner sin «Comunícate…»; TUTOR con aviso «…quedan en solo lectura» en `/docente/tutoria`
+        y la etapa 2 en solo lectura; AUXILIAR también fuera de plazo. Al final, notas 16/10 04:00.
+  - [ ] **5. Semáforo** (fin = 31/10): AUXILIAR ve «Bloqueo desde el 31/10» en una sección
+        completa (2.° A); «Días sin tomar» y «Confirmados X de N» siguen igual. Al final, fin 09/10.
+  - [ ] **6. Guard del cierre (F3): no se ve en local** (la evaluación incompleta del III corta
+        antes); lo cubre `verif_guard_cierre_registros.php`. Pruebas en navegador pendientes con sesión de **tutor** (transversales fuera de
   plazo), **auxiliar** (semáforo «Bloqueo desde») y **RA** (panel con bimestre cerrado). La F2 pone plazo a las transversales del tutor: **avisar antes a los
   tutores**.
 

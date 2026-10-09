@@ -3,6 +3,25 @@
 > Extraído VERBATIM de CLAUDE.md el 03/07/2026 (fase 1 de la red de documentación).
 > Los invariantes globales y la tabla de enrutamiento viven en CLAUDE.md.
 
+## Flujo de calificaciones (módulo principal)
+
+> Movido desde CLAUDE.md el 09/10/2026 (`/doctor`): no hace falta en cada sesión; se lee
+> al tocar este módulo. La regla de seguridad («boletas SIEMPRE por token») sigue en los
+> invariantes de CLAUDE.md.
+
+```
+1. Docente entra a su carga académica
+2. Define criterios de evaluación (libres, igual peso)
+3. Ingresa notas por criterio para todos los alumnos
+4. Sistema calcula promedio automáticamente
+5. Docente ve resumen → agrega conclusiones descriptivas
+6. Docente aprueba y bloquea la competencia
+7. Padre puede ver notas, criterios y conclusiones
+8. Padre accede a la boleta desde /padre/notas SIEMPRE por token:
+   - "Ver boleta digital"  → /boleta/digital/{token}  (mobile-first)
+   - "🖨 Imprimir"          → /boleta/ver/{token}      (A4 landscape)
+```
+
 
 ## Estadísticas por competencia — contadores del resumen (01/09/2026)
 

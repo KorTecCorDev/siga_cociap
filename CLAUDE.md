@@ -7,10 +7,7 @@ Proyecto de tesis para obtener el título de Ingeniero de Sistemas e Informátic
 
 ## Stack tecnológico
 - **Backend:** PHP 8.2 — framework MVC propio (sin Laravel aún)
-- **Frontend:** HTML + SASS + JavaScript vanilla
 - **Base de datos:** MySQL (XAMPP local) - Versión de MariaDB 10.4.32-MariaDB // Conjunto de caracteres del servidor: UTF-8 Unicode (utf8mb4) // Apache/2.4.58 (Win64) OpenSSL/3.1.3 PHP/8.2.12 // Versión del cliente de base de datos: libmysql - mysqlnd 8.2.12 // Versión de PHP: 8.2.12
-- **Build tool:** Gulp (SASS → CSS, BrowserSync)
-- **Control de versiones:** Git + GitHub
 - **Objetivo futuro:** Migrar a Laravel
 ## Filosofía de Trabajo (OBLIGATORIO)
 
@@ -120,21 +117,6 @@ Toda implementación debe respetar las siguientes prácticas:
 - Manejo seguro de sesiones y autenticación cuando corresponda.
 
 Nunca sacrifiques seguridad por rapidez de implementación.
-
----
-
-### Estilo del Código
-
-Respeta siempre:
-
-- Convenciones de nombres existentes.
-- Organización de carpetas.
-- Estructura del proyecto.
-- Estilo de codificación.
-- Patrones ya utilizados.
-- Consistencia con el resto del sistema.
-
-El código nuevo debe integrarse naturalmente con el código existente.
 
 ---
 
@@ -513,25 +495,7 @@ lo compila Gulp, `config/database.php` no lleva secretos, `routes/web.php` es la
   - Primaria: obligatoria en B y C
   - Secundaria: obligatoria solo en C
 
-## Flujo de calificaciones (módulo principal)
-```
-1. Docente entra a su carga académica
-2. Define criterios de evaluación (libres, igual peso)
-3. Ingresa notas por criterio para todos los alumnos
-4. Sistema calcula promedio automáticamente
-5. Docente ve resumen → agrega conclusiones descriptivas
-6. Docente aprueba y bloquea la competencia
-7. Padre puede ver notas, criterios y conclusiones
-8. Padre accede a la boleta desde /padre/notas SIEMPRE por token:
-   - "Ver boleta digital"  → /boleta/digital/{token}  (mobile-first)
-   - "🖨 Imprimir"          → /boleta/ver/{token}      (A4 landscape)
-```
-
 ## Convenciones de código
-- **Namespace:** `App\Controllers\`, `App\Models\`, `Core\`
-- **Rutas:** `$router->get('/ruta', 'Namespace\Controlador@metodo')`
-- **Vistas:** `$this->view('carpeta/archivo', ['variable' => $valor])`
-- **JSON:** `$this->json(['success' => true, 'mensaje' => '...'])`
 - **CSRF:** siempre `$this->validateCsrf()` en métodos POST
 - **404:** siempre `$this->notFound()` (`BaseController`, `never`). Hace
   `http_response_code(404)` + `require` de `shared/404.php` + `exit`. NUNCA
@@ -548,7 +512,6 @@ lo compila Gulp, `config/database.php` no lleva secretos, `routes/web.php` es la
   nunca se usó y se eliminó (commit `eb0e9cf`, 20/06/2026). No reintroducir una capa
   de middleware sin acordarlo antes.
 - **Commits:** Conventional Commits en español sin tildes
-- **Estilos:** NUNCA CSS inline en PHP — siempre en SASS bajo `resources/sass/`
 - **config():** la función NO soporta notación de puntos. Usar `config('institucion')`,
   NO `config('app.institucion')`. Las claves son las del array en `config/app.php`.
 - **Los mensajes NO revelan el flujo** (regla del usuario, 06 y 09/10/2026): `confirm()`,
@@ -562,7 +525,6 @@ lo compila Gulp, `config/database.php` no lleva secretos, `routes/web.php` es la
 
 ## Notas de entorno
 - Logo del colegio: `public/assets/img/logo_cociap.png` (con guión bajo)
-- URL base dinámica via meta tag: `<meta name="base-url" content="...">`
 - BrowserSync corre en puerto 3000; alias Git Bash `local3000` para iniciar el entorno
 - Todo QR se genera con `qrcode.min.js` local — sin servicios de terceros
 - `hash.php` en raíz: archivo temporal para hashes bcrypt — eliminar tras usarlo,
