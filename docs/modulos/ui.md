@@ -13,6 +13,10 @@
   - `.fila-pendiente` conserva su background naranja en celdas sticky
   - `.conclusion-texto` reemplaza el inline `style="font-size:12px"`
 - Ambas tablas viven dentro de `.tabla-notas-wrapper` (overflow-x:auto)
+- 🔴 **Una celda sticky NUNCA lleva `opacity`** (09/10/2026): transparenta también su
+  fondo y las filas se ven por debajo al desplazarse. Para atenuar una celda fija,
+  atenuar SOLO su texto (`$text-muted`). Pasó en el encabezado de la grilla de asistencia
+  por fechas (días no lectivos y futuros, `_asistencia.scss`).
 
 ### Componentes SASS nuevos/extendidos
 - **`_buttons.scss`** — `.btn-group { display:inline-flex; gap:$spacing-sm }` reutilizable

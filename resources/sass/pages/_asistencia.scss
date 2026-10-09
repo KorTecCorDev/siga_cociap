@@ -474,6 +474,8 @@ $af-asistio:  $text-secondary;
         top: 0;
         z-index: 4;                               // sobre las celdas fijas del cuerpo
         box-shadow: inset 0 -1px 0 $border-color; // el borde inferior se va con el scroll
+        // NUNCA `opacity` en un th fijo: transparenta también su fondo y las filas
+        // se ven por debajo al bajar. Para atenuar un día, solo su texto (09/10/2026).
     }
     // La esquina (N° y nombre) es fija en los dos ejes: la más alta.
     .af-grilla thead .col-num,
@@ -497,7 +499,8 @@ $af-asistio:  $text-secondary;
         text-align: center;
         line-height: 1.1;
 
-        &--futuro { opacity: .45; }
+        &--futuro .af-th-dia__abrev,
+        &--futuro .af-th-dia__num { color: $text-muted; }
     }
     .af-th-dia__abrev { display: block; font-size: 10px; text-transform: uppercase; }
     .af-th-dia__num   { display: block; font-weight: 700; color: $text-primary; }
@@ -670,7 +673,8 @@ $af-asistio:  $text-secondary;
 // ── Encabezado del día: estado de su LISTA (30/09/2026) ────────────────────
 .af-grilla th.af-th-dia {
     &.af-th-dia--sin-tomar { background: $color-warning-bg; }
-    &.af-th-dia--no-lectivo { opacity: .55; }
+    &.af-th-dia--no-lectivo .af-th-dia__abrev,
+    &.af-th-dia--no-lectivo .af-th-dia__num { color: $text-muted; }
 }
 
 .af-th-dia__lista {
