@@ -26,11 +26,32 @@
 | Fase | Qué | Migración | Estado |
 |---|---|---|---|
 | F0 | Correcciones urgentes: ruta vieja de conclusión retirada; `guardarConclusionAlumno` con carga propia y plazo; conclusión obligatoria en el servidor al aprobar | no | **HECHA en `dev` (09/10/2026)** — `verif_guardas_conclusion.php` |
-| F1 | Punto único del plazo `EdicionPeriodoModel` (las 5 copias de la regla + las 3 de «días para el cierre»; corrige el «0 días» tras vencer) | no | pendiente |
+| F1 | Punto único del plazo `EdicionPeriodoModel` (las 5 copias de la regla + las 3 de «días para el cierre»; corrige el «0 días» tras vencer) | no | **HECHA en `dev` (09/10/2026)** — `verif_plazo_edicion.php` |
 | F2 | Coherencia: semáforo del auxiliar con `bimestreTerminado`; transversales del tutor bajo la compuerta; forzados solo con el periodo `activo`; comentarios vencidos | no | pendiente |
 | F3 | Guard del cierre: asistencia bloqueada y conducta en sus dos etapas, todas las secciones del año | no | pendiente |
 | F4 | `periodos.limite_auxiliares` (NULL = vale `limite_notas`); `fecha_fin ≤ limite_auxiliares ≤ limite_notas` | **sí** | pendiente |
 | F5 | Rectificación de conducta y asistencia (RA/admin, motivo + auditoría) | **sí** | pendiente — **diseño a cerrar con el usuario** (qué se rectifica en conducta y en asistencia por fechas, tabla de auditoría, etapa 2 ya cerrada, boleta publicada) |
+
+### F1 — cómo quedó (09/10/2026)
+- **`app/Models/EdicionPeriodoModel.php`**: `esEditable(periodo, rol)`, `motivoNoEditable()`
+  (`cerrado` · `plazo_vencido` · `no_iniciado`), `motivoSobre(fila, rol)` (la misma regla
+  sobre una fila ya leída), `limiteDe(fila, rol)` y `diasParaCierre(limite)`.
+- **El rol es el de quien REGISTRA el dato, no el del usuario en sesión**:
+  - `ROL_AUXILIAR`: conducta etapa 1 y asistencia (`ConductaModel::periodoEditable`,
+    `AsistenciaModel::periodoEditable` y la columna `editable` de los dos
+    `listarPeriodosActivos`, que ahora se calcula en PHP sobre la misma fila).
+  - `ROL_DOCENTE`: `CalificacionModel::periodoEstaBloqueado` y la etapa 2 del tutor
+    (`ConductaTutorController::plazoVigente`, que antes usaba el `periodoEditable` de
+    conducta).
+  - Hoy los dos leen `limite_notas`: la F4 solo cambia `limiteDe()`.
+- **Única diferencia de comportamiento:** un periodo `pendiente` deja de ser editable
+  para el docente. Ningún caller llega con uno (verificado el 04/08).
+- **«Días para el cierre»** (paneles docente y auxiliar, `/director/bloqueos`): antes, con
+  `ceil()`, mostraba «0 días para el cierre» hasta 24 h DESPUÉS de vencer. Ahora pasa a
+  «1 día desde el cierre» en cuanto vence.
+- `verif_plazo_edicion.php`: A/B contra copias de control de las reglas viejas
+  (4 periodos × 3 estados × 4 fronteras), los delegados, los días y un barrido que falla
+  si renace una comparación de `limite_notas` fuera del punto único.
 
 - La F3 vieja (guard de sección vacía de asistencia) ya la cubren el 100 % confirmado y
   «cada estudiante, cada día» (29/09 y 09/10/2026): no se implementa.

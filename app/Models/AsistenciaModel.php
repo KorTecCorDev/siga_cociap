@@ -64,21 +64,13 @@ class AsistenciaModel extends BaseModel
     }
 
     /**
-     * Periodos del año activo con flag de edición.
-     * "editable" solo es true cuando el periodo está en estado 'activo'
-     * y dentro del límite de notas. Mismo criterio que ConductaModel para
-     * mantener coherencia entre módulos.
-     *
-     * ZONA HORARIA — el "ahora" lo calcula PHP (`America/Lima`, aplicado en
-     * public/index.php) y viaja como parámetro preparado. NO usar NOW(): el
-     * MySQL de produccion corre en UTC, 5 horas adelantado, y este flag se
-     * apagaba 5 horas ANTES que el guard real de escritura
-     * (`periodoEditable`, que compara con `time()` en PHP). Misma regla que
-     * `PublicacionBoletaModel::ahora()`.
+     * Periodos del año activo con flag `editable` (1/0). El flag lo calcula
+     * el punto único `EdicionPeriodoModel` (09/10/2026) sobre la misma fila:
+     * antes era una columna SQL que repetía la regla.
      */
     public function listarPeriodosActivos(): array
     {
-        return $this->query("
+        $periodos = $this->query("
             SELECT
                 p.id,
                 p.numero,
@@ -90,16 +82,17 @@ class AsistenciaModel extends BaseModel
                 p.fecha_inicio,
                 p.fecha_fin,
                 p.asistencia_por_fechas,
-                a.anio,
-                (
-                    p.estado = 'activo'
-                    AND (p.limite_notas IS NULL OR ? <= p.limite_notas)
-                ) AS editable
+                a.anio
             FROM periodos p
             INNER JOIN anios_academicos a ON a.id = p.anio_id
             WHERE a.estado = 'activo'
             ORDER BY p.numero
-        ", [date('Y-m-d H:i:s')]);
+        ");
+        foreach ($periodos as &$p) {
+            $p['editable'] = (int) (EdicionPeriodoModel::motivoSobre($p, EdicionPeriodoModel::ROL_AUXILIAR) === null);
+        }
+        unset($p);
+        return $periodos;
     }
 
     /**
@@ -1618,17 +1611,7 @@ class AsistenciaModel extends BaseModel
      */
     public function periodoEditable(int $periodoId): bool
     {
-        $p = $this->queryOne("
-            SELECT estado, limite_notas
-            FROM periodos WHERE id = ?
-        ", [$periodoId]);
-
-        if (!$p || $p['estado'] !== 'activo') {
-            return false;
-        }
-        if ($p['limite_notas'] && strtotime($p['limite_notas']) < time()) {
-            return false;
-        }
-        return true;
+        // Punto único de la compuerta temporal (09/10/2026).
+        return (new EdicionPeriodoModel())->esEditable($periodoId, EdicionPeriodoModel::ROL_AUXILIAR);
     }
 }

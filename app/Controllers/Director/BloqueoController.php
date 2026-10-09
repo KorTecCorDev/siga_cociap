@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\AsistenciaModel;
 use App\Models\CalificacionModel;
 use App\Models\ConductaModel;
+use App\Models\EdicionPeriodoModel;
 use App\Models\TransversalModel;
 use Core\Session;
 
@@ -151,13 +152,11 @@ class BloqueoController extends BaseController
                     fn($s) => $s['total'] > 0 && $s['bloqueadas'] === $s['total']
                 ));
 
-                // Días restantes para el cierre
-                $diasRestantes = null;
-                if (!empty($periodo['limite_notas'])) {
-                    $diasRestantes = (int) ceil(
-                        (strtotime($periodo['limite_notas']) - time()) / 86400
-                    );
-                }
+                // Días restantes para el cierre (fecha de los docentes): punto
+                // único `EdicionPeriodoModel` (09/10/2026).
+                $diasRestantes = EdicionPeriodoModel::diasParaCierre(
+                    EdicionPeriodoModel::limiteDe($periodo, EdicionPeriodoModel::ROL_DOCENTE)
+                );
             }
         }
 

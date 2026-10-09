@@ -20,7 +20,11 @@ fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
   `verif_criterios_filtros_cascada`, `verif_direccion_superficies`, `verif_rol_auxiliar`,
   `verif_stats_competencia`; este último descuadra un roster de cambio de sección también
   en `HEAD`).
-- **Pendiente:** F1 → F2 → F3 → F4 (migración) → F5 (migración; cerrar su diseño con el
+- **F1 HECHA en `dev`** (sin migración): punto único `EdicionPeriodoModel` de la compuerta
+  temporal y de «días para el cierre»; la etapa 2 del tutor pregunta con el rol docente;
+  el KPI ya no dice «0 días para el cierre» después de vencer. `verif_plazo_edicion.php`
+  en verde.
+- **Pendiente:** F2 → F3 → F4 (migración) → F5 (migración; cerrar su diseño con el
   usuario antes). La F2 pone plazo a las transversales del tutor: **avisar antes a los
   tutores**.
 

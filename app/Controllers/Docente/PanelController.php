@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\CalificacionModel;
 use App\Models\ConductaModel;
 use App\Models\DirectorEbrModel;
+use App\Models\EdicionPeriodoModel;
 use App\Models\EstudianteModel;
 use App\Models\HorarioModel;
 use App\Models\NominaModel;
@@ -118,13 +119,10 @@ class PanelController extends BaseController
                <=> [(int) $a['critico'], $a['faltan']];
         });
 
-        // Días para el cierre (limite_notas)
-        $diasCierre = null;
-        if ($periodo && !empty($periodo['limite_notas'])) {
-            $diasCierre = (int) ceil(
-                (strtotime($periodo['limite_notas']) - time()) / 86400
-            );
-        }
+        // Días para el cierre: punto único `EdicionPeriodoModel` (09/10/2026).
+        $diasCierre = $periodo
+            ? EdicionPeriodoModel::diasParaCierre(EdicionPeriodoModel::limiteDe($periodo, EdicionPeriodoModel::ROL_DOCENTE))
+            : null;
 
         // Card de Tutoría (solo tutores del año activo)
         $tutoria      = null;

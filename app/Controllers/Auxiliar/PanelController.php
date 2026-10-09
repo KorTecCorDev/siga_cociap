@@ -8,6 +8,7 @@ use App\Models\AsistenciaModel;
 use App\Models\AuxiliarSeccionModel;
 use App\Models\ConductaModel;
 use App\Models\DirectorEbrModel;
+use App\Models\EdicionPeriodoModel;
 use App\Models\HorarioModel;
 use App\Models\NominaModel;
 use Core\Session;
@@ -99,12 +100,11 @@ class PanelController extends BaseController
             }
         }
 
-        // Días para el cierre: la misma fecha límite que corta la edición de
-        // conducta y asistencia (`periodoEditable`), igual que en el panel docente.
-        $diasCierre = null;
-        if ($periodo !== null && !empty($periodo['limite_notas'])) {
-            $diasCierre = (int) ceil((strtotime($periodo['limite_notas']) - time()) / 86400);
-        }
+        // Días para el cierre: la fecha límite que corta la edición de conducta y
+        // asistencia. Punto único `EdicionPeriodoModel` (09/10/2026).
+        $diasCierre = $periodo !== null
+            ? EdicionPeriodoModel::diasParaCierre(EdicionPeriodoModel::limiteDe($periodo, EdicionPeriodoModel::ROL_AUXILIAR))
+            : null;
 
         $this->view('auxiliar/inicio', [
             'titulo'         => 'Inicio',

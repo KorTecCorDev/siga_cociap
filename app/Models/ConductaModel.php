@@ -43,27 +43,25 @@ class ConductaModel extends BaseModel
     }
 
     /**
-     * Periodos del año activo con flag de edicion (mismo criterio que el resto).
-     *
-     * ZONA HORARIA — el "ahora" lo calcula PHP y viaja como parámetro
-     * preparado, igual que en `periodoEditable()` (que usa `time()`) unas
-     * lineas mas abajo. NO usar NOW(): el MySQL de produccion corre en UTC,
-     * 5 horas adelantado, y el flag se apagaba antes que el guard real.
+     * Periodos del año activo con flag `editable` (1/0). El flag lo calcula
+     * el punto único `EdicionPeriodoModel` (09/10/2026) sobre la misma fila:
+     * antes era una columna SQL que repetía la regla.
      */
     public function listarPeriodosActivos(): array
     {
-        return $this->query("
+        $periodos = $this->query("
             SELECT
-                p.id, p.numero, p.nombre_display, p.estado, p.limite_notas, a.anio,
-                (
-                    p.estado = 'activo'
-                    AND (p.limite_notas IS NULL OR ? <= p.limite_notas)
-                ) AS editable
+                p.id, p.numero, p.nombre_display, p.estado, p.limite_notas, a.anio
             FROM periodos p
             INNER JOIN anios_academicos a ON a.id = p.anio_id
             WHERE a.estado = 'activo'
             ORDER BY p.numero
-        ", [date('Y-m-d H:i:s')]);
+        ");
+        foreach ($periodos as &$p) {
+            $p['editable'] = (int) (EdicionPeriodoModel::motivoSobre($p, EdicionPeriodoModel::ROL_AUXILIAR) === null);
+        }
+        unset($p);
+        return $periodos;
     }
 
     /** Año académico activo como expresión SQL (el año por defecto de los criterios). */
@@ -1296,16 +1294,13 @@ class ConductaModel extends BaseModel
 
     // ── Verificacion de edicion ──────────────────────────────────
 
-    /** true si el periodo esta abierto para edicion. */
+    /**
+     * true si el periodo esta abierto para el registro de conducta (etapa 1:
+     * auxiliar, RA o admin). Delega en el punto unico (09/10/2026). La etapa 2
+     * del tutor NO pasa por aqui: pregunta con ROL_DOCENTE.
+     */
     public function periodoEditable(int $periodoId): bool
     {
-        $p = $this->queryOne("SELECT estado, limite_notas FROM periodos WHERE id = ?", [$periodoId]);
-        if (!$p || $p['estado'] !== 'activo') {
-            return false;
-        }
-        if ($p['limite_notas'] && strtotime($p['limite_notas']) < time()) {
-            return false;
-        }
-        return true;
+        return (new EdicionPeriodoModel())->esEditable($periodoId, EdicionPeriodoModel::ROL_AUXILIAR);
     }
 }
