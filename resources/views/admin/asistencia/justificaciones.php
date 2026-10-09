@@ -81,7 +81,7 @@ $pastilla = static fn(string $tipo, bool $conMotivo = false): string =>
     $k = $resumen['kpis']; ?>
 
     <?php if (!$oficial): ?>
-        <?php // `--info`, no `--warning`: auth.js cierra solos los `--warning`. ?>
+        <?php // `--info`: es un aviso informativo (el autocierre de auth.js solo corre en el login). ?>
         <div class="alert alert--info">
             <span class="btn-icon btn-icon--wait" aria-hidden="true"></span>
             <span>

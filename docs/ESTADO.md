@@ -30,6 +30,10 @@ la leyenda y leyenda reducida. Detalle en la DÉCIMA RONDA de
   - Al terminar, los contadores salieron idénticos a la foto previa a la 077.
 - **Detalle de siempre:** el botón de bloqueo se habilita solo al recargar, porque su estado
   lo calcula el servidor. Sin commit.
+- **Limpieza (09/10/2026, turno tarde):**
+  - se eliminó `AsistenciaJornadaModel::incidenciasDelDia`, que había quedado sin uso;
+  - el `alert--warning` de `consulta-notas/asistencia.php` **no** se cierra solo: `auth.js`
+    solo corre en el login. Se corrigieron los comentarios y los docs que decían lo contrario.
 
 ## 🆕 ASISTENCIA: AJUSTES DE LA VISTA POR ESTUDIANTE + VISTA «JUSTIFICACIONES» (09/10/2026, en `dev`, sin migración)
 
@@ -2294,10 +2298,10 @@ sistema entero: **47 banners en 29 vistas**. Detalle en `docs/modulos/ui.md`.
 ### Decisiones abiertas que deja
 
 1. **Renombrar los 31 `.flash` a `.alert`** — cosmético y con cambio visual cero gracias al
-   alias, así que se puede hacer por lotes o nunca. ⚠️ **Tiene un bloqueante que hay que
-   decidir ANTES:** `resources/js/auth.js` autocierra `.alert--success` y `.alert--warning`
-   **en todas las páginas**, así que al renombrar, los mensajes de sesión empezarían a
-   desaparecer solos. Hoy los `.flash` no se autocierran.
+   alias, así que se puede hacer por lotes o nunca. ~~Bloqueante del autocierre~~
+   **No existe** (corregido el 09/10/2026): `resources/js/auth.js` solo se carga en
+   `layouts/auth.php` (login), así que renombrar los `.flash` de la app no los haría
+   desaparecer.
 2. 🆕 **BUG INDEPENDIENTE que este trabajo destapó: el mismo mensaje flash se pinta DOS
    VECES.** `layouts/app.php:58-75` ya pinta `$flash_success`/`$flash_error`/`$flash_warning`
    (globales que inyecta `BaseController::view()`), y **siete vistas los repintan por su

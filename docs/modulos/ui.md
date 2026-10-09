@@ -792,9 +792,11 @@ componente: fundir los selectores impide que vuelvan a divergir. **Marcado nuevo
 `.alert`.** Los 31 `.flash` que quedan son renombrado cosmético, con **cambio visual cero**,
 y por eso se puede hacer por lotes o nunca.
 
-⚠️ **La migración tiene un bloqueante**, y hay que decidirlo ANTES: `resources/js/auth.js`
-autocierra `.alert--success` y `.alert--warning` **en todas las páginas**. Renombrar los
-`.flash` haría que los mensajes de sesión empezaran a desaparecer solos. Ver `docs/ESTADO.md`.
+**No hay bloqueante de autocierre** (corregido el 09/10/2026): `resources/js/auth.js`
+autocierra `.alert--success` y `.alert--warning` a los 6 s, pero **solo se carga en
+`layouts/auth.php`, o sea en el login**; `layouts/app.php` no lo incluye. Renombrar los
+`.flash` de la app no los haría desaparecer. Solo cambiaría algo en `auth/login.php`.
+Antes se documentó que corría «en todas las páginas», y era falso.
 
 ### Qué NO es este componente
 

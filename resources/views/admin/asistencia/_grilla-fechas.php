@@ -63,7 +63,8 @@ $mostrarHoy  = $avisoHoy !== null && substr($hoy, 0, 7) === $fechas['mesVer'];
 <?php if ($editable): ?>
     <?php // AVISO DE HOY (09/10/2026, reemplaza a «Pasar lista de hoy» y al texto
           // de ayuda): dice cómo va el día y su botón dice lo que va a pasar.
-          // `--info` siempre: auth.js cierra solos los `--success`/`--warning`.
+          // `--info` siempre: es un aviso informativo (el autocierre de auth.js
+          // solo corre en el login, layouts/auth.php).
           // `asistencia-fechas.js` lo repinta con cada marca. ?>
     <?php if ($mostrarHoy):
         $fechaHoyTxt = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'][(int) date('N', strtotime($hoy))]

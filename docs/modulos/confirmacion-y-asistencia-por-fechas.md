@@ -29,7 +29,8 @@
 >    - «Hoy, jueves 09/10: todavía no se toma lista. [Todos asistieron]»;
 >    - «faltan N estudiante(s) por marcar. [Marcar a los N como asistentes]»;
 >    - «lista completa · X falta(s) · Y tardanza(s).».
->    - Va siempre `alert--info`, porque `auth.js` cierra solos los `--success`/`--warning`.
+>    - Va siempre `alert--info`: es un aviso informativo. (El autocierre de `auth.js` NO
+>      lo alcanzaría: ese script solo se carga en el login, `layouts/auth.php`.)
 >    - La grilla abre desplazada hasta la columna de hoy.
 > 5. **Bloqueo:** cada estudiante, cada día (`AsistenciaJornadaModel::pendientesPorDia`). El
 >    mensaje lista «07/10 (3 estudiantes)». `diasSinTomar` = días con al menos uno sin cubrir
@@ -52,7 +53,8 @@
 >       deshacer, el bloqueo usa `pendientesPorDia`);
 >     - `verif_reversion_retorno.php` incluye la tabla;
 >     - `verif_asistencia_partial_compartido.php` registra el rol de `justificaciones`.
->     - Pendiente: `incidenciasDelDia` quedó sin uso (solo la llamaba `deshacer`).
+>     - `incidenciasDelDia` quedó sin uso (solo la llamaba `deshacer`) y se eliminó
+>       (09/10/2026, turno tarde).
 
 > **NOVENA RONDA (09/10/2026, decisiones del usuario; sin migración) — vista por estudiante
 > y vista «Justificaciones» de la sección.** En `dev`, probada en Chrome con AUXILIAR

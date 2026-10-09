@@ -178,19 +178,6 @@ class AsistenciaJornadaModel extends BaseModel
         return $out;
     }
 
-    /** Incidencias de CUALQUIER matrícula de la sección ese día y bimestre. */
-    public function incidenciasDelDia(int $seccionId, int $periodoId, string $fecha): int
-    {
-        return (int) ($this->queryOne("
-            SELECT COUNT(*) AS n
-            FROM asistencia_incidencias x
-            INNER JOIN matriculas m ON m.id = x.matricula_id
-            -- Quien CURSÓ el bimestre en la sección (cambio de sección, 07/10/2026).
-            WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
-              AND x.periodo_id = ? AND x.fecha = ?
-        ", [$periodoId, $fecha])['n'] ?? 0);
-    }
-
     /**
      * Días MARCABLES del bimestre (hasta hoy, sin no lectivos) con AL MENOS UN
      * estudiante sin cubrir (077: cada estudiante, cada día). El bloqueo del
