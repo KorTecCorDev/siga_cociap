@@ -159,6 +159,20 @@ class PeriodoController extends BaseController
             );
         }
 
+        // F3 del plan de bloqueos (09/10/2026): conducta y asistencia NO se fuerzan
+        // al cerrar (académicas y transversales sí): se EXIGEN bloqueadas en todas
+        // las secciones del año, conducta en sus dos etapas. Sin esto un bimestre
+        // podía cerrar con la asistencia vacía y la boleta la mostraba en ceros.
+        $sinBloquear = $this->model->registrosSinBloquear($id);
+        if (!empty($sinBloquear)) {
+            $this->redirectWithError(
+                $volverUrl,
+                'No se puede cerrar: faltan registros por bloquear. '
+                . AnioAcademicoModel::textoRegistrosSinBloquear($sinBloquear)
+                . ' Puedes hacerlo desde Bloqueos del bimestre.'
+            );
+        }
+
         $usuarioId   = (int) (Session::user()['id'] ?? 0);
         $tipoRanking = 'oficial';
 

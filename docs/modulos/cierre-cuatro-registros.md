@@ -27,8 +27,8 @@
 |---|---|---|---|
 | F0 | Correcciones urgentes: ruta vieja de conclusión retirada; `guardarConclusionAlumno` con carga propia y plazo; conclusión obligatoria en el servidor al aprobar | no | **HECHA en `dev` (09/10/2026)** — `verif_guardas_conclusion.php` |
 | F1 | Punto único del plazo `EdicionPeriodoModel` (las 5 copias de la regla + las 3 de «días para el cierre»; corrige el «0 días» tras vencer) | no | **HECHA en `dev` (09/10/2026)** — `verif_plazo_edicion.php` |
-| F2 | Coherencia: semáforo del auxiliar con `bimestreTerminado`; transversales del tutor bajo la compuerta; forzados solo con el periodo `activo`; comentarios vencidos | no | pendiente |
-| F3 | Guard del cierre: asistencia bloqueada y conducta en sus dos etapas, todas las secciones del año | no | pendiente |
+| F2 | Coherencia: semáforo del auxiliar con `bimestreTerminado`; transversales del tutor bajo la compuerta; forzados solo con el periodo `activo`; comentarios vencidos | no | **HECHA en `dev` (09/10/2026)** — `verif_coherencia_bloqueos.php`. ⚠️ **Avisar a los tutores ANTES de desplegarla** |
+| F3 | Guard del cierre: asistencia bloqueada y conducta en sus dos etapas, todas las secciones del año | no | **HECHA en `dev` (09/10/2026)** — `verif_guard_cierre_registros.php`. ⚠️ Antes de desplegar, medir en PROD que el III Bimestre pueda cumplirla |
 | F4 | `periodos.limite_auxiliares` (NULL = vale `limite_notas`); `fecha_fin ≤ limite_auxiliares ≤ limite_notas` | **sí** | pendiente |
 | F5 | Rectificación de conducta y asistencia (RA/admin, motivo + auditoría) | **sí** | pendiente — **diseño a cerrar con el usuario** (qué se rectifica en conducta y en asistencia por fechas, tabla de auditoría, etapa 2 ya cerrada, boleta publicada) |
 
@@ -52,6 +52,38 @@
 - `verif_plazo_edicion.php`: A/B contra copias de control de las reglas viejas
   (4 periodos × 3 estados × 4 fronteras), los delegados, los días y un barrido que falla
   si renace una comparación de `limite_notas` fuera del punto único.
+
+### F2 — cómo quedó (09/10/2026)
+- **Semáforo del auxiliar** (`Auxiliar\PanelController::estado`): en un bimestre por
+  fechas, con todos confirmados y sin días sin tomar, antes del último día dice **«Bloqueo
+  desde el dd/mm»** en gris, no «Listo para bloquear» (que el bloqueo luego negaba). Usa
+  la misma `AsistenciaModel::bimestreTerminado` que `bloquearRA`.
+- **Transversales del tutor bajo el plazo docente** (`TutoriaController::exigirPlazo`): las
+  tres escrituras (conclusión, réplica y cierre) se rechazan con el plazo vencido o con un
+  `periodo_id` cerrado, pendiente o inexistente por la URL. La vista queda en solo lectura
+  con un aviso; las réplicas ya escritas se siguen viendo.
+- **Forzados del panel solo con el bimestre ACTIVO**: las cinco acciones de bloqueo/cierre
+  de `/director/bloqueos` (competencia, transversales, conducta etapa 1 y 2, asistencia)
+  pasan por `abortarSiPeriodoCerrado`, como ya lo hacían los cuatro reabrir. Sus botones no
+  se pintan con el bimestre cerrado. Medido el 09/10 en local: B1 y B2 tienen las 23
+  secciones con conducta (dos etapas) y asistencia bloqueadas, así que no se pierde ninguna
+  vía de recuperación; con la F3, todo bimestre que cierre quedará completo.
+- **Textos** que decían quién resuelve (regla «los mensajes no revelan el flujo»), en las
+  pantallas tocadas: «Comunícate con Registro Académico» (aprobar fuera de plazo y banner de
+  la grilla), «Consulta con Registro Académico» (etapa 2 sin etapa 1) y los `confirm()` de
+  reabrir conducta y asistencia. Quedan, sin tocar, los de `admin/{conducta,asistencia}/index.php`
+  y `auxiliar/inicio.php` (secciones sin asignar).
+
+### F3 — cómo quedó (09/10/2026)
+- `AnioAcademicoModel::registrosSinBloquear(periodo)`: por registro, las secciones a las
+  que les falta — `asistencia` (sin cierre vigente), `conducta` (sin etapa 1) y
+  `conducta_tutor` (etapa 1 sin etapa 2). Universo D5: **todas las secciones del año**,
+  con SQL propio (los resúmenes del panel no se tocaron).
+- `PeriodoController::cerrar` lo llama **después** de los guards de empates y de
+  evaluación incompleta y **antes** de la transacción; el mensaje nombra registro y
+  secciones (`textoRegistrosSinBloquear`).
+- **Hito A** (`aprobarBimestre`) no lleva este guard: no cierra el bimestre.
+- Las académicas y las transversales se siguen forzando al cerrar (D1).
 
 - La F3 vieja (guard de sección vacía de asistencia) ya la cubren el 100 % confirmado y
   «cada estudiante, cada día» (29/09 y 09/10/2026): no se implementa.
