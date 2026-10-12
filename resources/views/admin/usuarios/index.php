@@ -202,7 +202,7 @@ $contextoDe = function (array $u) use ($contexto, $auxiliares, $listar): array {
                     <td>
                         <div class="td-acciones">
                             <a href="<?= url('admin/usuarios/' . $u['id'] . '/editar') ?>"
-                               class="btn btn--secondary btn--sm">
+                               class="btn btn--secondary btn--sm" data-editar-link>
                                 Editar
                             </a>
                             <?php if (!$esYo): ?>

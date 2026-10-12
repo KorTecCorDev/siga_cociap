@@ -38,10 +38,14 @@ ya tiene dos consumidores). Sin JS la card no aparece y la tabla queda como ante
   como su badge), filtro de estado, resaltado `<mark>` con nodos de texto (nunca
   `innerHTML`), atajos `/` · Esc · Enter (con un solo resultado abre Editar). El filtro
   vive en la URL (`?q=&rol=&estado=`, `replaceState`): «Atrás» desde Editar lo conserva.
-  **Activar/Desactivar vuelve a la lista con el mismo filtro** (decisión del usuario): el JS
-  copia el filtro a los ocultos `filtro_q|rol|estado` del formulario y
-  `UsuarioController::urlListaFiltrada()` los valida (q ≤ 100, rol `[a-z_]`, estado
-  activo/inactivo) y redirige siempre a la propia ruta.
+  **Activar/Desactivar y Guardar desde Editar vuelven a la lista con el mismo filtro**
+  (decisión del usuario, 12/10/2026). El JS copia el filtro a los ocultos
+  `filtro_q|rol|estado` de Activar/Desactivar y a la URL del enlace Editar
+  (`?q=&rol=&estado=`); `edit()` lo lee de la URL y lo deja en los ocultos del formulario y
+  en «Volver»/«Cancelar»; `update()` vuelve con él, y ante un error reabre Editar sin
+  perderlo. PUNTO ÚNICO de validación: `UsuarioController::filtroLista()` (q ≤ 100, rol
+  `[a-z_]`, estado activo/inactivo; lo demás se descarta) y `conFiltro()`, que solo arma
+  rutas propias.
 - **crear** — formulario en grid responsivo (1→2→3 col); secciones: datos personales + acceso
 - **editar** — igual al crear con valores precargados; contraseña opcional (vacío = no cambia)
 - **toggleEstado** — alterna activo/inactivo con `IF(estado='activo','inactivo','activo')`

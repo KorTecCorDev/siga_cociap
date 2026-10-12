@@ -6,7 +6,8 @@
  *   - Chips de rol con contador, filtro de estado y resaltado de coincidencias.
  *   - Atajos: «/» enfoca, Esc limpia, Enter con un solo resultado abre Editar.
  *   - La búsqueda queda en la URL para que «Atrás» la recupere, y viaja en los
- *     formularios de Activar/Desactivar para volver a la lista filtrada.
+ *     formularios de Activar/Desactivar y en el enlace Editar para volver a
+ *     la lista filtrada.
  * Sin JS la tabla se ve completa, como siempre (la card nace oculta).
  */
 (function () {
@@ -55,6 +56,7 @@
             grupo:    tr.dataset.grupo || '',
             estado:   tr.dataset.estado || '',
             editar:   tr.dataset.editar || '',
+            enlace:   tr.querySelector('[data-editar-link]'),
             texto:    normalizar(buscar),
             compacto: compactar(buscar),
             resaltables: Array.from(tr.querySelectorAll('[data-resaltar]')).map(function (el) {
@@ -151,10 +153,18 @@
         [['q', estado.q], ['rol', estado.grupo], ['estado', estado.estado]].forEach(function (par) {
             if (par[1]) params.set(par[0], par[1]); else params.delete(par[0]);
         });
-        // Los formularios de Activar/Desactivar vuelven con este mismo filtro.
+        // Activar/Desactivar y Editar vuelven a la lista con este mismo filtro.
         const valores = { q: estado.q, rol: estado.grupo, estado: estado.estado };
         camposFiltro.forEach(function (campo) {
             campo.value = valores[campo.dataset.filtro] || '';
+        });
+        const filtro = new URLSearchParams();
+        Object.keys(valores).forEach(function (k) {
+            if (valores[k]) filtro.set(k, valores[k]);
+        });
+        sufijoFiltro = filtro.toString() ? '?' + filtro.toString() : '';
+        filas.forEach(function (f) {
+            if (f.enlace && f.editar) f.enlace.href = f.editar + sufijoFiltro;
         });
 
         const qs = params.toString();
@@ -164,6 +174,7 @@
     }
 
     let visibles = [];
+    let sufijoFiltro = '';
 
     function aplicar() {
         const lista   = terminos(estado.q);
@@ -238,7 +249,7 @@
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (visibles.length === 1 && visibles[0].editar) {
-                window.location.href = visibles[0].editar;
+                window.location.href = visibles[0].editar + sufijoFiltro;
             }
         }
     });
