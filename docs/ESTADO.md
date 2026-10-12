@@ -5,6 +5,16 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🆕 BUSCADOR DE USUARIOS EN `/admin/usuarios` (12/10/2026, en `dev`, sin migración)
+
+Búsqueda instantánea en el navegador por nombre, DNI, correo, rol y lo que cada usuario
+dicta, tutorea o acompaña (año/bimestre activo), con chips de rol, estado, resaltado y
+atajos. Detalle en `docs/modulos/admin.md` § Buscador de usuarios.
+- Probado renderizando la vista por CLI y ejecutando el JS sobre ese HTML (DOM simulado).
+- [ ] **Falta probarlo en el navegador** (Chrome de la oficina fuerza HTTPS en localhost y
+      la extensión no pudo entrar): `/`, Esc, Enter, chips, móvil y Editar → Atrás.
+
+
 ## 🆕 BLOQUEOS Y PLAZOS DE REGISTRO — PLAN REPLANTEADO (09/10/2026, F0 en `dev`)
 
 El análisis de los bloqueos de docentes, auxiliares y tutor retomó el plan de los 4 registros

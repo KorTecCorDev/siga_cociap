@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Models\AuxiliarSeccionModel;
 use App\Models\UsuarioModel;
 use Core\Session;
 
@@ -19,9 +20,28 @@ class UsuarioController extends BaseController
     // GET /admin/usuarios
     public function index(): void
     {
+        // Contexto para el buscador: lo que dicta y tutorea (año activo) y las
+        // secciones de cada auxiliar en el bimestre activo.
+        $contexto   = $this->model->contextoAcademico();
+        $auxiliares = [];
+        $auxModel   = new AuxiliarSeccionModel();
+        $periodo    = $auxModel->periodoActivo();
+        if ($periodo !== null) {
+            foreach ($auxModel->listarParaPeriodo((int) $periodo['id']) as $s) {
+                if ($s['auxiliar_id'] !== null) {
+                    $auxiliares[$s['auxiliar_id']][] = UsuarioModel::etiquetaSeccion(
+                        $s['nivel_nombre'], $s['grado_nombre'], $s['seccion_nombre']
+                    );
+                }
+            }
+        }
+
         $this->view('admin/usuarios/index', [
-            'titulo'   => 'Gestión de Usuarios',
-            'usuarios' => $this->model->listarTodos(),
+            'titulo'       => 'Gestión de Usuarios',
+            'usuarios'     => $this->model->listarTodos(),
+            'contexto'     => $contexto,
+            'auxiliares'   => $auxiliares,
+            'page_scripts' => ['usuarios-buscador'],
         ]);
     }
 
@@ -196,29 +216,52 @@ class UsuarioController extends BaseController
     {
         $this->validateCsrf();
 
+        $volver = $this->urlListaFiltrada();
+
         if ((int) (Session::user()['id'] ?? 0) === $id) {
-            $this->redirectWithError(url('admin/usuarios'), 'No puedes desactivar tu propia cuenta.');
+            $this->redirectWithError($volver, 'No puedes desactivar tu propia cuenta.');
         }
 
         $usuario = $this->model->findById($id);
         if (!$usuario) {
-            $this->redirectWithError(url('admin/usuarios'), 'Usuario no encontrado.');
+            $this->redirectWithError($volver, 'Usuario no encontrado.');
         }
 
         // No desactivar al último admin activo
         if ($usuario['rol_codigo'] === 'admin' && $usuario['estado'] === 'activo') {
             if ($this->model->contarPorRolCodigo('admin') <= 1) {
-                $this->redirectWithError(url('admin/usuarios'), 'No puedes desactivar al único administrador activo.');
+                $this->redirectWithError($volver, 'No puedes desactivar al único administrador activo.');
             }
         }
 
         $this->model->toggleEstado($id);
 
         $nuevoEstado = $usuario['estado'] === 'activo' ? 'desactivado' : 'activado';
-        $this->redirectWithSuccess(url('admin/usuarios'), "Usuario {$nuevoEstado} correctamente.");
+        $this->redirectWithSuccess($volver, "Usuario {$nuevoEstado} correctamente.");
     }
 
     // ── Métodos privados ──────────────────────────────────────────
+
+    /**
+     * /admin/usuarios con el filtro del buscador que venía en el formulario,
+     * para volver a la lista tal como estaba. Solo pasa lo que el buscador
+     * puede producir; la ruta es siempre la propia.
+     */
+    private function urlListaFiltrada(): string
+    {
+        $leer   = fn(string $campo): string => is_string($v = $this->input($campo, '')) ? $v : '';
+        $q      = trim($leer('filtro_q'));
+        $rol    = $leer('filtro_rol');
+        $estado = $leer('filtro_estado');
+
+        $params = array_filter([
+            'q'      => mb_strlen($q) <= 100 ? $q : '',
+            'rol'    => preg_match('/^[a-z_]{1,40}$/', $rol) ? $rol : '',
+            'estado' => in_array($estado, ['activo', 'inactivo'], true) ? $estado : '',
+        ], static fn(string $v): bool => $v !== '');
+
+        return url('admin/usuarios') . ($params ? '?' . http_build_query($params) : '');
+    }
 
     private function recogerInput(): array
     {

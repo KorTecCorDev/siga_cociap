@@ -59,6 +59,232 @@
     }
 }
 
+// Contexto académico bajo el nombre (lo que dicta, tutorea o acompaña).
+.td-usuario__academico {
+    color: $text-secondary;
+    max-width: 46ch;
+    line-height: 1.35;
+}
+
+// ── Buscador de usuarios (/admin/usuarios) ────────────────────
+// Filtra en el navegador; sin JS la card no se muestra (nace `hidden`).
+.usuarios-buscador {
+    padding: $spacing-md;
+    margin-bottom: $spacing-md;
+
+    &[hidden] { display: none; }
+
+    &__caja {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    &__lupa {
+        position: absolute;
+        left: 14px;
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: $text-muted;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        pointer-events: none;
+        transition: stroke .15s;
+    }
+
+    &__input {
+        width: 100%;
+        padding: 12px 84px 12px 42px;
+        font: inherit;
+        font-size: $font-size-lg;
+        color: $text-primary;
+        background: $bg-secondary;
+        border: 1.5px solid $border-color;
+        border-radius: $border-radius;
+        outline: none;
+        transition: border-color .15s, background .15s, box-shadow .15s;
+
+        &::placeholder { color: $text-muted; }
+        // El navegador pinta su propia × en type=search: usamos la nuestra.
+        &::-webkit-search-cancel-button { display: none; }
+
+        &:focus {
+            background: $bg-white;
+            border-color: $brand-mid;
+            box-shadow: 0 0 0 3px rgba($brand-mid, .15);
+        }
+    }
+
+    &__caja:focus-within &__lupa { stroke: $brand-mid; }
+    &__caja:focus-within &__atajo { opacity: 0; }
+
+    &__limpiar {
+        position: absolute;
+        right: 44px;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        font-size: 18px;
+        line-height: 1;
+        color: $text-secondary;
+        background: $border-color;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+
+        &:hover { background: darken($border-color, 8%); color: $text-primary; }
+        &[hidden] { display: none; }
+    }
+
+    &__atajo {
+        position: absolute;
+        right: 12px;
+        min-width: 22px;
+        padding: 1px 6px;
+        font-family: inherit;
+        font-size: $font-size-sm;
+        text-align: center;
+        color: $text-muted;
+        background: $bg-white;
+        border: 1px solid $border-color;
+        border-bottom-width: 2px;
+        border-radius: $border-radius-sm;
+        transition: opacity .15s;
+    }
+
+    &__filtros {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-sm $spacing-md;
+        margin-top: $spacing-md;
+    }
+
+    &__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs $spacing-sm;
+    }
+
+    // Control segmentado de estado.
+    &__estado {
+        display: inline-flex;
+        padding: 3px;
+        background: $bg-body;
+        border-radius: 999px;
+    }
+
+    &__seg {
+        padding: 4px $spacing-md;
+        font: inherit;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        background: transparent;
+        border: none;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background .15s, color .15s;
+
+        &:hover { color: $text-primary; }
+
+        &--activo {
+            color: $text-primary;
+            font-weight: 600;
+            background: $bg-white;
+            box-shadow: $shadow-sm;
+        }
+    }
+
+    &__contador {
+        margin: $spacing-sm 0 0;
+        font-size: $font-size-sm;
+        color: $text-muted;
+    }
+
+    &--filtrando &__contador {
+        color: $brand-mid;
+        font-weight: 600;
+    }
+}
+
+// Chip de filtro con contador. Clase propia: `.orden-chip` ya tiene dos
+// consumidores (/matriculas y /admin/cuadros) y no se acopla a un tercero.
+.filtro-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px 5px $spacing-md;
+    font: inherit;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    background: $bg-white;
+    border: 1px solid $border-color;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+
+    &:hover {
+        border-color: $brand-mid;
+        color: $brand-mid;
+    }
+
+    &__n {
+        min-width: 22px;
+        padding: 1px 7px;
+        font-weight: 600;
+        text-align: center;
+        color: $text-secondary;
+        background: $bg-body;
+        border-radius: 999px;
+    }
+
+    &--activo {
+        color: $text-white;
+        background: $brand-mid;
+        border-color: $brand-mid;
+
+        &:hover { color: $text-white; }
+    }
+
+    &--activo &__n {
+        color: $brand-mid;
+        background: $bg-white;
+    }
+}
+
+// Filas filtradas y resaltado de coincidencias.
+.usuarios-fila[hidden],
+.usuarios-sin-resultados[hidden] { display: none; }
+
+.usuarios-fila mark {
+    padding: 0 1px;
+    color: inherit;
+    background: $brand-light;
+    border-radius: 3px;
+    box-shadow: inset 0 -2px 0 rgba($brand-accent, .55);
+}
+
+.usuarios-sin-resultados td {
+    padding: $spacing-xl $spacing-md;
+    text-align: center;
+}
+
+.usuarios-sin-resultados__texto {
+    margin: 0 0 $spacing-sm;
+    color: $text-secondary;
+}
+
+@media (max-width: 640px) {
+    .usuarios-buscador__atajo { display: none; }
+    .usuarios-buscador__limpiar { right: 12px; }
+    .usuarios-buscador__input { padding-right: 44px; }
+}
+
 // ── Fila de usuario inactivo ──────────────────────────────────
 tr.fila-inactiva td {
     opacity: .55;

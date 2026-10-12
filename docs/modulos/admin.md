@@ -18,6 +18,30 @@
 ### Operaciones del CRUD
 - **index** — tabla con avatar de iniciales coloreado por rol, badges de rol/estado,
   último acceso, botones Editar y Activar/Desactivar
+
+### Buscador de usuarios (12/10/2026)
+Filtra **en el navegador** sobre la tabla ya cargada (decisión del usuario: no hay `?q=`
+en el servidor). JS `resources/js/usuarios-buscador.js`; estilos `.usuarios-buscador` y
+`.filtro-chip` en `_admin.scss` (`.filtro-chip` es clase propia a propósito: `.orden-chip`
+ya tiene dos consumidores). Sin JS la card no aparece y la tabla queda como antes.
+- **Busca en** nombre, DNI, correo, rol y **contexto académico** (`data-buscar` de cada
+  fila). Palabras en cualquier orden, sin tildes, ñ ≡ n. Las secciones se escriben como
+  sea: «5b», «5 b», «5.° B» (término compacto `5b`).
+- **Contexto académico** (línea bajo el nombre): `UsuarioModel::contextoAcademico()` —
+  cursos de las cargas `activa` y tutoría del **año activo** (el tutor de HOY,
+  `secciones.tutor_id`: sirve para ubicar, no es documento). La carga TOE no se lista
+  (la cubre «Tutoría»). En un aula unidocente (REGLA es_aula) se muestra «Aula: Prim. 2° A»
+  y sus cursos siguen siendo buscables sin mostrarse. Auxiliares: sus secciones del
+  **bimestre activo** (`AuxiliarSeccionModel::listarParaPeriodo`). Cada sección lleva el
+  nivel (`UsuarioModel::etiquetaSeccion`, «Prim.»/«Sec.»): «4° B» existe en los dos.
+- **Chips de rol** con contador vivo (los 3 de `ROLES_DIRECCION` = un chip «Dirección»,
+  como su badge), filtro de estado, resaltado `<mark>` con nodos de texto (nunca
+  `innerHTML`), atajos `/` · Esc · Enter (con un solo resultado abre Editar). El filtro
+  vive en la URL (`?q=&rol=&estado=`, `replaceState`): «Atrás» desde Editar lo conserva.
+  **Activar/Desactivar vuelve a la lista con el mismo filtro** (decisión del usuario): el JS
+  copia el filtro a los ocultos `filtro_q|rol|estado` del formulario y
+  `UsuarioController::urlListaFiltrada()` los valida (q ≤ 100, rol `[a-z_]`, estado
+  activo/inactivo) y redirige siempre a la propia ruta.
 - **crear** — formulario en grid responsivo (1→2→3 col); secciones: datos personales + acceso
 - **editar** — igual al crear con valores precargados; contraseña opcional (vacío = no cambia)
 - **toggleEstado** — alterna activo/inactivo con `IF(estado='activo','inactivo','activo')`
@@ -30,7 +54,7 @@
 
 ### Nuevos métodos en UsuarioModel
 `findById`, `listarRoles`, `existeDni`, `crearConPersona`, `actualizarConPersona`,
-`toggleEstado`, `contarPorRolCodigo`
+`toggleEstado`, `contarPorRolCodigo`, `contextoAcademico`, `etiquetaSeccion` (estática)
 
 ### Convenciones del formulario de usuario
 - Apellidos y nombres se almacenan en `mb_strtoupper()` (mayúsculas)
