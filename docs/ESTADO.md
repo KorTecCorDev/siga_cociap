@@ -5,6 +5,40 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🔜 RETOMAR AQUÍ (12/10/2026, fin del turno en la oficina) — DESPLIEGUE DESPUÉS DEL III
+
+**Decisión del usuario (12/10/2026): opción A.** Todo `dev` (16 commits: bloqueos y plazos
+F0–F4, asistencia 077, usuarios, matrículas) se despliega **DESPUÉS de cerrar con éxito el III
+Bimestre**, para que el **IV sea el primer bimestre completo con las reglas nuevas**. No se
+despliega nada por separado.
+
+Pasos, en orden:
+1. **Cerrar el III con el código ACTUAL de producción** siguiendo
+   `docs/runbooks/cierre-de-bimestre.md`, con la **Fase 3.5 a mano** (sin F3, el código no la
+   exige y la boleta sale con guiones). Límite de notas: **14/10/2026 11:59**.
+2. Producción, phpMyAdmin, **envíos separados**: `077_asistencia_presencias.sql` → 
+   `078_periodos_limite_auxiliares.sql` (idempotentes, no tocan datos).
+3. Producción: comprobar el CHECK (la copia local no los conserva). Si no devuelve una fila,
+   revisar antes del merge:
+   `SELECT CONSTRAINT_NAME, TABLE_NAME FROM information_schema.CHECK_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'chk_justificada_con_motivo';`
+4. Merge `dev` → `main` (auto-deploy). Preguntar antes, como siempre.
+5. Antes de abrir el IV (19/10): avisar a **tutores** (transversales y etapa 2 de conducta con
+   el mismo plazo que las notas) y **auxiliares** (marcar a uno no toma la lista; la asistencia
+   se bloquea desde el último día). Opcional: fecha propia de auxiliares del IV.
+6. Pruebas rápidas en prod: tarjeta de `/director/anios/1` («Igual al límite de notas»), panel
+   del auxiliar, una grilla de asistencia, `/docente/tutoria`, `/matriculas` con filtro Nivel.
+
+**Medido con datos de prod del 12/10/2026 13:53** (código de `dev`), lo que le falta al III:
+- Asistencia bloqueada **0/23**. Primaria 3.° A, 3.° B, 4.° A y 4.° B con **0 confirmados**;
+  sec 3.° A 21/22. **14 secciones sin lista del 30/09**: fue día LECTIVO (lo confirmó el
+  usuario) y lo registran los auxiliares. Otros pendientes sueltos: 01/10, 05/10, 09/10.
+- Conducta etapa 1 **23/23**; etapa 2 (tutor) **3/23** (solo prim 2.° A, 5.° A y 6.° A).
+- Transversales cerradas por el tutor **0/23**.
+- Académicas aprobadas **168/283**; en 51 pendientes faltan **322 conclusiones obligatorias**.
+
+**BD local de la oficina:** copia de prod del 12/10 13:53 **con 077 y 078 aplicadas** a mano.
+
 ## 🆕 LISTA DE MATRÍCULAS: NIVEL, FILTROS Y VUELTA (12/10/2026, en `dev`, sin migración)
 
 Nivel en la celda «Grado / Sección» y en el filtro Sección (5° A primaria ≠ secundaria),
