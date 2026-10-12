@@ -209,6 +209,16 @@
         color: $text-muted;
     }
 
+    // Editar · Hacer responsable · Quitar (los dos últimos son <form> propios).
+    &__acciones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+        margin-top: $spacing-sm;
+
+        form { margin: 0; }
+    }
+
     &--responsable {
         border-color: $color-success;
         box-shadow: inset 3px 0 0 $color-success;

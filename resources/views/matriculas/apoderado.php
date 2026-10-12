@@ -9,6 +9,15 @@
  */
 $pasos = [1 => 'Estudiante', 2 => 'Apoderado', 3 => 'Documentos'];
 $mid   = (int) $matricula['id'];
+
+// Otros estudiantes del apoderado encontrado (sin contar al de esta matrícula):
+// si los hay, el vínculo exige confirmación (también en el servidor).
+$otrosEstudiantes = [];
+foreach (($apoderado['vinculos'] ?? []) as $vin) {
+    if ((int) $vin['estudiante_id'] !== (int) $matricula['estudiante_id']) {
+        $otrosEstudiantes[(int) $vin['estudiante_id']] = $vin['estudiante_nombre'];
+    }
+}
 ?>
 
 <div class="page-header">
@@ -47,6 +56,23 @@ $mid   = (int) $matricula['id'];
                     <?= $v['telefono'] ? ' · Tel. ' . e($v['telefono']) : '' ?>
                     <?= $v['es_responsable'] ? ' · Responsable de matrícula' : '' ?>
                 </div>
+                <?php $vid = (int) $v['vinculo_id']; ?>
+                <div class="apoderado-card__acciones">
+                    <a href="<?= url('matriculas/' . $mid . '/apoderado/' . $vid . '/editar') ?>" class="btn btn--secondary btn--sm">Editar</a>
+                    <?php // El responsable no se quita ni se «hace responsable»: se traslada desde otro apoderado. ?>
+                    <?php if (!$v['es_responsable']): ?>
+                        <form method="POST" action="<?= url('matriculas/' . $mid . '/apoderado/' . $vid . '/responsable') ?>"
+                              data-confirm="¿Hacer a <?= e($v['nombre_completo']) ?> responsable de matrícula? El responsable actual pasará a ser apoderado adicional.">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn--secondary btn--sm">Hacer responsable</button>
+                        </form>
+                        <form method="POST" action="<?= url('matriculas/' . $mid . '/apoderado/' . $vid . '/quitar') ?>"
+                              data-confirm="¿Quitar a <?= e($v['nombre_completo']) ?> como apoderado de este estudiante? Sus datos y sus vínculos con otros estudiantes se conservan.">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn--danger btn--sm">Quitar</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
             </div>
         <?php endforeach; ?>
     </div>
@@ -74,7 +100,7 @@ $mid   = (int) $matricula['id'];
 <!-- Vincular apoderado -->
 <div class="card">
     <div class="card__body">
-        <form method="POST" action="<?= url('matriculas/' . $mid . '/apoderado') ?>" novalidate>
+        <form method="POST" action="<?= url('matriculas/' . $mid . '/apoderado') ?>"<?= empty($otrosEstudiantes) ? ' novalidate' : '' ?>>
             <?= csrf_field() ?>
             <?php if ($apoderado): ?>
                 <input type="hidden" name="apoderado_id" value="<?= (int) $apoderado['id'] ?>">
@@ -87,11 +113,18 @@ $mid   = (int) $matricula['id'];
                         <label class="form-label">Nombre</label>
                         <input type="text" class="form-input" value="<?= e($apoderado['nombre_completo']) ?>" readonly>
                     </div>
-                    <?php if (!empty($apoderado['vinculos'])): ?>
+                    <?php if (!empty($otrosEstudiantes)): ?>
                         <div class="form-group form-group--full">
-                            <span class="pass-hint">Ya vinculado a:
-                                <?= e(implode(', ', array_column($apoderado['vinculos'], 'estudiante_nombre'))) ?>
-                            </span>
+                            <div class="flash flash--warning">
+                                Este apoderado ya está vinculado a:
+                                <strong><?= e(implode(', ', $otrosEstudiantes)) ?></strong>.
+                                Verifica que sea la persona correcta antes de vincularla.
+                            </div>
+                            <label class="form-check">
+                                <input type="checkbox" name="confirmar_vinculo" value="1" required>
+                                Confirmo que <?= e($apoderado['nombre_completo']) ?> es apoderado(a) de
+                                <?= e($matricula['nombre_completo']) ?>, además de los estudiantes indicados.
+                            </label>
                         </div>
                     <?php endif; ?>
                 <?php else: ?>

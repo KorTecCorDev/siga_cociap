@@ -5,6 +5,24 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🆕 GESTIÓN DE APODERADOS VINCULADOS (12/10/2026, en `dev`, sin migración)
+
+Nació de un incidente en producción (matrícula #696 vinculada a un apoderado ajeno, que
+perdió su teléfono y correo; corregido a mano el mismo día). Detalle y reglas en
+`docs/modulos/matriculas.md` § Gestión de apoderados vinculados.
+- Guardas al vincular: DNI ya registrado con otro nombre se rechaza; confirmación si el
+  apoderado ya tiene otros estudiantes; el contacto existente solo se completa.
+- En `/matriculas/{id}/apoderado`: **Editar** (vínculo y persona), **Hacer responsable** y
+  **Quitar** (jamás el responsable), con traza en `observaciones`.
+- Al guardar los datos de un apoderado con otros estudiantes, `confirm()` lista cada
+  campo cambiado (antes → después).
+- Modelo probado por CLI con transacción + rollback (22 asertos en verde).
+- [x] **Probado en el navegador el 12/10/2026** (bloques A y B completos, pruebas 1-10,
+      incluida la vista con una sesión de secretaría): todo correcto según el usuario.
+- [ ] Limpiar en la BD local de la oficina los vínculos y datos creados por las pruebas
+      (matrículas 162, 163 y 399; teléfonos de GIRALDO LINO y MALLQUI ROBLES).
+- [ ] Desplegar: sin migración; merge `dev` → `main` solo con autorización.
+
 ## 🆕 BUSCADOR DE USUARIOS EN `/admin/usuarios` (12/10/2026, en `dev`, sin migración)
 
 Búsqueda instantánea en el navegador por nombre, DNI, correo, rol y lo que cada usuario

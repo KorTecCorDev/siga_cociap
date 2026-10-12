@@ -117,6 +117,57 @@ Las literales (`/matriculas/crear`) y los sub-recursos (`/{id}/apoderado`,
 - Toda matrícula nace `pendiente`; solo admin/registro_academico activan/desactivan.
 - Serie de recibo obligatoria siempre. Sección sugerida pero confirmable.
 - Máx 3 apoderados por estudiante; máx 3 estudiantes activos por apoderado/año.
+- **Vincular un apoderado: tres guardas** (12/10/2026). Nacieron de un incidente en
+  producción: la matrícula #696 quedó vinculada a un apoderado ajeno (#380) y **le
+  reemplazó el teléfono y el correo**. La causa fue el formulario de apoderado NUEVO con
+  un DNI que ya existía: `crear()` reutilizaba a la persona en silencio, descartaba los
+  nombres escritos y pisaba su contacto.
+  1. **DNI ya registrado en el formulario «nuevo»** (`storeApoderado` +
+     `ApoderadoModel::personaPorDni`): si los apellidos y los nombres escritos no
+     coinciden con los de esa persona (sea apoderado, docente o estudiante), no se
+     vincula nada y se muestra a nombre de quién está el DNI. Si coinciden, se reutiliza
+     (caso legítimo: un docente que también es apoderado).
+  2. **Apoderado que ya tiene OTROS estudiantes** (`otrosEstudiantesVinculados`): la
+     vista pide la casilla obligatoria `confirmar_vinculo` y el servidor la exige igual.
+     El disparador lo eligió el usuario. Se descartó «sin apellido común con el
+     estudiante» (4 % de los vínculos frente al 20 % de los apoderados con hermanos), que
+     queda como alternativa si la casilla se acepta por costumbre.
+  3. **El contacto de una persona existente solo se COMPLETA si está vacío**
+     (`crear()`: `COALESCE(NULLIF(campo,''), ?, campo)`); nunca se reemplaza.
+  Para corregir los datos del apoderado, ver la sección siguiente.
+
+### Gestión de apoderados vinculados (12/10/2026)
+Desde `/matriculas/{id}/apoderado`, cada apoderado vinculado tiene acciones propias
+(rutas `/matriculas/{id}/apoderado/{vinculo}/…`, todas acotadas por `requireVinculo`
+al estudiante de esa matrícula: un vínculo de otro estudiante da 404).
+- **Editar** (`/editar`, pantalla `apoderado-editar.php`), con dos formularios:
+  - **Vínculo** (`/vinculo`, roles que matriculan): cambia el tipo. Solo afecta a este
+    estudiante. Se rechaza un tipo que el estudiante ya usa (UNIQUE por tipo).
+  - **Persona** (`/persona`, **solo admin y registro académico**, como los datos del
+    estudiante): DNI, apellidos, nombres, teléfono y correo. La ficha de `personas` es
+    COMPARTIDA: el cambio llega a todos sus estudiantes. La pantalla los lista y, si
+    los hay, guardar pide un `confirm()` que lista CADA campo cambiado («Teléfono: antes →
+    después»; decisión del usuario: no casilla). Sin cambios, envía sin preguntar
+    (`[data-confirm-cambios]` en `matriculas.js`). **El DNI
+    de quien tiene cuenta de acceso no se cambia aquí** (es su usuario para entrar; hay
+    docentes y auxiliares apoderados). El DNI de otra persona se rechaza con
+    `MatriculaModel::dniEnUsoPorOtra`.
+- **Quitar** (`/quitar`): borra SOLO el vínculo de este estudiante (la persona y sus
+  otros vínculos quedan). **Jamás el responsable**: lo garantiza el `WHERE
+  es_responsable = 0` de `ApoderadoModel::quitarVinculo`, no solo la vista.
+- **Hacer responsable** (`/responsable`): traslada la responsabilidad
+  (`asignarResponsable`). Queda UN solo responsable y el anterior pasa a adicional (y ya
+  se puede quitar). Es la única salida cuando el responsable está mal.
+- **Traza:** quitar y trasladar la responsabilidad dejan una línea en
+  `matriculas.observaciones` (`MatriculaModel::registrarTraza`, formato de
+  `cambiarEstado`).
+- **Responsable al vincular:** revincular NUNCA quita la responsabilidad (`GREATEST`).
+  Antes, volver a vincular al responsable con la casilla desmarcada lo dejaba en 0.
+  Marcar la casilla la traslada, en vez de crear un segundo responsable.
+- ⚠️ Quitar un vínculo cambia también el panel del padre (sus hijos) y la regla
+  `AuxiliarSeccionModel::seccionesConHijos` (auxiliar en la sección de su hijo). Al
+  quitar el último vínculo de un apoderado con cuenta de padre, su cuenta NO se
+  desactiva (hoy no hay ninguna en producción; pendiente para la v1.1).
 - Continuador → solo `recibo_pago`; nuevo → todos los documentos.
 - Notas externas solo para `tipo='nuevo'`.
 

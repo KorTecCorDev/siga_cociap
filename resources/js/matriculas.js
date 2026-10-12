@@ -7,6 +7,43 @@
  *  - Exonerar: despliega el formulario de exoneración de área.
  */
 
+// Confirmación de los formularios marcados con [data-confirm] (quitar apoderado,
+// hacer responsable), como criterios-conducta.js. El servidor valida igual.
+document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (form.hasAttribute && form.hasAttribute('data-confirm')
+        && !window.confirm(form.getAttribute('data-confirm'))) {
+        e.preventDefault();
+    }
+});
+
+// Datos del apoderado con otros estudiantes ([data-confirm-cambios]): el confirm()
+// lista EXACTAMENTE qué campos cambian (valor anterior → nuevo), para que se
+// confirme sabiendo qué se edita. Sin cambios, envía sin preguntar. Los campos
+// [data-mayus] se comparan como los guarda el servidor (mayúsculas, espacios simples).
+document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (!form.hasAttribute || !form.hasAttribute('data-confirm-cambios')) return;
+
+    const normalizar = (el, v) => {
+        const t = v.trim().replace(/\s+/g, ' ');
+        return el.hasAttribute('data-mayus') ? t.toUpperCase() : t;
+    };
+    const cambios = [];
+    form.querySelectorAll('[data-campo]').forEach((el) => {
+        const antes   = normalizar(el, el.defaultValue);
+        const despues = normalizar(el, el.value);
+        if (antes !== despues) {
+            cambios.push(`• ${el.dataset.campo}: ${antes || '(vacío)'} → ${despues || '(vacío)'}`);
+        }
+    });
+    if (cambios.length === 0) return;
+
+    const mensaje = [form.dataset.confirmCambios, '', ...cambios, '', form.dataset.confirmNota || '']
+        .join('\n').trim();
+    if (!window.confirm(mensaje)) e.preventDefault();
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     // Alta provisional (crear): al marcar "sin DNI" se oculta el campo DNI y se
     // relaja la obligatoriedad (DNI y serie). El servidor es la autoridad; esto

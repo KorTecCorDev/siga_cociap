@@ -613,6 +613,20 @@ class MatriculaModel extends BaseModel
      *                        aprobar). Obligatorio en 'desactivado' (lo exige el
      *                        controlador, no este método).
      */
+    /**
+     * Agrega una línea de auditoría a `observaciones`, con el mismo formato que
+     * deja `cambiarEstado` ("[fecha] texto"). Uso: cambios de apoderados.
+     */
+    public function registrarTraza(int $id, string $texto): bool
+    {
+        return $this->execute(
+            "UPDATE matriculas
+                SET observaciones = TRIM(CONCAT(COALESCE(observaciones,''), '\n', ?))
+              WHERE id = ?",
+            [sprintf('[%s] %s', date('Y-m-d H:i'), $texto), $id]
+        );
+    }
+
     public function cambiarEstado(int $id, string $estado, int $usuarioId, ?string $motivo = null): bool
     {
         $traza = sprintf(

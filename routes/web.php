@@ -230,6 +230,13 @@ $router->post('/matriculas/crear',               'Matricula\MatriculaController@
 $router->post('/matriculas/{id}/estudiante',     'Matricula\MatriculaController@actualizarEstudiante');
 $router->get( '/matriculas/{id}/apoderado',      'Matricula\MatriculaController@apoderado');
 $router->post('/matriculas/{id}/apoderado',      'Matricula\MatriculaController@storeApoderado');
+// Gestión de un apoderado vinculado: editar vínculo/persona, quitar (jamás el
+// responsable) y trasladar la responsabilidad (12/10/2026).
+$router->get( '/matriculas/{id}/apoderado/{vinculo}/editar',      'Matricula\MatriculaController@editarApoderado');
+$router->post('/matriculas/{id}/apoderado/{vinculo}/vinculo',     'Matricula\MatriculaController@actualizarVinculo');
+$router->post('/matriculas/{id}/apoderado/{vinculo}/persona',     'Matricula\MatriculaController@actualizarPersonaApoderado');
+$router->post('/matriculas/{id}/apoderado/{vinculo}/quitar',      'Matricula\MatriculaController@quitarApoderado');
+$router->post('/matriculas/{id}/apoderado/{vinculo}/responsable', 'Matricula\MatriculaController@hacerResponsable');
 $router->get( '/matriculas/{id}/documentos',     'Matricula\MatriculaController@documentos');
 $router->post('/matriculas/{id}/documentos',     'Matricula\MatriculaController@storeDocumentos');
 $router->post('/matriculas/{id}/activar',        'Matricula\MatriculaController@activar');

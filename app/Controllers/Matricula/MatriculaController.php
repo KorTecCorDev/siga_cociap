@@ -620,6 +620,7 @@ class MatriculaController extends BaseController
             'vinculos'      => $this->apoderados->getVinculos((int) $matricula['estudiante_id']),
             'dni'           => $dni,
             'apoderado'     => $apoderado,
+            'page_scripts'  => ['matriculas'],
         ]);
     }
 
@@ -649,18 +650,46 @@ class MatriculaController extends BaseController
 
         // Apoderado existente (por id) o nuevo.
         $apoderadoId = (int) $this->input('apoderado_id');
-        if (!$apoderadoId) {
+        if ($apoderadoId) {
+            // Si el apoderado ya tiene OTROS estudiantes, el vínculo exige una
+            // confirmación explícita (12/10/2026: un DNI equivocado vinculó a un
+            // apoderado ajeno). La vista pide la casilla; aquí se exige igual.
+            $otros = $this->apoderados->otrosEstudiantesVinculados($apoderadoId, $estudianteId);
+            if (!empty($otros) && $this->input('confirmar_vinculo') !== '1') {
+                $apoderado = $this->apoderados->findById($apoderadoId);
+                $this->redirectWithError(
+                    url('matriculas/' . $id . '/apoderado?dni=' . rawurlencode((string) ($apoderado['dni'] ?? ''))),
+                    'Confirma el vínculo para continuar.');
+            }
+        } else {
             $dni = trim((string) $this->input('dni', ''));
             if ($dni === '' || !ctype_digit($dni) || strlen($dni) !== 8) {
                 $this->redirectWithError(url('matriculas/' . $id . '/apoderado'),
                     'DNI del apoderado inválido (8 dígitos).');
             }
+            $apellidoPaterno = $this->nombreNormalizado($this->input('apellido_paterno'));
+            $apellidoMaterno = $this->nombreNormalizado($this->input('apellido_materno'));
+            $nombres         = $this->nombreNormalizado($this->input('nombres'));
+
+            // Un DNI ya registrado NO se reutiliza en silencio: si los nombres
+            // escritos no son los de esa persona, el DNI está mal digitado.
+            $persona = $this->apoderados->personaPorDni($dni);
+            if ($persona && (
+                $this->nombreNormalizado($persona['apellido_paterno']) !== $apellidoPaterno
+                || $this->nombreNormalizado($persona['apellido_materno']) !== $apellidoMaterno
+                || $this->nombreNormalizado($persona['nombres']) !== $nombres
+            )) {
+                $this->redirectWithError(
+                    url('matriculas/' . $id . '/apoderado?dni=' . rawurlencode($dni)),
+                    'El DNI ' . $dni . ' ya está registrado a nombre de '
+                        . $persona['nombre_completo'] . '. Verifica el DNI.');
+            }
             try {
                 $apoderadoId = $this->apoderados->crear([
                     'dni'              => $dni,
-                    'apellido_paterno' => mb_strtoupper(trim((string) $this->input('apellido_paterno'))),
-                    'apellido_materno' => mb_strtoupper(trim((string) $this->input('apellido_materno'))),
-                    'nombres'          => mb_strtoupper(trim((string) $this->input('nombres'))),
+                    'apellido_paterno' => $apellidoPaterno,
+                    'apellido_materno' => $apellidoMaterno,
+                    'nombres'          => $nombres,
                     'telefono'         => trim((string) $this->input('telefono')) ?: null,
                     'correo'           => trim((string) $this->input('correo')) ?: null,
                 ]);
@@ -687,6 +716,168 @@ class MatriculaController extends BaseController
         }
         $this->redirectWithSuccess(url('matriculas/' . $id . '/documentos'),
             'Apoderado vinculado. Ahora registra los documentos.');
+    }
+
+    // ── GET /matriculas/{id}/apoderado/{vinculo}/editar ──────────
+    /**
+     * Edición de un apoderado vinculado (12/10/2026). Dos formularios: el VÍNCULO
+     * (tipo; solo afecta a este estudiante) y la PERSONA (identidad y contacto;
+     * ficha compartida con sus otros estudiantes, solo admin/RA).
+     */
+    public function editarApoderado(string $id, string $vinculo): void
+    {
+        $this->requireRole(self::ROLES_MATRICULAN);
+        [$matricula, $v] = $this->requireVinculo((int) $id, (int) $vinculo);
+
+        $this->view('matriculas/apoderado-editar', [
+            'titulo'          => 'Matrícula — Editar apoderado',
+            'matricula'       => $matricula,
+            'vinculo'         => $v,
+            'tiposVinculo'    => self::TIPOS_VINCULO,
+            'otrosEstudiantes' => $this->apoderados->otrosEstudiantesVinculados(
+                (int) $v['apoderado_id'], (int) $matricula['estudiante_id']),
+            'puedeEditarPersona' => has_role(['admin', 'registro_academico']),
+            'page_scripts'    => ['matriculas'],
+        ]);
+    }
+
+    // ── POST /matriculas/{id}/apoderado/{vinculo}/vinculo ────────
+    public function actualizarVinculo(string $id, string $vinculo): void
+    {
+        $this->requireRole(self::ROLES_MATRICULAN);
+        $this->validateCsrf();
+        [$matricula, $v] = $this->requireVinculo((int) $id, (int) $vinculo);
+        $volver = url('matriculas/' . (int) $id . '/apoderado/' . (int) $vinculo . '/editar');
+
+        $tipo = (string) $this->input('tipo_vinculo', '');
+        if (!array_key_exists($tipo, self::TIPOS_VINCULO)) {
+            $this->redirectWithError($volver, 'Tipo de vínculo inválido.');
+        }
+        if ($tipo !== $v['tipo_vinculo']) {
+            foreach ($this->apoderados->getVinculos((int) $matricula['estudiante_id']) as $otro) {
+                if ($otro['tipo_vinculo'] === $tipo) {
+                    $this->redirectWithError($volver, 'Este estudiante ya tiene un vínculo de tipo '
+                        . self::TIPOS_VINCULO[$tipo] . '.');
+                }
+            }
+            $this->apoderados->cambiarTipoVinculo((int) $vinculo, (int) $matricula['estudiante_id'], $tipo);
+        }
+        $this->redirectWithSuccess(url('matriculas/' . (int) $id . '/apoderado'), 'Vínculo actualizado.');
+    }
+
+    // ── POST /matriculas/{id}/apoderado/{vinculo}/persona ────────
+    /**
+     * Identidad y contacto del apoderado. Solo admin/RA (como los datos del
+     * estudiante). El DNI de quien tiene cuenta de acceso NO se cambia aquí: es
+     * su usuario para iniciar sesión.
+     */
+    public function actualizarPersonaApoderado(string $id, string $vinculo): void
+    {
+        $this->requireRole(['admin', 'registro_academico']);
+        $this->validateCsrf();
+        [, $v] = $this->requireVinculo((int) $id, (int) $vinculo);
+        $volver = url('matriculas/' . (int) $id . '/apoderado/' . (int) $vinculo . '/editar');
+
+        $dni      = trim((string) $this->input('dni', ''));
+        $apePat   = $this->nombreNormalizado($this->input('apellido_paterno'));
+        $apeMat   = $this->nombreNormalizado($this->input('apellido_materno'));
+        $nombres  = $this->nombreNormalizado($this->input('nombres'));
+        $telefono = trim((string) $this->input('telefono', ''));
+        $correo   = trim((string) $this->input('correo', ''));
+
+        if ($apePat === '' || $apeMat === '' || $nombres === '') {
+            $this->redirectWithError($volver, 'Apellidos y nombres son obligatorios.');
+        }
+        if (!ctype_digit($dni) || strlen($dni) !== 8) {
+            $this->redirectWithError($volver, 'DNI inválido (8 dígitos).');
+        }
+        if ($dni !== $v['dni'] && (int) $v['tiene_cuenta'] === 1) {
+            $this->redirectWithError($volver, 'El DNI de esta persona no se puede modificar desde matrículas.');
+        }
+        if ($this->model->dniEnUsoPorOtra($dni, (int) $v['persona_id'])) {
+            $this->redirectWithError($volver, 'Ese DNI ya pertenece a otra persona registrada. Verifica el DNI.');
+        }
+        if (mb_strlen($telefono) > 15) {
+            $this->redirectWithError($volver, 'El teléfono admite como máximo 15 caracteres.');
+        }
+        if ($correo !== '' && (mb_strlen($correo) > 120 || !filter_var($correo, FILTER_VALIDATE_EMAIL))) {
+            $this->redirectWithError($volver, 'Correo inválido.');
+        }
+
+        try {
+            $this->apoderados->actualizarPersona((int) $v['persona_id'], [
+                'dni'              => $dni,
+                'apellido_paterno' => $apePat,
+                'apellido_materno' => $apeMat,
+                'nombres'          => $nombres,
+                'telefono'         => $telefono !== '' ? $telefono : null,
+                'correo'           => $correo !== '' ? $correo : null,
+            ]);
+        } catch (\Exception $e) {
+            log_error('Error actualizando datos del apoderado', ['vinculo' => (int) $vinculo, 'error' => $e->getMessage()]);
+            $this->redirectWithError($volver, 'No se pudieron guardar los cambios. Intenta de nuevo.');
+        }
+        $this->redirectWithSuccess(url('matriculas/' . (int) $id . '/apoderado'), 'Datos del apoderado actualizados.');
+    }
+
+    // ── POST /matriculas/{id}/apoderado/{vinculo}/quitar ─────────
+    /** Quita un apoderado ADICIONAL (jamás el responsable) y deja traza en la matrícula. */
+    public function quitarApoderado(string $id, string $vinculo): void
+    {
+        $this->requireRole(self::ROLES_MATRICULAN);
+        $this->validateCsrf();
+        [$matricula, $v] = $this->requireVinculo((int) $id, (int) $vinculo);
+        $volver = url('matriculas/' . (int) $id . '/apoderado');
+
+        if ((int) $v['es_responsable'] === 1
+            || !$this->apoderados->quitarVinculo((int) $vinculo, (int) $matricula['estudiante_id'])) {
+            $this->redirectWithError($volver, 'El responsable de matrícula no se puede quitar.');
+        }
+        $this->model->registrarTraza((int) $id, sprintf(
+            'vínculo %s (DNI %s) retirado por usuario #%d',
+            self::TIPOS_VINCULO[$v['tipo_vinculo']] ?? $v['tipo_vinculo'],
+            $v['dni'],
+            (int) (Session::user()['id'] ?? 0)
+        ));
+        $this->redirectWithSuccess($volver, 'Apoderado quitado.');
+    }
+
+    // ── POST /matriculas/{id}/apoderado/{vinculo}/responsable ────
+    /** Traslada la responsabilidad de matrícula a este apoderado (queda uno solo). */
+    public function hacerResponsable(string $id, string $vinculo): void
+    {
+        $this->requireRole(self::ROLES_MATRICULAN);
+        $this->validateCsrf();
+        [$matricula, $v] = $this->requireVinculo((int) $id, (int) $vinculo);
+        $volver = url('matriculas/' . (int) $id . '/apoderado');
+
+        if ((int) $v['es_responsable'] !== 1) {
+            $this->apoderados->asignarResponsable((int) $matricula['estudiante_id'], (int) $vinculo);
+            $this->model->registrarTraza((int) $id, sprintf(
+                'responsable de matrícula → %s (DNI %s) por usuario #%d',
+                self::TIPOS_VINCULO[$v['tipo_vinculo']] ?? $v['tipo_vinculo'],
+                $v['dni'],
+                (int) (Session::user()['id'] ?? 0)
+            ));
+        }
+        $this->redirectWithSuccess($volver, 'Responsable de matrícula actualizado.');
+    }
+
+    /** Matrícula + vínculo de SU estudiante; 404 si el vínculo es de otro. */
+    private function requireVinculo(int $id, int $vinculoId): array
+    {
+        $matricula = $this->requireMatricula($id);
+        $v = $this->apoderados->getVinculo($vinculoId, (int) $matricula['estudiante_id']);
+        if (!$v) {
+            $this->notFound();
+        }
+        return [$matricula, $v];
+    }
+
+    /** Mayúsculas y espacios simples: compara nombres escritos con los registrados. */
+    private function nombreNormalizado(mixed $valor): string
+    {
+        return mb_strtoupper(trim((string) preg_replace('/\s+/u', ' ', (string) $valor)));
     }
 
     private function yaVinculado(array $vinculos, int $apoderadoId): bool
