@@ -3,6 +3,7 @@
  * @var array $matriculas
  * @var array $filtros
  * @var array $anios
+ * @var array $niveles
  * @var array $grados
  * @var array $secciones
  * @var int    $total
@@ -29,6 +30,7 @@ $labelTipo = fn(string $t): string => match($t) {
 // Filtros activos (sin paginación ni orden) reutilizados al paginar y al ordenar.
 $baseFiltros = array_filter([
     'anio_id'    => $filtros['anio_id']    ?? null,
+    'nivel_id'   => $filtros['nivel_id']   ?? null,
     'grado_id'   => $filtros['grado_id']   ?? null,
     'seccion_id' => $filtros['seccion_id'] ?? null,
     'estado'     => $filtros['estado']     ?? null,
@@ -103,11 +105,23 @@ $thOrden = function (string $key, string $label, string $thClass = '') use ($ord
                 </div>
 
                 <div class="mat-filtros__campo">
+                    <label class="mat-filtros__label" for="nivel_id">Nivel</label>
+                    <select id="nivel_id" name="nivel_id" class="form-input" data-filtro-nivel>
+                        <option value="">Todos</option>
+                        <?php foreach ($niveles as $n): ?>
+                            <option value="<?= (int) $n['id'] ?>" <?= (int) ($filtros['nivel_id'] ?? 0) === (int) $n['id'] ? 'selected' : '' ?>>
+                                <?= e($n['nombre']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="mat-filtros__campo">
                     <label class="mat-filtros__label" for="grado_id">Grado</label>
-                    <select id="grado_id" name="grado_id" class="form-input">
+                    <select id="grado_id" name="grado_id" class="form-input" data-filtro-grado>
                         <option value="">Todos</option>
                         <?php foreach ($grados as $g): ?>
-                            <option value="<?= $g['id'] ?>" <?= (int) ($filtros['grado_id'] ?? 0) === (int) $g['id'] ? 'selected' : '' ?>>
+                            <option value="<?= $g['id'] ?>" data-nivel="<?= (int) $g['nivel_id'] ?>" <?= (int) ($filtros['grado_id'] ?? 0) === (int) $g['id'] ? 'selected' : '' ?>>
                                 <?= e($g['nivel_nombre'] . ' — ' . $g['nombre_display']) ?>
                             </option>
                         <?php endforeach; ?>
@@ -116,11 +130,11 @@ $thOrden = function (string $key, string $label, string $thClass = '') use ($ord
 
                 <div class="mat-filtros__campo">
                     <label class="mat-filtros__label" for="seccion_id">Sección</label>
-                    <select id="seccion_id" name="seccion_id" class="form-input">
+                    <select id="seccion_id" name="seccion_id" class="form-input" data-filtro-seccion>
                         <option value="">Todas</option>
                         <?php foreach ($secciones as $s): ?>
-                            <option value="<?= $s['id'] ?>" <?= (int) ($filtros['seccion_id'] ?? 0) === (int) $s['id'] ? 'selected' : '' ?>>
-                                <?= e($s['grado_nombre'] . ' ' . $s['nombre']) ?>
+                            <option value="<?= $s['id'] ?>" data-nivel="<?= (int) $s['nivel_id'] ?>" data-grado="<?= (int) $s['grado_id'] ?>" <?= (int) ($filtros['seccion_id'] ?? 0) === (int) $s['id'] ? 'selected' : '' ?>>
+                                <?= e($s['nivel_nombre'] . ' — ' . $s['grado_nombre'] . ' ' . $s['nombre']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -212,6 +226,8 @@ $thOrden = function (string $key, string $label, string $thClass = '') use ($ord
                     <td class="text-sm"><?= e($m['dni']) ?><?php if (es_dni_provisional($m['dni'])): ?> <span class="badge-provisional" title="DNI provisional — pendiente de regularizar">prov.</span><?php endif; ?></td>
                     <td class="text-sm">
                         <?= e(($m['grado_nombre'] ?? '—') . ' ' . ($m['seccion_nombre'] ?? '')) ?>
+                        <?php // El nivel desambigua: 1.° a 5.° existen en primaria y en secundaria. ?>
+                        <?php if (!empty($m['nivel_nombre'])): ?><span class="text-muted">· <?= e($m['nivel_nombre']) ?></span><?php endif; ?>
                     </td>
                     <td>
                         <span class="matricula-badge matricula-badge--<?= e($m['tipo']) ?>"><?= $labelTipo($m['tipo']) ?></span>

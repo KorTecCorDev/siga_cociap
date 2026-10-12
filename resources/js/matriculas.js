@@ -45,6 +45,37 @@ document.addEventListener('submit', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Filtros de la lista (/matriculas): Nivel → Grado → Sección coherentes. Cada
+    // select ofrece solo lo compatible con los de arriba, y si la opción elegida
+    // deja de serlo vuelve a «Todos». Sin JS se ven todas las opciones.
+    const fNivel   = document.querySelector('[data-filtro-nivel]');
+    const fGrado   = document.querySelector('[data-filtro-grado]');
+    const fSeccion = document.querySelector('[data-filtro-seccion]');
+    if (fNivel && fGrado && fSeccion) {
+        const originales = (sel) => Array.from(sel.options).map((o) => o.cloneNode(true));
+        const todosGrados    = originales(fGrado);
+        const todasSecciones = originales(fSeccion);
+
+        const reconstruir = (sel, opciones, compatible) => {
+            const elegido = sel.value;
+            sel.replaceChildren(...opciones
+                .filter((o) => o.value === '' || compatible(o))
+                .map((o) => o.cloneNode(true)));
+            sel.value = Array.from(sel.options).some((o) => o.value === elegido) ? elegido : '';
+        };
+
+        const aplicar = () => {
+            const nivel = fNivel.value;
+            reconstruir(fGrado, todosGrados, (o) => !nivel || o.dataset.nivel === nivel);
+            const grado = fGrado.value;
+            reconstruir(fSeccion, todasSecciones, (o) =>
+                (!nivel || o.dataset.nivel === nivel) && (!grado || o.dataset.grado === grado));
+        };
+        fNivel.addEventListener('change', aplicar);
+        fGrado.addEventListener('change', aplicar);
+        aplicar();
+    }
+
     // Alta provisional (crear): al marcar "sin DNI" se oculta el campo DNI y se
     // relaja la obligatoriedad (DNI y serie). El servidor es la autoridad; esto
     // es solo mejora de UX. El input DNI se deshabilita para no enviarse.

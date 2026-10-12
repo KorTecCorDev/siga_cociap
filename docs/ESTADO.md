@@ -5,6 +5,16 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
+## 🆕 LISTA DE MATRÍCULAS: NIVEL, FILTROS Y VUELTA (12/10/2026, en `dev`, sin migración)
+
+Nivel en la celda «Grado / Sección» y en el filtro Sección (5° A primaria ≠ secundaria),
+filtro Nivel (también en la nómina), cascada Nivel → Grado → Sección y «← Matrículas» que
+vuelve a la lista filtrada. Detalle en `docs/modulos/matriculas.md` § Lista de matrículas.
+- Filtros del modelo y cascada del JS probados por CLI.
+- [x] **Probado en el navegador el 12/10/2026** (pruebas 1-6): todo correcto según el
+      usuario.
+- [ ] Desplegar: sin migración; merge `dev` → `main` solo con autorización.
+
 ## 🆕 GESTIÓN DE APODERADOS VINCULADOS (12/10/2026, en `dev`, sin migración)
 
 Nació de un incidente en producción (matrícula #696 vinculada a un apoderado ajeno, que

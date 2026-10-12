@@ -87,7 +87,8 @@ Las literales (`/matriculas/crear`) y los sub-recursos (`/{id}/apoderado`,
 > dashboard ahora enlaza a `/matriculas`.
 
 ### Vistas (`resources/views/matriculas/`, layout `app`)
-`index` (filtros: año/grado/sección/estado/tipo/búsqueda + paginación de 25),
+`index` (filtros: año/nivel/grado/sección/estado/tipo/búsqueda + paginación de 25;
+ver «Lista de matrículas: nivel y vuelta» abajo),
 `crear` (wizard paso 1), `apoderado` (paso 2), `documentos` (paso 3), `show`
 (detalle con cards), `notas-externas`, `retorno`. SASS: `pages/_matriculas.scss`
 (importado en `app.scss`) con `.wizard-steps`, `.matricula-badge`, `.apoderado-card`,
@@ -135,6 +136,22 @@ Las literales (`/matriculas/crear`) y los sub-recursos (`/{id}/apoderado`,
   3. **El contacto de una persona existente solo se COMPLETA si está vacío**
      (`crear()`: `COALESCE(NULLIF(campo,''), ?, campo)`); nunca se reemplaza.
   Para corregir los datos del apoderado, ver la sección siguiente.
+
+### Lista de matrículas: nivel y vuelta (12/10/2026)
+- **El nivel desambigua la sección**: 1.° a 5.° existen en primaria y en secundaria, y
+  «5° A» se confundía. La celda «Grado / Sección» lleva `· Primaria|Secundaria` atenuado
+  (decisión del usuario: en la celda, no una columna aparte), y el filtro Sección dice
+  «Secundaria — 5° A», como ya hacía el de Grado.
+- **Filtro Nivel** (`nivel_id`, condición `g.nivel_id` en `construirFiltros`): vale para
+  la lista, el conteo y la **Nómina detallada**, que recibe los mismos filtros.
+- **Nivel → Grado → Sección coherentes** (`matriculas.js`, `[data-filtro-*]`): cada select
+  ofrece solo lo compatible y, si la opción elegida deja de serlo, vuelve a «Todos». Sin JS
+  se ven todas las opciones.
+- **«← Matrículas» del detalle vuelve a la lista como se dejó** (filtros, orden y página).
+  `index()` guarda la query en la sesión (`SESION_LISTA`), armada con los valores ya
+  validados, y `show()` la usa. Se eligió la sesión y no la URL (decisión del usuario)
+  porque el detalle tiene ~15 acciones que lo recargan y cada una perdería el parámetro.
+  Con dos listas abiertas en pestañas, recuerda la última.
 
 ### Gestión de apoderados vinculados (12/10/2026)
 Desde `/matriculas/{id}/apoderado`, cada apoderado vinculado tiene acciones propias

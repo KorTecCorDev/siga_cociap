@@ -101,6 +101,9 @@ class MatriculaController extends BaseController
      */
     // Pública desde el 06/10/2026: el endpoint de borradores la usa para las
     // notas de origen (un solo punto de verdad de quién abre ese formulario).
+    /** Clave de sesión con la query de la última lista vista (volver desde el detalle). */
+    private const SESION_LISTA = 'matriculas_lista_qs';
+
     public const ROLES_MATRICULAN = [
         'admin', 'registro_academico',
         'secretaria_academica', 'secretaria_administrativa',
@@ -153,6 +156,7 @@ class MatriculaController extends BaseController
 
         $filtros = [
             'anio_id'    => $anioFiltro ?: null,
+            'nivel_id'   => (int) $this->query('nivel_id') ?: null,
             'grado_id'   => (int) $this->query('grado_id') ?: null,
             'seccion_id' => (int) $this->query('seccion_id') ?: null,
             'estado'     => $this->query('estado') ?: null,
@@ -171,6 +175,22 @@ class MatriculaController extends BaseController
         $filtros['limit']  = $porPagina;
         $filtros['offset'] = ($pagina - 1) * $porPagina;
 
+        // La lista tal como se ve (filtros, orden, página) para que «← Matrículas»
+        // del detalle vuelva aquí, sobreviviendo a sus acciones (12/10/2026). Se
+        // arma con los valores YA validados arriba, nunca con la URL cruda.
+        Session::set(self::SESION_LISTA, http_build_query(array_filter([
+            'anio_id'    => $filtros['anio_id'],
+            'nivel_id'   => $filtros['nivel_id'],
+            'grado_id'   => $filtros['grado_id'],
+            'seccion_id' => $filtros['seccion_id'],
+            'estado'     => is_string($filtros['estado']) ? $filtros['estado'] : null,
+            'tipo'       => is_string($filtros['tipo']) ? $filtros['tipo'] : null,
+            'search'     => $filtros['search'],
+            'orden'      => $orden,
+            'dir'        => $dir,
+            'pagina'     => $pagina > 1 ? $pagina : null,
+        ])));
+
         $matriculas = $this->model->listar($filtros);
 
         $this->view('matriculas/index', [
@@ -186,6 +206,7 @@ class MatriculaController extends BaseController
             'matriculas'  => $matriculas,
             'filtros'     => $filtros,
             'anios'       => $this->model->listarAnios(),
+            'niveles'     => $this->model->listarNiveles(),
             'grados'      => $this->model->listarGrados(),
             'secciones'   => $anioFiltro ? $this->model->listarSecciones($anioFiltro) : [],
             'total'       => $total,
@@ -193,6 +214,7 @@ class MatriculaController extends BaseController
             'total_pags'  => $totalPags,
             'orden'       => $orden,
             'dir'         => $dir,
+            'page_scripts' => ['matriculas'],
         ]);
     }
 
@@ -288,6 +310,7 @@ class MatriculaController extends BaseController
 
         $filtros = [
             'anio_id'    => $anioFiltro ?: null,
+            'nivel_id'   => (int) $this->query('nivel_id') ?: null,
             'grado_id'   => (int) $this->query('grado_id') ?: null,
             'seccion_id' => (int) $this->query('seccion_id') ?: null,
             'estado'     => $this->query('estado') ?: null,
@@ -1086,7 +1109,9 @@ class MatriculaController extends BaseController
             }
         }
 
+        $listaQs = (string) Session::get(self::SESION_LISTA, '');
         $this->view('matriculas/show', [
+            'volverLista'  => url('matriculas') . ($listaQs !== '' ? '?' . $listaQs : ''),
             'cambio'               => $cambio,
             'tieneBoleta'          => $tieneBoleta,
             'registraLlegadaTarde' => $registraLlegadaTarde,

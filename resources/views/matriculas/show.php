@@ -32,7 +32,8 @@ $labelDoc = [
 ?>
 
 <div class="page-header">
-    <a href="<?= url('matriculas') ?>" class="btn btn--secondary btn--sm">← Matrículas</a>
+    <?php // Vuelve a la lista tal como se dejó (filtros, orden, página): MatriculaController::index. ?>
+    <a href="<?= e($volverLista ?? url('matriculas')) ?>" class="btn btn--secondary btn--sm">← Matrículas</a>
     <div>
         <h1 class="page-title"><?= e($matricula['nombre_completo']) ?></h1>
         <p class="page-subtitle">
