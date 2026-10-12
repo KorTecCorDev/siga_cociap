@@ -39,8 +39,8 @@ Búsqueda instantánea en el navegador por nombre, DNI, correo, rol y lo que cad
 dicta, tutorea o acompaña (año/bimestre activo), con chips de rol, estado, resaltado y
 atajos. Detalle en `docs/modulos/admin.md` § Buscador de usuarios.
 - Probado renderizando la vista por CLI y ejecutando el JS sobre ese HTML (DOM simulado).
-- [ ] **Falta probarlo en el navegador** (Chrome de la oficina fuerza HTTPS en localhost y
-      la extensión no pudo entrar): `/`, Esc, Enter, chips, móvil y Editar → Atrás.
+- [x] **Probado en el navegador el 12/10/2026** (`/`, Esc, Enter, chips, móvil, Editar →
+      Atrás y Guardar → lista filtrada): todo correcto según el usuario.
 
 
 ## 🆕 BLOQUEOS Y PLAZOS DE REGISTRO — PLAN REPLANTEADO (09/10/2026, F0 en `dev`)
@@ -86,7 +86,10 @@ fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
   ya cerró la etapa 2, **solo deja la traza** (no la reabre). Abiertas: tabla de auditoría
   (una común o una por registro) y cómo se refleja en una boleta ya publicada.
 - **Pendiente:** F5 (migración).
-- **PRUEBAS EN NAVEGADOR — en curso, bloque por bloque (09/10/2026). Bloque 1 ✓; seguir con el Bloque 2.**
+- **PRUEBAS — COMPLETAS (12/10/2026): bloques 1 a 6 ✓.** Pendiente solo decidir el despliegue
+  (077 y 078 en prod antes del merge; avisar a los tutores por F2; con datos de prod del 12/10 el
+  III tenía 0/23 asistencias bloqueadas y 3/23 conductas cerradas por el tutor: no desplegar F2/F3
+  antes del límite del III sin decidirlo).
   **En otro equipo (casa):** antes del Bloque 2, aplicar **077 y 078** en su BD local y comprobar
   que el III tenga las fechas de partida de abajo.
   Antes, anotar los valores del III en `/director/anios/1` y restaurarlos al final: fin
@@ -101,19 +104,31 @@ fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
         (y luego dejarla vacía). AUXILIAR (ESPINOZA): indicador = 7, estados de siempre. RA:
         `/director/bloqueos` del III con sus botones; del II (cerrado) sin botones de
         bloquear/cerrar; `confirm()` de reabrir sin mencionar a Registro Académico.
-  - [ ] **2. Fecha de auxiliares** (ADMIN/RA, «Editar fechas»): tarjeta «Igual al límite de
+  - [x] **2. Fecha de auxiliares** — ✓ (12/10/2026, copia fresca de prod + 077/078) (ADMIN/RA, «Editar fechas»): tarjeta «Igual al límite de
         notas»; 08/10 10:00 rechazada (antes del fin); 17/10 10:00 rechazada (después de notas);
         09/10 08:00 se guarda.
-  - [ ] **3. Auxiliares vencida, docentes vigente:** AUXILIAR «1 días desde el cierre», secciones
+  - [x] **3. Auxiliares vencida, docentes vigente** — ✓ (12/10/2026): AUXILIAR «1 días desde el cierre», secciones
         «Fuera de plazo», grillas de solo lectura; RA no registra en `/admin/conducta` ni
         `/admin/asistencia` pero sí ve el forzado del panel; TUTOR mantiene la etapa 2 y las
         transversales editables; DOCENTE editable con indicador 7. Al final, auxiliares vacía.
-  - [ ] **4. Docentes vencida** (notas = hoy, 2 h antes): DOCENTE «1 días desde el cierre» y
+  - [x] **4. Docentes vencida** — ✓ (12/10/2026) (notas = hoy, 2 h antes): DOCENTE «1 días desde el cierre» y
         banner sin «Comunícate…»; TUTOR con aviso «…quedan en solo lectura» en `/docente/tutoria`
         y la etapa 2 en solo lectura; AUXILIAR también fuera de plazo. Al final, notas 16/10 04:00.
-  - [ ] **5. Semáforo** (fin = 31/10): AUXILIAR ve «Bloqueo desde el 31/10» en una sección
+  - [x] **5. Semáforo** — ✓ (12/10/2026) con los controladores REALES (`Auxiliar\PanelController::inicio`,
+        `Admin\AsistenciaController::seccion|bloquear`) y la sesión de ESPINOZA, en transacción sin
+        COMMIT: fin 09/10 → 1.°A/1.°B/2.°A «Listo para bloquear», 2.°B «Días sin tomar: 1»; fin 31/10 →
+        «Días sin tomar: 1/1/1/2»; 2.°A con la lista del 12/10 → «Bloqueo desde el 31/10», grilla
+        «18/18 · Días sin tomar: 0 — podrás bloquear desde el 31/10» con el botón deshabilitado; POST
+        de bloqueo → «El bimestre aún no termina…» y 0 cierres; control con fin 09/10 → bloquea.
+        En Chrome (ESPINOZA, 12/10/2026): «Todos asistieron» pasa la lista sin confirmación, el
+        12/10 queda ✓, la grilla y el panel muestran lo mismo que arriba. ✓ todo correcto.
+        (fin = 31/10): AUXILIAR ve «Bloqueo desde el 31/10» en una sección
         completa (2.° A); «Días sin tomar» y «Confirmados X de N» siguen igual. Al final, fin 09/10.
-  - [ ] **6. Guard del cierre (F3): no se ve en local** (la evaluación incompleta del III corta
+  - [x] **6. Guard del cierre (F3)** — ✓ (12/10/2026) con `cerrar()` REAL sobre un año
+        sintético 2099 dentro de una transacción sin COMMIT (sin residuos): sin nada → nombra
+        asistencia y conducta; solo asistencia → nombra conducta; etapa 1 sin tutor → «Conducta
+        sin cerrar por el tutor»; todo → pasa el guard (llega a la transacción del cierre).
+        Antes: **no se ve en local** (la evaluación incompleta del III corta
         antes); lo cubre `verif_guard_cierre_registros.php`. Pruebas en navegador pendientes con sesión de **tutor** (transversales fuera de
   plazo), **auxiliar** (semáforo «Bloqueo desde») y **RA** (panel con bimestre cerrado). La F2 pone plazo a las transversales del tutor: **avisar antes a los
   tutores**.
