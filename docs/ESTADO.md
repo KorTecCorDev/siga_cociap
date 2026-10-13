@@ -39,6 +39,57 @@ Pasos, en orden:
 
 **BD local de la oficina:** copia de prod del 12/10 13:53 **con 077 y 078 aplicadas** a mano.
 
+## 🆕 AUXILIAR: FALTAS Y JUSTIFICACIONES + NOTA FINAL DE CONDUCTA (13/10/2026, en `dev`, sin migración)
+
+Tres observaciones del usuario sobre el auxiliar. El detalle está en
+`docs/modulos/confirmacion-y-asistencia-por-fechas.md` (novena ronda) y en
+`docs/modulos/auxiliares.md` §4:
+1. La vista de la sección pasa a llamarse «Faltas y justificaciones» y abre con el
+   **«Seguimiento de faltas»**: estudiantes con 5 o más faltas que cuentan como F, con el
+   apoderado y su celular `tel:`.
+2. **`/auxiliar/justificaciones`**: el reporte de todas sus secciones, con una card en su panel.
+3. **`/admin/conducta/{id}/resultado`**: la nota final con la del tutor, solo con las dos
+   etapas cerradas.
+4. Segunda ronda, el mismo día:
+   - un solo vocabulario: «Faltas justificadas» · «Cuentan como falta» · «Tardanzas
+     justificadas»;
+   - una tabla por estudiante con las fechas, que reemplaza al «Detalle por fecha», donde el
+     51 % de las filas decía FJ y F a la vez;
+   - sin aviso «Registro en curso» y sin marcas de confirmación, en las dos vistas.
+   - Comprobado: render por CLI con datos del III, sin avisos de PHP.
+5. Tercera ronda:
+   - vuelven las pastillas de la grilla, una por categoría (FJ con documento · FJ · TJ · F);
+   - gráfico apilado «Faltas justificadas por sección» en el reporte del auxiliar, con la
+     paleta validada;
+   - las secciones se rotulan «(P)/(S)».
+   - [x] **Mirar el gráfico en el navegador**: el validador revisa colores, no la
+     disposición.
+6. Cuarta ronda:
+   - las fechas de la tabla de justificaciones pasan a fichas «Lun. 01/09»;
+   - los días lectivos seguidos se unen en un tramo «… al … · N días»;
+   - en el III, 404 fechas quedan en 202 fichas.
+   - [x] Mirar en el navegador una celda larga (la de 42 fechas queda en una ficha).
+7. Quinta ronda:
+   - fichas de fechas con los colores de FJ/TJ (y el ícono de documento);
+   - pastillas en los encabezados de «Por motivo»;
+   - **A4 del reporte del auxiliar** (`/auxiliar/justificaciones/imprimir`), con la estructura
+     de Acompañamiento pedagógico, sin firma y con la columna «Registro».
+   - [x] Imprimir de verdad (o «Guardar como PDF») el A4: comprobar el gráfico, el corte de
+     las tablas entre hojas y los colores de las fichas.
+- Ya comprobado: `php -l`, `gulp build` y `verif_seguimiento_faltas.php` (TODO OK).
+  `verif_asistencia_fechas` (CHECK del ancla, la copia no lo conserva) y `verif_rol_auxiliar`
+  (`AsistenciaController::seccion` delega la guarda en `resolverPeriodoVista` y el aserto no lo
+  sigue) ya fallaban antes y no tienen relación con este cambio.
+- [x] Probar en el navegador **con sesión de AUXILIAR**:
+  - la vista de una sección con y sin estudiantes en seguimiento;
+  - el `tel:` en el celular;
+  - el reporte y su card;
+  - 403 en una sección ajena;
+  - «Ver nota final» antes del cierre del tutor (no aparece y la URL da 404) y después.
+- [ ] Repetir con admin, RA y Dirección (la consulta de conducta de Dirección no debe cambiar).
+- [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
+- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+
 ## 🆕 LISTA DE MATRÍCULAS: NIVEL, FILTROS Y VUELTA (12/10/2026, en `dev`, sin migración)
 
 Nivel en la celda «Grado / Sección» y en el filtro Sección (5° A primaria ≠ secundaria),

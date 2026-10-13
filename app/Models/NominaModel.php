@@ -159,4 +159,51 @@ class NominaModel extends BaseModel
                      " . orden_alfabetico('p') . "
         ", $params);
     }
+
+    /**
+     * Apoderado RESPONSABLE de cada matrícula (13/10/2026): nombre y celular,
+     * para el «Seguimiento de faltas» de la asistencia. Mismo vínculo que
+     * `matriculados()` (`es_responsable = 1`, el de menor id), pero por
+     * matrícula: sirve a cualquier roster (también `pendiente` y la operativa
+     * de un retorno, que la nómina no trae). Sin apoderado → no hay clave.
+     *
+     * @return array<int, array{nombre:string, telefono:?string}>
+     */
+    public function apoderadoResponsable(array $matriculaIds): array
+    {
+        $ids = array_values(array_filter(array_map('intval', $matriculaIds)));
+        if ($ids === []) {
+            return [];
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+
+        $out = [];
+        foreach ($this->query("
+            SELECT m.id AS matricula_id,
+                   TRIM(CONCAT(
+                       COALESCE(ap.apellido_paterno, ''), ' ',
+                       COALESCE(ap.apellido_materno, ''), ' ',
+                       COALESCE(ap.nombres, '')
+                   )) AS nombre,
+                   ap.telefono
+            FROM matriculas m
+            INNER JOIN vinculo_familiar vf
+                ON  vf.estudiante_id = m.estudiante_id
+                AND vf.es_responsable = 1
+                AND vf.id = (
+                    SELECT MIN(vf2.id) FROM vinculo_familiar vf2
+                    WHERE vf2.estudiante_id = m.estudiante_id AND vf2.es_responsable = 1
+                )
+            INNER JOIN apoderados apo ON apo.id = vf.apoderado_id
+            INNER JOIN personas ap    ON ap.id = apo.persona_id
+            WHERE m.id IN ($ph)
+        ", $ids) as $r) {
+            $tel = trim((string) ($r['telefono'] ?? ''));
+            $out[(int) $r['matricula_id']] = [
+                'nombre'   => (string) $r['nombre'],
+                'telefono' => $tel !== '' ? $tel : null,
+            ];
+        }
+        return $out;
+    }
 }

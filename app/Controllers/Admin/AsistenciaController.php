@@ -7,6 +7,7 @@ use App\Models\AsistenciaJornadaModel;
 use App\Models\AsistenciaModel;
 use App\Models\AsistenciaMotivoModel;
 use App\Models\AuxiliarSeccionModel;
+use App\Models\NominaModel;
 use Core\Session;
 use Core\View;
 
@@ -285,6 +286,8 @@ class AsistenciaController extends BaseController
     }
 
     // GET /admin/asistencia/{seccion_id}/justificaciones   (?periodo={id})
+    // «FALTAS Y JUSTIFICACIONES» de la sección. Desde el 13/10/2026 abre con el
+    // «Seguimiento de faltas» (≥ UMBRAL_SEGUIMIENTO_FALTAS, con el apoderado).
     // Detalle de las JUSTIFICACIONES de la sección (09/10/2026): cuántas por tipo,
     // por motivo y por estudiante, y cuáles están AUTORIZADAS (FJ con el motivo
     // principal). Mismos roles y alcance que la tabla. Solo lectura: editable →
@@ -303,6 +306,7 @@ class AsistenciaController extends BaseController
         $porFechas = $periodoVer !== null && (int) ($periodoVer['asistencia_por_fechas'] ?? 0) === 1;
         $cierre = $resumen = null;
         $motivoPrincipal = null;
+        $seguimiento = $contactos = [];
         if ($porFechas) {
             $pid     = (int) $periodoVer['id'];
             $cierre  = $this->model->getCierreVigente($seccionId, $pid);
@@ -310,16 +314,21 @@ class AsistenciaController extends BaseController
             $estudiantes = $this->model->getEstudiantesConIncidencias($seccionId, $pid, $oficial);
             $motivosM = new AsistenciaMotivoModel();
             $ancla    = $motivosM->anclaDelPeriodo($pid);
-            $resumen  = AsistenciaModel::resumenJustificaciones(
-                $estudiantes,
-                $this->model->incidenciasDe(array_column($estudiantes, 'matricula_id'), $pid, $oficial),
-                $ancla
-            );
+            $incid    = $this->model->incidenciasDe(array_column($estudiantes, 'matricula_id'), $pid, $oficial);
+            // Días lectivos del bimestre ENTERO (hoy = su último día): unen en
+            // tramos las fechas seguidas de la tabla.
+            $lectivos = AsistenciaModel::diasMarcables($periodoVer, (string) $periodoVer['fecha_fin'],
+                (new AsistenciaJornadaModel())->noLectivos($periodoVer));
+            $resumen  = AsistenciaModel::resumenJustificaciones($estudiantes, $incid, $ancla, $lectivos);
             $motivoPrincipal = $motivosM->nombreDe($ancla);
+            // «Seguimiento de faltas» (13/10/2026): mismas incidencias que el
+            // resumen, con el apoderado responsable de cada estudiante.
+            $seguimiento = AsistenciaModel::seguimientoFaltas($estudiantes, $incid, $ancla);
+            $contactos   = (new NominaModel())->apoderadoResponsable(array_column($seguimiento, 'matricula_id'));
         }
 
         $this->view('admin/asistencia/justificaciones', [
-            'titulo'          => 'Justificaciones — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
+            'titulo'          => 'Faltas y justificaciones — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
             'seccion'         => $seccion,
             'periodoVer'      => $periodoVer,
             'periodosNav'     => $periodosNav,
@@ -328,6 +337,8 @@ class AsistenciaController extends BaseController
             'porFechas'       => $porFechas,
             'resumen'         => $resumen,
             'motivoPrincipal' => $motivoPrincipal,
+            'seguimiento'     => $seguimiento,
+            'contactos'       => $contactos,
         ]);
     }
 

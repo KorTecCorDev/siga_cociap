@@ -108,6 +108,14 @@ foreach ($estudiantes as $est) {
             <?php endif; ?>
             Para corregir, solicita el desbloqueo a Dirección.
         </span>
+        <?php // Nota final con la del tutor (13/10/2026): solo con las DOS etapas
+              // cerradas; la ruta lo exige también (404 si no). ?>
+        <?php if ($cerradaT): ?>
+            <a href="<?= url('admin/conducta/' . (int) $seccion['id'] . '/resultado?periodo=' . $pidVer) ?>"
+               class="btn btn--secondary btn--sm alert__accion">
+                Ver nota final
+            </a>
+        <?php endif; ?>
         <?php if ($hayRespuestas): ?>
             <a href="<?= url('admin/conducta/' . (int) $seccion['id'] . '/imprimir/' . $pidVer) ?>"
                target="_blank" rel="noopener" class="btn btn--secondary btn--sm alert__accion">

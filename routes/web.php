@@ -97,6 +97,8 @@ $router->post('/admin/auxiliares/{seccion_id}/asignar',   'Admin\AuxiliarControl
 $router->get( '/auxiliar/inicio',                         'Auxiliar\PanelController@inicio');
 $router->get( '/auxiliar/nomina/{seccion_id}/imprimir',   'Auxiliar\PanelController@nominaImprimir');
 $router->get( '/auxiliar/horario/{seccion_id}',           'Auxiliar\PanelController@horario');
+$router->get( '/auxiliar/justificaciones/imprimir',       'Auxiliar\PanelController@justificacionesImprimir');
+$router->get( '/auxiliar/justificaciones',                'Auxiliar\PanelController@justificaciones');
 // Documentos compartidos (admin, RA y Dirección; el auxiliar solo la nómina de
 // docentes). Guarda por método.
 $router->get( '/documentos/nomina-docentes',              'Documentos\DocumentoController@nominaDocentes');
@@ -123,6 +125,7 @@ $router->post('/admin/conducta/confirmar',    'Admin\ConductaController@confirma
 $router->post('/admin/conducta/{id}/bloquear','Admin\ConductaController@bloquear');
 $router->get( '/admin/conducta/{id}/imprimir/{periodo_id}', 'Admin\ConductaController@imprimir');
 $router->get( '/admin/conducta/{id}/estudiante', 'Admin\ConductaController@estudiante');
+$router->get( '/admin/conducta/{id}/resultado', 'Admin\ConductaController@resultado');
 $router->get( '/admin/conducta/{id}',         'Admin\ConductaController@seccion');
 
 // ─── Admin — Asistencia (incidencias) ───────────────────────

@@ -5,6 +5,7 @@ namespace App\Controllers\Auxiliar;
 use App\Controllers\BaseController;
 use App\Models\AsistenciaJornadaModel;
 use App\Models\AsistenciaModel;
+use App\Models\AsistenciaMotivoModel;
 use App\Models\AuxiliarSeccionModel;
 use App\Models\ConductaModel;
 use App\Models\DirectorEbrModel;
@@ -169,6 +170,127 @@ class PanelController extends BaseController
         $this->view('director/horario-seccion', array_merge($datos, [
             'titulo' => 'Horario — ' . $datos['seccion']['grado_nombre'] . ' ' . $datos['seccion']['seccion_nombre'],
         ]));
+    }
+
+    // GET /auxiliar/justificaciones   (?periodo={id})
+    // Reporte de JUSTIFICACIONES de TODAS las secciones a su cargo (13/10/2026):
+    // resumen por sección + tablas consolidadas. Los datos los arma
+    // `componerReporte()`, el mismo que usa el A4.
+    public function justificaciones(): void
+    {
+        $this->view('auxiliar/justificaciones', array_merge($this->componerReporte(), [
+            'titulo' => 'Faltas y justificaciones — Mis secciones',
+        ]));
+    }
+
+    // GET /auxiliar/justificaciones/imprimir   (?periodo={id})
+    // A4 vertical del reporte (13/10/2026), con la estructura del imprimible de
+    // Acompañamiento pedagógico: cabecera institucional con bimestre, alcance y
+    // fecha de impresión, y los MISMOS parciales que la pantalla. Documento de
+    // TRABAJO, sin firma (decisión del usuario): el registro oficial firmado es
+    // el imprimible de asistencia de cada sección.
+    public function justificacionesImprimir(): void
+    {
+        $datos = $this->componerReporte();
+        // Sin bimestre suyo, o uno de solo números, no hay nada que imprimir.
+        if ($datos['reporte'] === null) {
+            $this->notFound();
+        }
+
+        $u = Session::user() ?? [];
+        View::setLayout('print');
+        $this->view('auxiliar/justificaciones-imprimir', array_merge($datos, [
+            'titulo'   => 'Faltas y justificaciones — ' . $datos['periodoVer']['nombre_display'],
+            'auxiliar' => trim(($u['apellido_paterno'] ?? '') . ' ' . ($u['apellido_materno'] ?? '') . ', ' . ($u['nombres'] ?? ''), ' ,'),
+        ]));
+    }
+
+    /**
+     * Datos del reporte de justificaciones del auxiliar. PUNTO ÚNICO de la
+     * pantalla y su A4 (mismo motivo que `componerRiesgo()` en los cuadros: si
+     * cada uno armara los suyos, el papel podría decir otra cifra).
+     *
+     * Cada sección se lee igual que su vista «Faltas y justificaciones»: borrador
+     * si está en curso, lo OFICIAL si el bimestre ya no es editable o la sección
+     * está bloqueada. La suma la hace `AsistenciaModel::consolidarJustificaciones`;
+     * aquí no hay reglas.
+     *
+     * @return array{periodoVer:?array, periodosNav:array, porFechas:bool,
+     *               reporte:?array, motivoPrincipal:?string}
+     */
+    private function componerReporte(): array
+    {
+        $asistencia = new AsistenciaModel();
+        $aux        = new AuxiliarSeccionModel();
+        $usuarioId  = (int) Session::user()['id'];
+
+        // Bimestres con secciones suyas (los 'pendiente' no tienen datos).
+        $periodosNav = [];
+        foreach ($asistencia->listarPeriodosActivos() as $p) {
+            if ($p['estado'] !== 'pendiente' && $aux->seccionesDe($usuarioId, (int) $p['id']) !== []) {
+                $periodosNav[] = $p;
+            }
+        }
+
+        // El pedido por ?periodo= (si es uno de los suyos); si no, el activo.
+        $periodoVer   = null;
+        $periodoParam = (int) ($this->query('periodo') ?? 0);
+        foreach ($periodosNav as $p) {
+            if ($periodoParam ? (int) $p['id'] === $periodoParam : $p['estado'] === 'activo') {
+                $periodoVer = $p;
+                break;
+            }
+        }
+
+        $porFechas = $periodoVer !== null && (int) ($periodoVer['asistencia_por_fechas'] ?? 0) === 1;
+        $reporte   = null;
+        $motivoPrincipal = null;
+        if ($porFechas) {
+            $pid      = (int) $periodoVer['id'];
+            $editable = (bool) $periodoVer['editable'];
+            $mias     = $aux->seccionesDe($usuarioId, $pid);
+            $motivosM = new AsistenciaMotivoModel();
+            $ancla    = $motivosM->anclaDelPeriodo($pid);
+            $motivoPrincipal = $motivosM->nombreDe($ancla);
+            // Días lectivos del bimestre ENTERO: unen en tramos las fechas seguidas.
+            $lectivos = AsistenciaModel::diasMarcables($periodoVer, (string) $periodoVer['fecha_fin'],
+                (new AsistenciaJornadaModel())->noLectivos($periodoVer));
+
+            $porSeccion = [];
+            foreach ($asistencia->listarSeccionesActivas() as $s) {
+                $sid = (int) $s['id'];
+                if (!in_array($sid, $mias, true)) {
+                    continue;
+                }
+                $cierre  = $asistencia->getCierreVigente($sid, $pid);
+                $oficial = !$editable || $cierre !== null;
+                $est     = $asistencia->getEstudiantesConIncidencias($sid, $pid, $oficial);
+                $porSeccion[] = [
+                    // «1° A (P)»: el grado y la sección se repiten entre niveles. Misma
+                    // convención (P)/(S) que los cuadros estadísticos. `bloqueado_en`
+                    // alimenta la columna «Registro» del A4.
+                    'seccion' => ['id' => $sid, 'etiqueta' => trim($s['grado_nombre'] . ' ' . $s['seccion_nombre'])
+                                  . ' (' . mb_strtoupper(mb_substr((string) $s['nivel_nombre'], 0, 1)) . ')',
+                                  'bloqueado_en' => $cierre['ra_bloqueado_en'] ?? null],
+                    'oficial' => $oficial,
+                    'resumen' => AsistenciaModel::resumenJustificaciones(
+                        $est,
+                        $asistencia->incidenciasDe(array_column($est, 'matricula_id'), $pid, $oficial),
+                        $ancla,
+                        $lectivos
+                    ),
+                ];
+            }
+            $reporte = AsistenciaModel::consolidarJustificaciones($porSeccion);
+        }
+
+        return [
+            'periodoVer'      => $periodoVer,
+            'periodosNav'     => $periodosNav,
+            'porFechas'       => $porFechas,
+            'reporte'         => $reporte,
+            'motivoPrincipal' => $motivoPrincipal,
+        ];
     }
 
     /**

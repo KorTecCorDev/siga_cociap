@@ -51,7 +51,7 @@ $pidVer    = $periodoVer ? (int) $periodoVer['id'] : 0;
           // un bimestre POR FECHAS; también en historial o con la sección bloqueada. ?>
     <?php if ($periodoVer && $porFechas): ?>
         <a href="<?= url('admin/asistencia/' . (int) $seccion['id'] . '/justificaciones?periodo=' . $pidVer) ?>"
-           class="btn btn--secondary btn--sm">Justificaciones</a>
+           class="btn btn--secondary btn--sm">Faltas y justificaciones</a>
     <?php endif; ?>
 </div>
 

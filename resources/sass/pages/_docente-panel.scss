@@ -983,6 +983,18 @@ $nomina-tono-tutoria: darken($brand-accent, 18%);
             color: $card-docentes-ink;
         }
     }
+    // Card «Faltas y justificaciones» del auxiliar (13/10/2026): oliva de su card.
+    &--asistencia {
+        --accion-icon: url("../assets/icons/ver-resumen.svg");
+        color: $card-asistencia-ink;
+
+        &:hover,
+        &:focus-visible {
+            border-color: $card-asistencia-line;
+            background: $card-asistencia-bg;
+            color: $card-asistencia-ink;
+        }
+    }
 }
 
 .dpanel-card__accion-ico {

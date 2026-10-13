@@ -154,6 +154,14 @@ class AsistenciaModel extends BaseModel
     public const TOPE_MAX = 99;
 
     /**
+     * «SEGUIMIENTO DE FALTAS» (13/10/2026, decisión del usuario): un estudiante
+     * entra a ese bloque de la vista «Faltas y justificaciones» con ESTAS faltas
+     * o más en el bimestre. Faltas = las que cuentan como F (F + FJ fuera del
+     * ancla), la misma cifra de la boleta. PUNTO ÚNICO: vista y verificador.
+     */
+    public const UMBRAL_SEGUIMIENTO_FALTAS = 5;
+
+    /**
      * Suma los 4 contadores de un roster ya cargado, más cuántos tienen registro.
      *
      * Recibe la salida de `getEstudiantesConIncidencias` en vez de consultar otra
@@ -496,7 +504,9 @@ class AsistenciaModel extends BaseModel
 
     /**
      * Vista «JUSTIFICACIONES» de una sección (09/10/2026): las FJ/TJ registradas,
-     * resumidas por tipo, por motivo y por estudiante, más el detalle por fecha.
+     * resumidas por tipo, por motivo y por estudiante. Desde el 13/10/2026 cada
+     * estudiante lleva sus `fechas` agrupadas por lo que CUENTAN (FJ autorizada,
+     * FJ que cuenta como falta, TJ); reemplazan al antiguo «detalle por fecha».
      *
      * Una FJ es AUTORIZADA si su motivo es el ANCLA del bimestre: es la que cuenta
      * como FJ; con otro motivo cuenta como F. La regla NO se repite aquí: sale de
@@ -508,17 +518,22 @@ class AsistenciaModel extends BaseModel
      * @param array    $estudiantes  roster en orden de lista (getEstudiantesConIncidencias)
      * @param array    $incidencias  incidenciasDe(...) [mid => [fecha => {tipo, motivo_id, motivo}]]
      * @param int|null $ancla        AsistenciaMotivoModel::anclaDelPeriodo()
+     * @param list<string> $diasLectivos  días lectivos del bimestre (`diasMarcables`),
+     *                                    para unir en `tramos` los días seguidos
      */
-    public static function resumenJustificaciones(array $estudiantes, array $incidencias, ?int $ancla): array
+    public static function resumenJustificaciones(array $estudiantes, array $incidencias, ?int $ancla, array $diasLectivos = []): array
     {
         $kpis = ['total' => 0, 'fj' => 0, 'tj' => 0, 'fj_autorizadas' => 0, 'fj_como_f' => 0, 'estudiantes' => 0];
-        $motivos = $porEstudiante = $detalle = [];
+        $motivos = $porEstudiante = [];
 
         foreach (array_values($estudiantes) as $i => $est) {
             $mid        = (int) $est['matricula_id'];
             $confirmado = !empty($est['incidencias']['confirmado']);
+            // `fechas` (13/10/2026): cada fecha en la categoría en que CUENTA, para
+            // que la vista no muestre «FJ» y «cuenta como F» en la misma fila.
             $fila = ['num' => $i + 1, 'nombre' => (string) $est['nombre_completo'], 'confirmado' => $confirmado,
-                     'fj_autorizadas' => 0, 'fj_como_f' => 0, 'tj' => 0, 'total' => 0];
+                     'fj_autorizadas' => 0, 'fj_como_f' => 0, 'tj' => 0, 'total' => 0,
+                     'fechas' => ['fj_autorizadas' => [], 'fj_como_f' => [], 'tj' => []]];
 
             foreach ($incidencias[$mid] ?? [] as $fecha => $x) {
                 if (!in_array($x['tipo'], ['FJ', 'TJ'], true)) {
@@ -530,33 +545,28 @@ class AsistenciaModel extends BaseModel
                 $kpis['total']++;
                 $fila['total']++;
                 if ($x['tipo'] === 'TJ') {
+                    $clave = 'tj';
                     $kpis['tj']++;
-                    $fila['tj']++;
                 } else {
                     $kpis['fj']++;
                     $clave = $cuenta === 'FJ' ? 'fj_autorizadas' : 'fj_como_f';
                     $kpis[$clave]++;
-                    $fila[$clave]++;
                 }
+                $fila[$clave]++;
+                $fila['fechas'][$clave][] = (string) $fecha;
 
                 $motivos[$motivoId] ??= ['motivo' => (string) ($x['motivo'] ?? ''), 'ancla' => $ancla !== null && $motivoId === $ancla,
                                          'fj' => 0, 'tj' => 0, 'total' => 0];
                 $motivos[$motivoId][$x['tipo'] === 'TJ' ? 'tj' : 'fj']++;
                 $motivos[$motivoId]['total']++;
-
-                $detalle[] = [
-                    'num'        => $i + 1,
-                    'nombre'     => (string) $est['nombre_completo'],
-                    'fecha'      => (string) $fecha,
-                    'tipo'       => $x['tipo'],
-                    'motivo'     => (string) ($x['motivo'] ?? ''),
-                    'ancla'      => $ancla !== null && $motivoId === $ancla,
-                    'cuenta'     => $cuenta,
-                    'confirmado' => $confirmado,
-                ];
             }
 
             if ($fila['total'] > 0) {
+                // Tramos de días seguidos de cada categoría (13/10/2026): lo que
+                // pinta la tabla. `fechas` se conserva para contar y verificar.
+                foreach ($fila['fechas'] as $clave => $lista) {
+                    $fila['tramos'][$clave] = self::tramosDeFechas($lista, $diasLectivos);
+                }
                 $kpis['estudiantes']++;
                 $porEstudiante[] = $fila;
             }
@@ -570,7 +580,132 @@ class AsistenciaModel extends BaseModel
             'kpis'        => $kpis,
             'motivos'     => array_values($motivos),
             'estudiantes' => $porEstudiante,
-            'detalle'     => $detalle,
+        ];
+    }
+
+    /**
+     * TRAMOS de días SEGUIDOS (13/10/2026): une las fechas que son días lectivos
+     * consecutivos, para que una ausencia larga se lea como «Lun. 17/08 al Vie.
+     * 25/09 · 28 días» en lugar de 28 fechas sueltas.
+     *
+     * «Seguidos» = consecutivos en `$diasLectivos` (salida de `diasMarcables`):
+     * el fin de semana y los días NO LECTIVOS no cortan el tramo. Una fecha que no
+     * esté en esa lista (o sin lista) queda como tramo propio de 1 día. Pura.
+     *
+     * @param list<string> $fechas        'AAAA-MM-DD' en cualquier orden
+     * @param list<string> $diasLectivos  'AAAA-MM-DD' del bimestre, en orden
+     * @return list<array{desde:string, hasta:string, dias:int}>
+     */
+    public static function tramosDeFechas(array $fechas, array $diasLectivos): array
+    {
+        $fechas = array_values(array_unique($fechas));
+        sort($fechas);
+        $pos = array_flip($diasLectivos);
+
+        $tramos = [];
+        $ultimo = null;   // índice en $tramos del tramo abierto
+        foreach ($fechas as $f) {
+            $prev = $ultimo !== null ? $tramos[$ultimo]['hasta'] : null;
+            $sigue = $prev !== null && isset($pos[$f], $pos[$prev]) && $pos[$f] === $pos[$prev] + 1;
+            if ($sigue) {
+                $tramos[$ultimo]['hasta'] = $f;
+                $tramos[$ultimo]['dias']++;
+            } else {
+                $tramos[] = ['desde' => $f, 'hasta' => $f, 'dias' => 1];
+                $ultimo   = count($tramos) - 1;
+            }
+        }
+        return $tramos;
+    }
+
+    /**
+     * «SEGUIMIENTO DE FALTAS» de una sección (13/10/2026): los estudiantes con
+     * `UMBRAL_SEGUIMIENTO_FALTAS` faltas o más en el bimestre, de más a menos.
+     *
+     * Falta = marca que CUENTA como F: una F, o una FJ fuera del ancla. La regla
+     * NO se repite aquí: sale de `AsistenciaEstadisticaModel::tipoQueCuenta`
+     * (espejo de `sqlConteoContadores`), así que la cifra es la de la boleta.
+     *
+     * Función pura sobre el MISMO roster y las MISMAS incidencias que pinta la
+     * pantalla: el llamador decide si son borrador u oficiales.
+     *
+     * @return list<array{num:int, matricula_id:int, nombre:string, confirmado:bool,
+     *                    faltas:int, f:int, fj_como_f:int, ultima:string}>
+     */
+    public static function seguimientoFaltas(array $estudiantes, array $incidencias, ?int $ancla): array
+    {
+        $out = [];
+        foreach (array_values($estudiantes) as $i => $est) {
+            $mid  = (int) $est['matricula_id'];
+            $fila = ['num' => $i + 1, 'matricula_id' => $mid, 'nombre' => (string) $est['nombre_completo'],
+                     'confirmado' => !empty($est['incidencias']['confirmado']),
+                     'faltas' => 0, 'f' => 0, 'fj_como_f' => 0, 'ultima' => ''];
+
+            foreach ($incidencias[$mid] ?? [] as $fecha => $x) {
+                if (AsistenciaEstadisticaModel::tipoQueCuenta($x, $ancla) !== 'F') {
+                    continue;
+                }
+                $fila['faltas']++;
+                $fila[$x['tipo'] === 'F' ? 'f' : 'fj_como_f']++;
+                $fila['ultima'] = max($fila['ultima'], (string) $fecha);
+            }
+
+            if ($fila['faltas'] >= self::UMBRAL_SEGUIMIENTO_FALTAS) {
+                $out[] = $fila;
+            }
+        }
+
+        // Más faltas primero; a igualdad, el orden de la lista.
+        usort($out, static fn(array $a, array $b): int
+            => [$b['faltas'], $a['num']] <=> [$a['faltas'], $b['num']]);
+        return $out;
+    }
+
+    /**
+     * Reporte de JUSTIFICACIONES de varias secciones (13/10/2026): el del
+     * auxiliar, con todas las secciones a su cargo. Suma lo que ya calculó
+     * `resumenJustificaciones()` por sección; no vuelve a aplicar ninguna regla.
+     *
+     * @param list<array{seccion:array, oficial:bool, resumen:array}> $porSeccion
+     *        `seccion` = { id, etiqueta }
+     */
+    public static function consolidarJustificaciones(array $porSeccion): array
+    {
+        $kpis = ['total' => 0, 'fj' => 0, 'tj' => 0, 'fj_autorizadas' => 0, 'fj_como_f' => 0, 'estudiantes' => 0];
+        $motivos = $estudiantes = $secciones = [];
+
+        foreach ($porSeccion as $s) {
+            $r = $s['resumen'];
+            foreach ($kpis as $clave => $n) {
+                $kpis[$clave] = $n + (int) $r['kpis'][$clave];
+            }
+            foreach ($r['motivos'] as $m) {
+                $clave = $m['motivo'];
+                $motivos[$clave] ??= ['motivo' => $m['motivo'], 'ancla' => $m['ancla'], 'fj' => 0, 'tj' => 0, 'total' => 0];
+                $motivos[$clave]['fj']    += (int) $m['fj'];
+                $motivos[$clave]['tj']    += (int) $m['tj'];
+                $motivos[$clave]['total'] += (int) $m['total'];
+            }
+            foreach ($r['estudiantes'] as $e) {
+                $estudiantes[] = $e + ['seccion' => (string) $s['seccion']['etiqueta']];
+            }
+            $secciones[] = [
+                'id'           => (int) $s['seccion']['id'],
+                'etiqueta'     => (string) $s['seccion']['etiqueta'],
+                'oficial'      => (bool) $s['oficial'],
+                // Columna «Registro» del A4: cuándo se bloqueó, o null.
+                'bloqueado_en' => $s['seccion']['bloqueado_en'] ?? null,
+            ] + $r['kpis'];
+        }
+
+        uasort($motivos, static fn(array $a, array $b): int
+            => [$b['total'], $a['motivo']] <=> [$a['total'], $b['motivo']]);
+
+        return [
+            'kpis'        => $kpis,
+            'motivos'     => array_values($motivos),
+            'estudiantes' => $estudiantes,
+            'secciones'   => $secciones,
         ];
     }
 
