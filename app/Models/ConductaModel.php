@@ -43,27 +43,25 @@ class ConductaModel extends BaseModel
     }
 
     /**
-     * Periodos del año activo con flag de edicion (mismo criterio que el resto).
-     *
-     * ZONA HORARIA — el "ahora" lo calcula PHP y viaja como parámetro
-     * preparado, igual que en `periodoEditable()` (que usa `time()`) unas
-     * lineas mas abajo. NO usar NOW(): el MySQL de produccion corre en UTC,
-     * 5 horas adelantado, y el flag se apagaba antes que el guard real.
+     * Periodos del año activo con flag `editable` (1/0). El flag lo calcula
+     * el punto único `EdicionPeriodoModel` (09/10/2026) sobre la misma fila:
+     * antes era una columna SQL que repetía la regla.
      */
     public function listarPeriodosActivos(): array
     {
-        return $this->query("
+        $periodos = $this->query("
             SELECT
-                p.id, p.numero, p.nombre_display, p.estado, p.limite_notas, a.anio,
-                (
-                    p.estado = 'activo'
-                    AND (p.limite_notas IS NULL OR ? <= p.limite_notas)
-                ) AS editable
+                p.id, p.numero, p.nombre_display, p.estado, p.limite_notas, p.limite_auxiliares, a.anio
             FROM periodos p
             INNER JOIN anios_academicos a ON a.id = p.anio_id
             WHERE a.estado = 'activo'
             ORDER BY p.numero
-        ", [date('Y-m-d H:i:s')]);
+        ");
+        foreach ($periodos as &$p) {
+            $p['editable'] = (int) (EdicionPeriodoModel::motivoSobre($p, EdicionPeriodoModel::ROL_AUXILIAR) === null);
+        }
+        unset($p);
+        return $periodos;
     }
 
     /** Año académico activo como expresión SQL (el año por defecto de los criterios). */
@@ -488,6 +486,66 @@ class ConductaModel extends BaseModel
         }
     }
 
+    /**
+     * RECTIFICACIÓN (F5, 13/10/2026, migración 079): RA/admin corrigen los Sí/No
+     * de un registro YA OFICIAL (confirmado y bloqueado, o de un bimestre
+     * cerrado). A diferencia de `guardarBorrador`, NO borra la confirmación: lo
+     * rectificado sigue siendo oficial. La nota final no se guarda: la recalculan
+     * en vivo `componerLiteral`/`promediar` con la del tutor.
+     *
+     * La condición de rectificable y la traza son de `RectificacionModel`.
+     * ⚠️ Sin transacción propia: la abre el controlador (como en notas).
+     *
+     * @param array<int,int> $respuestas  [criterio_id => 0|1]
+     * @param array<int>     $criterioIds ids de criterios vigentes del nivel y año
+     * @return array<int, array{0:int, 1:int}> [criterio_id => [antes, después]] de los que cambiaron
+     */
+    public function rectificar(int $matriculaId, int $periodoId, array $respuestas, int $userId, array $criterioIds): array
+    {
+        $respuestas = array_intersect_key($respuestas, array_flip($criterioIds));
+
+        // Lo que se rectifica es lo OFICIAL (el registro está confirmado): se lee del
+        // punto único. `upsertRespuestas` vuelve a leer y bloquea las filas.
+        $previas = $this->respuestasOficiales($matriculaId, $periodoId);
+
+        $cambios = [];
+        foreach ($respuestas as $cid => $v) {
+            $v = $v ? 1 : 0;
+            // Un criterio sin fila previa (registro forzado a medias) no se
+            // rectifica: no hay valor oficial que corregir.
+            if (array_key_exists((int) $cid, $previas) && $previas[(int) $cid] !== $v) {
+                $cambios[(int) $cid] = [$previas[(int) $cid], $v];
+            }
+        }
+        if ($cambios !== []) {
+            $this->upsertRespuestas(
+                $matriculaId,
+                $periodoId,
+                array_map(static fn(array $c): int => $c[1], $cambios),
+                $userId
+            );
+        }
+        return $cambios;
+    }
+
+    /**
+     * Respuestas OFICIALES de un estudiante en un bimestre, para el formulario de
+     * rectificación: [criterio_id => 0|1].
+     *
+     * @return array<int,int>
+     */
+    public function respuestasOficiales(int $matriculaId, int $periodoId): array
+    {
+        $out = [];
+        foreach ($this->query("
+            SELECT r.criterio_id, r.respuesta FROM " . self::RESPUESTAS_OFICIALES . " r
+            WHERE r.matricula_id = ? AND r.periodo_id = ?
+        ", [$matriculaId, $periodoId]) as $r) {
+            $out[(int) $r['criterio_id']] = (int) $r['respuesta'];
+        }
+        return $out;
+    }
+
     /** ¿Está confirmado el registro de ese estudiante en ese bimestre? */
     public function estaConfirmado(int $matriculaId, int $periodoId): bool
     {
@@ -641,8 +699,7 @@ class ConductaModel extends BaseModel
         $cierre = $this->getCierreVigente($seccionId, $periodoId);
         if (!$cierre) {
             return ['ok' => false, 'mensaje' =>
-                'Todavía los auxiliares académicos no han registrado sus calificaciones de conducta. ' .
-                'Consulta con Registro Académico para más información.'];
+                'La conducta de esta sección todavía no está registrada.'];
         }
         if ($cierre['tutor_cerrado_en']) {
             return ['ok' => false, 'mensaje' => 'La conducta de esta sección ya fue cerrada por el tutor.'];
@@ -982,8 +1039,12 @@ class ConductaModel extends BaseModel
         return $out;
     }
 
-    /** Conducta (literal) de un alumno en un solo periodo, o null si no es visible. */
-    public function getParaPeriodo(int $matriculaId, int $periodoId): ?string
+    /**
+     * Conducta (literal) de un alumno en un solo periodo, o null si no es visible.
+     * Con $exigirVisible = false compone el literal aunque la sección no tenga
+     * cierre vigente (la traza de la rectificación, 13/10/2026).
+     */
+    public function getParaPeriodo(int $matriculaId, int $periodoId, bool $exigirVisible = true): ?string
     {
         $r = $this->queryOne("
             SELECT
@@ -1008,7 +1069,7 @@ class ConductaModel extends BaseModel
             WHERE m.id = ?
         ", [$periodoId, $periodoId, $periodoId, $periodoId, $matriculaId]);
 
-        if (!$r || !$r['visible']) {
+        if (!$r || ($exigirVisible && !$r['visible'])) {
             return null;
         }
         return $this->componerLiteral(
@@ -1296,16 +1357,13 @@ class ConductaModel extends BaseModel
 
     // ── Verificacion de edicion ──────────────────────────────────
 
-    /** true si el periodo esta abierto para edicion. */
+    /**
+     * true si el periodo esta abierto para el registro de conducta (etapa 1:
+     * auxiliar, RA o admin). Delega en el punto unico (09/10/2026). La etapa 2
+     * del tutor NO pasa por aqui: pregunta con ROL_DOCENTE.
+     */
     public function periodoEditable(int $periodoId): bool
     {
-        $p = $this->queryOne("SELECT estado, limite_notas FROM periodos WHERE id = ?", [$periodoId]);
-        if (!$p || $p['estado'] !== 'activo') {
-            return false;
-        }
-        if ($p['limite_notas'] && strtotime($p['limite_notas']) < time()) {
-            return false;
-        }
-        return true;
+        return (new EdicionPeriodoModel())->esEditable($periodoId, EdicionPeriodoModel::ROL_AUXILIAR);
     }
 }

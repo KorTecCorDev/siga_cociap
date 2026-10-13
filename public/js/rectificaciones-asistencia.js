@@ -1,0 +1,1 @@
+(()=>{var t,r,a,e=document.getElementById("rectAsistenciaForm");function d(){var e="FJ"===t.value||"TJ"===t.value;r.hidden=!e,a.required=e,a.disabled=!e}e&&(t=e.querySelector("#marca"),r=e.querySelector("[data-rect-motivo-just]"),a=e.querySelector("#motivo_id"),t)&&r&&a&&(t.addEventListener("change",d),d())})();

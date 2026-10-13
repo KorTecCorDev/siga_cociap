@@ -232,6 +232,66 @@ class ConductaController extends BaseController
         ]);
     }
 
+    // GET /admin/conducta/{seccion_id}/resultado   (?periodo={id})
+    // NOTA FINAL de la sección con la nota del tutor (13/10/2026), en SOLO
+    // LECTURA: nota del auxiliar, del tutor, final y literal. Pensada para que el
+    // auxiliar vea el resultado de su registro. Mismo gate que la consulta de
+    // Dirección (`ConsultaNotasController::conducta`): las DOS etapas cerradas y
+    // sin anular; si no, 404 (la URL queda en marcadores). Reusa su vista.
+    public function resultado(string $seccionId): void
+    {
+        $seccionId = (int) $seccionId;
+        $seccion   = $this->buscarSeccion($seccionId);
+        if (!$seccion) {
+            $this->notFound();
+        }
+
+        $periodo   = null;
+        $periodoId = (int) ($this->query('periodo') ?? 0);
+        foreach ($this->model->listarPeriodosActivos() as $p) {
+            if ((int) $p['id'] === $periodoId) {
+                $periodo = $p;
+                break;
+            }
+        }
+        if (!$periodo) {
+            $this->notFound();
+        }
+        // Auxiliar: solo una sección que tuvo a su cargo EN ese bimestre.
+        if (has_role(ROL_AUXILIAR) && !$this->puede($seccionId, $periodoId)) {
+            $this->forbidden();
+        }
+
+        $cierre = $this->model->getCierreDetalle($seccionId, $periodoId);
+        if (!$cierre || empty($cierre['ra_bloqueado_en']) || empty($cierre['tutor_cerrado_en'])) {
+            $this->notFound();
+        }
+
+        $nivelId  = (int) $seccion['nivel_id'];
+        $alumnos  = $this->model->getEstudiantesParaTutor($seccionId, $periodoId, $this->model->totalCriterios($nivelId));
+        $esLegado = !empty($alumnos) && !empty($alumnos[0]['es_legado']);
+        $grilla   = url('admin/conducta/' . $seccionId . '?periodo=' . $periodoId);
+
+        $this->view('consulta-notas/conducta', [
+            'titulo'       => 'Conducta — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
+            'periodo'      => $periodo,
+            'seccion'      => [
+                'seccion_id'     => $seccionId,
+                'seccion_nombre' => $seccion['seccion_nombre'],
+                'grado_nombre'   => $seccion['grado_nombre'],
+                'nivel_nombre'   => $seccion['nivel_nombre'],
+            ],
+            'cierre'       => $cierre,
+            'alumnos'      => $alumnos,
+            'criterios'    => $esLegado ? [] : $this->model->getCriterios($nivelId),
+            'esLegado'     => $esLegado,
+            // La grilla Sí/No de esta pantalla es la del propio registro.
+            'urlVolver'    => $grilla,
+            'textoVolver'  => '← Registro',
+            'urlCriterios' => $grilla,
+        ]);
+    }
+
     // GET /admin/conducta/{seccion_id}/imprimir/{periodo_id}
     // Copia imprimible del registro aprobado y bloqueado (grilla de criterios
     // Si/No + nota RA) con encabezado formal y espacios de firma.

@@ -365,13 +365,19 @@ Con el deploy arriba y el termómetro en 0.
 Si aquí aparecen empates que no estaban antes del deploy, es lo esperado: el cálculo en
 vivo ahora solo considera competencias bloqueadas.
 
-## Fase 3.5 — Conducta y asistencia (el cierre NO las valida)
+## Fase 3.5 — Conducta y asistencia
 
-🔴 **El código no exige ninguno de los dos registros para cerrar** — eso es lo que quiere
-cambiar la decisión D1 de `docs/modulos/cierre-cuatro-registros.md`, aún sin implementar.
+> ✅ **Desde la F3 del plan de bloqueos (09/10/2026, en `dev`; vale en producción solo
+> cuando se despliegue) el cierre LAS EXIGE**: `PeriodoController::cerrar` no cierra si a
+> alguna sección del año le falta la asistencia bloqueada o la conducta en sus dos etapas,
+> y el mensaje nombra registro y secciones (`AnioAcademicoModel::registrosSinBloquear`).
+> Las consultas de abajo siguen sirviendo para verlo ANTES de pulsar «Cerrar». Mientras
+> F3 no esté en producción, lo que sigue vale tal cual.
+
+🔴 **Hasta la F3, el código no exige ninguno de los dos registros para cerrar.**
 Pero **la boleta SÍ los imprime** en cuanto el bimestre queda cerrado: una sección sin
 conducta cerrada o sin asistencia bloqueada sale al papel con guiones y nadie avisa.
-Mientras no exista el guard, **este paso es la única defensa**.
+Sin el guard, **este paso es la única defensa**.
 
 ```sql
 -- 3.5.a Secciones SIN conducta cerrada en sus DOS etapas → debe dar 0 filas
@@ -554,7 +560,8 @@ Parar y no cerrar si:
 - La alerta de evaluación incompleta devuelve casos sin resolver.
 - Quedan empates pendientes en `/director/orden-merito/{periodo}`.
 - **Alguna sección sin conducta cerrada en sus dos etapas o sin asistencia bloqueada**
-  (Fase 3.5). El sistema te dejará cerrar igual: el criterio es humano.
+  (Fase 3.5). Con la F3 desplegada el sistema ya no deja cerrar; sin ella, el criterio
+  es humano.
 - El deploy dejó el sistema con errores.
 
 ## Prohibiciones

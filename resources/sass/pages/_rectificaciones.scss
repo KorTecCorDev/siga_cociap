@@ -368,3 +368,53 @@
 
     .rect-aviso { flex: 1 1 260px; }
 }
+
+// Rectificación de conducta (F5, 13/10/2026): Sí/No por criterio, como un
+// segmentado de dos opciones.
+.rect-sino {
+    display: inline-flex;
+    border: 1px solid $border-color;
+    border-radius: $border-radius;
+    overflow: hidden;
+
+    &__op {
+        cursor: pointer;
+
+        input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        span {
+            display: block;
+            min-width: 48px;
+            padding: 4px $spacing-sm;
+            font-size: $font-size-sm;
+            text-align: center;
+        }
+
+        input:checked + span {
+            background: $brand-mid;
+            color: $bg-white;
+            font-weight: 600;
+        }
+
+        input:focus-visible + span {
+            outline: 2px solid $brand-mid;
+            outline-offset: -2px;
+        }
+    }
+
+    &__op + &__op { border-left: 1px solid $border-color; }
+}
+
+// Rectificación de asistencia: día, marca y motivo de la justificación en una
+// grilla que baja de columnas sola.
+.rect-asis__campos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0 $spacing-md;
+
+    .form-group[hidden] { display: none; }
+}

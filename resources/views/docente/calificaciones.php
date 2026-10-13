@@ -40,7 +40,6 @@
 <?php if ($bloqueado): ?>
     <div class="flash flash--warning">
         El plazo para registrar calificaciones ha vencido.
-        Comunícate con Registro Académico.
     </div>
 <?php endif; ?>
 

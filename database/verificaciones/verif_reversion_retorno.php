@@ -59,7 +59,7 @@ $_SESSION = [];
 use App\Controllers\Matricula\RetornoGradoController;
 use App\Models\ControlOperativoModel;
 
-const TABLAS = ['inasistencias', 'asistencia_incidencias', 'conducta_respuestas',
+const TABLAS = ['inasistencias', 'asistencia_incidencias', 'asistencia_presencias', 'conducta_respuestas',
                 'conducta_confirmaciones', 'calificaciones_conducta'];
 
 /** Retorno a probar: el activo más reciente o, si no hay, el último (se reactiva en la simulación). */

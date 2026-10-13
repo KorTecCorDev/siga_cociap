@@ -344,18 +344,24 @@ class AnioAcademicoModel extends BaseModel
         );
     }
 
-    /** Actualiza las fechas y la fecha límite de notas de un bimestre. */
+    /**
+     * Actualiza las fechas de un bimestre y sus dos fechas límite: la de los
+     * docentes (`limite_notas`) y la de los auxiliares (`limite_auxiliares`,
+     * migración 078; null = vale la de docentes). La validación de su orden la
+     * hace el controlador.
+     */
     public function actualizarFechasPeriodo(
         int $id,
         string $fechaInicio,
         string $fechaFin,
-        ?string $limiteNotas
+        ?string $limiteNotas,
+        ?string $limiteAuxiliares = null
     ): bool {
         return $this->execute("
             UPDATE periodos
-            SET fecha_inicio = ?, fecha_fin = ?, limite_notas = ?
+            SET fecha_inicio = ?, fecha_fin = ?, limite_notas = ?, limite_auxiliares = ?
             WHERE id = ?
-        ", [$fechaInicio, $fechaFin, $limiteNotas, $id]);
+        ", [$fechaInicio, $fechaFin, $limiteNotas, $limiteAuxiliares, $id]);
     }
 
     /** Cambia el estado de un bimestre. */
@@ -446,6 +452,70 @@ class AnioAcademicoModel extends BaseModel
         $stmtTrans->execute([$periodoId, $usuarioId, $periodoId]);
 
         return $stmtPropias->rowCount() + $stmtTrans->rowCount();
+    }
+
+    /**
+     * GUARD DEL CIERRE — conducta y asistencia (F3 del plan de bloqueos,
+     * 09/10/2026; decisiones D1/D5/D6 de `docs/modulos/cierre-cuatro-registros.md`).
+     * El cierre NO las fuerza (a diferencia de académicas y transversales): las
+     * EXIGE. Devuelve, por registro, las secciones a las que les falta:
+     *   - 'asistencia'      → sin cierre de asistencia vigente;
+     *   - 'conducta'        → sin la etapa 1 (bloqueo del auxiliar);
+     *   - 'conducta_tutor'  → con la etapa 1 pero sin la etapa 2 (cierre del tutor).
+     * Universo (D5): TODAS las secciones del año del periodo, sin filtrar por
+     * tutor ni por nómina. SQL propio a propósito: los resúmenes del panel de
+     * bloqueos recortan ese universo y los consume la UI.
+     *
+     * @return array<string, list<string>> etiqueta «Nivel grado sección», sin claves vacías
+     */
+    public function registrosSinBloquear(int $periodoId): array
+    {
+        $filas = $this->query("
+            SELECT
+                CONCAT(n.nombre, ' ', g.nombre_display, ' ', s.nombre) AS etiqueta,
+                EXISTS (SELECT 1 FROM cierres_asistencia ca
+                        WHERE ca.seccion_id = s.id AND ca.periodo_id = ? AND ca.anulado_en IS NULL) AS asistencia,
+                EXISTS (SELECT 1 FROM cierres_conducta cc
+                        WHERE cc.seccion_id = s.id AND cc.periodo_id = ? AND cc.anulado_en IS NULL) AS conducta,
+                EXISTS (SELECT 1 FROM cierres_conducta cc
+                        WHERE cc.seccion_id = s.id AND cc.periodo_id = ? AND cc.anulado_en IS NULL
+                          AND cc.tutor_cerrado_en IS NOT NULL) AS conducta_tutor
+            FROM secciones s
+            INNER JOIN grados g  ON g.id = s.grado_id
+            INNER JOIN niveles n ON n.id = g.nivel_id
+            WHERE s.anio_id = (SELECT anio_id FROM periodos WHERE id = ?)
+            ORDER BY n.id, g.numero, s.nombre
+        ", [$periodoId, $periodoId, $periodoId, $periodoId]);
+
+        $faltan = ['asistencia' => [], 'conducta' => [], 'conducta_tutor' => []];
+        foreach ($filas as $f) {
+            if (!(int) $f['asistencia']) {
+                $faltan['asistencia'][] = $f['etiqueta'];
+            }
+            if (!(int) $f['conducta']) {
+                $faltan['conducta'][] = $f['etiqueta'];
+            } elseif (!(int) $f['conducta_tutor']) {
+                $faltan['conducta_tutor'][] = $f['etiqueta'];
+            }
+        }
+        return array_filter($faltan);
+    }
+
+    /** Mensaje del guard de `registrosSinBloquear`: qué registro y qué secciones. */
+    public static function textoRegistrosSinBloquear(array $faltan): string
+    {
+        $rotulos = [
+            'asistencia'     => 'Asistencia sin bloquear',
+            'conducta'       => 'Conducta sin bloquear',
+            'conducta_tutor' => 'Conducta sin cerrar por el tutor',
+        ];
+        $partes = [];
+        foreach ($rotulos as $clave => $rotulo) {
+            if (!empty($faltan[$clave])) {
+                $partes[] = $rotulo . ' (' . count($faltan[$clave]) . '): ' . implode(', ', $faltan[$clave]);
+            }
+        }
+        return implode('. ', $partes) . '.';
     }
 
     /**

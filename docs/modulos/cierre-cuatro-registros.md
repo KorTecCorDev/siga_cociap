@@ -1,5 +1,137 @@
 # Plan — Los cuatro registros del bimestre y el contrato del cierre
 
+> 🔴 **REPLANTEADO el 09/10/2026 — leer §0 antes que el resto.** El plan del 04/08
+> sigue válido en su diagnóstico, pero el usuario **derogó la D2** («una sola fecha») y
+> amplió el alcance. El orden y las fases vigentes son las de §0.
+
+## 0. Plan vigente (09/10/2026)
+
+### Decisiones del usuario (09/10/2026 — CERRADAS, no re-preguntar)
+- **Dos fechas por ROL** (deroga la D2 del 04/08):
+  - **Auxiliares** (conducta y asistencia): fecha propia, **anterior**.
+  - **Docentes** (académicas, TIC/GAMA y **todo lo del tutor**: conducta etapa 2,
+    conclusiones y cierre de transversales): `limite_notas`, la fecha final.
+  - **El tutor NO tiene plazo extra**: un tutor es también docente de otras secciones,
+    y un plazo mayor lo llevaría a registrar sus notas el último día mientras sus
+    colegas esperan.
+- **Las transversales del tutor quedan bajo la fecha docente** (es la F4 de abajo). Hay
+  que avisar antes a los tutores.
+- **La conducta se sigue pudiendo bloquear antes de `fecha_fin`** (la asistencia no).
+- **Después de «Bloquear y aprobar» nadie registra ni edita.** Para corregir: desbloquear
+  desde `/director/bloqueos`, o una **RECTIFICACIÓN de conducta y asistencia** por RA/admin,
+  con auditoría, como la de notas. Lectura aplicada: vencida la fecha de los auxiliares,
+  RA/admin tampoco registran por la vía normal (quedan el bloqueo forzado y la rectificación).
+
+### Fases vigentes (cada una desplegable sola, en este orden)
+| Fase | Qué | Migración | Estado |
+|---|---|---|---|
+| F0 | Correcciones urgentes: ruta vieja de conclusión retirada; `guardarConclusionAlumno` con carga propia y plazo; conclusión obligatoria en el servidor al aprobar | no | **HECHA en `dev` (09/10/2026)** — `verif_guardas_conclusion.php` |
+| F1 | Punto único del plazo `EdicionPeriodoModel` (las 5 copias de la regla + las 3 de «días para el cierre»; corrige el «0 días» tras vencer) | no | **HECHA en `dev` (09/10/2026)** — `verif_plazo_edicion.php` |
+| F2 | Coherencia: semáforo del auxiliar con `bimestreTerminado`; transversales del tutor bajo la compuerta; forzados solo con el periodo `activo`; comentarios vencidos | no | **HECHA en `dev` (09/10/2026)** — `verif_coherencia_bloqueos.php`. ⚠️ **Avisar a los tutores ANTES de desplegarla** |
+| F3 | Guard del cierre: asistencia bloqueada y conducta en sus dos etapas, todas las secciones del año | no | **HECHA en `dev` (09/10/2026)** — `verif_guard_cierre_registros.php`. ⚠️ Antes de desplegar, medir en PROD que el III Bimestre pueda cumplirla |
+| F4 | `periodos.limite_auxiliares` (NULL = vale `limite_notas`); `fecha_fin ≤ limite_auxiliares ≤ limite_notas` | **sí (078)** | **HECHA en `dev` (09/10/2026)** — `verif_plazo_edicion.php` § 5. 078 aplicada solo en la BD local de la oficina |
+| F5 | Rectificación de conducta y asistencia (RA/admin, motivo + auditoría) | **sí (079)** | **HECHA en `dev` (13/10/2026)** — `verif_rectificacion_registros.php`. 079 aplicada solo en la BD local de la oficina |
+
+### F4 — cómo quedó (09/10/2026)
+- Campo opcional «Fecha límite para auxiliares (conducta y asistencia)» en el modal
+  «Editar fechas» de `/director/anios/{id}`, y su fila en la tarjeta del bimestre («Igual al
+  límite de notas» si está vacía). `PeriodoController::editar` valida
+  `fecha_fin ≤ auxiliares ≤ notas` (la asistencia solo se bloquea desde el último día).
+- `EdicionPeriodoModel::limiteDe()` es el ÚNICO sitio que elige la fecha por rol. Rige
+  para el registro de conducta etapa 1 y de asistencia **de cualquier usuario** (también
+  RA/admin por la vía normal). Pasada esa fecha, quedan el forzado del panel y la F5.
+- KPI «días para el cierre»: el del auxiliar mide su fecha y el del docente, la de notas.
+
+### F5 — decisiones del usuario (09/10/2026, CERRADAS)
+- **Conducta:** RA/admin rectifican los **Sí/No por criterio** del auxiliar; la nota se
+  recalcula sola con la del tutor (`promediar`), como la rectificación de notas por criterio.
+- **Asistencia por fechas:** se rectifica **la marca de un día** (F/FJ/T/TJ/asistió) y los
+  contadores se recalculan con `recalcularContadores` (respeta el invariante de 069).
+- **Etapa 2 ya cerrada por el tutor:** la rectificación **solo deja la traza**; no reabre.
+- Solo sobre un registro **bloqueado** o un bimestre **cerrado**, con **motivo obligatorio**,
+  como `RectificacionModel::esRectificable`.
+- **Cerradas el 13/10/2026:** **una tabla de auditoría por registro**; en una boleta ya
+  publicada **se ve al instante** (como en notas); se entra desde **`/rectificaciones`**.
+
+### F5 — cómo quedó (13/10/2026, migración 079)
+- **Tablas:** `rectificaciones_conducta` (una fila por criterio que cambió: Sí/No antes y
+  después + literal antes y después) y `rectificaciones_asistencia` (una por día: marca y
+  motivo antes y después; la marca anterior puede ser `sin_tomar`).
+- **Rectificable** (punto único `RectificacionModel::sqlConductaRectificable` /
+  `sqlAsistenciaRectificable`): registro **CONFIRMADO** (lo no confirmado de un forzado va
+  por la vía extraordinaria) **y** bimestre cerrado **o** bloqueo vigente en la sección donde
+  cursó (`CambioSeccionModel::sqlSeccionDelPeriodo`). Asistencia: además periodo por fechas y
+  fila no extraordinaria. ⚠️ El cierre va en `COUNT(*) > 0`, no en `EXISTS`: MariaDB
+  convierte ese EXISTS en un IN con subconsulta a la izquierda y lo rechaza (#1235).
+- **Escritura en el modelo dueño, sin transacción propia** (la abre el controlador):
+  `ConductaModel::rectificar` (no borra la confirmación; el literal se recalcula en vivo) y
+  `AsistenciaModel::rectificarDia` (mismas validaciones que `marcarDia`; recuenta con
+  `recalcularContadores` y **repone la confirmación ORIGINAL**). `getParaPeriodo` admite
+  `$exigirVisible = false` para la traza.
+- **Pantallas** (admin/RA): `/rectificaciones/matricula/{id}` suma las cards «Conducta» y
+  «Asistencia» (solo si hay bimestres rectificables) y sus historiales;
+  `/rectificaciones/conducta` y `/rectificaciones/asistencia` (+ `/guardar`). Sin
+  `BorradorModel`: son formularios cortos y un rechazo vuelve con `$old`.
+- No toca el mérito ni reabre nada: si el tutor ya cerró la etapa 2, solo queda la traza.
+- I y II Bimestre 2026 (asistencia solo de números) no tienen asistencia rectificable.
+
+### F1 — cómo quedó (09/10/2026)
+- **`app/Models/EdicionPeriodoModel.php`**: `esEditable(periodo, rol)`, `motivoNoEditable()`
+  (`cerrado` · `plazo_vencido` · `no_iniciado`), `motivoSobre(fila, rol)` (la misma regla
+  sobre una fila ya leída), `limiteDe(fila, rol)` y `diasParaCierre(limite)`.
+- **El rol es el de quien REGISTRA el dato, no el del usuario en sesión**:
+  - `ROL_AUXILIAR`: conducta etapa 1 y asistencia (`ConductaModel::periodoEditable`,
+    `AsistenciaModel::periodoEditable` y la columna `editable` de los dos
+    `listarPeriodosActivos`, que ahora se calcula en PHP sobre la misma fila).
+  - `ROL_DOCENTE`: `CalificacionModel::periodoEstaBloqueado` y la etapa 2 del tutor
+    (`ConductaTutorController::plazoVigente`, que antes usaba el `periodoEditable` de
+    conducta).
+  - Hoy los dos leen `limite_notas`: la F4 solo cambia `limiteDe()`.
+- **Única diferencia de comportamiento:** un periodo `pendiente` deja de ser editable
+  para el docente. Ningún caller llega con uno (verificado el 04/08).
+- **«Días para el cierre»** (paneles docente y auxiliar, `/director/bloqueos`): antes, con
+  `ceil()`, mostraba «0 días para el cierre» hasta 24 h DESPUÉS de vencer. Ahora pasa a
+  «1 día desde el cierre» en cuanto vence.
+- `verif_plazo_edicion.php`: A/B contra copias de control de las reglas viejas
+  (4 periodos × 3 estados × 4 fronteras), los delegados, los días y un barrido que falla
+  si renace una comparación de `limite_notas` fuera del punto único.
+
+### F2 — cómo quedó (09/10/2026)
+- **Semáforo del auxiliar** (`Auxiliar\PanelController::estado`): en un bimestre por
+  fechas, con todos confirmados y sin días sin tomar, antes del último día dice **«Bloqueo
+  desde el dd/mm»** en gris, no «Listo para bloquear» (que el bloqueo luego negaba). Usa
+  la misma `AsistenciaModel::bimestreTerminado` que `bloquearRA`.
+- **Transversales del tutor bajo el plazo docente** (`TutoriaController::exigirPlazo`): las
+  tres escrituras (conclusión, réplica y cierre) se rechazan con el plazo vencido o con un
+  `periodo_id` cerrado, pendiente o inexistente por la URL. La vista queda en solo lectura
+  con un aviso; las réplicas ya escritas se siguen viendo.
+- **Forzados del panel solo con el bimestre ACTIVO**: las cinco acciones de bloqueo/cierre
+  de `/director/bloqueos` (competencia, transversales, conducta etapa 1 y 2, asistencia)
+  pasan por `abortarSiPeriodoCerrado`, como ya lo hacían los cuatro reabrir. Sus botones no
+  se pintan con el bimestre cerrado. Medido el 09/10 en local: B1 y B2 tienen las 23
+  secciones con conducta (dos etapas) y asistencia bloqueadas, así que no se pierde ninguna
+  vía de recuperación; con la F3, todo bimestre que cierre quedará completo.
+- **Textos** que decían quién resuelve (regla «los mensajes no revelan el flujo»), en las
+  pantallas tocadas: «Comunícate con Registro Académico» (aprobar fuera de plazo y banner de
+  la grilla), «Consulta con Registro Académico» (etapa 2 sin etapa 1) y los `confirm()` de
+  reabrir conducta y asistencia. Quedan, sin tocar, los de `admin/{conducta,asistencia}/index.php`
+  y `auxiliar/inicio.php` (secciones sin asignar).
+
+### F3 — cómo quedó (09/10/2026)
+- `AnioAcademicoModel::registrosSinBloquear(periodo)`: por registro, las secciones a las
+  que les falta — `asistencia` (sin cierre vigente), `conducta` (sin etapa 1) y
+  `conducta_tutor` (etapa 1 sin etapa 2). Universo D5: **todas las secciones del año**,
+  con SQL propio (los resúmenes del panel no se tocaron).
+- `PeriodoController::cerrar` lo llama **después** de los guards de empates y de
+  evaluación incompleta y **antes** de la transacción; el mensaje nombra registro y
+  secciones (`textoRegistrosSinBloquear`).
+- **Hito A** (`aprobarBimestre`) no lleva este guard: no cierra el bimestre.
+- Las académicas y las transversales se siguen forzando al cerrar (D1).
+
+- La F3 vieja (guard de sección vacía de asistencia) ya la cubren el 100 % confirmado y
+  «cada estudiante, cada día» (29/09 y 09/10/2026): no se implementa.
+- La F4 vieja (transversales bajo la compuerta) pasa a la F2 nueva.
+
 > **Estado: PLAN APROBADO EN SUS DECISIONES, SIN IMPLEMENTAR.** Redactado el
 > **04/08/2026**. Se ejecutaba **después de cerrar y publicar el II Bimestre**, para que
 > el primer bimestre bajo las reglas nuevas fuera el **III**.

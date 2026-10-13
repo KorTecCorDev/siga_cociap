@@ -80,7 +80,9 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
   `#4d7c0f`), también en el hub de `/director/bloqueos` (antes tomaba prestado el
   naranja de Nómina). **Semáforo por sección:** ámbar «Registrados X de N» /
   «Listo para bloquear» (conducta completa), verde «Bloqueada el dd/mm/aaaa», gris
-  = no puede actuar (fuera de plazo / sin estudiantes).
+  = no puede actuar (fuera de plazo / sin estudiantes / **«Bloqueo desde el dd/mm»**:
+  asistencia por fechas completa antes del último día del bimestre, 09/10/2026, ver
+  `cierre-cuatro-registros.md` §0 F2).
   - **KPIs «Avance de conducta» / «Avance de asistencia» en %** (08/10/2026, decisión
     del usuario; antes «Conducta bloqueada 1/2»).
     - Miden el % de las secciones a cargo con ese módulo **BLOQUEADO**, no a los
@@ -184,7 +186,72 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
 
 **Rutas del módulo:** `GET /admin/auxiliares` · `POST /admin/auxiliares/{seccion_id}/asignar`
 · `GET /auxiliar/inicio` · `GET /auxiliar/nomina/{seccion_id}/imprimir` ·
-`GET /auxiliar/horario/{seccion_id}` · `GET /admin/{conducta,asistencia}/{id}/estudiante`.
+`GET /auxiliar/horario/{seccion_id}` · `GET /admin/{conducta,asistencia}/{id}/estudiante`
+· `GET /auxiliar/justificaciones` · `GET /admin/conducta/{id}/resultado` (13/10/2026).
+
+**Ampliación del 13/10/2026 (decisiones del usuario; sin migración; en `dev`, sin probar en
+el navegador):**
+- **Reporte de todas sus secciones, `GET /auxiliar/justificaciones?periodo=`**
+  (`Auxiliar\PanelController::justificaciones`). Es solo del auxiliar y se abre con el botón
+  «Faltas y justificaciones» de la **cabecera de la card Asistencia** de su panel. Lo decidió el
+  usuario el 13/10/2026: el reporte es de la asistencia y no un módulo aparte, así que se
+  eliminó la card suelta. Sigue la regla «acciones en la cabecera» de `ui.md`. La clave
+  `accion` de `$cards` en `auxiliar/inicio.php` la pinta, y en el celular baja de línea si no
+  cabe.
+  - Contenido: KPIs, una fila **por sección** (con enlace a su vista), **por estudiante** con
+    columna Sección y sus fechas, y **por motivo**. Usa el mismo vocabulario que la vista de
+    la sección («Faltas justificadas» · «Cuentan como falta» · «Tardanzas justificadas»), con
+    la misma leyenda y la misma tabla por motivo (parciales compartidos). No lleva aviso ni
+    marcas de confirmación.
+  - Las secciones se rotulan «1° A (P)» / «1° A (S)» porque se repiten entre niveles. Es la
+    convención de los cuadros estadísticos.
+  - **A4 imprimible, `GET /auxiliar/justificaciones/imprimir?periodo=`**
+    (`PanelController::justificacionesImprimir`, botón «🖨 Imprimir» en la cabecera, en pestaña
+    nueva). Sigue la estructura del imprimible de **Acompañamiento pedagógico**:
+    - **Cabecera institucional:** bimestre, alcance (auxiliar y secciones), estado del bimestre
+      y fecha de impresión.
+    - **Mismo cuerpo que la pantalla:** el parcial `auxiliar/_reporte-justificaciones.php`, con
+      los datos de un método único, `componerReporte()`. El papel no puede decir otra cifra.
+    - **Documento de trabajo, sin firma** (decisión del usuario): el registro oficial firmado
+      es el imprimible de asistencia de cada sección.
+    - **Única diferencia con la pantalla** (`$impreso`): la columna «Detalle», un enlace, pasa a
+      «**Registro**» («Bloqueado el dd/mm» · «En curso» · «Sin bloquear»). Así una hoja suelta
+      no se lee como oficial cuando aún es borrador.
+    - **Contenedor `.cuadros-print`:** su ancho fijo de 718 px hace que Frappe dibuje el gráfico
+      del ancho de la hoja.
+    - Las tablas se parten entre hojas repitiendo la cabecera.
+    - Sin bimestre propio, o con un bimestre de solo números, responde 404.
+  - **Gráfico «Faltas justificadas por sección»**, solo con 2+ secciones y alguna FJ.
+    - Son barras apiladas de Frappe Charts (`resources/js/justificaciones-auxiliar.js`, mismo
+      patrón JSON que `/admin/cuadros`).
+    - Responde a una sola pregunta: en qué sección se justifican faltas con un motivo que NO
+      vale.
+    - Por eso lleva **dos series**: rosa `#fb7185` para las justificadas y carmín `#be123c`
+      para las que cuentan como falta, ambos colores de las incidencias del sistema.
+    - **Las tardanzas no entran**, por dos razones:
+      - apilarlas con faltas sumaría cosas que no se comparan;
+      - el validador de paletas rechaza el durazno o la terracota junto al rosa y al carmín
+        (ΔE < 15).
+    - El par rosa/carmín pasa (ΔE 20.7 normal · 20.2 deuteranopía). El rosa queda bajo 3:1
+      contra el fondo, así que la tabla «Por sección», justo debajo y con las mismas cifras,
+      es su vista accesible.
+  - Cada sección se cuenta como en su vista: borrador si está en curso; lo oficial si el
+    bimestre ya no es editable o la sección está bloqueada.
+  - La suma la hace `AsistenciaModel::consolidarJustificaciones`, una función pura que no
+    vuelve a aplicar reglas.
+  - **Sin «Seguimiento de faltas»** (decisión del usuario): ese bloque vive solo en la vista de
+    cada sección (ver `confirmacion-y-asistencia-por-fechas.md`, novena ronda).
+  - Las pestañas solo muestran los bimestres en que el auxiliar tuvo secciones.
+- **Nota final de conducta con la del tutor, `GET /admin/conducta/{id}/resultado?periodo=`**
+  (`Admin\ConductaController::resultado`). Es solo lectura y muestra la nota del auxiliar, la del
+  tutor, la final y el literal.
+  - **Solo aparece con las DOS etapas cerradas** (el auxiliar bloqueó y el tutor cerró); si no,
+    responde 404. Es el mismo criterio de la consulta de Dirección.
+  - Al auxiliar fuera de su sección le responde 403 (`puede`).
+  - Se entra por el botón «Ver nota final» del aviso de bloqueo de su grilla de conducta.
+  - **Reutiliza la vista `consulta-notas/conducta.php`.** Sus dos enlaces llegan como
+    variables (`$urlVolver`, `$textoVolver`, `$urlCriterios`); si no llegan, se usan los de la
+    consulta, así que Dirección ve lo mismo que antes.
 
 ## 5. Datos de prueba en local (oficina)
 

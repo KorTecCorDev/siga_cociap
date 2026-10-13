@@ -4,12 +4,14 @@
  *                        nombres, correo, telefono, sexo, rol_id, rol_nombre,
  *                        rol_codigo, estado, ultimo_acceso }
  * @var array $roles    [{ id, nombre, codigo }, ...]
+ * @var array $filtro   filtro del buscador de la lista (q, rol, estado), ya validado
+ * @var string $volver  la lista con ese filtro
  */
 $nombre = \App\Models\UsuarioModel::nombreCompleto($usuario);
 ?>
 
 <div class="page-header">
-    <a href="<?= url('admin/usuarios') ?>" class="btn btn--secondary btn--sm">← Volver</a>
+    <a href="<?= e($volver) ?>" class="btn btn--secondary btn--sm">← Volver</a>
     <div>
         <h1 class="page-title">Editar Usuario</h1>
         <p class="page-subtitle"><?= e($nombre) ?></p>
@@ -25,6 +27,9 @@ $nombre = \App\Models\UsuarioModel::nombreCompleto($usuario);
               action="<?= url('admin/usuarios/' . $usuario['id'] . '/editar') ?>"
               novalidate>
             <?= csrf_field() ?>
+            <?php foreach ($filtro as $clave => $valor): ?>
+                <input type="hidden" name="filtro_<?= e($clave) ?>" value="<?= e($valor) ?>">
+            <?php endforeach; ?>
 
             <div class="form-grid">
 
@@ -148,7 +153,7 @@ $nombre = \App\Models\UsuarioModel::nombreCompleto($usuario);
 
             <div class="btn-group form-actions">
                 <button type="submit" class="btn btn--primary">Guardar cambios</button>
-                <a href="<?= url('admin/usuarios') ?>" class="btn btn--secondary">Cancelar</a>
+                <a href="<?= e($volver) ?>" class="btn btn--secondary">Cancelar</a>
             </div>
 
         </form>

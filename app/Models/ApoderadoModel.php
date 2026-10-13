@@ -58,6 +58,44 @@ class ApoderadoModel extends BaseModel
         return $apoderado;
     }
 
+    /**
+     * Persona registrada con ese DNI, sea o no apoderado (puede ser docente,
+     * estudiante…). Para que el alta de un apoderado «nuevo» no reutilice en
+     * silencio a otra persona.
+     */
+    public function personaPorDni(string $dni): ?array
+    {
+        return $this->queryOne("
+            SELECT
+                p.id,
+                p.apellido_paterno,
+                p.apellido_materno,
+                p.nombres,
+                CONCAT(p.apellido_paterno,' ',p.apellido_materno,', ',p.nombres) AS nombre_completo
+            FROM personas p
+            WHERE p.dni = ?
+            LIMIT 1
+        ", [$dni]);
+    }
+
+    /**
+     * Nombres de los estudiantes vinculados al apoderado, sin contar a uno dado
+     * (el de la matrícula en curso). Base de la confirmación al vincular.
+     */
+    public function otrosEstudiantesVinculados(int $apoderadoId, int $exceptoEstudianteId): array
+    {
+        return array_column($this->query("
+            SELECT CONCAT(pe.apellido_paterno,' ',pe.apellido_materno,', ',pe.nombres) AS estudiante_nombre
+            FROM vinculo_familiar vf
+            INNER JOIN estudiantes e  ON e.id = vf.estudiante_id
+            INNER JOIN personas    pe ON pe.id = e.persona_id
+            WHERE vf.apoderado_id = ?
+              AND vf.estudiante_id <> ?
+            GROUP BY vf.estudiante_id, pe.apellido_paterno, pe.apellido_materno, pe.nombres
+            ORDER BY " . orden_alfabetico('pe') . "
+        ", [$apoderadoId, $exceptoEstudianteId]), 'estudiante_nombre');
+    }
+
     public function findById(int $id): ?array
     {
         return $this->queryOne("
@@ -94,10 +132,12 @@ class ApoderadoModel extends BaseModel
 
             if ($persona) {
                 $personaId = (int) $persona['id'];
-                // Actualiza teléfono/correo si llegaron datos nuevos.
+                // Solo COMPLETA teléfono/correo vacíos; nunca reemplaza un dato ya
+                // registrado (12/10/2026: un DNI equivocado pisó el contacto de otro
+                // apoderado). Ver docs/modulos/matriculas.md.
                 $this->execute(
-                    "UPDATE personas SET telefono = COALESCE(?, telefono),
-                                         correo   = COALESCE(?, correo)
+                    "UPDATE personas SET telefono = COALESCE(NULLIF(telefono, ''), ?, telefono),
+                                         correo   = COALESCE(NULLIF(correo, ''), ?, correo)
                      WHERE id = ?",
                     [$datos['telefono'] ?? null, $datos['correo'] ?? null, $personaId]
                 );
@@ -142,22 +182,142 @@ class ApoderadoModel extends BaseModel
     /**
      * Vincula un apoderado a un estudiante con un tipo de vínculo.
      * Idempotente por el UNIQUE (estudiante_id, tipo_vinculo): si ya existe
-     * ese tipo para el estudiante, reasigna el apoderado y la responsabilidad.
+     * ese tipo para el estudiante, reasigna el apoderado.
+     *
+     * La responsabilidad NUNCA se pierde por revincular (GREATEST): antes, volver
+     * a vincular al responsable con la casilla desmarcada lo dejaba en 0 y el
+     * estudiante quedaba sin responsable. Marcarla la TRASLADA (un solo
+     * responsable por estudiante) vía `asignarResponsable`.
+     * Devuelve el id del vínculo.
      */
     public function vincularEstudiante(
         int $apoderadoId,
         int $estudianteId,
         string $tipoVinculo,
         bool $esResponsable
-    ): bool {
+    ): int {
+        $this->beginTransaction();
+        try {
+            $this->execute("
+                INSERT INTO vinculo_familiar
+                    (estudiante_id, apoderado_id, tipo_vinculo, es_responsable)
+                VALUES (?, ?, ?, 0)
+                ON DUPLICATE KEY UPDATE
+                    apoderado_id   = VALUES(apoderado_id),
+                    es_responsable = GREATEST(es_responsable, VALUES(es_responsable))
+            ", [$estudianteId, $apoderadoId, $tipoVinculo]);
+
+            $vinculoId = (int) ($this->queryOne(
+                "SELECT id FROM vinculo_familiar WHERE estudiante_id = ? AND tipo_vinculo = ? LIMIT 1",
+                [$estudianteId, $tipoVinculo]
+            )['id'] ?? 0);
+
+            if ($esResponsable && $vinculoId) {
+                $this->asignarResponsable($estudianteId, $vinculoId);
+            }
+            $this->commit();
+            return $vinculoId;
+        } catch (\Exception $e) {
+            $this->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Un vínculo de ESE estudiante, con los datos de la persona y si tiene cuenta
+     * de acceso (su usuario es el DNI). Null si el vínculo no es del estudiante.
+     */
+    public function getVinculo(int $vinculoId, int $estudianteId): ?array
+    {
+        return $this->queryOne("
+            SELECT
+                vf.id AS vinculo_id,
+                vf.tipo_vinculo,
+                vf.es_responsable,
+                a.id AS apoderado_id,
+                p.id AS persona_id,
+                p.dni,
+                p.apellido_paterno,
+                p.apellido_materno,
+                p.nombres,
+                p.telefono,
+                p.correo,
+                CONCAT(p.apellido_paterno,' ',p.apellido_materno,', ',p.nombres) AS nombre_completo,
+                EXISTS (SELECT 1 FROM usuarios u WHERE u.persona_id = p.id) AS tiene_cuenta
+            FROM vinculo_familiar vf
+            INNER JOIN apoderados a ON a.id = vf.apoderado_id
+            INNER JOIN personas p   ON p.id = a.persona_id
+            WHERE vf.id = ? AND vf.estudiante_id = ?
+            LIMIT 1
+        ", [$vinculoId, $estudianteId]);
+    }
+
+    /**
+     * Quita un vínculo ADICIONAL del estudiante. Jamás el del responsable: lo
+     * garantiza el propio WHERE, no solo la vista. La persona y sus vínculos con
+     * otros estudiantes no se tocan. Devuelve true si borró.
+     */
+    public function quitarVinculo(int $vinculoId, int $estudianteId): bool
+    {
+        $stmt = $this->db->prepare("
+            DELETE FROM vinculo_familiar
+            WHERE id = ? AND estudiante_id = ? AND es_responsable = 0
+        ");
+        $stmt->execute([$vinculoId, $estudianteId]);
+        return $stmt->rowCount() === 1;
+    }
+
+    /**
+     * Traslada la responsabilidad de matrícula al vínculo dado: queda UN solo
+     * responsable por estudiante (los demás pasan a adicionales).
+     */
+    public function asignarResponsable(int $estudianteId, int $vinculoId): bool
+    {
+        // Sin un vínculo válido de ESE estudiante no se toca nada (si no, el
+        // UPDATE dejaría a todos sus vínculos sin responsable).
+        $existe = $this->queryOne(
+            "SELECT id FROM vinculo_familiar WHERE id = ? AND estudiante_id = ? LIMIT 1",
+            [$vinculoId, $estudianteId]
+        );
+        if (!$existe) {
+            return false;
+        }
+        return $this->execute(
+            "UPDATE vinculo_familiar SET es_responsable = (id = ?) WHERE estudiante_id = ?",
+            [$vinculoId, $estudianteId]
+        );
+    }
+
+    /** Cambia el tipo de un vínculo del estudiante (el UNIQUE por tipo lo valida el controlador). */
+    public function cambiarTipoVinculo(int $vinculoId, int $estudianteId, string $tipo): bool
+    {
+        return $this->execute(
+            "UPDATE vinculo_familiar SET tipo_vinculo = ? WHERE id = ? AND estudiante_id = ?",
+            [$tipo, $vinculoId, $estudianteId]
+        );
+    }
+
+    /**
+     * Actualiza identidad y contacto de la persona del apoderado. La ficha es
+     * COMPARTIDA: el cambio llega a todos sus estudiantes (y a su cuenta, si la
+     * tiene; por eso el controlador no deja cambiar el DNI de quien tiene cuenta).
+     */
+    public function actualizarPersona(int $personaId, array $d): bool
+    {
         return $this->execute("
-            INSERT INTO vinculo_familiar
-                (estudiante_id, apoderado_id, tipo_vinculo, es_responsable)
-            VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                apoderado_id   = VALUES(apoderado_id),
-                es_responsable = VALUES(es_responsable)
-        ", [$estudianteId, $apoderadoId, $tipoVinculo, $esResponsable ? 1 : 0]);
+            UPDATE personas
+               SET dni = ?, apellido_paterno = ?, apellido_materno = ?,
+                   nombres = ?, telefono = ?, correo = ?
+             WHERE id = ?
+        ", [
+            $d['dni'],
+            $d['apellido_paterno'],
+            $d['apellido_materno'],
+            $d['nombres'],
+            $d['telefono'],
+            $d['correo'],
+            $personaId,
+        ]);
     }
 
     /**
@@ -212,6 +372,7 @@ class ApoderadoModel extends BaseModel
     {
         return $this->query("
             SELECT
+                vf.id AS vinculo_id,
                 vf.tipo_vinculo,
                 vf.es_responsable,
                 a.id AS apoderado_id,

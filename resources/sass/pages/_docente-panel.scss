@@ -201,6 +201,11 @@
     // en una card angosta es el texto del nombre, que parte en dos renglones.
     &--acciones {
         &:hover { background: none; }
+
+        // Acción en la cabecera (13/10/2026, «Faltas y justificaciones» de la
+        // card Asistencia del auxiliar): si no cabe junto al título, baja de
+        // línea en vez de estrecharlo.
+        .dpanel-card__head { flex-wrap: wrap; }
     }
 
     // Botones de 27 px en escritorio: con 40 la fila medía 59 px contra los 44
@@ -981,6 +986,20 @@ $nomina-tono-tutoria: darken($brand-accent, 18%);
             border-color: $card-docentes-line;
             background: $card-docentes-bg;
             color: $card-docentes-ink;
+        }
+    }
+    // «Faltas y justificaciones» en la cabecera de la card Asistencia del
+    // auxiliar (13/10/2026): oliva de su card e icono propio (portapapeles con
+    // check), elegido por el usuario.
+    &--asistencia {
+        --accion-icon: url("../assets/icons/clipboard_check.svg");
+        color: $card-asistencia-ink;
+
+        &:hover,
+        &:focus-visible {
+            border-color: $card-asistencia-line;
+            background: $card-asistencia-bg;
+            color: $card-asistencia-ink;
         }
     }
 }

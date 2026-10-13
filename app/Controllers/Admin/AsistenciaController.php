@@ -7,6 +7,7 @@ use App\Models\AsistenciaJornadaModel;
 use App\Models\AsistenciaModel;
 use App\Models\AsistenciaMotivoModel;
 use App\Models\AuxiliarSeccionModel;
+use App\Models\NominaModel;
 use Core\Session;
 use Core\View;
 
@@ -64,6 +65,11 @@ class AsistenciaController extends BaseController
         $progreso = $periodoActivo
             ? $this->model->getProgresoPorSeccion((int) $periodoActivo['id'])
             : [];
+        // Secciones ya bloqueadas en el bimestre en curso: su card lleva
+        // «🔒 Bloqueada» en lugar de la barra (09/10/2026, como conducta).
+        $bloqueadas = $periodoActivo
+            ? $this->model->seccionesBloqueadas((int) $periodoActivo['id'])
+            : [];
 
         // El auxiliar ve SOLO sus secciones del bimestre en curso; sin bimestre
         // abierto no tiene ninguna. Admin y RA siguen viendo todas.
@@ -87,6 +93,7 @@ class AsistenciaController extends BaseController
             'porNivel'      => $porNivel,
             'periodoActivo' => $periodoActivo,
             'progreso'      => $progreso,
+            'bloqueadas'    => $bloqueadas,
         ]);
     }
 
@@ -101,12 +108,17 @@ class AsistenciaController extends BaseController
         return null;
     }
 
-    // GET /admin/asistencia/{seccion_id}   (?periodo={id} = historial solo lectura)
-    public function seccion(string $seccionId): void
+    /**
+     * Bimestre que muestra una vista de la sección (la tabla y sus justificaciones):
+     * el pedido por ?periodo= (si pertenece al año activo) o el editable en curso.
+     * Un periodo no editable se muestra SOLO LECTURA. Corta con 403 al auxiliar
+     * fuera de su sección y arma las pestañas del historial.
+     *
+     * @return array{0: ?array, 1: bool, 2: array} [periodoVer, soloLectura, periodosNav]
+     */
+    private function resolverPeriodoVista(int $seccionId): array
     {
-        $this->requireRole(self::ROLES_REGISTRAN);
-        $seccionId = (int) $seccionId;
-        $periodos  = $this->model->listarPeriodosActivos();
+        $periodos = $this->model->listarPeriodosActivos();
 
         if (empty($periodos)) {
             $this->redirectWithError(url('admin/asistencia'), 'No hay periodos configurados.');
@@ -120,8 +132,6 @@ class AsistenciaController extends BaseController
             }
         }
 
-        // Periodo mostrado: el pedido por ?periodo= (si pertenece al año activo)
-        // o el editable en curso. Un periodo no editable se muestra SOLO LECTURA.
         $periodoParam = (int) ($this->query('periodo') ?? 0);
         $periodoVer   = $periodoActivo;
         if ($periodoParam) {
@@ -159,6 +169,16 @@ class AsistenciaController extends BaseController
             $p['cierre'] = $this->model->getCierreVigente($seccionId, (int) $p['id']);
             $periodosNav[] = $p;
         }
+
+        return [$periodoVer, $soloLectura, $periodosNav];
+    }
+
+    // GET /admin/asistencia/{seccion_id}   (?periodo={id} = historial solo lectura)
+    public function seccion(string $seccionId): void
+    {
+        $this->requireRole(self::ROLES_REGISTRAN);
+        $seccionId = (int) $seccionId;
+        [$periodoVer, $soloLectura, $periodosNav] = $this->resolverPeriodoVista($seccionId);
 
         $estudiantes = $cierre = $firmas = null;
         if ($periodoVer) {
@@ -206,12 +226,30 @@ class AsistenciaController extends BaseController
             }
             $motivosM = new AsistenciaMotivoModel();
             $ancla    = $motivosM->anclaDelPeriodo((int) $periodoVer['id']);
+            $ids      = array_column($estudiantes ?? [], 'matricula_id');
+            $incid    = $this->model->incidenciasDe($ids, (int) $periodoVer['id'], !$editable);
+            // Cada estudiante, cada día (09/10/2026, migración 077): sin cubrir
+            // por día, para el ⚠ del encabezado, el pie y el aviso de hoy.
+            $pendientes = $jornadasM->pendientesPorDia($seccionId, $periodoVer, $ids);
+            $hoy        = date('Y-m-d');
+            $avisoHoy   = null;
+            if ($editable && isset($pendientes[$hoy])) {
+                $avisoHoy = ['fecha' => $hoy, 'faltan' => $pendientes[$hoy], 'faltas' => 0, 'tardanzas' => 0];
+                foreach ($incid as $dias) {
+                    $t = $dias[$hoy]['tipo'] ?? null;
+                    if ($t === 'F' || $t === 'FJ') { $avisoHoy['faltas']++; }
+                    if ($t === 'T' || $t === 'TJ') { $avisoHoy['tardanzas']++; }
+                }
+            }
             $fechas = [
                 'calendario' => $calendario,
                 'mesVer'     => $mesVer,
-                'incidencias'=> $this->model->incidenciasDe(
-                    array_column($estudiantes ?? [], 'matricula_id'), (int) $periodoVer['id'], !$editable
-                ),
+                'incidencias'=> $incid,
+                // ✓ propios (077). Mismo corte que la lista: en solo lectura la
+                // vista solo los pinta en estudiantes CONFIRMADOS.
+                'presencias' => $jornadasM->presenciasDe($ids, (int) $periodoVer['id']),
+                'pendientes' => $pendientes,
+                'avisoHoy'   => $avisoHoy,
                 'motivos'    => $motivosM->vigentes($ancla),
                 // ANCLA del bimestre (08/10/2026, migración 076): leyenda de cómo
                 // se cuenta una FJ e icono de documento solo en FJ/TJ con ella.
@@ -220,8 +258,11 @@ class AsistenciaController extends BaseController
                 'progreso'   => $this->model->getProgresoPorSeccion((int) $periodoVer['id'])[$seccionId]
                                 ?? ['esperados' => 0, 'registrados' => 0],
                 'jornadas'   => $jornadasM->tomadasDe($seccionId, (int) $periodoVer['id']),
-                'sinTomar'   => $jornadasM->diasSinTomar($seccionId, $periodoVer),
-                'hoy'        => date('Y-m-d'),
+                'sinTomar'   => array_keys(array_filter($pendientes, static fn(int $n): bool => $n > 0)),
+                'hoy'        => $hoy,
+                // No se bloquea antes del último día del bimestre (09/10/2026).
+                'terminado'  => AsistenciaModel::bimestreTerminado($periodoVer),
+                'finDdmm'    => AsistenciaModel::ddmm((string) $periodoVer['fecha_fin']),
             ];
         }
 
@@ -241,6 +282,63 @@ class AsistenciaController extends BaseController
             'porFechas'    => $porFechas,
             'fechas'       => $fechas,
             'page_scripts' => $editable ? [$porFechas ? 'asistencia-fechas' : 'asistencia'] : [],
+        ]);
+    }
+
+    // GET /admin/asistencia/{seccion_id}/justificaciones   (?periodo={id})
+    // «FALTAS Y JUSTIFICACIONES» de la sección. Desde el 13/10/2026 abre con el
+    // «Seguimiento de faltas» (≥ UMBRAL_SEGUIMIENTO_FALTAS, con el apoderado).
+    // Detalle de las JUSTIFICACIONES de la sección (09/10/2026): cuántas por tipo,
+    // por motivo y por estudiante, y cuáles están AUTORIZADAS (FJ con el motivo
+    // principal). Mismos roles y alcance que la tabla. Solo lectura: editable →
+    // el BORRADOR (marcando lo sin confirmar); historial o bloqueada → lo OFICIAL.
+    public function justificaciones(string $seccionId): void
+    {
+        $this->requireRole(self::ROLES_REGISTRAN);
+        $seccionId = (int) $seccionId;
+        [$periodoVer, $soloLectura, $periodosNav] = $this->resolverPeriodoVista($seccionId);
+
+        $seccion = $this->buscarSeccion($seccionId);
+        if (!$seccion) {
+            $this->redirectWithError(url('admin/asistencia'), 'Sección no encontrada.');
+        }
+
+        $porFechas = $periodoVer !== null && (int) ($periodoVer['asistencia_por_fechas'] ?? 0) === 1;
+        $cierre = $resumen = null;
+        $motivoPrincipal = null;
+        $seguimiento = $contactos = [];
+        if ($porFechas) {
+            $pid     = (int) $periodoVer['id'];
+            $cierre  = $this->model->getCierreVigente($seccionId, $pid);
+            $oficial = $soloLectura || $cierre !== null;
+            $estudiantes = $this->model->getEstudiantesConIncidencias($seccionId, $pid, $oficial);
+            $motivosM = new AsistenciaMotivoModel();
+            $ancla    = $motivosM->anclaDelPeriodo($pid);
+            $incid    = $this->model->incidenciasDe(array_column($estudiantes, 'matricula_id'), $pid, $oficial);
+            // Días lectivos del bimestre ENTERO (hoy = su último día): unen en
+            // tramos las fechas seguidas de la tabla.
+            $lectivos = AsistenciaModel::diasMarcables($periodoVer, (string) $periodoVer['fecha_fin'],
+                (new AsistenciaJornadaModel())->noLectivos($periodoVer));
+            $resumen  = AsistenciaModel::resumenJustificaciones($estudiantes, $incid, $ancla, $lectivos);
+            $motivoPrincipal = $motivosM->nombreDe($ancla);
+            // «Seguimiento de faltas» (13/10/2026): mismas incidencias que el
+            // resumen, con el apoderado responsable de cada estudiante.
+            $seguimiento = AsistenciaModel::seguimientoFaltas($estudiantes, $incid, $ancla);
+            $contactos   = (new NominaModel())->apoderadoResponsable(array_column($seguimiento, 'matricula_id'));
+        }
+
+        $this->view('admin/asistencia/justificaciones', [
+            'titulo'          => 'Faltas y justificaciones — ' . $seccion['grado_nombre'] . ' ' . $seccion['seccion_nombre'],
+            'seccion'         => $seccion,
+            'periodoVer'      => $periodoVer,
+            'periodosNav'     => $periodosNav,
+            'soloLectura'     => $soloLectura,
+            'cierre'          => $cierre,
+            'porFechas'       => $porFechas,
+            'resumen'         => $resumen,
+            'motivoPrincipal' => $motivoPrincipal,
+            'seguimiento'     => $seguimiento,
+            'contactos'       => $contactos,
         ]);
     }
 
@@ -325,6 +423,8 @@ class AsistenciaController extends BaseController
                 ? AsistenciaModel::calendario($periodo, null, (new AsistenciaJornadaModel())->noLectivos($periodo)) : [],
             'jornadas'     => $porFechas ? (new AsistenciaJornadaModel())->tomadasDe($seccionId, (int) $periodo['id']) : [],
             'dias'         => $porFechas ? ($this->model->incidenciasDe([$mid], (int) $periodo['id'])[$mid] ?? []) : [],
+            // ✓ propios del estudiante (077): la celda va con ✓ por ellos o por la lista.
+            'presentes'    => $porFechas ? ((new AsistenciaJornadaModel())->presenciasDe([$mid], (int) $periodo['id'])[$mid] ?? []) : [],
             'motivos'      => $porFechas ? $motivosM->vigentes($ancla) : [],
             // ANCLA del bimestre (08/10/2026): leyenda e icono de documento.
             'motivoPrincipal'   => $motivosM->nombreDe($ancla),
@@ -574,7 +674,8 @@ class AsistenciaController extends BaseController
             $this->json(['success' => false, 'mensaje' => 'La asistencia de esta sección ya fue bloqueada; no se puede editar.'], 403);
         }
 
-        return ['matricula' => $matriculaId, 'periodo' => $periodoId, 'usuario' => (int) Session::user()['id']];
+        return ['matricula' => $matriculaId, 'periodo' => $periodoId, 'usuario' => (int) Session::user()['id'],
+                'seccion' => $seccionId];
     }
 
     // POST /admin/asistencia/dia  (AJAX — AUTOGUARDADO de un día, BORRADOR)
@@ -595,26 +696,29 @@ class AsistenciaController extends BaseController
         $motivo = (int) $this->input('motivo_id');
 
         $res = $this->model->marcarDia($w['matricula'], $w['periodo'], $fecha, $tipo, $motivo ?: null, $w['usuario']);
+        // Días con estudiantes sin marcar (077): una marca individual puede
+        // completar un día, así que el pie de la grilla se refresca con esto.
+        $periodo = $this->model->periodo($w['periodo']);
         $this->json([
-            'success'        => $res['ok'],
-            'mensaje'        => $res['mensaje'],
-            'contadores'     => $res['contadores'] ?? null,
-            'jornada_tomada' => $res['jornada_tomada'] ?? false,
+            'success'    => $res['ok'],
+            'mensaje'    => $res['mensaje'],
+            'contadores' => $res['contadores'] ?? null,
+            'sin_tomar'  => $periodo ? count((new AsistenciaJornadaModel())->diasSinTomar($w['seccion'], $periodo)) : null,
         ], $res['ok'] ? 200 : 400);
     }
 
     // POST /admin/asistencia/{seccion_id}/jornada  (AJAX — LISTA DEL DÍA, 30/09/2026)
-    // fecha=AAAA-MM-DD · accion=tomar|deshacer. «Pasar lista» deja a toda la
-    // sección con ✓ ese día; «deshacer» solo sin incidencias (lo decide el modelo).
+    // fecha=AAAA-MM-DD. «Pasar lista» deja con ✓ a todos los que no tienen marca
+    // propia ese día. Sin «deshacer» desde el 09/10/2026 (migración 077): un día se
+    // corrige marcando a cada estudiante.
     public function jornada(string $seccionId): void
     {
         $this->requireRole(self::ROLES_REGISTRAN);
         $this->validateCsrf();
         $seccionId = (int) $seccionId;
 
-        $fecha  = trim((string) $this->input('fecha'));
-        $accion = (string) $this->input('accion');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || !in_array($accion, ['tomar', 'deshacer'], true)) {
+        $fecha = trim((string) $this->input('fecha'));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
             $this->json(['success' => false, 'mensaje' => 'Datos no válidos.'], 400);
         }
 
@@ -643,9 +747,7 @@ class AsistenciaController extends BaseController
         }
 
         $jornadas = new AsistenciaJornadaModel();
-        $res = $accion === 'tomar'
-            ? $jornadas->pasarLista($seccionId, $periodo, $fecha, (int) Session::user()['id'])
-            : $jornadas->deshacer($seccionId, $pid, $fecha);
+        $res = $jornadas->pasarLista($seccionId, $periodo, $fecha, (int) Session::user()['id']);
 
         $this->json([
             'success'   => $res['ok'],

@@ -1,9 +1,362 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **08/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **13/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+
+## 🔜 RETOMAR AQUÍ (13/10/2026) — DESPLIEGUE CON EL III ACTIVO + 3 DÍAS DE PLAZO
+
+**Decisión del usuario (13/10/2026): deja sin efecto la opción A de abajo.** Todo `dev`
+(32 commits) se despliega **con el III todavía activo**: el límite de notas se amplía 3 días
+(14/10 11:59 → **17/10 11:59**), así que las reglas nuevas (F0, F2, F3 y la 077) rigen ya el
+cierre del III. El cierre se hace **a más tardar el domingo 18/10**, para abrir el IV el lunes
+19/10: el sistema no deja abrir un bimestre con otro activo, y con la F3 el III **no cierra**
+hasta tener asistencia bloqueada y conducta en sus dos etapas en las 23 secciones.
+
+Pasos, en orden:
+1. **Ampliar `limite_notas` del III ANTES de que venza** (14/10 11:59) en `/director/anios/1`;
+   el código actual de producción ya lo permite. `limite_auxiliares` vacía = la de notas: los
+   auxiliares también reciben los 3 días, salvo que se les ponga una fecha propia (tras la 078).
+2. Producción, phpMyAdmin, **envíos separados**: 077 → 078 → 079, y la consulta del CHECK
+   `chk_justificada_con_motivo` en **otro envío aparte** (es un SELECT a `information_schema`).
+3. Avisar a **docentes** (aprobar exige la conclusión obligatoria), **tutores** (transversales
+   y etapa 2 de conducta en solo lectura desde el nuevo límite) y **auxiliares** (marcar a uno
+   no toma la lista; el bloqueo exige cada estudiante cada día).
+4. Merge `dev` → `main` con `--no-ff` (preguntar antes, como siempre).
+5. Fin de semana 17–18/10: revisar el panel de bloqueos y cerrar el III con el runbook; abrir
+   el IV el 19/10.
+
+## (HISTÓRICO, reemplazado el 13/10/2026) RETOMAR AQUÍ (12/10/2026) — DESPLIEGUE DESPUÉS DEL III
+
+**Decisión del usuario (12/10/2026): opción A.** Todo `dev` (16 commits: bloqueos y plazos
+F0–F4, asistencia 077, usuarios, matrículas) se despliega **DESPUÉS de cerrar con éxito el III
+Bimestre**, para que el **IV sea el primer bimestre completo con las reglas nuevas**. No se
+despliega nada por separado.
+
+Pasos, en orden:
+1. **Cerrar el III con el código ACTUAL de producción** siguiendo
+   `docs/runbooks/cierre-de-bimestre.md`, con la **Fase 3.5 a mano** (sin F3, el código no la
+   exige y la boleta sale con guiones). Límite de notas: **14/10/2026 11:59**.
+2. Producción, phpMyAdmin, **envíos separados**: `077_asistencia_presencias.sql` → 
+   `078_periodos_limite_auxiliares.sql` → `079_rectificaciones_registros.sql` (idempotentes,
+   no tocan datos).
+3. Producción: comprobar el CHECK (la copia local no los conserva). Si no devuelve una fila,
+   revisar antes del merge:
+   `SELECT CONSTRAINT_NAME, TABLE_NAME FROM information_schema.CHECK_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'chk_justificada_con_motivo';`
+4. Merge `dev` → `main` (auto-deploy). Preguntar antes, como siempre.
+5. Antes de abrir el IV (19/10): avisar a **tutores** (transversales y etapa 2 de conducta con
+   el mismo plazo que las notas) y **auxiliares** (marcar a uno no toma la lista; la asistencia
+   se bloquea desde el último día). Opcional: fecha propia de auxiliares del IV.
+6. Pruebas rápidas en prod: tarjeta de `/director/anios/1` («Igual al límite de notas»), panel
+   del auxiliar, una grilla de asistencia, `/docente/tutoria`, `/matriculas` con filtro Nivel.
+
+**Medido con datos de prod del 13/10/2026 15:38** (código de `dev`), lo que le falta al III:
+- Asistencia bloqueada **0/23**. Primaria 3.° A, 3.° B, 4.° A y 4.° B siguen con **0
+  confirmados**; sec 3.° A 21/22; las otras 18, todos confirmados. **13 secciones sin lista del
+  30/09** (día LECTIVO, lo registran los auxiliares). Prim 3.° B, 4.° A y 4.° B, además, sin
+  01, 05, 06, 07 y 09/10; prim 3.° A, 2.° B y sec 3.° A sin el 09/10.
+- Conducta etapa 1 **23/23**; etapa 2 (tutor) **7/23** (eran 3 el 12/10).
+- Transversales cerradas por el tutor **0/23**.
+- Académicas (panel de bloqueos): **185 bloqueadas · 101 pendientes · 307 sin criterios** de
+  593. En las no bloqueadas faltan **291 conclusiones obligatorias** en 47 competencias (322 el
+  12/10, medidas con otra consulta: comparar con cuidado).
+
+**BD local de la oficina:** copia de prod del 13/10 15:38 **con 077 y 078 aplicadas** a mano.
+
+## 🆕 AUXILIAR: FALTAS Y JUSTIFICACIONES + NOTA FINAL DE CONDUCTA (13/10/2026, en `dev`, sin migración)
+
+Tres observaciones del usuario sobre el auxiliar. El detalle está en
+`docs/modulos/confirmacion-y-asistencia-por-fechas.md` (novena ronda) y en
+`docs/modulos/auxiliares.md` §4:
+1. La vista de la sección pasa a llamarse «Faltas y justificaciones» y abre con el
+   **«Seguimiento de faltas»**: estudiantes con 5 o más faltas que cuentan como F, con el
+   apoderado y su celular `tel:`.
+2. **`/auxiliar/justificaciones`**: el reporte de todas sus secciones. Se abre desde la
+   cabecera de la card Asistencia del panel; desde el 13/10 ya no es una card aparte.
+3. **`/admin/conducta/{id}/resultado`**: la nota final con la del tutor, solo con las dos
+   etapas cerradas.
+4. Segunda ronda, el mismo día:
+   - un solo vocabulario: «Faltas justificadas» · «Cuentan como falta» · «Tardanzas
+     justificadas»;
+   - una tabla por estudiante con las fechas, que reemplaza al «Detalle por fecha», donde el
+     51 % de las filas decía FJ y F a la vez;
+   - sin aviso «Registro en curso» y sin marcas de confirmación, en las dos vistas.
+   - Comprobado: render por CLI con datos del III, sin avisos de PHP.
+5. Tercera ronda:
+   - vuelven las pastillas de la grilla, una por categoría (FJ con documento · FJ · TJ · F);
+   - gráfico apilado «Faltas justificadas por sección» en el reporte del auxiliar, con la
+     paleta validada;
+   - las secciones se rotulan «(P)/(S)».
+   - [x] **Mirar el gráfico en el navegador**: el validador revisa colores, no la
+     disposición.
+6. Cuarta ronda:
+   - las fechas de la tabla de justificaciones pasan a fichas «Lun. 01/09»;
+   - los días lectivos seguidos se unen en un tramo «… al … · N días»;
+   - en el III, 404 fechas quedan en 202 fichas.
+   - [x] Mirar en el navegador una celda larga (la de 42 fechas queda en una ficha).
+7. Quinta ronda:
+   - fichas de fechas con los colores de FJ/TJ (y el ícono de documento);
+   - pastillas en los encabezados de «Por motivo»;
+   - **A4 del reporte del auxiliar** (`/auxiliar/justificaciones/imprimir`), con la estructura
+     de Acompañamiento pedagógico, sin firma y con la columna «Registro».
+   - [x] Imprimir de verdad (o «Guardar como PDF») el A4: comprobar el gráfico, el corte de
+     las tablas entre hojas y los colores de las fichas.
+- Ya comprobado: `php -l`, `gulp build` y `verif_seguimiento_faltas.php` (TODO OK).
+  `verif_asistencia_fechas` (CHECK del ancla, la copia no lo conserva) y `verif_rol_auxiliar`
+  (`AsistenciaController::seccion` delega la guarda en `resolverPeriodoVista` y el aserto no lo
+  sigue) ya fallaban antes y no tienen relación con este cambio.
+- [x] Probar en el navegador **con sesión de AUXILIAR**:
+  - la vista de una sección con y sin estudiantes en seguimiento;
+  - el `tel:` en el celular;
+  - el reporte y su card;
+  - 403 en una sección ajena;
+  - «Ver nota final» antes del cierre del tutor (no aparece y la URL da 404) y después.
+- [x] **Con ADMIN en Chrome (13/10/2026)**: 5.° B con 4 en seguimiento y 4 `tel:`; 2.° A (sec. 5)
+  sin bloque de seguimiento; «Ver nota final» 200 en prim 2.° A (dos etapas) y 404 en 1.° A
+  (sin el tutor). **Bug hallado y corregido:** la pestaña decía «Tardanzas justificadas» —los
+  bucles de categorías usaban `$titulo` y pisaban el `<title>` del layout— (vista de la sección,
+  reporte del auxiliar y leyenda; ahora `$rotulo`). `/auxiliar/justificaciones` da 403 a admin.
+- [x] **Con DIRECCIÓN en Chrome (13/10/2026, Director EBR WALTER BERNUI)**: la consulta de conducta
+  (`/consulta-notas/{p}/seccion/{s}/conducta`) se ve como antes, en solo lectura y sin botones;
+  «← Áreas» y «Ver la grilla Sí / No» siguen yendo a la consulta (las dos responden 200). El III
+  se ve solo si la sección está cerrada en sus dos etapas (gate de siempre; la regla «solo
+  cerrados» es de `/admin/cuadros`). `/admin/asistencia/{id}/justificaciones` y
+  `/admin/conducta/{id}/resultado` dan **403 a Dirección, igual que antes de hoy** (los dos
+  métodos exigen `ROLES_REGISTRAN` / admin-RA-auxiliar desde su origen); Dirección ve la
+  asistencia por `/consulta-notas/{p}/seccion/{s}/asistencia` (200).
+- [x] **Con RA en Chrome (13/10/2026, ROBERTO COLONIA)**: lo mismo que con admin — 5.° B con
+  seguimiento y 4 `tel:`, 3.° A sin él; «Ver nota final» solo en prim 2.° A (enlace y 200, vista «←
+  Registro», solo lectura) y 404 en 1.° A. Repaso por roles de esta sección: COMPLETO.
+- [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
+- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+
+## 🆕 RECTIFICACIÓN DE CONDUCTA Y ASISTENCIA — F5 (13/10/2026, en `dev`, migración 079)
+
+RA/admin rectifican, desde `/rectificaciones/matricula/{id}`, los Sí/No de conducta y la marca
+de un día de asistencia (bimestres por fechas) de un registro **confirmado** con bloqueo
+vigente o bimestre cerrado. Motivo obligatorio y traza en `rectificaciones_conducta` /
+`rectificaciones_asistencia`. Se ve al instante en la boleta. Si el tutor ya cerró la etapa 2,
+solo queda la traza. Detalle en `docs/modulos/cierre-cuatro-registros.md` § F5.
+- **079 aplicada en la BD LOCAL** de la oficina (13/10/2026). ⚠️ **Producción: aplicarla a
+  mano ANTES del merge**, después de 077 y 078 (ver «RETOMAR AQUÍ»).
+- Comprobado: `php -l`, `verif_rectificacion_registros.php` TODO OK (transacción + rollback,
+  sin residuos), render por CLI de las 3 vistas sin avisos, rutas nuevas → login sin sesión. La
+  batería vecina (`verif_asistencia_fechas`, `_jornadas`, `_presencias`,
+  `verif_confirmacion_conducta`, `verif_rol_auxiliar`) da la MISMA salida que en `HEAD`.
+- [x] **Probado en Chrome con ADMIN (13/10/2026, matrícula 171, prim 1.° A)**, datos revertidos al final:
+  - card Conducta con II y III; Asistencia solo con bloqueo (uno temporal, borrado después);
+  - conducta III: sin cambios → «No hay cambios que rectificar»; motivo vacío (sin el `required`
+    del navegador) → rechazo que conserva lo marcado; C1 No → Sí → «B → A», confirmación
+    original intacta, traza e historial;
+  - conducta II (publicado): C5 y C7 → la **boleta digital mostró A al instante**;
+  - asistencia: el motivo de justificación aparece y se exige solo con FJ/TJ; FJ sin motivo →
+    rechazo con lo escrito; 06/10 FJ verbal → FJ escrita: F 1→0, FJ 0→1, confirmación original;
+  - IV / asistencia del II → vuelve a la lista con aviso; matrícula inexistente → 404.
+- [x] **Con RA en Chrome (13/10/2026, ROBERTO COLONIA)**: cards visibles; conducta III C1 No → Sí
+  («B → A», confirmación intacta); asistencia 06/10 FJ verbal → FJ escrita con clics reales (F 1→0,
+  FJ 0→1, confirmación original); traza e historial a su nombre. Datos revertidos.
+- [x] **403 con DOCENTE en Chrome (13/10/2026, SAARA SOTELO)**: GET conducta, asistencia,
+  matrícula e índice de `/rectificaciones` y los dos POST `/guardar` → «Acceso denegado»; nada
+  escrito en la BD. (Auxiliar sin probar: mismo guard del constructor, `requireRole(['admin',
+  'registro_academico'])`.)
+- [ ] (reemplazado por lo de arriba) Probar en el navegador **con RA**:
+  - `/rectificaciones/matricula/{id}` de un estudiante con conducta confirmada del II o del III
+    (cards Conducta/Asistencia solo si hay bimestres rectificables);
+  - rectificar un criterio → el literal cambia en la boleta y en el historial;
+  - asistencia: hoy **ninguna sección del III tiene la asistencia bloqueada** (0/23), así que
+    la card aparece cuando el auxiliar bloquee una. Rectificar F → FJ y comprobar los
+    contadores en la boleta. FJ sin motivo y motivo vacío → rechazados sin perder lo escrito;
+  - con un docente o un auxiliar, las rutas dan 403.
+- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+
+## 🆕 PANEL DE BLOQUEOS: BUSCADOR + RESPONSIVE (13/10/2026, en `dev`, sin migración)
+
+En `/director/bloqueos`, pestaña académicas: buscador en vivo (sección «5b», área, competencia,
+docente + Todas/Bloqueadas/Pendientes/Sin criterios) que abre solo las secciones con
+coincidencias y, tras Desbloquear/Bloquear, vuelve a la fila. Además, las tablas de
+transversales, conducta y asistencia se recortaban en pantallas angostas (Acciones
+inalcanzable): ahora desplazan como las académicas. Detalle en `docs/modulos/admin.md`.
+- Comprobado: `php -l`, `gulp build`, CSS de `/admin/usuarios` equivalente (mixin común) y
+  medición sin desborde a 432/820/1024/1366 px con datos del III (sesión de admin).
+- [x] Probar en el navegador el buscador: «5b», un docente, segmento «Bloqueadas», × / Esc
+  (cada acordeón vuelve a su estado inicial). **Usuario, 13/10/2026: «es exitoso».**
+- [x] Desbloquear una fila: tras el redirect sigue la búsqueda, baja a la fila y destella;
+  cancelar el `confirm()` no deja foco guardado. (Mismo visto bueno del usuario.)
+- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+
+## 🆕 LISTA DE MATRÍCULAS: NIVEL, FILTROS Y VUELTA (12/10/2026, en `dev`, sin migración)
+
+Nivel en la celda «Grado / Sección» y en el filtro Sección (5° A primaria ≠ secundaria),
+filtro Nivel (también en la nómina), cascada Nivel → Grado → Sección y «← Matrículas» que
+vuelve a la lista filtrada. Detalle en `docs/modulos/matriculas.md` § Lista de matrículas.
+- Filtros del modelo y cascada del JS probados por CLI.
+- [x] **Probado en el navegador el 12/10/2026** (pruebas 1-6): todo correcto según el
+      usuario.
+- [ ] Desplegar: sin migración; merge `dev` → `main` solo con autorización.
+
+## 🆕 GESTIÓN DE APODERADOS VINCULADOS (12/10/2026, en `dev`, sin migración)
+
+Nació de un incidente en producción (matrícula #696 vinculada a un apoderado ajeno, que
+perdió su teléfono y correo; corregido a mano el mismo día). Detalle y reglas en
+`docs/modulos/matriculas.md` § Gestión de apoderados vinculados.
+- Guardas al vincular: DNI ya registrado con otro nombre se rechaza; confirmación si el
+  apoderado ya tiene otros estudiantes; el contacto existente solo se completa.
+- En `/matriculas/{id}/apoderado`: **Editar** (vínculo y persona), **Hacer responsable** y
+  **Quitar** (jamás el responsable), con traza en `observaciones`.
+- Al guardar los datos de un apoderado con otros estudiantes, `confirm()` lista cada
+  campo cambiado (antes → después).
+- Modelo probado por CLI con transacción + rollback (22 asertos en verde).
+- [x] **Probado en el navegador el 12/10/2026** (bloques A y B completos, pruebas 1-10,
+      incluida la vista con una sesión de secretaría): todo correcto según el usuario.
+- [ ] Limpiar en la BD local de la oficina los vínculos y datos creados por las pruebas
+      (matrículas 162, 163 y 399; teléfonos de GIRALDO LINO y MALLQUI ROBLES).
+- [ ] Desplegar: sin migración; merge `dev` → `main` solo con autorización.
+
+## 🆕 BUSCADOR DE USUARIOS EN `/admin/usuarios` (12/10/2026, en `dev`, sin migración)
+
+Búsqueda instantánea en el navegador por nombre, DNI, correo, rol y lo que cada usuario
+dicta, tutorea o acompaña (año/bimestre activo), con chips de rol, estado, resaltado y
+atajos. Detalle en `docs/modulos/admin.md` § Buscador de usuarios.
+- Probado renderizando la vista por CLI y ejecutando el JS sobre ese HTML (DOM simulado).
+- [x] **Probado en el navegador el 12/10/2026** (`/`, Esc, Enter, chips, móvil, Editar →
+      Atrás y Guardar → lista filtrada): todo correcto según el usuario.
+
+
+## 🆕 BLOQUEOS Y PLAZOS DE REGISTRO — PLAN REPLANTEADO (09/10/2026, F0 en `dev`)
+
+El análisis de los bloqueos de docentes, auxiliares y tutor retomó el plan de los 4 registros
+y lo amplió: **dos fechas por rol** (auxiliares antes; docentes y tutor con `limite_notas`,
+sin plazo extra para el tutor) y una **rectificación de conducta y asistencia**. Decisiones y
+fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
+- **F0 HECHA en `dev`** (sin migración): la ruta vieja `POST /docente/calificaciones/conclusion`
+  —sin uso y capaz de escribir la conclusión de cualquier carga, bloqueada o no— se retiró;
+  `guardarConclusionAlumno` exige la carga propia y el plazo; aprobar una competencia exige
+  en el servidor la conclusión obligatoria. `verif_guardas_conclusion.php` en verde.
+- Batería tras F0: mismos fallos que en `HEAD` y todos de los datos locales
+  (`verif_asistencia_fechas`, `verif_boleta_sin_calificaciones`,
+  `verif_criterios_filtros_cascada`, `verif_direccion_superficies`, `verif_rol_auxiliar`,
+  `verif_stats_competencia`; este último descuadra un roster de cambio de sección también
+  en `HEAD`).
+- **F1 HECHA en `dev`** (sin migración): punto único `EdicionPeriodoModel` de la compuerta
+  temporal y de «días para el cierre»; la etapa 2 del tutor pregunta con el rol docente;
+  el KPI ya no dice «0 días para el cierre» después de vencer. `verif_plazo_edicion.php`
+  en verde.
+- **F2 HECHA en `dev`** (sin migración): semáforo del auxiliar coherente con el bloqueo;
+  transversales del tutor bajo el plazo docente; forzados del panel solo con el bimestre
+  activo; textos que revelaban el flujo. `verif_coherencia_bloqueos.php` en verde.
+  ⚠️ **ANTES de desplegar F2, avisar a los tutores**: desde ese despliegue no podrán
+  escribir conclusiones transversales ni cerrar después de `limite_notas`.
+- **F3 HECHA en `dev`** (sin migración): `cerrar()` exige asistencia bloqueada y conducta
+  en sus dos etapas en TODAS las secciones del año (`registrosSinBloquear`).
+  `verif_guard_cierre_registros.php` en verde; su rama del controlador hace SKIP en local
+  porque antes corta la evaluación incompleta del III. ⚠️ **Antes de desplegar F3**, medir
+  en PROD con las consultas 3.5 del runbook que el III pueda cumplirla.
+- **F4 HECHA en `dev`** (**migración 078**, `periodos.limite_auxiliares`): fecha propia de
+  los auxiliares, opcional (vacía = la de notas), en el modal «Editar fechas» de
+  `/director/anios/{id}`; se valida `fecha_fin ≤ auxiliares ≤ notas`. Conducta etapa 1 y
+  asistencia la siguen para TODOS (también RA/admin); el tutor y los docentes, la de notas.
+  `verif_plazo_edicion.php` § 5 en verde.
+  - **078 aplicada en la BD LOCAL** de la oficina (09/10/2026). ⚠️ **Producción: aplicar
+    `078_periodos_limite_auxiliares.sql` a mano ANTES del merge** (el código lee la columna
+    en cuanto se despliega). En otro equipo, aplicarla también en su BD local.
+- **F5 — decisiones del usuario (09/10/2026), sin implementar:** rectificación por RA/admin
+  de los **Sí/No por criterio** de conducta (la nota se recalcula con la del tutor) y de la
+  **marca de un día** en asistencia por fechas (los contadores se recalculan); si el tutor
+  ya cerró la etapa 2, **solo deja la traza** (no la reabre). Abiertas: tabla de auditoría
+  (una común o una por registro) y cómo se refleja en una boleta ya publicada.
+- **F5 HECHA en `dev` el 13/10/2026** (migración 079): ver la sección «RECTIFICACIÓN DE
+  CONDUCTA Y ASISTENCIA».
+- **PRUEBAS — COMPLETAS (12/10/2026): bloques 1 a 6 ✓.** Pendiente solo decidir el despliegue
+  (077 y 078 en prod antes del merge; avisar a los tutores por F2; con datos de prod del 12/10 el
+  III tenía 0/23 asistencias bloqueadas y 3/23 conductas cerradas por el tutor: no desplegar F2/F3
+  antes del límite del III sin decidirlo).
+  **En otro equipo (casa):** antes del Bloque 2, aplicar **077 y 078** en su BD local y comprobar
+  que el III tenga las fechas de partida de abajo.
+  Antes, anotar los valores del III en `/director/anios/1` y restaurarlos al final: fin
+  **09/10/2026**, notas **16/10/2026 04:00**, auxiliares **vacía**. Nunca pulsar «Cerrar
+  bimestre» ni aceptar un «Reabrir» (leer el `confirm()` y Cancelar). Anotar con qué ROL.
+  - [x] **1. Fechas normales** — ✓ todo correcto (09/10/2026, BD local de la oficina, con DOCENTE
+        YAURI, AUXILIAR ESPINOZA y RA; los dos POST por `fetch` en consola). El III quedó con las
+        fechas de partida, sin tocar. DOCENTE (YAURI, DNI 75563239): indicador = 7; resumen
+        `/docente/calificaciones/207/resumen/22` con «Aprobar» deshabilitado; un `fetch` POST a
+        `/docente/calificaciones/207/bloquear/22` responde «Hay 1 conclusión(es)… sin guardar»;
+        POST a `/docente/calificaciones/conclusion` da **404**; guardar una opcional funciona
+        (y luego dejarla vacía). AUXILIAR (ESPINOZA): indicador = 7, estados de siempre. RA:
+        `/director/bloqueos` del III con sus botones; del II (cerrado) sin botones de
+        bloquear/cerrar; `confirm()` de reabrir sin mencionar a Registro Académico.
+  - [x] **2. Fecha de auxiliares** — ✓ (12/10/2026, copia fresca de prod + 077/078) (ADMIN/RA, «Editar fechas»): tarjeta «Igual al límite de
+        notas»; 08/10 10:00 rechazada (antes del fin); 17/10 10:00 rechazada (después de notas);
+        09/10 08:00 se guarda.
+  - [x] **3. Auxiliares vencida, docentes vigente** — ✓ (12/10/2026): AUXILIAR «1 días desde el cierre», secciones
+        «Fuera de plazo», grillas de solo lectura; RA no registra en `/admin/conducta` ni
+        `/admin/asistencia` pero sí ve el forzado del panel; TUTOR mantiene la etapa 2 y las
+        transversales editables; DOCENTE editable con indicador 7. Al final, auxiliares vacía.
+  - [x] **4. Docentes vencida** — ✓ (12/10/2026) (notas = hoy, 2 h antes): DOCENTE «1 días desde el cierre» y
+        banner sin «Comunícate…»; TUTOR con aviso «…quedan en solo lectura» en `/docente/tutoria`
+        y la etapa 2 en solo lectura; AUXILIAR también fuera de plazo. Al final, notas 16/10 04:00.
+  - [x] **5. Semáforo** — ✓ (12/10/2026) con los controladores REALES (`Auxiliar\PanelController::inicio`,
+        `Admin\AsistenciaController::seccion|bloquear`) y la sesión de ESPINOZA, en transacción sin
+        COMMIT: fin 09/10 → 1.°A/1.°B/2.°A «Listo para bloquear», 2.°B «Días sin tomar: 1»; fin 31/10 →
+        «Días sin tomar: 1/1/1/2»; 2.°A con la lista del 12/10 → «Bloqueo desde el 31/10», grilla
+        «18/18 · Días sin tomar: 0 — podrás bloquear desde el 31/10» con el botón deshabilitado; POST
+        de bloqueo → «El bimestre aún no termina…» y 0 cierres; control con fin 09/10 → bloquea.
+        En Chrome (ESPINOZA, 12/10/2026): «Todos asistieron» pasa la lista sin confirmación, el
+        12/10 queda ✓, la grilla y el panel muestran lo mismo que arriba. ✓ todo correcto.
+        (fin = 31/10): AUXILIAR ve «Bloqueo desde el 31/10» en una sección
+        completa (2.° A); «Días sin tomar» y «Confirmados X de N» siguen igual. Al final, fin 09/10.
+  - [x] **6. Guard del cierre (F3)** — ✓ (12/10/2026) con `cerrar()` REAL sobre un año
+        sintético 2099 dentro de una transacción sin COMMIT (sin residuos): sin nada → nombra
+        asistencia y conducta; solo asistencia → nombra conducta; etapa 1 sin tutor → «Conducta
+        sin cerrar por el tutor»; todo → pasa el guard (llega a la transacción del cierre).
+        Antes: **no se ve en local** (la evaluación incompleta del III corta
+        antes); lo cubre `verif_guard_cierre_registros.php`. Pruebas en navegador pendientes con sesión de **tutor** (transversales fuera de
+  plazo), **auxiliar** (semáforo «Bloqueo desde») y **RA** (panel con bimestre cerrado). La F2 pone plazo a las transversales del tutor: **avisar antes a los
+  tutores**.
+
+
+## 🆕 ASISTENCIA: ✓ POR ESTUDIANTE — DOS MODOS DEL AUXILIAR (09/10/2026, en `dev`, migración 077)
+
+Marca individual = solo ese estudiante; ⚠ del día / aviso de hoy = ✓ a los que faltan;
+sin «Deshacer lista»; el bloqueo exige cada estudiante cada día; botón de bloqueo antes de
+la leyenda y leyenda reducida. Detalle en la DÉCIMA RONDA de
+`docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
+- **077 aplicada en la BD LOCAL** de la oficina (09/10/2026). ⚠️ **Producción: aplicar
+  `077_asistencia_presencias.sql` a mano ANTES del merge** (como la 074/076). En otro
+  equipo, aplicarla también en su BD local.
+- Batería: los verificadores de asistencia en verde, salvo uno: `verif_asistencia_fechas.php`
+  no arma su escenario del traslado del ancla mientras 2.° B esté bloqueada en el III (es
+  por los datos: bloqueo de las 11:37 con la sesión de ESPINOZA, sin confirmar quién fue).
+- **Probado en Chrome con AUXILIAR (ESPINOZA), 2.° A** (09/10/2026), quitando a mano y
+  reponiendo idénticas las listas del 07 y del 09/10:
+  - un ✓ suelto cubre solo a ese estudiante y el aviso pasa a «faltan 17»;
+  - «Marcar a los 17…» completa el día y deja el aviso en «lista completa»;
+  - el ⚠ del 07/10 completa ese día;
+  - el encabezado pasa a ✓ (solo indicador) y «Días sin tomar» baja a 0;
+  - al recargar, «Bloquear y aprobar» se habilita (no se pulsó);
+  - la vista por estudiante funciona;
+  - en 375 px la grilla abre en la columna de hoy, tras corregir el cálculo de las
+    columnas fijas.
+  - Al terminar, los contadores salieron idénticos a la foto previa a la 077.
+- **Detalle de siempre:** el botón de bloqueo se habilita solo al recargar, porque su estado
+  lo calcula el servidor. Sin commit.
+- **Limpieza (09/10/2026, turno tarde):**
+  - se eliminó `AsistenciaJornadaModel::incidenciasDelDia`, que había quedado sin uso;
+  - el `alert--warning` de `consulta-notas/asistencia.php` **no** se cierra solo: `auth.js`
+    solo corre en el login. Se corrigieron los comentarios y los docs que decían lo contrario.
+
+## 🆕 ASISTENCIA: AJUSTES DE LA VISTA POR ESTUDIANTE + VISTA «JUSTIFICACIONES» (09/10/2026, en `dev`, sin migración)
+
+Chips que llevan al día, chips con el color de la pastilla y una tabla con «Cuenta como»,
+totales dentro de la cabecera fija, «Ir» solo sin JS y una vista nueva
+`/admin/asistencia/{id}/justificaciones` («autorizada» = FJ con el motivo principal).
+Detalle en la NOVENA RONDA de `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
+Probado en Chrome con AUXILIAR y con ADMIN: sección bloqueada (solo lo oficial, sin columna
+Estado), bimestre de solo números (estado vacío), dos motivos (6.° A: 43 autorizadas + 4
+como F = 47 FJ) y 375 px en un marco (sin desborde; cabecera fija con los totales).
+Probado también con RA (vista nueva, botón en la tabla, vista por estudiante). Pruebas
+cerradas. Sin commit.
 
 ## 🆕 RETORNO #1 EN LA BD LOCAL: tramo en el III sin cerrar (08/10/2026)
 
@@ -2256,10 +2609,10 @@ sistema entero: **47 banners en 29 vistas**. Detalle en `docs/modulos/ui.md`.
 ### Decisiones abiertas que deja
 
 1. **Renombrar los 31 `.flash` a `.alert`** — cosmético y con cambio visual cero gracias al
-   alias, así que se puede hacer por lotes o nunca. ⚠️ **Tiene un bloqueante que hay que
-   decidir ANTES:** `resources/js/auth.js` autocierra `.alert--success` y `.alert--warning`
-   **en todas las páginas**, así que al renombrar, los mensajes de sesión empezarían a
-   desaparecer solos. Hoy los `.flash` no se autocierran.
+   alias, así que se puede hacer por lotes o nunca. ~~Bloqueante del autocierre~~
+   **No existe** (corregido el 09/10/2026): `resources/js/auth.js` solo se carga en
+   `layouts/auth.php` (login), así que renombrar los `.flash` de la app no los haría
+   desaparecer.
 2. 🆕 **BUG INDEPENDIENTE que este trabajo destapó: el mismo mensaje flash se pinta DOS
    VECES.** `layouts/app.php:58-75` ya pinta `$flash_success`/`$flash_error`/`$flash_warning`
    (globales que inyecta `BaseController::view()`), y **siete vistas los repintan por su

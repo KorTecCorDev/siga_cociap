@@ -16,12 +16,22 @@
  * @var array $alumnos    [{matricula_id, nombre_completo, nota_ra, nota_tutor, nota_final, literal_final, si, respondidos, es_legado}]
  * @var array $criterios  criterios de conducta del nivel (vacio si es legado)
  * @var bool  $esLegado
+ *
+ * Compartida desde el 13/10/2026 con `Admin\ConductaController::resultado` (la
+ * nota final que ve el auxiliar). Lo único que cambia es a dónde llevan los dos
+ * enlaces; sin estas variables, los de la consulta de Dirección:
+ * @var string|null $urlVolver     «volver»
+ * @var string|null $textoVolver   rótulo del «volver»
+ * @var string|null $urlCriterios  grilla Sí / No
  */
+$urlVolver    ??= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $seccion['seccion_id']);
+$textoVolver  ??= '← Áreas';
+$urlCriterios ??= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $seccion['seccion_id'] . '/conducta/criterios');
 ?>
 
 <div class="page-header">
-    <a href="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $seccion['seccion_id']) ?>"
-       class="btn btn--secondary btn--sm">← Áreas</a>
+    <a href="<?= $urlVolver ?>"
+       class="btn btn--secondary btn--sm"><?= e($textoVolver) ?></a>
     <div>
         <h1 class="page-title">Conducta</h1>
         <p class="page-subtitle">
@@ -149,7 +159,7 @@
             <?php // La grilla Si/No por alumno NO cabe en esta pantalla (10 columnas
                   // mas el roster). Vive en su propia vista, en solo lectura. ?>
             <a class="btn btn--secondary btn--sm"
-               href="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $seccion['seccion_id'] . '/conducta/criterios') ?>">
+               href="<?= $urlCriterios ?>">
                 Ver la grilla Sí / No &rarr;
             </a>
         </div>

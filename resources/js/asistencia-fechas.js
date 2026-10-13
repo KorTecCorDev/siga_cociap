@@ -11,11 +11,12 @@
  *     tocarlos; FJ · TJ piden el MOTIVO y solo se guardan con él. Cancelar,
  *     tocar fuera o Esc NO cambian nada. Una justificada sin motivo no existe
  *     (lo rechazan también el servidor y un CHECK en la base).
- *   - Cada marca se AUTOGUARDA como borrador (`/admin/asistencia/dia`) y toma la
- *     LISTA DEL DÍA de la sección: toda la columna pasa a ✓ salvo las
- *     incidencias. Los 4 contadores los calcula el SERVIDOR: aquí no se suma nada.
- *   - «Pasar lista» (encabezado del día o «Pasar lista de hoy») y «Deshacer
- *     lista» van por `/admin/asistencia/{id}/jornada`.
+ *   - Cada marca se AUTOGUARDA como borrador (`/admin/asistencia/dia`) y afirma
+ *     SOLO sobre su estudiante (09/10/2026, migración 077): «✓ Asistió» guarda su
+ *     presencia; ya no toma la lista de la sección. Los 4 contadores los calcula
+ *     el SERVIDOR: aquí no se suma nada.
+ *   - «Pasar lista» (⚠ del encabezado del día o el botón del AVISO DE HOY) pone ✓
+ *     a los que faltan, por `/admin/asistencia/{id}/jornada`. No hay «deshacer».
  *   - «Confirmar» da el visto bueno (`/admin/asistencia/confirmar`); cambiar
  *     cualquier día lo desconfirma.
  *
@@ -124,69 +125,91 @@ function pintarTotales(fila, c) {
     fila.dataset.registrada = '1';
 }
 
-// ── Lista del día ───────────────────────────────────────────────────
-// Pinta TODO lo que depende de la lista de `fecha`: las celdas de ese día (toda
-// la columna en la grilla), su encabezado y el atajo «Pasar lista de hoy».
-function pintarLista(fecha, tomada) {
-    document.querySelectorAll(`.af-celda[data-fecha="${fecha}"]`).forEach(celda => {
-        celda.dataset.tomada = tomada ? '1' : '0';
-        pintarCelda(celda);
-    });
+// ── Lista del día y ✓ por estudiante (09/10/2026, migración 077) ─────
+// Una celda está CUBIERTA si tiene incidencia o ✓ (propio o de la lista). Cada
+// marca afirma SOLO sobre su estudiante; «Pasar lista» (⚠ del día o el aviso de
+// hoy) pone ✓ a los que faltan. No hay «deshacer»: un día se corrige marcando.
+
+function celdaCubierta(celda) {
+    return (celda.dataset.tipo ?? '') !== '' || celda.dataset.tomada === '1';
+}
+
+// Repinta lo que depende del estado de UN día en la grilla: su encabezado (⚠ con
+// los que faltan, o ✓ como simple indicador) y, si es hoy, el aviso de hoy.
+function refrescarDia(fecha) {
+    const celdas = [...document.querySelectorAll(`.af-grilla .af-celda[data-fecha="${fecha}"]`)];
+    if (celdas.length === 0) return;
+    const faltan = celdas.filter(c => !celdaCubierta(c)).length;
+
     const th = document.querySelector(`th.af-th-dia[data-fecha="${fecha}"]`);
-    if (th) {
-        th.dataset.tomada = tomada ? '1' : '0';
-        th.classList.toggle('af-th-dia--sin-tomar', !tomada);
-        const btn = th.querySelector('.af-lista');
-        if (btn) {
-            btn.dataset.accion = tomada ? 'deshacer' : 'tomar';
-            btn.textContent    = tomada ? '✓' : '⚠';
-            btn.title          = tomada ? 'Lista tomada · tocar para deshacer' : 'Sin tomar · tocar para pasar lista';
-            btn.setAttribute('aria-label', (tomada ? 'Deshacer la lista del ' : 'Pasar lista del ') + ddmm(fecha));
+    const marca = th?.querySelector('.af-th-dia__lista');
+    if (th && marca) {
+        th.classList.toggle('af-th-dia--sin-tomar', faltan > 0);
+        if (faltan === 0 && marca.tagName === 'BUTTON') {
+            const span = document.createElement('span');
+            span.className = 'af-th-dia__lista af-th-dia__lista--solo';
+            span.title = 'Día completo';
+            span.textContent = '✓';
+            marca.replaceWith(span);
+        } else if (faltan > 0 && marca.tagName === 'BUTTON') {
+            marca.title = `Faltan ${faltan} · tocar para marcar ✓ a los que faltan`;
         }
+        // Un día completo no vuelve a ⚠ en la grilla abierta: nada lo descubre
+        // (toda opción del menú deja la celda cubierta).
     }
-    document.querySelectorAll(`.af-lista--hoy[data-fecha="${fecha}"]`).forEach(b => { b.hidden = tomada; });
+    pintarAvisoHoy(fecha, celdas, faltan);
+}
+
+function pintarAvisoHoy(fecha, celdas, faltan) {
+    const aviso = document.querySelector(`.af-aviso-hoy[data-fecha="${fecha}"]`);
+    if (!aviso) return;
+    const total = celdas.length;
+    const texto = aviso.querySelector('.af-aviso-hoy__texto');
+    const btn   = aviso.querySelector('.af-lista--hoy');
+    aviso.dataset.faltan = String(faltan);
+    if (faltan === 0) {
+        const faltas    = celdas.filter(c => ['F', 'FJ'].includes(c.dataset.tipo)).length;
+        const tardanzas = celdas.filter(c => ['T', 'TJ'].includes(c.dataset.tipo)).length;
+        texto.textContent = `lista completa · ${faltas} falta(s) · ${tardanzas} tardanza(s).`;
+    } else if (faltan === total) {
+        texto.textContent = 'todavía no se toma lista.';
+    } else {
+        texto.textContent = `faltan ${faltan} estudiante(s) por marcar.`;
+    }
+    if (btn) {
+        btn.hidden = faltan === 0;
+        btn.textContent = faltan === total ? 'Todos asistieron' : `Marcar a los ${faltan} como asistentes`;
+    }
 }
 
 function pintarSinTomar(n) {
+    if (n === null || n === undefined) return;
     document.querySelectorAll('.af-sin-tomar-total').forEach(el => { el.textContent = n; });
 }
 
-// Una marca tomó la lista de su día: si la columna estaba «Sin tomar», se pinta
-// tomada y el contador del pie baja en uno (el servidor lo vuelve a contar al
-// recargar y al bloquear).
-function listaTomadaPorMarca(fecha) {
-    const th = document.querySelector(`th.af-th-dia[data-fecha="${fecha}"]`);
-    const antes = th ? th.dataset.tomada === '1'
-        : document.querySelector(`.af-celda[data-fecha="${fecha}"]`)?.dataset.tomada === '1';
-    if (antes) return;
-    pintarLista(fecha, true);
-    document.querySelectorAll('.af-sin-tomar-total').forEach(el => {
-        el.textContent = Math.max(0, (parseInt(el.textContent, 10) || 0) - 1);
-    });
-}
-
-async function cambiarLista(boton) {
+// «Pasar lista» de un día: ✓ a todas las celdas de ese día que no estén cubiertas.
+async function pasarLista(boton) {
     const barra = document.querySelector('[data-jornada-url]');
     if (!barra) return;
-    const fecha  = boton.dataset.fecha;
-    const accion = boton.dataset.accion;
-    if (accion === 'deshacer'
-        && !confirm(`¿Deshacer la lista del ${ddmm(fecha)}? El día quedará «Sin tomar».`)) {
-        return;
-    }
+    const fecha = boton.dataset.fecha;
     boton.disabled = true;
     try {
         const res = await fetch(barra.dataset.jornadaUrl, {
             method: 'POST',
-            body: new URLSearchParams({ _csrf_token: barra.dataset.csrf, fecha, accion }),
+            body: new URLSearchParams({ _csrf_token: barra.dataset.csrf, fecha }),
         });
         const data = await res.json();
         if (data.success) {
-            pintarLista(fecha, !!data.tomada);
-            pintarSinTomar(data.sin_tomar ?? 0);
-            avisar('ok', accion === 'tomar' ? `✓ Lista del ${ddmm(fecha)} tomada` : `Lista del ${ddmm(fecha)} deshecha`);
+            document.querySelectorAll(`.af-celda[data-fecha="${fecha}"]`).forEach(celda => {
+                if (celdaCubierta(celda)) return;
+                celda.dataset.tomada = '1';
+                pintarCelda(celda);
+            });
+            refrescarDia(fecha);
+            pintarSinTomar(data.sin_tomar);
+            avisar('ok', `✓ Asistencia del ${ddmm(fecha)} completada`);
         } else {
-            avisar('error', '⚠ ' + (data.mensaje ?? 'No se pudo cambiar la lista.'));
+            avisar('error', '⚠ ' + (data.mensaje ?? 'No se pudo completar la lista.'));
         }
     } catch {
         avisar('error', '⚠ Sin conexión: la lista no cambió.');
@@ -238,7 +261,7 @@ function guardarDia(fila, celda) {
             fila.classList.remove('asistencia-fila--error');
             celda.classList.remove('af-celda--error');
             pintarTotales(fila, data.contadores);
-            if (data.jornada_tomada) listaTomadaPorMarca(datos.fecha);
+            pintarSinTomar(data.sin_tomar);
             statusFila(fila, 'success', '');
             pintarEstado(fila);
             return true;
@@ -256,9 +279,12 @@ function aplicarOpcion(celda, tipo, motivo) {
     const fila = celda.closest('.af-fila');
     celda.dataset.tipo   = tipo;
     celda.dataset.motivo = motivo;
-    celda.dataset.tomada = '1';   // cualquier marca toma la lista del día
+    // Toda opción deja ESTE día de ESTE estudiante cubierto (077): ✓ guarda su
+    // presencia; una incidencia, su marca. Los demás estudiantes no cambian.
+    celda.dataset.tomada = '1';
     celda.classList.remove('af-celda--error');
     pintarCelda(celda);
+    refrescarDia(celda.dataset.fecha);
     if (!igual) {
         fila.dataset.confirmada = '0';
         pintarEstado(fila);
@@ -380,24 +406,86 @@ document.addEventListener('click', e => {
 });
 
 // ── Lista de justificaciones (solo vista por estudiante) ────────────
-// Muestra cada FJ/TJ con su motivo; tocar una abre el menú de ese día.
+// Cada FJ/TJ con su motivo, en chips (color de la pastilla del contador) y en
+// una tabla por fecha (09/10/2026). Tocar uno LLEVA AL DÍA del calendario y abre
+// su menú: el menú se ubica con coordenadas del documento, así que queda junto a
+// la celda aunque el desplazamiento siga en curso.
+const DIAS_SEMANA_AF = ['Dom.', 'Lun.', 'Mar.', 'Mié.', 'Jue.', 'Vie.', 'Sáb.'];
+
+// Desplazamiento INMEDIATO, no suave: al abrir una FJ/TJ el menú enfoca el
+// selector de motivo, y ese foco cortaba un desplazamiento suave a medio camino.
+function irAlDia(celda) {
+    celda.scrollIntoView({ block: 'center' });
+    abrirMenu(celda);
+}
+
+// Contador en que cae la marca: misma regla que `sqlConteoContadores` (una FJ
+// solo cuenta como FJ con el motivo principal; si no, como F).
+function cuentaComo(celda) {
+    return celda.dataset.tipo === 'FJ' && !esMotivoPrincipal(celda.dataset.motivo) ? 'F' : celda.dataset.tipo;
+}
+
+function pastillaTipo(tipo, conMotivo) {
+    const s = document.createElement('span');
+    s.className = `af-tipo af-tipo--${tipo.toLowerCase()}${conMotivo ? ' af-tipo--con-motivo' : ''}`;
+    s.textContent = tipo;
+    return s;
+}
+
 function pintarJustificaciones(fila) {
-    const lista = fila.querySelector('.af-justificaciones');
-    if (!lista) return;
+    const bloque = fila.querySelector('.af-justificaciones');
+    if (!bloque) return;
+    const chips = bloque.querySelector('.af-justificaciones__chips');
+    const cuerpo = bloque.querySelector('.af-justificaciones__tabla tbody');
     const celdas = [...fila.querySelectorAll('.af-celda[data-fecha]')]
-        .filter(c => JUSTIFICADAS.includes(c.dataset.tipo));
-    lista.innerHTML = '';
-    lista.hidden = celdas.length === 0;
-    celdas.forEach(c => {
+        .filter(c => JUSTIFICADAS.includes(c.dataset.tipo))
+        .sort((a, b) => a.dataset.fecha.localeCompare(b.dataset.fecha));
+    chips.innerHTML = '';
+    cuerpo.innerHTML = '';
+    bloque.hidden = celdas.length === 0;
+
+    celdas.forEach((c, i) => {
+        const tipo    = c.dataset.tipo;
+        const motivo  = nombreMotivo(c.dataset.motivo) || 'Motivo';
+        const ancla   = esMotivoPrincipal(c.dataset.motivo);
+        const ir      = e => { e.stopPropagation(); irAlDia(c); };
+
         const li = document.createElement('li');
-        li.className = 'af-justificaciones__item';
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'btn btn--secondary btn--sm';
-        btn.textContent = `${c.dataset.tipo} ${ddmm(c.dataset.fecha)}: ${nombreMotivo(c.dataset.motivo) || 'Motivo'}`;
-        btn.addEventListener('click', e => { e.stopPropagation(); abrirMenu(c); });
+        btn.className = `af-tipo af-tipo--${tipo.toLowerCase()}${ancla ? ' af-tipo--con-motivo' : ''} af-justificaciones__chip`;
+        // Solo tipo y fecha (09/10/2026, pedido del usuario): con muchas
+        // justificaciones los chips con motivo eran una pared. El motivo va en la
+        // tabla de abajo y en el title / aria-label del chip.
+        btn.textContent = `${tipo} ${ddmm(c.dataset.fecha)}`;
+        btn.title = `${tipo} ${ddmm(c.dataset.fecha)} · ${motivo}`;
+        btn.setAttribute('aria-label', btn.title);
+        btn.addEventListener('click', ir);
         li.appendChild(btn);
-        lista.appendChild(li);
+        chips.appendChild(li);
+
+        const dia = DIAS_SEMANA_AF[new Date(`${c.dataset.fecha}T12:00:00`).getDay()];
+        const tr = document.createElement('tr');
+        tr.className = 'af-justificaciones__fila';
+        tr.tabIndex = 0;
+        tr.title = 'Ir al día en el calendario';
+        const celdasTr = [
+            String(i + 1),
+            `${dia} ${ddmm(c.dataset.fecha)}`,
+            pastillaTipo(tipo, ancla),
+            motivo,
+            pastillaTipo(cuentaComo(c), false),
+        ];
+        const clases = ['tr-num', 'tr-anexo-fecha', 'tr-anexo-tipo', 'tr-anexo-motivo', 'tr-anexo-tipo'];
+        celdasTr.forEach((v, k) => {
+            const td = document.createElement('td');
+            td.className = clases[k];
+            if (typeof v === 'string') td.textContent = v; else td.appendChild(v);
+            tr.appendChild(td);
+        });
+        tr.addEventListener('click', ir);
+        tr.addEventListener('keydown', e => { if (e.key === 'Enter') ir(e); });
+        cuerpo.appendChild(tr);
     });
 }
 
@@ -416,8 +504,25 @@ document.querySelectorAll('.af-fila').forEach(fila => {
 });
 
 document.querySelectorAll('.af-lista').forEach(b => {
-    b.addEventListener('click', e => { e.stopPropagation(); cambiarLista(b); });
+    b.addEventListener('click', e => { e.stopPropagation(); pasarLista(b); });
 });
+// El ⚠ del encabezado se reemplaza por un ✓ al completarse el día; los ⚠ que
+// siguen siendo botón conservan su listener (es el mismo elemento).
+
+// La grilla abre desplazada hasta la COLUMNA DE HOY (09/10/2026), sin animación.
+(() => {
+    const scroll = document.querySelector('.af-scroll');
+    const fecha  = document.querySelector('.af-aviso-hoy')?.dataset.fecha;
+    const th     = fecha ? scroll?.querySelector(`th.af-th-dia[data-fecha="${fecha}"]`) : null;
+    if (!scroll || !th) return;
+    // Centrada en el espacio que dejan LIBRE las columnas fijas (N° y nombre):
+    // en el celular casi todo el ancho es del nombre y, sin restarlo, la columna
+    // de hoy quedaba tapada por él.
+    const fija  = scroll.querySelector('th.col-nombre');
+    const ancho = fija ? fija.offsetLeft + fija.offsetWidth : 0;
+    const libre = Math.max(th.offsetWidth, scroll.clientWidth - ancho);
+    scroll.scrollLeft = Math.max(0, th.offsetLeft - ancho - (libre - th.offsetWidth) / 2);
+})();
 
 // «Confirmar todo»: espera a que se vacíen las colas antes de enviar el formulario.
 document.querySelector('.af-confirmar-todo')?.addEventListener('submit', async e => {

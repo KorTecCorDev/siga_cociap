@@ -7,7 +7,75 @@
  *  - Exonerar: despliega el formulario de exoneración de área.
  */
 
+// Confirmación de los formularios marcados con [data-confirm] (quitar apoderado,
+// hacer responsable), como criterios-conducta.js. El servidor valida igual.
+document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (form.hasAttribute && form.hasAttribute('data-confirm')
+        && !window.confirm(form.getAttribute('data-confirm'))) {
+        e.preventDefault();
+    }
+});
+
+// Datos del apoderado con otros estudiantes ([data-confirm-cambios]): el confirm()
+// lista EXACTAMENTE qué campos cambian (valor anterior → nuevo), para que se
+// confirme sabiendo qué se edita. Sin cambios, envía sin preguntar. Los campos
+// [data-mayus] se comparan como los guarda el servidor (mayúsculas, espacios simples).
+document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (!form.hasAttribute || !form.hasAttribute('data-confirm-cambios')) return;
+
+    const normalizar = (el, v) => {
+        const t = v.trim().replace(/\s+/g, ' ');
+        return el.hasAttribute('data-mayus') ? t.toUpperCase() : t;
+    };
+    const cambios = [];
+    form.querySelectorAll('[data-campo]').forEach((el) => {
+        const antes   = normalizar(el, el.defaultValue);
+        const despues = normalizar(el, el.value);
+        if (antes !== despues) {
+            cambios.push(`• ${el.dataset.campo}: ${antes || '(vacío)'} → ${despues || '(vacío)'}`);
+        }
+    });
+    if (cambios.length === 0) return;
+
+    const mensaje = [form.dataset.confirmCambios, '', ...cambios, '', form.dataset.confirmNota || '']
+        .join('\n').trim();
+    if (!window.confirm(mensaje)) e.preventDefault();
+});
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Filtros de la lista (/matriculas): Nivel → Grado → Sección coherentes. Cada
+    // select ofrece solo lo compatible con los de arriba, y si la opción elegida
+    // deja de serlo vuelve a «Todos». Sin JS se ven todas las opciones.
+    const fNivel   = document.querySelector('[data-filtro-nivel]');
+    const fGrado   = document.querySelector('[data-filtro-grado]');
+    const fSeccion = document.querySelector('[data-filtro-seccion]');
+    if (fNivel && fGrado && fSeccion) {
+        const originales = (sel) => Array.from(sel.options).map((o) => o.cloneNode(true));
+        const todosGrados    = originales(fGrado);
+        const todasSecciones = originales(fSeccion);
+
+        const reconstruir = (sel, opciones, compatible) => {
+            const elegido = sel.value;
+            sel.replaceChildren(...opciones
+                .filter((o) => o.value === '' || compatible(o))
+                .map((o) => o.cloneNode(true)));
+            sel.value = Array.from(sel.options).some((o) => o.value === elegido) ? elegido : '';
+        };
+
+        const aplicar = () => {
+            const nivel = fNivel.value;
+            reconstruir(fGrado, todosGrados, (o) => !nivel || o.dataset.nivel === nivel);
+            const grado = fGrado.value;
+            reconstruir(fSeccion, todasSecciones, (o) =>
+                (!nivel || o.dataset.nivel === nivel) && (!grado || o.dataset.grado === grado));
+        };
+        fNivel.addEventListener('change', aplicar);
+        fGrado.addEventListener('change', aplicar);
+        aplicar();
+    }
+
     // Alta provisional (crear): al marcar "sin DNI" se oculta el campo DNI y se
     // relaja la obligatoriedad (DNI y serie). El servidor es la autoridad; esto
     // es solo mejora de UX. El input DNI se deshabilita para no enviarse.

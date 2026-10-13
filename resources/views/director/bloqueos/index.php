@@ -175,79 +175,18 @@ foreach ($competencias as $c) {
 ?>
 
 <?php
-$_t   = $stats['total'];
-$_pB  = $_t > 0 ? $stats['bloqueadas']    / $_t * 100 : 0;
-$_pP  = $_t > 0 ? $stats['pendientes']    / $_t * 100 : 0;
-$_pS  = $_t > 0 ? $stats['sin_criterios'] / $_t * 100 : 0;
-
-// stroke-dasharray: segmento visible, resto oculto (circunferencia = 100)
-$_dB  = round($_pB, 2) . ' ' . round(100 - $_pB, 2);
-$_dP  = round($_pP, 2) . ' ' . round(100 - $_pP, 2);
-$_dS  = round($_pS, 2) . ' ' . round(100 - $_pS, 2);
-
-// stroke-dashoffset: posición de inicio de cada arco (12 en punto = offset 25)
-$_oB  = 25;
-$_oP  = round(25 - $_pB, 2);
-$_oS  = round(25 - $_pB - $_pP, 2);
+$donut = [
+    'total'     => (int) $stats['total'],
+    'unidad'    => 'competencias',
+    'aria'      => 'Gráfico de estado de competencias',
+    'segmentos' => [
+        ['label' => 'Bloqueadas',    'num' => (int) $stats['bloqueadas'],    'mod' => 'ok'],
+        ['label' => 'Pendientes',    'num' => (int) $stats['pendientes'],    'mod' => 'warn'],
+        ['label' => 'Sin criterios', 'num' => (int) $stats['sin_criterios'], 'mod' => 'err'],
+    ],
+];
+require __DIR__ . '/_donut.php';
 ?>
-
-<div class="bloqueos-donut card mb-md">
-    <div class="bloqueos-donut__svg-wrap" role="img" aria-label="Gráfico de estado de competencias">
-        <svg viewBox="0 0 42 42" class="bloqueos-donut__svg">
-            <!-- Fondo -->
-            <circle cx="21" cy="21" r="15.9155" fill="none"
-                    stroke="#e5e7eb" stroke-width="4"/>
-            <!-- Bloqueadas -->
-            <?php if ($_pB > 0): ?>
-            <circle cx="21" cy="21" r="15.9155" fill="none"
-                    stroke="#16a34a" stroke-width="4"
-                    stroke-dasharray="<?= $_dB ?>"
-                    stroke-dashoffset="<?= $_oB ?>"/>
-            <?php endif; ?>
-            <!-- Pendientes -->
-            <?php if ($_pP > 0): ?>
-            <circle cx="21" cy="21" r="15.9155" fill="none"
-                    stroke="#d97706" stroke-width="4"
-                    stroke-dasharray="<?= $_dP ?>"
-                    stroke-dashoffset="<?= $_oP ?>"/>
-            <?php endif; ?>
-            <!-- Sin criterios -->
-            <?php if ($_pS > 0): ?>
-            <circle cx="21" cy="21" r="15.9155" fill="none"
-                    stroke="#dc2626" stroke-width="4"
-                    stroke-dasharray="<?= $_dS ?>"
-                    stroke-dashoffset="<?= $_oS ?>"/>
-            <?php endif; ?>
-            <!-- Texto central -->
-            <text x="21" y="19.5" class="bloqueos-donut__pct-svg"><?= number_format($_pB, 2) ?>%</text>
-            <text x="21" y="24"   class="bloqueos-donut__sub-svg">completado</text>
-        </svg>
-    </div>
-
-    <div class="bloqueos-donut__leyenda">
-        <p class="bloqueos-donut__titulo">
-            <?= $_t ?> competencias &mdash; <?= e($periodo['nombre_display']) ?>
-        </p>
-        <div class="bloqueos-donut__item">
-            <span class="bloqueos-donut__dot bloqueos-donut__dot--ok"></span>
-            <span class="bloqueos-donut__label">Bloqueadas</span>
-            <strong class="bloqueos-donut__num"><?= $stats['bloqueadas'] ?></strong>
-            <span class="bloqueos-donut__pct-txt"><?= number_format($_pB, 2) ?>%</span>
-        </div>
-        <div class="bloqueos-donut__item">
-            <span class="bloqueos-donut__dot bloqueos-donut__dot--warn"></span>
-            <span class="bloqueos-donut__label">Pendientes</span>
-            <strong class="bloqueos-donut__num"><?= $stats['pendientes'] ?></strong>
-            <span class="bloqueos-donut__pct-txt"><?= number_format($_pP, 2) ?>%</span>
-        </div>
-        <div class="bloqueos-donut__item">
-            <span class="bloqueos-donut__dot bloqueos-donut__dot--err"></span>
-            <span class="bloqueos-donut__label">Sin criterios</span>
-            <strong class="bloqueos-donut__num"><?= $stats['sin_criterios'] ?></strong>
-            <span class="bloqueos-donut__pct-txt"><?= number_format($_pS, 2) ?>%</span>
-        </div>
-    </div>
-</div>
 
 <?php if (($periodo['estado'] ?? '') === 'activo' && $stats['cierre_forzado'] > 0): ?>
 <div class="card mb-md bloqueos-cierre-accion">
@@ -401,9 +340,37 @@ $_oS  = round(25 - $_pB - $_pP, 2);
     </div><!-- /.bloqueos-widgets -->
 </div><!-- /.bloqueos-lateral -->
 
+<?php // Buscador en vivo (bloqueos.js). Nace oculto: sin JS la lista se ve como siempre. ?>
+<div class="card bloqueos-buscador" id="bloqueos-buscador" hidden>
+    <div class="bloqueos-buscador__caja">
+        <svg class="bloqueos-buscador__lupa" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+        </svg>
+        <input type="search" id="bloqueos-buscar" class="bloqueos-buscador__input"
+               placeholder="Busca por sección, área, competencia o docente"
+               autocomplete="off" spellcheck="false"
+               aria-label="Buscar competencias">
+        <button type="button" class="bloqueos-buscador__limpiar" id="bloqueos-limpiar"
+                aria-label="Limpiar búsqueda" hidden>&times;</button>
+        <kbd class="bloqueos-buscador__atajo" title="Pulsa / para buscar">/</kbd>
+    </div>
+
+    <div class="bloqueos-buscador__filtros">
+        <div class="bloqueos-buscador__estado" role="group" aria-label="Filtrar por estado">
+            <button type="button" class="bloqueos-buscador__seg bloqueos-buscador__seg--activo" data-estado="" aria-pressed="true">Todas</button>
+            <button type="button" class="bloqueos-buscador__seg" data-estado="bloqueada" aria-pressed="false">Bloqueadas</button>
+            <button type="button" class="bloqueos-buscador__seg" data-estado="pendiente" aria-pressed="false">Pendientes</button>
+            <button type="button" class="bloqueos-buscador__seg" data-estado="sin-criterios" aria-pressed="false">Sin criterios</button>
+        </div>
+    </div>
+
+    <p class="bloqueos-buscador__contador" id="bloqueos-contador" aria-live="polite"></p>
+</div>
+
 <?php foreach ($porNivel as $nivelNombre => $secciones): ?>
 
-    <p class="bloqueos-nivel-titulo"><?= e($nivelNombre) ?></p>
+    <p class="bloqueos-nivel-titulo" data-nivel="<?= e($nivelNombre) ?>"><?= e($nivelNombre) ?></p>
 
     <?php foreach ($secciones as $seccionId => $sec):
         $total      = $sec['total'];
@@ -434,6 +401,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
     ?>
 
     <div class="bloqueo-seccion bloqueo-seccion--<?= $secEstado ?>"
+         data-nivel="<?= e($nivelNombre) ?>"
          <?= $expandir ? 'data-open' : '' ?>>
 
         <button class="bloqueo-seccion__header"
@@ -488,23 +456,37 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                             $estado  = 'sin-criterios';
                             $filaCss = 'fila-sin-criterios';
                         }
+
+                        // Datos del buscador en vivo (bloqueos.js).
+                        $filaBuscar = implode(' ', [
+                            $nivelNombre,
+                            $sec['grado_nombre'] . ' ' . $sec['seccion_nombre'],
+                            $fila['area_nombre'] ?? '',
+                            $fila['subarea_nombre'] ?? '',
+                            $fila['competencia_nombre'] ?? '',
+                            ($fila['docente_apellido'] ?? '') . ' ' . ($fila['docente_nombres'] ?? ''),
+                        ]);
+                        $filaEstado = $bloqueada ? 'bloqueada' : $estado;
                     ?>
-                    <tr class="<?= $filaCss ?>">
+                    <tr class="bloqueo-fila <?= $filaCss ?>"
+                        data-buscar="<?= e($filaBuscar) ?>"
+                        data-estado="<?= $filaEstado ?>"
+                        data-fila="<?= (int) $fila['carga_id'] ?>-<?= (int) $fila['competencia_id'] ?>">
 
                         <td>
-                            <?= e($fila['area_nombre'] ?? '—') ?>
+                            <span data-resaltar><?= e($fila['area_nombre'] ?? '—') ?></span>
                             <?php if ($fila['subarea_nombre']): ?>
-                                <br><span class="text-sm text-muted"><?= e($fila['subarea_nombre']) ?></span>
+                                <br><span class="text-sm text-muted" data-resaltar><?= e($fila['subarea_nombre']) ?></span>
                             <?php endif; ?>
                         </td>
 
                         <td class="bloqueos-competencia">
-                            <?= e($fila['competencia_nombre']) ?>
+                            <span data-resaltar><?= e($fila['competencia_nombre']) ?></span>
                         </td>
 
                         <td class="text-sm">
-                            <?= e($fila['docente_apellido']) ?>,
-                            <span class="text-muted"><?= e($fila['docente_nombres']) ?></span>
+                            <span data-resaltar><?= e($fila['docente_apellido']) ?></span>,
+                            <span class="text-muted" data-resaltar><?= e($fila['docente_nombres']) ?></span>
                         </td>
 
                         <td>
@@ -551,10 +533,10 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <?php if ($puedeEscribir): ?>
+                                <?php if ($puedeEscribir && $periodoActivo): ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/bloquear') ?>"
-                                      onsubmit="return confirm('Bloquear esta competencia? El docente no podra editar las notas.')">
+                                      onsubmit="return confirm('¿Bloquear esta competencia? Sus notas ya no se podrán editar.')">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="carga_id"       value="<?= $fila['carga_id'] ?>">
                                     <input type="hidden" name="competencia_id" value="<?= $fila['competencia_id'] ?>">
@@ -578,6 +560,10 @@ $_oS  = round(25 - $_pB - $_pP, 2);
     <?php endforeach; ?>
 <?php endforeach; ?>
 
+<p class="bloqueos-sin-resultados" id="bloqueos-sin-resultados" hidden>
+    Ninguna competencia coincide con la búsqueda.
+</p>
+
 <?php else: ?>
     <div class="empty-state">
         <p>No hay cargas academicas activas para este periodo.</p>
@@ -591,6 +577,20 @@ $_oS  = round(25 - $_pB - $_pP, 2);
          role="tabpanel" aria-labelledby="tabcard-transversales" hidden>
 
 <?php if (!empty($transversales)): ?>
+<?php
+$_trConBloq = count(array_filter($transversales, fn($s) => !$s['cerrada'] && $s['n_bloqueos'] > 0));
+$donut = [
+    'total'     => $trTotal,
+    'unidad'    => 'secciones',
+    'aria'      => 'Gráfico de estado de las competencias transversales',
+    'segmentos' => [
+        ['label' => 'Cerradas por el tutor',  'num' => $trCerr,                          'mod' => 'ok'],
+        ['label' => 'Con bloqueos de carga',  'num' => $_trConBloq,                      'mod' => 'warn'],
+        ['label' => 'Sin bloqueos',           'num' => $trTotal - $trCerr - $_trConBloq, 'mod' => 'err'],
+    ],
+];
+require __DIR__ . '/_donut.php';
+?>
     <p class="bloqueos-nivel-titulo">Competencias Transversales (TIC/GAMA) &mdash; cierre del tutor</p>
     <div class="card mb-md">
         <div class="card__body">
@@ -613,6 +613,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                     de arriba porque las transversales cuelgan de un area propia.
                 </li>
             </ul>
+            <div class="tabla-responsive">
             <table class="tabla-ranking tabla-bloqueos">
                 <thead>
                     <tr>
@@ -664,10 +665,10 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 </form>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <?php if ($puedeEscribir): ?>
+                                <?php if ($puedeEscribir && $periodoActivo): ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/transversal/' . $st['seccion_id'] . '/cerrar') ?>"
-                                      onsubmit="return confirm('Cerrar las transversales de esta seccion?')">
+                                      onsubmit="return confirm('¿Cerrar las transversales de esta sección?')">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="periodo_id" value="<?= $periodoId ?>">
                                     <button type="submit" class="btn btn--secondary btn--sm">Cerrar</button>
@@ -753,6 +754,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 <?php else: ?>
@@ -768,6 +770,19 @@ $_oS  = round(25 - $_pB - $_pP, 2);
          role="tabpanel" aria-labelledby="tabcard-conducta" hidden>
 
 <?php if (!empty($conducta)): ?>
+<?php
+$donut = [
+    'total'     => $coTotal,
+    'unidad'    => 'secciones',
+    'aria'      => 'Gráfico de estado de la conducta',
+    'segmentos' => [
+        ['label' => 'Cerradas',           'num' => count(array_filter($conducta, fn($c) => $c['estado'] === 'cerrada')),            'mod' => 'ok'],
+        ['label' => 'Pendiente tutor',    'num' => count(array_filter($conducta, fn($c) => $c['estado'] === 'pendiente_tutor')),    'mod' => 'warn'],
+        ['label' => 'Pendiente auxiliar', 'num' => count(array_filter($conducta, fn($c) => $c['estado'] === 'pendiente_auxiliar')), 'mod' => 'err'],
+    ],
+];
+require __DIR__ . '/_donut.php';
+?>
     <p class="bloqueos-nivel-titulo">Conducta &mdash; dos etapas: auxiliar académico &rarr; tutor</p>
     <div class="card mb-md">
         <div class="card__body">
@@ -777,6 +792,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                 etapa o <em>reabrir</em> para correcciones. Si fuerzas la etapa del auxiliar con
                 estudiantes sin confirmar, su conducta queda fuera de la boleta (guion).
             </p>
+            <div class="tabla-responsive">
             <table class="tabla-ranking tabla-bloqueos">
                 <thead>
                     <tr>
@@ -820,7 +836,9 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                         </td>
                         <td class="td-acciones-conducta">
                             <?php if ($cc['estado'] === 'pendiente_auxiliar'): ?>
-                                <?php if ($puedeEscribir): ?>
+                                <?php // Solo con el bimestre en curso (09/10/2026): el servidor
+                                      // rechaza el forzado en uno cerrado. ?>
+                                <?php if ($puedeEscribir && $periodoActivo): ?>
                                 <?php // Decisión b (29/09/2026): el director SÍ puede forzar con
                                       // pendientes; el aviso dice cuántos quedan fuera. ?>
                                 <?php $sinConfirmar = max(0, (int) $cc['esperados'] - (int) $cc['calificados']); ?>
@@ -840,7 +858,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 <?php endif; ?>
                             <?php elseif ($cc['estado'] === 'pendiente_tutor'): ?>
                                 <div class="btn-group">
-                                    <?php if ($puedeEscribir): ?>
+                                    <?php if ($puedeEscribir && $periodoActivo): ?>
                                     <form method="POST"
                                           action="<?= url('director/bloqueos/conducta/' . $cc['seccion_id'] . '/cerrar') ?>"
                                           onsubmit="return confirm('Forzar el cierre del tutor para esta sección?')">
@@ -871,7 +889,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 <?php if ($puedeEscribir): ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/conducta/' . $cc['seccion_id'] . '/reabrir') ?>"
-                                      onsubmit="return confirm('Reabrir la conducta de esta sección? El auxiliar y el tutor deberán volver a cerrar.')">
+                                      onsubmit="return confirm('¿Reabrir la conducta de esta sección? Se anulará su bloqueo y su cierre.')">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="periodo_id" value="<?= $periodoId ?>">
                                     <button type="submit" class="btn btn--danger btn--sm">Reabrir</button>
@@ -883,6 +901,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 <?php else: ?>
@@ -898,6 +917,21 @@ $_oS  = round(25 - $_pB - $_pP, 2);
          role="tabpanel" aria-labelledby="tabcard-asistencia" hidden>
 
 <?php if (!empty($asistencia)): ?>
+<?php
+$_asListas = count(array_filter($asistencia, fn($s) => !$s['bloqueada']
+    && (int) $s['registrados'] >= (int) $s['esperados']));
+$donut = [
+    'total'     => $asTotal,
+    'unidad'    => 'secciones',
+    'aria'      => 'Gráfico de estado de la asistencia',
+    'segmentos' => [
+        ['label' => 'Bloqueadas',                  'num' => $asBloq,                       'mod' => 'ok'],
+        ['label' => 'Listas para bloquear',        'num' => $_asListas,                    'mod' => 'warn'],
+        ['label' => 'Con estudiantes sin confirmar', 'num' => $asTotal - $asBloq - $_asListas, 'mod' => 'err'],
+    ],
+];
+require __DIR__ . '/_donut.php';
+?>
     <p class="bloqueos-nivel-titulo">Asistencia &mdash; una etapa: auxiliar acad&eacute;mico</p>
     <div class="card mb-md">
         <div class="card__body">
@@ -907,6 +941,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                 bloqueo o <em>reabrir</em> para correcciones. Si fuerzas el bloqueo con
                 estudiantes sin confirmar, su asistencia queda fuera de la boleta (guion).
             </p>
+            <div class="tabla-responsive">
             <table class="tabla-ranking tabla-bloqueos">
                 <thead>
                     <tr>
@@ -943,7 +978,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                         </td>
                         <td class="td-acciones-conducta">
                             <?php if (!$sa['bloqueada']): ?>
-                                <?php if ($puedeEscribir): ?>
+                                <?php if ($puedeEscribir && $periodoActivo): ?>
                                 <?php $sinConfirmarA = max(0, (int) $sa['esperados'] - (int) $sa['registrados']); ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/asistencia/' . $sa['seccion_id'] . '/bloquear') ?>"
@@ -964,7 +999,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                                 <?php if ($puedeEscribir): ?>
                                 <form method="POST"
                                       action="<?= url('director/bloqueos/asistencia/' . $sa['seccion_id'] . '/reabrir') ?>"
-                                      onsubmit="return confirm('Reabrir la asistencia de esta sección? Registro Académico deberá volver a bloquearla.')">
+                                      onsubmit="return confirm('¿Reabrir la asistencia de esta sección? Se anulará su bloqueo.')">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="periodo_id" value="<?= $periodoId ?>">
                                     <button type="submit" class="btn btn--danger btn--sm">Reabrir</button>
@@ -976,6 +1011,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 <?php else: ?>

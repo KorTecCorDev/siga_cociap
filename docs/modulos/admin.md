@@ -18,6 +18,34 @@
 ### Operaciones del CRUD
 - **index** — tabla con avatar de iniciales coloreado por rol, badges de rol/estado,
   último acceso, botones Editar y Activar/Desactivar
+
+### Buscador de usuarios (12/10/2026)
+Filtra **en el navegador** sobre la tabla ya cargada (decisión del usuario: no hay `?q=`
+en el servidor). JS `resources/js/usuarios-buscador.js`; estilos `.usuarios-buscador` y
+`.filtro-chip` en `_admin.scss` (`.filtro-chip` es clase propia a propósito: `.orden-chip`
+ya tiene dos consumidores). Sin JS la card no aparece y la tabla queda como antes.
+- **Busca en** nombre, DNI, correo, rol y **contexto académico** (`data-buscar` de cada
+  fila). Palabras en cualquier orden, sin tildes, ñ ≡ n. Las secciones se escriben como
+  sea: «5b», «5 b», «5.° B» (término compacto `5b`).
+- **Contexto académico** (línea bajo el nombre): `UsuarioModel::contextoAcademico()` —
+  cursos de las cargas `activa` y tutoría del **año activo** (el tutor de HOY,
+  `secciones.tutor_id`: sirve para ubicar, no es documento). La carga TOE no se lista
+  (la cubre «Tutoría»). En un aula unidocente (REGLA es_aula) se muestra «Aula: Prim. 2° A»
+  y sus cursos siguen siendo buscables sin mostrarse. Auxiliares: sus secciones del
+  **bimestre activo** (`AuxiliarSeccionModel::listarParaPeriodo`). Cada sección lleva el
+  nivel (`UsuarioModel::etiquetaSeccion`, «Prim.»/«Sec.»): «4° B» existe en los dos.
+- **Chips de rol** con contador vivo (los 3 de `ROLES_DIRECCION` = un chip «Dirección»,
+  como su badge), filtro de estado, resaltado `<mark>` con nodos de texto (nunca
+  `innerHTML`), atajos `/` · Esc · Enter (con un solo resultado abre Editar). El filtro
+  vive en la URL (`?q=&rol=&estado=`, `replaceState`): «Atrás» desde Editar lo conserva.
+  **Activar/Desactivar y Guardar desde Editar vuelven a la lista con el mismo filtro**
+  (decisión del usuario, 12/10/2026). El JS copia el filtro a los ocultos
+  `filtro_q|rol|estado` de Activar/Desactivar y a la URL del enlace Editar
+  (`?q=&rol=&estado=`); `edit()` lo lee de la URL y lo deja en los ocultos del formulario y
+  en «Volver»/«Cancelar»; `update()` vuelve con él, y ante un error reabre Editar sin
+  perderlo. PUNTO ÚNICO de validación: `UsuarioController::filtroLista()` (q ≤ 100, rol
+  `[a-z_]`, estado activo/inactivo; lo demás se descarta) y `conFiltro()`, que solo arma
+  rutas propias.
 - **crear** — formulario en grid responsivo (1→2→3 col); secciones: datos personales + acceso
 - **editar** — igual al crear con valores precargados; contraseña opcional (vacío = no cambia)
 - **toggleEstado** — alterna activo/inactivo con `IF(estado='activo','inactivo','activo')`
@@ -30,7 +58,7 @@
 
 ### Nuevos métodos en UsuarioModel
 `findById`, `listarRoles`, `existeDni`, `crearConPersona`, `actualizarConPersona`,
-`toggleEstado`, `contarPorRolCodigo`
+`toggleEstado`, `contarPorRolCodigo`, `contextoAcademico`, `etiquetaSeccion` (estática)
 
 ### Convenciones del formulario de usuario
 - Apellidos y nombres se almacenan en `mb_strtoupper()` (mayúsculas)
@@ -119,6 +147,43 @@ del modelo viejo). Lo que eso implica:
   POST→redirect. El acordeón de secciones académicas se mantiene.
 - **SASS** en `pages/_admin.scss`: `.bloqueos-hub`, `.bloqueos-tabcard--*` (tokens
   wayfinding; fondo tenue solo en `--activa`), `.bloqueos-panel`, `.td-acciones-conducta`.
+
+### Donut de estado en los 4 paneles (13/10/2026)
+- Parcial `resources/views/director/bloqueos/_donut.php` (`$donut`: `total`, `unidad`,
+  `aria`, `segmentos[]` con `label`/`num`/`mod` ok·warn·err). El primer segmento es el
+  «completado» del centro. Académicas lo usa con la salida HTML idéntica a la anterior.
+- Los otros tres cuentan **secciones**, con 3 estados cada uno (conteos en la vista, el
+  controlador no cambia):
+  - **Transversales:** cerradas por el tutor · sin cerrar con algún bloqueo de carga
+    (`n_bloqueos > 0`) · sin bloqueos.
+  - **Conducta:** `cerrada` · `pendiente_tutor` · `pendiente_auxiliar`.
+  - **Asistencia:** bloqueadas · listas para bloquear (`registrados >= esperados`) · con
+    estudiantes sin confirmar.
+
+### Buscador de competencias académicas (13/10/2026)
+- Card `#bloqueos-buscador` sobre los acordeones del panel **académicas** (solo ahí).
+  Mismo aspecto que el de `/admin/usuarios`: ambos salen del `@mixin buscador-vivo`
+  (`pages/_admin.scss`). Nace `hidden`: sin JS la vista es la de siempre.
+- Texto (sección «5b» / «5.° B», nivel, área, subárea, competencia, docente; sin tildes)
+  + segmento Todas · Bloqueadas · Pendientes · Sin criterios. Lee los `data-buscar` /
+  `data-estado` de cada `tr.bloqueo-fila` (*bloqueada sin notas* cuenta como bloqueada).
+- Filtrando: oculta filas, secciones y títulos de nivel sin coincidencias y **abre** las
+  secciones con coincidencias (también las completas, que nacen cerradas). Al limpiar,
+  cada acordeón vuelve a su estado inicial. Badges y `X/Y` del header NO cambian.
+- `sessionStorage` por periodo: `bloqueos.buscar.{id}` (búsqueda) y `bloqueos.foco.{id}`
+  (`data-fila` = `carga_id-competencia_id` de la fila cuyo formulario se envió; si el
+  `confirm()` se cancela no se guarda). Tras el redirect se baja a esa fila y destella
+  (`.bloqueo-fila--foco`). El controlador no cambia.
+
+### Responsive del panel (13/10/2026)
+- `.tabla-ranking` tiene `min-width: 680px` y `.card` lleva `overflow: hidden`: sin un
+  contenedor que desplace, en pantallas angostas la tabla se **recortaba** y la columna
+  **Acciones** quedaba inalcanzable. Académicas siempre desplazó (`.bloqueo-seccion__body`);
+  transversales, conducta y asistencia van ahora dentro de `.tabla-responsive` (componente
+  existente). Toda tabla nueva de este panel debe ir igual.
+- Los botones de `.td-acciones-conducta` no parten su texto, y los 4 segmentos del buscador
+  tampoco (se desplazan si no caben; padding menor bajo 480px).
+- Medido a 432/820/1024/1366 px: sin desborde de página.
 
 ### Transversales: LOS DOS NIVELES (06/08/2026)
 
@@ -221,10 +286,14 @@ sin depender de nadie**.
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
 - `$conducta[]` con `estado` ∈ `pendiente_auxiliar` (rojo) / `pendiente_tutor` (ámbar) /
   `cerrada` (verde) + columna "Calificados X/Y".
-- **El director tiene control total:** forzar etapa 1, forzar etapa 2, o **reabrir**
-  (anula con traza). Forzar etapa 1 RESPETA la regla de negocio (exige todos los
-  estudiantes calificados; el botón se deshabilita y `bloquearRA` lo revalida en servidor).
-  ~~Reabrir es libre.~~ **Reabrir exige el bimestre ACTIVO** (06/08/2026, ver abajo).
+- **Admin/RA tienen control total** (Dirección solo mira): forzar etapa 1, forzar etapa 2,
+  o **reabrir** (anula con traza). ~~Forzar etapa 1 RESPETA la regla de negocio (exige todos
+  los estudiantes calificados).~~ **Desde el 29/09/2026 el forzado NO exige completitud**:
+  lo no confirmado queda con guion en la boleta (el `confirm()` dice cuántos).
+  ~~Reabrir es libre.~~ **Reabrir exige el bimestre ACTIVO** (06/08/2026, ver abajo), y
+  **desde el 09/10/2026 forzar también** (las cinco acciones de bloqueo/cierre del panel:
+  competencia, transversales, conducta etapa 1 y 2, asistencia). Sus botones no se pintan
+  con el bimestre cerrado. Ver `docs/modulos/cierre-cuatro-registros.md` §0.
 
 ### No se desbloquea una competencia con calificaciones extraordinarias (18/09/2026)
 
@@ -476,8 +545,10 @@ y `/admin/asistencia`, con copia imprimible firmable. Migracion `043_cierres_asi
 
 ### Cierre de asistencia (nuevo — tabla `cierres_asistencia`)
 - Una sola etapa (espejo parcial de `cierres_conducta`): RA "Bloquear y aprobar"
-  via `POST /admin/asistencia/{id}/bloquear`. **SIN precondicion de completitud**:
-  fila ausente en `inasistencias` = 0 incidencias (estado valido).
+  via `POST /admin/asistencia/{id}/bloquear`. ~~**SIN precondicion de completitud**~~:
+  **desde el 29/09/2026 exige a TODOS confirmados** y, en un bimestre por fechas, cada
+  estudiante cada día y no antes del último día del bimestre. Solo el forzado del panel
+  no lo exige.
 - El cierre vigente es `anulado_en IS NULL` (sin UNIQUE; `getCierreVigente` antes
   de insertar). `guardar()` rechaza edicion con cierre vigente (403), ademas del
   gate de `periodoEditable`.

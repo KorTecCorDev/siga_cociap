@@ -64,42 +64,36 @@ class AsistenciaModel extends BaseModel
     }
 
     /**
-     * Periodos del año activo con flag de edición.
-     * "editable" solo es true cuando el periodo está en estado 'activo'
-     * y dentro del límite de notas. Mismo criterio que ConductaModel para
-     * mantener coherencia entre módulos.
-     *
-     * ZONA HORARIA — el "ahora" lo calcula PHP (`America/Lima`, aplicado en
-     * public/index.php) y viaja como parámetro preparado. NO usar NOW(): el
-     * MySQL de produccion corre en UTC, 5 horas adelantado, y este flag se
-     * apagaba 5 horas ANTES que el guard real de escritura
-     * (`periodoEditable`, que compara con `time()` en PHP). Misma regla que
-     * `PublicacionBoletaModel::ahora()`.
+     * Periodos del año activo con flag `editable` (1/0). El flag lo calcula
+     * el punto único `EdicionPeriodoModel` (09/10/2026) sobre la misma fila:
+     * antes era una columna SQL que repetía la regla.
      */
     public function listarPeriodosActivos(): array
     {
-        return $this->query("
+        $periodos = $this->query("
             SELECT
                 p.id,
                 p.numero,
                 p.nombre_display,
                 p.estado,
                 p.limite_notas,
+                p.limite_auxiliares,
                 -- Asistencia por fechas (migración 069): el calendario necesita el
                 -- rango del bimestre y saber si el bimestre se registra por fechas.
                 p.fecha_inicio,
                 p.fecha_fin,
                 p.asistencia_por_fechas,
-                a.anio,
-                (
-                    p.estado = 'activo'
-                    AND (p.limite_notas IS NULL OR ? <= p.limite_notas)
-                ) AS editable
+                a.anio
             FROM periodos p
             INNER JOIN anios_academicos a ON a.id = p.anio_id
             WHERE a.estado = 'activo'
             ORDER BY p.numero
-        ", [date('Y-m-d H:i:s')]);
+        ");
+        foreach ($periodos as &$p) {
+            $p['editable'] = (int) (EdicionPeriodoModel::motivoSobre($p, EdicionPeriodoModel::ROL_AUXILIAR) === null);
+        }
+        unset($p);
+        return $periodos;
     }
 
     /**
@@ -158,6 +152,14 @@ class AsistenciaModel extends BaseModel
      * que la segunda vía no lo copiara.
      */
     public const TOPE_MAX = 99;
+
+    /**
+     * «SEGUIMIENTO DE FALTAS» (13/10/2026, decisión del usuario): un estudiante
+     * entra a ese bloque de la vista «Faltas y justificaciones» con ESTAS faltas
+     * o más en el bimestre. Faltas = las que cuentan como F (F + FJ fuera del
+     * ancla), la misma cifra de la boleta. PUNTO ÚNICO: vista y verificador.
+     */
+    public const UMBRAL_SEGUIMIENTO_FALTAS = 5;
 
     /**
      * Suma los 4 contadores de un roster ya cargado, más cuántos tienen registro.
@@ -501,6 +503,213 @@ class AsistenciaModel extends BaseModel
     }
 
     /**
+     * Vista «JUSTIFICACIONES» de una sección (09/10/2026): las FJ/TJ registradas,
+     * resumidas por tipo, por motivo y por estudiante. Desde el 13/10/2026 cada
+     * estudiante lleva sus `fechas` agrupadas por lo que CUENTAN (FJ autorizada,
+     * FJ que cuenta como falta, TJ); reemplazan al antiguo «detalle por fecha».
+     *
+     * Una FJ es AUTORIZADA si su motivo es el ANCLA del bimestre: es la que cuenta
+     * como FJ; con otro motivo cuenta como F. La regla NO se repite aquí: sale de
+     * `AsistenciaEstadisticaModel::tipoQueCuenta` (espejo de `sqlConteoContadores`).
+     *
+     * Función pura sobre el MISMO roster y las MISMAS incidencias que pinta la
+     * pantalla: el llamador decide si son borrador u oficiales.
+     *
+     * @param array    $estudiantes  roster en orden de lista (getEstudiantesConIncidencias)
+     * @param array    $incidencias  incidenciasDe(...) [mid => [fecha => {tipo, motivo_id, motivo}]]
+     * @param int|null $ancla        AsistenciaMotivoModel::anclaDelPeriodo()
+     * @param list<string> $diasLectivos  días lectivos del bimestre (`diasMarcables`),
+     *                                    para unir en `tramos` los días seguidos
+     */
+    public static function resumenJustificaciones(array $estudiantes, array $incidencias, ?int $ancla, array $diasLectivos = []): array
+    {
+        $kpis = ['total' => 0, 'fj' => 0, 'tj' => 0, 'fj_autorizadas' => 0, 'fj_como_f' => 0, 'estudiantes' => 0];
+        $motivos = $porEstudiante = [];
+
+        foreach (array_values($estudiantes) as $i => $est) {
+            $mid        = (int) $est['matricula_id'];
+            $confirmado = !empty($est['incidencias']['confirmado']);
+            // `fechas` (13/10/2026): cada fecha en la categoría en que CUENTA, para
+            // que la vista no muestre «FJ» y «cuenta como F» en la misma fila.
+            $fila = ['num' => $i + 1, 'nombre' => (string) $est['nombre_completo'], 'confirmado' => $confirmado,
+                     'fj_autorizadas' => 0, 'fj_como_f' => 0, 'tj' => 0, 'total' => 0,
+                     'fechas' => ['fj_autorizadas' => [], 'fj_como_f' => [], 'tj' => []]];
+
+            foreach ($incidencias[$mid] ?? [] as $fecha => $x) {
+                if (!in_array($x['tipo'], ['FJ', 'TJ'], true)) {
+                    continue;
+                }
+                $cuenta = AsistenciaEstadisticaModel::tipoQueCuenta($x, $ancla);
+                $motivoId = (int) ($x['motivo_id'] ?? 0);
+
+                $kpis['total']++;
+                $fila['total']++;
+                if ($x['tipo'] === 'TJ') {
+                    $clave = 'tj';
+                    $kpis['tj']++;
+                } else {
+                    $kpis['fj']++;
+                    $clave = $cuenta === 'FJ' ? 'fj_autorizadas' : 'fj_como_f';
+                    $kpis[$clave]++;
+                }
+                $fila[$clave]++;
+                $fila['fechas'][$clave][] = (string) $fecha;
+
+                $motivos[$motivoId] ??= ['motivo' => (string) ($x['motivo'] ?? ''), 'ancla' => $ancla !== null && $motivoId === $ancla,
+                                         'fj' => 0, 'tj' => 0, 'total' => 0];
+                $motivos[$motivoId][$x['tipo'] === 'TJ' ? 'tj' : 'fj']++;
+                $motivos[$motivoId]['total']++;
+            }
+
+            if ($fila['total'] > 0) {
+                // Tramos de días seguidos de cada categoría (13/10/2026): lo que
+                // pinta la tabla. `fechas` se conserva para contar y verificar.
+                foreach ($fila['fechas'] as $clave => $lista) {
+                    $fila['tramos'][$clave] = self::tramosDeFechas($lista, $diasLectivos);
+                }
+                $kpis['estudiantes']++;
+                $porEstudiante[] = $fila;
+            }
+        }
+
+        // Motivos: el más usado primero; a igualdad, por nombre.
+        uasort($motivos, static fn(array $a, array $b): int
+            => [$b['total'], $a['motivo']] <=> [$a['total'], $b['motivo']]);
+
+        return [
+            'kpis'        => $kpis,
+            'motivos'     => array_values($motivos),
+            'estudiantes' => $porEstudiante,
+        ];
+    }
+
+    /**
+     * TRAMOS de días SEGUIDOS (13/10/2026): une las fechas que son días lectivos
+     * consecutivos, para que una ausencia larga se lea como «Lun. 17/08 al Vie.
+     * 25/09 · 28 días» en lugar de 28 fechas sueltas.
+     *
+     * «Seguidos» = consecutivos en `$diasLectivos` (salida de `diasMarcables`):
+     * el fin de semana y los días NO LECTIVOS no cortan el tramo. Una fecha que no
+     * esté en esa lista (o sin lista) queda como tramo propio de 1 día. Pura.
+     *
+     * @param list<string> $fechas        'AAAA-MM-DD' en cualquier orden
+     * @param list<string> $diasLectivos  'AAAA-MM-DD' del bimestre, en orden
+     * @return list<array{desde:string, hasta:string, dias:int}>
+     */
+    public static function tramosDeFechas(array $fechas, array $diasLectivos): array
+    {
+        $fechas = array_values(array_unique($fechas));
+        sort($fechas);
+        $pos = array_flip($diasLectivos);
+
+        $tramos = [];
+        $ultimo = null;   // índice en $tramos del tramo abierto
+        foreach ($fechas as $f) {
+            $prev = $ultimo !== null ? $tramos[$ultimo]['hasta'] : null;
+            $sigue = $prev !== null && isset($pos[$f], $pos[$prev]) && $pos[$f] === $pos[$prev] + 1;
+            if ($sigue) {
+                $tramos[$ultimo]['hasta'] = $f;
+                $tramos[$ultimo]['dias']++;
+            } else {
+                $tramos[] = ['desde' => $f, 'hasta' => $f, 'dias' => 1];
+                $ultimo   = count($tramos) - 1;
+            }
+        }
+        return $tramos;
+    }
+
+    /**
+     * «SEGUIMIENTO DE FALTAS» de una sección (13/10/2026): los estudiantes con
+     * `UMBRAL_SEGUIMIENTO_FALTAS` faltas o más en el bimestre, de más a menos.
+     *
+     * Falta = marca que CUENTA como F: una F, o una FJ fuera del ancla. La regla
+     * NO se repite aquí: sale de `AsistenciaEstadisticaModel::tipoQueCuenta`
+     * (espejo de `sqlConteoContadores`), así que la cifra es la de la boleta.
+     *
+     * Función pura sobre el MISMO roster y las MISMAS incidencias que pinta la
+     * pantalla: el llamador decide si son borrador u oficiales.
+     *
+     * @return list<array{num:int, matricula_id:int, nombre:string, confirmado:bool,
+     *                    faltas:int, f:int, fj_como_f:int, ultima:string}>
+     */
+    public static function seguimientoFaltas(array $estudiantes, array $incidencias, ?int $ancla): array
+    {
+        $out = [];
+        foreach (array_values($estudiantes) as $i => $est) {
+            $mid  = (int) $est['matricula_id'];
+            $fila = ['num' => $i + 1, 'matricula_id' => $mid, 'nombre' => (string) $est['nombre_completo'],
+                     'confirmado' => !empty($est['incidencias']['confirmado']),
+                     'faltas' => 0, 'f' => 0, 'fj_como_f' => 0, 'ultima' => ''];
+
+            foreach ($incidencias[$mid] ?? [] as $fecha => $x) {
+                if (AsistenciaEstadisticaModel::tipoQueCuenta($x, $ancla) !== 'F') {
+                    continue;
+                }
+                $fila['faltas']++;
+                $fila[$x['tipo'] === 'F' ? 'f' : 'fj_como_f']++;
+                $fila['ultima'] = max($fila['ultima'], (string) $fecha);
+            }
+
+            if ($fila['faltas'] >= self::UMBRAL_SEGUIMIENTO_FALTAS) {
+                $out[] = $fila;
+            }
+        }
+
+        // Más faltas primero; a igualdad, el orden de la lista.
+        usort($out, static fn(array $a, array $b): int
+            => [$b['faltas'], $a['num']] <=> [$a['faltas'], $b['num']]);
+        return $out;
+    }
+
+    /**
+     * Reporte de JUSTIFICACIONES de varias secciones (13/10/2026): el del
+     * auxiliar, con todas las secciones a su cargo. Suma lo que ya calculó
+     * `resumenJustificaciones()` por sección; no vuelve a aplicar ninguna regla.
+     *
+     * @param list<array{seccion:array, oficial:bool, resumen:array}> $porSeccion
+     *        `seccion` = { id, etiqueta }
+     */
+    public static function consolidarJustificaciones(array $porSeccion): array
+    {
+        $kpis = ['total' => 0, 'fj' => 0, 'tj' => 0, 'fj_autorizadas' => 0, 'fj_como_f' => 0, 'estudiantes' => 0];
+        $motivos = $estudiantes = $secciones = [];
+
+        foreach ($porSeccion as $s) {
+            $r = $s['resumen'];
+            foreach ($kpis as $clave => $n) {
+                $kpis[$clave] = $n + (int) $r['kpis'][$clave];
+            }
+            foreach ($r['motivos'] as $m) {
+                $clave = $m['motivo'];
+                $motivos[$clave] ??= ['motivo' => $m['motivo'], 'ancla' => $m['ancla'], 'fj' => 0, 'tj' => 0, 'total' => 0];
+                $motivos[$clave]['fj']    += (int) $m['fj'];
+                $motivos[$clave]['tj']    += (int) $m['tj'];
+                $motivos[$clave]['total'] += (int) $m['total'];
+            }
+            foreach ($r['estudiantes'] as $e) {
+                $estudiantes[] = $e + ['seccion' => (string) $s['seccion']['etiqueta']];
+            }
+            $secciones[] = [
+                'id'           => (int) $s['seccion']['id'],
+                'etiqueta'     => (string) $s['seccion']['etiqueta'],
+                'oficial'      => (bool) $s['oficial'],
+                // Columna «Registro» del A4: cuándo se bloqueó, o null.
+                'bloqueado_en' => $s['seccion']['bloqueado_en'] ?? null,
+            ] + $r['kpis'];
+        }
+
+        uasort($motivos, static fn(array $a, array $b): int
+            => [$b['total'], $a['motivo']] <=> [$a['total'], $b['motivo']]);
+
+        return [
+            'kpis'        => $kpis,
+            'motivos'     => array_values($motivos),
+            'estudiantes' => $estudiantes,
+            'secciones'   => $secciones,
+        ];
+    }
+
+    /**
      * Incidencias por fecha de varias matrículas en un periodo, con el nombre
      * del motivo. Con $soloConfirmadas, solo las de filas CONFIRMADAS y que no
      * sean de la vía extraordinaria (lectura oficial: imprimible, Dirección).
@@ -652,12 +861,16 @@ class AsistenciaModel extends BaseModel
      * AUTOGUARDADO de UN día: marca (`$tipo` en TIPOS) o desmarca (`$tipo` null
      * = «✓ asistió») la fecha. FJ/TJ EXIGEN motivo del catálogo vigente (30/09/2026,
      * migración 070: también un CHECK en la base). Si algo CAMBIÓ, recalcula los
-     * contadores y la fila queda como borrador. En la MISMA transacción toma la
-     * LISTA DEL DÍA de la sección (`AsistenciaJornadaModel::tomar`): cualquier
-     * marca significa que ese día se pasó lista. Valida el DÍA contra
+     * contadores y la fila queda como borrador. Valida el DÍA contra
      * `diasMarcables` (sin no lectivos).
      *
-     * @return array{ok:bool, mensaje:string, contadores?:array, jornada_tomada?:bool}
+     * 🔴 La marca afirma SOLO sobre ESTE estudiante (09/10/2026, migración 077):
+     * ya NO toma la lista de la sección. «✓ asistió» guarda su presencia
+     * (`AsistenciaJornadaModel::marcarPresente`) y una incidencia la borra, en la
+     * MISMA transacción: presencia e incidencia de un día nunca conviven. El ✓ no
+     * toca contadores ni desconfirma; solo un cambio de incidencia lo hace.
+     *
+     * @return array{ok:bool, mensaje:string, contadores?:array}
      */
     public function marcarDia(int $matriculaId, int $periodoId, string $fecha, ?string $tipo, ?int $motivoId, int $userId): array
     {
@@ -690,7 +903,11 @@ class AsistenciaModel extends BaseModel
 
         $this->beginTransaction();
         try {
-            $jornadas->tomar($seccionId, $periodoId, $fecha, $userId);
+            if ($tipo === null) {
+                $jornadas->marcarPresente($matriculaId, $periodoId, $fecha, $userId);
+            } else {
+                $jornadas->quitarPresente($matriculaId, $fecha);
+            }
 
             $previa = $this->queryOne("
                 SELECT id, tipo, motivo_id FROM asistencia_incidencias
@@ -724,7 +941,122 @@ class AsistenciaModel extends BaseModel
         }
 
         return ['ok' => true, 'mensaje' => 'Guardado como borrador.',
-                'contadores' => $this->contadoresDe($matriculaId, $periodoId), 'jornada_tomada' => true];
+                'contadores' => $this->contadoresDe($matriculaId, $periodoId)];
+    }
+
+    /**
+     * Lo que hay HOY en un día de un estudiante, como lo guarda la traza de la
+     * rectificación: su incidencia (tipo + motivo); si no, `asistio` cuando está
+     * cubierto (✓ propio o lista de la sección donde cursó ese bimestre); si no,
+     * `sin_tomar`.
+     *
+     * @return array{0:string, 1:?int} [marca, motivo_id]
+     */
+    public function marcaDelDia(int $matriculaId, int $periodoId, string $fecha): array
+    {
+        $inc = $this->queryOne("
+            SELECT tipo, motivo_id FROM asistencia_incidencias
+            WHERE matricula_id = ? AND fecha = ?
+        ", [$matriculaId, $fecha]);
+        if ($inc) {
+            return [(string) $inc['tipo'], $inc['motivo_id'] !== null ? (int) $inc['motivo_id'] : null];
+        }
+        $propio = $this->queryOne("
+            SELECT 1 AS ok FROM asistencia_presencias WHERE matricula_id = ? AND fecha = ?
+        ", [$matriculaId, $fecha]);
+        if ($propio) {
+            return ['asistio', null];
+        }
+        $seccionId = (new CambioSeccionModel())->seccionDelPeriodo($matriculaId, $periodoId);
+        if ($seccionId !== null && (new AsistenciaJornadaModel())->estaTomada($seccionId, $periodoId, $fecha)) {
+            return ['asistio', null];
+        }
+        return ['sin_tomar', null];
+    }
+
+    /**
+     * RECTIFICACIÓN de la marca de UN día (F5, 13/10/2026, migración 079): RA/admin
+     * corrigen un registro YA OFICIAL. Mismas validaciones y el mismo cambio
+     * presencia ↔ incidencia que `marcarDia`, con dos diferencias:
+     *   - la fila sigue CONFIRMADA con su confirmación ORIGINAL
+     *     (`recalcularContadores` la borra y aquí se repone en la misma operación);
+     *   - `$tipo = null` («✓ asistió») también se rectifica.
+     * Los contadores los escribe solo `recalcularContadores` (invariante de la 069),
+     * con el ancla del bimestre (`anclaDelPeriodo`, congelada al cerrar).
+     *
+     * La condición de rectificable y la traza son de `RectificacionModel`.
+     * ⚠️ Sin transacción propia: la abre el controlador.
+     *
+     * @return array{ok:bool, mensaje:string, anterior?:array{0:string,1:?int}}
+     */
+    public function rectificarDia(int $matriculaId, int $periodoId, string $fecha, ?string $tipo, ?int $motivoId, int $userId): array
+    {
+        $periodo = $this->periodo($periodoId);
+        if ($periodo === null || (int) $periodo['asistencia_por_fechas'] !== 1) {
+            return ['ok' => false, 'mensaje' => 'Este bimestre no se registra por fechas.'];
+        }
+        $jornadas = new AsistenciaJornadaModel();
+        if (!in_array($fecha, self::diasMarcables($periodo, null, $jornadas->noLectivos()), true)) {
+            return ['ok' => false, 'mensaje' => 'Ese día no se puede marcar (fuera del bimestre, fin de semana o no lectivo).'];
+        }
+        if ($tipo !== null && !in_array($tipo, self::TIPOS, true)) {
+            return ['ok' => false, 'mensaje' => 'Tipo de incidencia no válido.'];
+        }
+        if ($tipo === null || !in_array($tipo, ['FJ', 'TJ'], true)) {
+            $motivoId = null;
+        }
+        if ($motivoId === null && in_array($tipo, ['FJ', 'TJ'], true)) {
+            return ['ok' => false, 'mensaje' => 'Elige el motivo de la justificación.'];
+        }
+        if ($motivoId !== null && !(new AsistenciaMotivoModel())->esVigente($motivoId)) {
+            return ['ok' => false, 'mensaje' => 'Motivo no válido o retirado.'];
+        }
+
+        $fila = $this->queryOne("
+            SELECT confirmado_en, confirmado_por, extraordinaria FROM inasistencias
+            WHERE matricula_id = ? AND periodo_id = ?
+            FOR UPDATE
+        ", [$matriculaId, $periodoId]);
+        // Una fila de la vía extraordinaria son números sin fechas: recontarla
+        // desde las incidencias la borraría.
+        if (!$fila || $fila['confirmado_en'] === null || (int) $fila['extraordinaria'] === 1) {
+            return ['ok' => false, 'mensaje' => 'La asistencia de este estudiante no se puede rectificar.'];
+        }
+
+        $anterior = $this->marcaDelDia($matriculaId, $periodoId, $fecha);
+        $nueva    = [$tipo ?? 'asistio', $motivoId];
+        if ($anterior === $nueva) {
+            return ['ok' => false, 'mensaje' => 'Ese día ya tiene esa marca: no hay cambios que rectificar.'];
+        }
+
+        if ($tipo === null) {
+            $this->execute("
+                DELETE FROM asistencia_incidencias WHERE matricula_id = ? AND fecha = ?
+            ", [$matriculaId, $fecha]);
+            $jornadas->marcarPresente($matriculaId, $periodoId, $fecha, $userId);
+        } else {
+            $jornadas->quitarPresente($matriculaId, $fecha);
+            $this->execute("
+                INSERT INTO asistencia_incidencias
+                    (matricula_id, periodo_id, fecha, tipo, motivo_id, registrado_por)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    tipo = VALUES(tipo), motivo_id = VALUES(motivo_id),
+                    registrado_por = VALUES(registrado_por), modificado_en = NOW()
+            ", [$matriculaId, $periodoId, $fecha, $tipo, $motivoId, $userId]);
+        }
+
+        // Solo si cambió una incidencia hay contadores que rehacer (un ✓ sobre un
+        // día «sin tomar» no los toca). Después, la confirmación ORIGINAL vuelve.
+        if (in_array($anterior[0], self::TIPOS, true) || $tipo !== null) {
+            $this->recalcularContadores($matriculaId, $periodoId, $userId);
+            $this->execute("
+                UPDATE inasistencias SET confirmado_en = ?, confirmado_por = ?
+                WHERE matricula_id = ? AND periodo_id = ?
+            ", [$fila['confirmado_en'], $fila['confirmado_por'], $matriculaId, $periodoId]);
+        }
+
+        return ['ok' => true, 'mensaje' => 'Asistencia rectificada.', 'anterior' => $anterior];
     }
 
     /**
@@ -1052,9 +1384,10 @@ class AsistenciaModel extends BaseModel
     }
 
     // ── Cierre (aprobacion y bloqueo) por seccion ────────────────
-    // Espejo de una sola etapa del cierre de conducta: RA bloquea la
-    // seccion y el registro queda de solo lectura. Sin fila = 0
-    // incidencias (estado valido), asi que NO exige completitud.
+    // Espejo de una sola etapa del cierre de conducta: el auxiliar (o RA)
+    // bloquea la seccion y el registro queda de solo lectura. Desde el
+    // 29/09/2026 el bloqueo SI exige completitud: todos confirmados y, por
+    // fechas, cada estudiante cada dia (`bloquearRA`). Solo el forzado no.
 
     /** Cierre vigente (anulado_en IS NULL) de una seccion+periodo, o null. */
     public function getCierreVigente(int $seccionId, int $periodoId): ?array
@@ -1106,12 +1439,27 @@ class AsistenciaModel extends BaseModel
             // (30/09/2026, migración 070). El director (forzado) no lo exige.
             $periodo = $this->periodo($periodoId);
             if ($periodo !== null && (int) $periodo['asistencia_por_fechas'] === 1) {
-                $sinTomar = (new AsistenciaJornadaModel())->diasSinTomar($seccionId, $periodo);
-                if ($sinTomar !== []) {
-                    $lista = implode(', ', array_map(static fn(string $f): string => substr($f, 8, 2) . '/' . substr($f, 5, 2), $sinTomar));
+                // Y no antes del ÚLTIMO día del bimestre (09/10/2026): `diasSinTomar`
+                // no ve los días futuros, y tras el bloqueo ya no se registrarían.
+                if (!self::bimestreTerminado($periodo)) {
                     return ['ok' => false, 'mensaje' =>
-                        'Hay ' . count($sinTomar) . " día(s) sin lista tomada ({$lista}). " .
-                        'Pasa lista de esos días (o que se declaren no lectivos) antes de bloquear.'];
+                        'El bimestre aún no termina: podrás bloquear desde el ' .
+                        self::ddmm((string) $periodo['fecha_fin']) . ', su último día.'];
+                }
+                // Cada estudiante, cada día (09/10/2026, migración 077): cubierto
+                // por su marca o por la lista de la sección.
+                $sinTomar = array_filter(
+                    (new AsistenciaJornadaModel())->pendientesPorDia($seccionId, $periodo),
+                    static fn(int $n): bool => $n > 0
+                );
+                if ($sinTomar !== []) {
+                    $lista = implode(', ', array_map(
+                        static fn(string $f, int $n): string => self::ddmm($f) . ' (' . $n . ($n === 1 ? ' estudiante' : ' estudiantes') . ')',
+                        array_keys($sinTomar), $sinTomar
+                    ));
+                    return ['ok' => false, 'mensaje' =>
+                        'Hay ' . count($sinTomar) . " día(s) con estudiantes sin marcar: {$lista}. " .
+                        'Márcalos antes de bloquear.'];
                 }
             }
         }
@@ -1121,6 +1469,42 @@ class AsistenciaModel extends BaseModel
         ", [$seccionId, $periodoId, $userId]);
 
         return ['ok' => $ok, 'mensaje' => $ok ? 'Asistencia bloqueada y aprobada.' : 'Error al bloquear.'];
+    }
+
+    /**
+     * ¿Ya llegó el ÚLTIMO día del bimestre? El auxiliar/RA no bloquea antes
+     * (09/10/2026); el director (forzado) sí. «Hoy» lo da PHP (America/Lima),
+     * no NOW() de MySQL — mismo criterio que `listarPeriodosActivos`.
+     *
+     * @param array{fecha_fin:string} $periodo
+     */
+    public static function bimestreTerminado(array $periodo, ?string $hoy = null): bool
+    {
+        return ($hoy ?? date('Y-m-d')) >= substr((string) ($periodo['fecha_fin'] ?? ''), 0, 10);
+    }
+
+    /** 'AAAA-MM-DD…' → 'DD/MM'. */
+    public static function ddmm(string $fecha): string
+    {
+        return substr($fecha, 8, 2) . '/' . substr($fecha, 5, 2);
+    }
+
+    /**
+     * Ids de las secciones con la asistencia BLOQUEADA (cierre vigente) en un
+     * periodo, para el badge del índice.
+     *
+     * @return array<int, true> [seccion_id => true]
+     */
+    public function seccionesBloqueadas(int $periodoId): array
+    {
+        $out = [];
+        foreach ($this->query("
+            SELECT DISTINCT seccion_id FROM cierres_asistencia
+            WHERE periodo_id = ? AND anulado_en IS NULL
+        ", [$periodoId]) as $r) {
+            $out[(int) $r['seccion_id']] = true;
+        }
+        return $out;
     }
 
     /** Desbloqueo (director/admin): anula el cierre vigente con traza. */
@@ -1479,17 +1863,7 @@ class AsistenciaModel extends BaseModel
      */
     public function periodoEditable(int $periodoId): bool
     {
-        $p = $this->queryOne("
-            SELECT estado, limite_notas
-            FROM periodos WHERE id = ?
-        ", [$periodoId]);
-
-        if (!$p || $p['estado'] !== 'activo') {
-            return false;
-        }
-        if ($p['limite_notas'] && strtotime($p['limite_notas']) < time()) {
-            return false;
-        }
-        return true;
+        // Punto único de la compuerta temporal (09/10/2026).
+        return (new EdicionPeriodoModel())->esEditable($periodoId, EdicionPeriodoModel::ROL_AUXILIAR);
     }
 }

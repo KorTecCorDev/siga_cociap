@@ -4,6 +4,7 @@ namespace App\Controllers\Docente;
 
 use App\Controllers\BaseController;
 use App\Models\ConductaModel;
+use App\Models\EdicionPeriodoModel;
 use App\Models\TransversalModel;
 use Core\Session;
 
@@ -78,7 +79,7 @@ class ConductaTutorController extends BaseController
             : [];
 
         $cerradoTutor = $cierre && !empty($cierre['tutor_cerrado_en']);
-        $editable     = $cierre && !$cerradoTutor && $this->model->periodoEditable($pid);
+        $editable     = $cierre && !$cerradoTutor && $this->plazoVigente($pid);
 
         $this->view('docente/conducta', [
             'titulo'       => 'Conducta — Sección ' . $seccion['nombre'],
@@ -187,13 +188,12 @@ class ConductaTutorController extends BaseController
         $cierre = $this->model->getCierreVigente($sid, $pid);
         if (!$cierre) {
             $this->json(['success' => false, 'mensaje' =>
-                'Todavía los auxiliares académicos no han registrado sus calificaciones de conducta. ' .
-                'Consulta con Registro Académico para más información.'], 403);
+                'La conducta de esta sección todavía no está registrada.'], 403);
         }
         if (!empty($cierre['tutor_cerrado_en'])) {
             $this->json(['success' => false, 'mensaje' => 'La conducta de esta sección ya fue cerrada.'], 403);
         }
-        if (!$this->model->periodoEditable($pid)) {
+        if (!$this->plazoVigente($pid)) {
             $this->json(['success' => false, 'mensaje' => 'El periodo no está disponible para edición.'], 403);
         }
 
@@ -226,11 +226,20 @@ class ConductaTutorController extends BaseController
         $pid = (int) $periodoId;
         $sid = (int) $seccion['id'];
 
-        if (!$this->model->periodoEditable($pid)) {
+        if (!$this->plazoVigente($pid)) {
             $this->json(['success' => false, 'mensaje' => 'El periodo no está disponible para edición.'], 403);
         }
 
         $res = $this->model->cerrarTutor($sid, $pid, (int) Session::user()['id']);
         $this->json(['success' => $res['ok'], 'mensaje' => $res['mensaje']], $res['ok'] ? 200 : 400);
+    }
+
+    /**
+     * La etapa 2 de conducta es del TUTOR, que es docente: rige la fecha de los
+     * docentes, no la de los auxiliares (plan de bloqueos, 09/10/2026).
+     */
+    private function plazoVigente(int $periodoId): bool
+    {
+        return (new EdicionPeriodoModel())->esEditable($periodoId, EdicionPeriodoModel::ROL_DOCENTE);
     }
 }

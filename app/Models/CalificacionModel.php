@@ -283,21 +283,14 @@ class CalificacionModel extends BaseModel
     }
 
     /**
-     * Verifica si el periodo está bloqueado para el docente.
+     * Verifica si el periodo está bloqueado para el docente. Delega en el
+     * punto único de la compuerta temporal (09/10/2026). Desde ese día un
+     * periodo `pendiente` también cuenta como bloqueado; nunca llega aquí,
+     * porque los callers usan el periodo activo o el de un criterio.
      */
     public function periodoEstaBloqueado(int $periodoId): bool
     {
-        $periodo = $this->queryOne("
-            SELECT limite_notas, estado
-            FROM periodos
-            WHERE id = ?
-        ", [$periodoId]);
-
-        if (!$periodo) return true;
-        if ($periodo['estado'] === 'cerrado') return true;
-        if ($periodo['limite_notas'] === null) return false;
-
-        return strtotime($periodo['limite_notas']) < time();
+        return !(new EdicionPeriodoModel())->esEditable($periodoId, EdicionPeriodoModel::ROL_DOCENTE);
     }
 
     /**

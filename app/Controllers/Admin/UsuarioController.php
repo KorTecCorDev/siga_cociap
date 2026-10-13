@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Models\AuxiliarSeccionModel;
 use App\Models\UsuarioModel;
 use Core\Session;
 
@@ -19,9 +20,28 @@ class UsuarioController extends BaseController
     // GET /admin/usuarios
     public function index(): void
     {
+        // Contexto para el buscador: lo que dicta y tutorea (año activo) y las
+        // secciones de cada auxiliar en el bimestre activo.
+        $contexto   = $this->model->contextoAcademico();
+        $auxiliares = [];
+        $auxModel   = new AuxiliarSeccionModel();
+        $periodo    = $auxModel->periodoActivo();
+        if ($periodo !== null) {
+            foreach ($auxModel->listarParaPeriodo((int) $periodo['id']) as $s) {
+                if ($s['auxiliar_id'] !== null) {
+                    $auxiliares[$s['auxiliar_id']][] = UsuarioModel::etiquetaSeccion(
+                        $s['nivel_nombre'], $s['grado_nombre'], $s['seccion_nombre']
+                    );
+                }
+            }
+        }
+
         $this->view('admin/usuarios/index', [
-            'titulo'   => 'Gestión de Usuarios',
-            'usuarios' => $this->model->listarTodos(),
+            'titulo'       => 'Gestión de Usuarios',
+            'usuarios'     => $this->model->listarTodos(),
+            'contexto'     => $contexto,
+            'auxiliares'   => $auxiliares,
+            'page_scripts' => ['usuarios-buscador'],
         ]);
     }
 
@@ -134,15 +154,19 @@ class UsuarioController extends BaseController
     // GET /admin/usuarios/{id}/editar
     public function edit(int $id): void
     {
+        $filtro  = $this->filtroLista(desdeFormulario: false);
+        $volver  = $this->conFiltro('admin/usuarios', $filtro);
         $usuario = $this->model->findById($id);
         if (!$usuario) {
-            $this->redirectWithError(url('admin/usuarios'), 'Usuario no encontrado.');
+            $this->redirectWithError($volver, 'Usuario no encontrado.');
         }
 
         $this->view('admin/usuarios/editar', [
             'titulo'  => 'Editar Usuario',
             'usuario' => $usuario,
             'roles'   => $this->model->listarRoles(),
+            'filtro'  => $filtro,
+            'volver'  => $volver,
         ]);
     }
 
@@ -151,9 +175,13 @@ class UsuarioController extends BaseController
     {
         $this->validateCsrf();
 
+        $filtro  = $this->filtroLista();
+        $volver  = $this->conFiltro('admin/usuarios', $filtro);
+        $reabrir = $this->conFiltro("admin/usuarios/{$id}/editar", $filtro);
+
         $usuario = $this->model->findById($id);
         if (!$usuario) {
-            $this->redirectWithError(url('admin/usuarios'), 'Usuario no encontrado.');
+            $this->redirectWithError($volver, 'Usuario no encontrado.');
         }
 
         $datos = $this->recogerInput();
@@ -172,7 +200,7 @@ class UsuarioController extends BaseController
         }
 
         if ($error) {
-            $this->redirectWithError(url("admin/usuarios/{$id}/editar"), $error);
+            $this->redirectWithError($reabrir, $error);
         }
 
         try {
@@ -185,10 +213,10 @@ class UsuarioController extends BaseController
             );
         } catch (\Exception $e) {
             log_error('Error actualizando usuario', ['id' => $id, 'msg' => $e->getMessage()]);
-            $this->redirectWithError(url("admin/usuarios/{$id}/editar"), 'Error al actualizar el usuario.');
+            $this->redirectWithError($reabrir, 'Error al actualizar el usuario.');
         }
 
-        $this->redirectWithSuccess(url('admin/usuarios'), 'Usuario actualizado correctamente.');
+        $this->redirectWithSuccess($volver, 'Usuario actualizado correctamente.');
     }
 
     // POST /admin/usuarios/{id}/estado
@@ -196,29 +224,68 @@ class UsuarioController extends BaseController
     {
         $this->validateCsrf();
 
+        $volver = $this->urlListaFiltrada();
+
         if ((int) (Session::user()['id'] ?? 0) === $id) {
-            $this->redirectWithError(url('admin/usuarios'), 'No puedes desactivar tu propia cuenta.');
+            $this->redirectWithError($volver, 'No puedes desactivar tu propia cuenta.');
         }
 
         $usuario = $this->model->findById($id);
         if (!$usuario) {
-            $this->redirectWithError(url('admin/usuarios'), 'Usuario no encontrado.');
+            $this->redirectWithError($volver, 'Usuario no encontrado.');
         }
 
         // No desactivar al último admin activo
         if ($usuario['rol_codigo'] === 'admin' && $usuario['estado'] === 'activo') {
             if ($this->model->contarPorRolCodigo('admin') <= 1) {
-                $this->redirectWithError(url('admin/usuarios'), 'No puedes desactivar al único administrador activo.');
+                $this->redirectWithError($volver, 'No puedes desactivar al único administrador activo.');
             }
         }
 
         $this->model->toggleEstado($id);
 
         $nuevoEstado = $usuario['estado'] === 'activo' ? 'desactivado' : 'activado';
-        $this->redirectWithSuccess(url('admin/usuarios'), "Usuario {$nuevoEstado} correctamente.");
+        $this->redirectWithSuccess($volver, "Usuario {$nuevoEstado} correctamente.");
     }
 
     // ── Métodos privados ──────────────────────────────────────────
+
+    /**
+     * Filtro del buscador de la lista (`q`, `rol`, `estado`) que viaja a
+     * Activar/Desactivar y a Editar, para volver a la lista tal como estaba.
+     * Del formulario llega como `filtro_*` (POST); al abrir Editar, en la URL
+     * (GET). Solo pasa lo que el buscador puede producir.
+     *
+     * @return array<string, string>
+     */
+    private function filtroLista(bool $desdeFormulario = true): array
+    {
+        $leer = function (string $campo) use ($desdeFormulario): string {
+            $v = $desdeFormulario ? $this->input('filtro_' . $campo, '') : $this->query($campo, '');
+            return is_string($v) ? $v : '';
+        };
+        $q      = trim($leer('q'));
+        $rol    = $leer('rol');
+        $estado = $leer('estado');
+
+        return array_filter([
+            'q'      => mb_strlen($q) <= 100 ? $q : '',
+            'rol'    => preg_match('/^[a-z_]{1,40}$/', $rol) ? $rol : '',
+            'estado' => in_array($estado, ['activo', 'inactivo'], true) ? $estado : '',
+        ], static fn(string $v): bool => $v !== '');
+    }
+
+    /** La ruta dada con el filtro de la lista; la ruta es siempre la propia. */
+    private function conFiltro(string $ruta, array $filtro): string
+    {
+        return url($ruta) . ($filtro ? '?' . http_build_query($filtro) : '');
+    }
+
+    /** /admin/usuarios con el filtro que venía en el formulario. */
+    private function urlListaFiltrada(): string
+    {
+        return $this->conFiltro('admin/usuarios', $this->filtroLista());
+    }
 
     private function recogerInput(): array
     {

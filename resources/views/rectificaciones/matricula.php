@@ -111,6 +111,89 @@ $labelComp = static function (array $c): string {
     <?php endforeach; ?>
 <?php endif; ?>
 
+<?php if (!empty($conductaRect)): ?>
+    <div class="card mb-md">
+        <div class="card__body">
+            <p class="form-section-title">Conducta</p>
+            <div class="tabla-notas-wrapper">
+                <table class="tabla-notas">
+                    <thead>
+                        <tr>
+                            <th>Bimestre</th>
+                            <th class="text-center">Literal actual</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($conductaRect as $c): ?>
+                        <tr>
+                            <td><?= e($c['periodo_nombre'] ?? ('Bimestre ' . $c['periodo_numero'])) ?></td>
+                            <td class="text-center"><strong><?= e($c['literal'] ?? '—') ?></strong></td>
+                            <td class="text-center">
+                                <?php if ($c['periodo_estado'] === 'cerrado'): ?>
+                                    <span class="rect-chip rect-chip--cerrado">Bimestre cerrado</span>
+                                <?php else: ?>
+                                    <span class="rect-chip rect-chip--bloqueada">Bloqueada</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="text-center">
+                                <a href="<?= url('rectificaciones/conducta?matricula=' . (int) $info['matricula_id'] . '&periodo=' . (int) $c['periodo_id']) ?>"
+                                   class="btn btn--primary btn--sm">Rectificar</a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($asistenciaRect)): ?>
+    <div class="card mb-md">
+        <div class="card__body">
+            <p class="form-section-title">Asistencia</p>
+            <div class="tabla-notas-wrapper">
+                <table class="tabla-notas">
+                    <thead>
+                        <tr>
+                            <th>Bimestre</th>
+                            <th class="text-center">Faltas</th>
+                            <th class="text-center">Faltas justificadas</th>
+                            <th class="text-center">Tardanzas</th>
+                            <th class="text-center">Tardanzas justificadas</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($asistenciaRect as $a): ?>
+                        <tr>
+                            <td><?= e($a['periodo_nombre'] ?? ('Bimestre ' . $a['periodo_numero'])) ?></td>
+                            <?php foreach (\App\Models\AsistenciaModel::CAMPOS as $campo): ?>
+                                <td class="text-center"><?= (int) $a['contadores'][$campo] ?></td>
+                            <?php endforeach; ?>
+                            <td class="text-center">
+                                <?php if ($a['periodo_estado'] === 'cerrado'): ?>
+                                    <span class="rect-chip rect-chip--cerrado">Bimestre cerrado</span>
+                                <?php else: ?>
+                                    <span class="rect-chip rect-chip--bloqueada">Bloqueada</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="text-center">
+                                <a href="<?= url('rectificaciones/asistencia?matricula=' . (int) $info['matricula_id'] . '&periodo=' . (int) $a['periodo_id']) ?>"
+                                   class="btn btn--primary btn--sm">Rectificar</a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php if (!empty($porPeriodoIns)): ?>
     <div class="card mb-md">
         <div class="card__body">
@@ -221,6 +304,98 @@ $labelComp = static function (array $c): string {
                         <td class="text-sm"><?= e($h['periodo_nombre'] ?? '—') ?></td>
                         <td class="text-center"><?= fmt_nota($h['nota_anterior'] !== null ? (int) $h['nota_anterior'] : null) ?></td>
                         <td class="text-center"><strong><?= fmt_nota($h['nota_nueva'] !== null ? (int) $h['nota_nueva'] : null) ?></strong></td>
+                        <td class="text-sm rect-motivo"><?= e($h['motivo']) ?></td>
+                        <td class="text-sm"><?= e($h['rectificador'] ?? '—') ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php
+$marcaTexto = static fn(string $m): string => [
+    'sin_tomar' => 'Sin tomar', 'asistio' => 'Asistió',
+][$m] ?? $m;
+$histCond = $historialReg['conducta'] ?? [];
+$histAsis = $historialReg['asistencia'] ?? [];
+?>
+
+<?php if (!empty($histCond)): ?>
+<div class="card mb-md">
+    <div class="card__body">
+        <p class="form-section-title">Historial de rectificaciones de conducta</p>
+        <div class="tabla-notas-wrapper">
+            <table class="tabla-notas">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Bimestre</th>
+                        <th>Criterio</th>
+                        <th class="text-center">Antes</th>
+                        <th class="text-center">Después</th>
+                        <th class="text-center">Literal</th>
+                        <th>Motivo</th>
+                        <th>Rectificó</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($histCond as $h): ?>
+                    <tr>
+                        <td class="text-sm"><?= e(fecha_es(substr((string) $h['rectificado_en'], 0, 10))) ?></td>
+                        <td class="text-sm"><?= e($h['periodo_nombre'] ?? '—') ?></td>
+                        <td class="text-sm"><strong><?= e($h['criterio_codigo'] ?? '') ?></strong> <?= e($h['criterio_texto'] ?? '') ?></td>
+                        <td class="text-center"><?= (int) $h['respuesta_anterior'] === 1 ? 'Sí' : 'No' ?></td>
+                        <td class="text-center"><strong><?= (int) $h['respuesta_nueva'] === 1 ? 'Sí' : 'No' ?></strong></td>
+                        <td class="text-center"><?= e($h['literal_anterior'] ?? '—') ?> → <strong><?= e($h['literal_nuevo'] ?? '—') ?></strong></td>
+                        <td class="text-sm rect-motivo"><?= e($h['motivo']) ?></td>
+                        <td class="text-sm"><?= e($h['rectificador'] ?? '—') ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($histAsis)): ?>
+<div class="card mb-md">
+    <div class="card__body">
+        <p class="form-section-title">Historial de rectificaciones de asistencia</p>
+        <div class="tabla-notas-wrapper">
+            <table class="tabla-notas">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Bimestre</th>
+                        <th>Día</th>
+                        <th class="text-center">Antes</th>
+                        <th class="text-center">Después</th>
+                        <th>Motivo</th>
+                        <th>Rectificó</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($histAsis as $h): ?>
+                    <tr>
+                        <td class="text-sm"><?= e(fecha_es(substr((string) $h['rectificado_en'], 0, 10))) ?></td>
+                        <td class="text-sm"><?= e($h['periodo_nombre'] ?? '—') ?></td>
+                        <td class="text-sm"><?= e(fecha_es((string) $h['fecha'])) ?></td>
+                        <td class="text-center text-sm">
+                            <?= e($marcaTexto((string) $h['marca_anterior'])) ?>
+                            <?php if (!empty($h['motivo_anterior'])): ?>
+                                <span class="text-muted">(<?= e($h['motivo_anterior']) ?>)</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-center text-sm">
+                            <strong><?= e($marcaTexto((string) $h['marca_nueva'])) ?></strong>
+                            <?php if (!empty($h['motivo_nuevo'])): ?>
+                                <span class="text-muted">(<?= e($h['motivo_nuevo']) ?>)</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-sm rect-motivo"><?= e($h['motivo']) ?></td>
                         <td class="text-sm"><?= e($h['rectificador'] ?? '—') ?></td>
                     </tr>

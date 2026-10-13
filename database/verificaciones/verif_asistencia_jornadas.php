@@ -6,14 +6,15 @@
  * docs/modulos/confirmacion-y-asistencia-por-fechas.md.
  *
  * Qué protege, con las DOS ramas de cada regla:
- *   1) ESTRUCTURA: `marcarDia` toma la lista en su transacción; `bloquearRA`
- *      exige `diasSinTomar`; rutas literales `no-lectivos` antes de `{id}`; el
- *      CHECK `chk_justificada_con_motivo` existe en la base.
- *   2) DATOS: FJ/TJ sin motivo rechazadas (modelo y CHECK); marcar toma la lista
- *      (sin duplicarla); deshacer con y sin incidencias; pasar lista en día
+ *   1) ESTRUCTURA: `marcarDia` YA NO toma la lista (09/10/2026, migración 077:
+ *      cada marca afirma solo sobre su estudiante); no existe «deshacer»;
+ *      `bloquearRA` exige `pendientesPorDia`; rutas literales `no-lectivos`
+ *      antes de `{id}`; el CHECK `chk_justificada_con_motivo` existe en la base.
+ *   2) DATOS: FJ/TJ sin motivo rechazadas (modelo y CHECK); pasar lista en día
  *      válido e inválido; no lectivo con y sin incidencias, repetido, sábado, y
  *      su efecto (no marcable, listas borradas, quitar lo devuelve); bloqueo con
- *      y sin días sin tomar, y forzado.
+ *      y sin días sin tomar, y forzado. Los ✓ por estudiante se prueban en
+ *      `verif_asistencia_presencias.php`.
  *
  * 🔴 NO DEJA RASTRO: una transacción que se revierte; los métodos que abren la
  * suya se prueban con SUBCLASES que las vuelven SAVEPOINTs (mismo recurso que
@@ -68,9 +69,10 @@ $src = str_replace("\r\n", "\n", (string) file_get_contents(ROOT_PATH . '/app/Mo
 $cuerpoDe = function (string $src, string $metodo): string {
     return preg_match('/function ' . $metodo . '\(.*?\n    \}\n/s', $src, $mm) ? $mm[0] : '';
 };
-$chk('marcarDia toma la LISTA DEL DÍA', str_contains($cuerpoDe($src, 'marcarDia'), '->tomar('));
+$chk('marcarDia YA NO toma la lista de la sección (077)', !str_contains($cuerpoDe($src, 'marcarDia'), '->tomar('));
 $chk('marcarDia valida el día sin los NO LECTIVOS', str_contains($cuerpoDe($src, 'marcarDia'), '->noLectivos()'));
-$chk('bloquearRA exige los días con lista (diasSinTomar)', str_contains($cuerpoDe($src, 'bloquearRA'), 'diasSinTomar('));
+$chk('bloquearRA exige cada estudiante cada día (pendientesPorDia)', str_contains($cuerpoDe($src, 'bloquearRA'), 'pendientesPorDia('));
+$chk('no existe «deshacer lista» (077)', !method_exists(App\Models\AsistenciaJornadaModel::class, 'deshacer'));
 $chk('diasMarcables sigue reusando el día hábil de la planilla',
     str_contains($cuerpoDe($src, 'diasMarcables'), 'PlanillaAsistenciaModel::diasPlanilla('));
 $rutas = (string) file_get_contents(ROOT_PATH . '/routes/web.php');
@@ -125,11 +127,16 @@ if (!$fila || !$usuario || !$motivo || count($libres) < 3) {
         (SELECT COUNT(*) FROM asistencia_jornadas WHERE seccion_id = ? AND periodo_id = ?) AS jor,
         (SELECT COUNT(*) FROM asistencia_dias_no_lectivos) AS nl,
         (SELECT COUNT(*) FROM asistencia_incidencias WHERE matricula_id = ? AND periodo_id = ?) AS inc,
+        (SELECT COUNT(*) FROM asistencia_presencias) AS pres,
         (SELECT COUNT(*) FROM cierres_asistencia WHERE seccion_id = ? AND periodo_id = ? AND anulado_en IS NULL) AS z
     ", [$sid, $pid, $mid, $pid, $sid, $pid]);
     $listasDe = fn(string $d): int => (int) $m->queryOne(
         "SELECT COUNT(*) AS n FROM asistencia_jornadas WHERE seccion_id = ? AND periodo_id = ? AND fecha = ?",
         [$sid, $pid, $d])['n'];
+    // Sin «deshacer» en la app (077): para preparar un día SIN lista se borra a
+    // mano DENTRO de la transacción que se revierte.
+    $quitarLista = fn(string $d) => $m->execute(
+        "DELETE FROM asistencia_jornadas WHERE seccion_id = ? AND periodo_id = ? AND fecha = ?", [$sid, $pid, $d]);
 
     $pdo = $m->pdo();
     $pdo->beginTransaction();
@@ -149,24 +156,18 @@ if (!$fila || !$usuario || !$motivo || count($libres) < 3) {
         $pdo->exec('ROLLBACK TO SAVEPOINT verif_chk');
         $chk('a) la BASE rechaza dejar una FJ sin motivo (CHECK)', $lanzo);
 
-        // b) Deshacer: con incidencias no, sin incidencias sí.
-        $chk('b) deshacer la lista de un día CON incidencias se rechaza', !$j->deshacer($sid, $pid, $d1)['ok'] && $listasDe($d1) === 1);
-        $m->marcarDia($mid, $pid, $d1, null, null, $uid);
-        $chk('b) sin incidencias, deshacer funciona', $j->deshacer($sid, $pid, $d1)['ok'] && $listasDe($d1) === 0);
-
-        // c) Marcar toma la lista; repetir no la duplica. «✓ asistió» también la toma.
+        // b) y c) Ninguna marca individual toma la lista (077; antes sí la tomaba).
+        $quitarLista($d1);
         $r = $m->marcarDia($mid, $pid, $d1, 'F', null, $uid);
-        $chk('c) marcar una F toma la lista del día', $r['ok'] && !empty($r['jornada_tomada']) && $listasDe($d1) === 1);
-        $m->marcarDia($mid, $pid, $d1, 'T', null, $uid);
-        $chk('c) otra marca el mismo día no duplica la lista', $listasDe($d1) === 1);
+        $chk('c) marcar una F NO toma la lista del día', $r['ok'] && !array_key_exists('jornada_tomada', $r) && $listasDe($d1) === 0);
         $m->marcarDia($mid, $pid, $d1, null, null, $uid);
-        $j->deshacer($sid, $pid, $d1);
-        $m->marcarDia($mid, $pid, $d1, null, null, $uid);
-        $chk('c) «✓ asistió» en un día sin tomar también toma la lista', $listasDe($d1) === 1);
+        $chk('c) «✓ asistió» tampoco toma la lista', $listasDe($d1) === 0);
 
-        // d) Pasar lista: día válido sí; sábado y futuro no.
-        $j->deshacer($sid, $pid, $d2);
+        // d) Pasar lista: día válido sí; sábado y futuro no. Repetir no duplica.
+        $quitarLista($d2);
         $chk('d) pasar lista en un día marcable funciona', $j->pasarLista($sid, $per, $d2, $uid)['ok'] && $listasDe($d2) === 1);
+        $j->pasarLista($sid, $per, $d2, $uid);
+        $chk('d) pasar lista otra vez no la duplica', $listasDe($d2) === 1);
         $sabado = null;
         for ($d = new DateTimeImmutable($per['fecha_inicio']); $d->format('Y-m-d') <= $per['fecha_fin']; $d = $d->modify('+1 day')) {
             if ($d->format('N') === '6') { $sabado = $d->format('Y-m-d'); break; }
@@ -195,7 +196,7 @@ if (!$fila || !$usuario || !$motivo || count($libres) < 3) {
         $prog = $m->getProgresoPorSeccion($pid)[$sid] ?? ['esperados' => 0, 'registrados' => 0];
         $chk('f) escenario: todos confirmados', $prog['esperados'] > 0 && $prog['registrados'] >= $prog['esperados']);
         $r = $m->bloquearRA($sid, $pid, $uid);
-        $chk('f) bloquear con días SIN TOMAR se rechaza', !$r['ok'] && str_contains($r['mensaje'], 'sin lista'));
+        $chk('f) bloquear con días SIN TOMAR se rechaza', !$r['ok'] && str_contains($r['mensaje'], 'sin marcar'));
         foreach ($j->diasSinTomar($sid, $per) as $f) { $j->pasarLista($sid, $per, $f, $uid); }
         $chk('f) con todos los días tomados, bloquear se acepta', $j->diasSinTomar($sid, $per) === [] && $m->bloquearRA($sid, $pid, $uid)['ok']);
     } finally {
@@ -205,7 +206,8 @@ if (!$fila || !$usuario || !$motivo || count($libres) < 3) {
     // g) Forzado del director: pasa aunque haya días sin tomar (otra transacción).
     $pdo->beginTransaction();
     try {
-        $j->deshacer($sid, $pid, $d2);
+        $quitarLista($d2);
+        $chk('g) escenario: hay días sin tomar', $j->diasSinTomar($sid, $per) !== []);
         $chk('g) el bloqueo FORZADO (director) no exige los días', $m->bloquearRA($sid, $pid, $uid, true)['ok']);
     } finally {
         $pdo->rollBack();
@@ -215,6 +217,7 @@ if (!$fila || !$usuario || !$motivo || count($libres) < 3) {
         (SELECT COUNT(*) FROM asistencia_jornadas WHERE seccion_id = ? AND periodo_id = ?) AS jor,
         (SELECT COUNT(*) FROM asistencia_dias_no_lectivos) AS nl,
         (SELECT COUNT(*) FROM asistencia_incidencias WHERE matricula_id = ? AND periodo_id = ?) AS inc,
+        (SELECT COUNT(*) FROM asistencia_presencias) AS pres,
         (SELECT COUNT(*) FROM cierres_asistencia WHERE seccion_id = ? AND periodo_id = ? AND anulado_en IS NULL) AS z
     ", [$sid, $pid, $mid, $pid, $sid, $pid]);
     $chk('el rollback no dejó rastro (listas, no lectivos, incidencias ni cierre)', $antes == $despues);

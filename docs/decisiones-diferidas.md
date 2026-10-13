@@ -20,9 +20,12 @@ por decisión del usuario:
   seguirían saliendo de `recalcularContadores`, sin tocar boleta ni cierres.
   - **Diseño acordado el 30/09/2026.** El QR **invierte la presunción**: con la lista
     manual, el estudiante asistió salvo que se marque otra cosa; con el QR, faltó hasta
-    que lo escaneen. La **lista del día** (`asistencia_jornadas`, migración 070) es el
-    ancla: el ingreso por QR la abre con `origen = 'qr'`.
-  - **Tabla nueva para los escaneos:** matrícula, fecha, hora y quién escaneó.
+    que lo escaneen. ⚠️ **Actualizado el 09/10/2026 (migración 077):** el QR **NO** debe
+    abrir la lista de la sección (`asistencia_jornadas`): desde la 077 la lista significa
+    «todos los que no tienen marca propia asistieron», justo la presunción que el QR
+    invierte. Cada escaneo escribe el **✓ propio** del estudiante.
+  - **Tabla de los escaneos:** ya existe, `asistencia_presencias` (migración 077, con
+    `origen ENUM('manual','qr')`). Al QR le faltaría sumarle la **hora** del escaneo.
   - **Tardanza:** quien llega después de la **hora límite** recibe una T. La hora límite
     es configurable por Dirección, por nivel o turno, nunca fija en el código.
   - **Falta:** al **cerrar el ingreso**, quien no escaneó recibe una F. El cierre lo hace

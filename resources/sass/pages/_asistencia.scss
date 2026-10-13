@@ -53,6 +53,23 @@
     }
 }
 
+// ── Sección bloqueada en el índice (09/10/2026) ─────────────
+// Mismos valores que .conducta-estado-badge y .conducta-seccion-card--bloqueada.
+.asistencia-estado-badge {
+    display: inline-block;
+    margin-top: $spacing-sm;
+    padding: 2px $spacing-sm;
+    border-radius: $border-radius-sm;
+    font-size: $font-size-sm;
+    font-weight: 600;
+
+    &--bloqueada { background: $color-warning-bg; color: $color-warning; }
+}
+
+.asistencia-seccion-card--bloqueada {
+    border-color: rgba($color-success, 0.4);
+}
+
 // ── Barra de progreso del índice ────────────────────────────
 // Mismo patrón --pct que .conducta-progreso y .carga-progreso.
 .asistencia-progreso {
@@ -398,6 +415,173 @@ $af-asistio:  $text-secondary;
     .tr-anexo-tipo   { width: 64px; text-align: center; font-weight: 700; }
 }
 
+// Vista «Justificaciones» de la sección (09/10/2026). Cifras con las cajas de
+// los cuadros (`.cuadros-kpi`) y tablas con el formato del anexo.
+.just-seccion {
+    &__kpis { margin-bottom: $spacing-sm; }
+    &__nota { margin: 0 0 $spacing-md; }
+
+    &__tabla {
+        th               { white-space: nowrap; }
+        .tr-anexo-motivo { text-align: left; }
+        .tr-anexo-estado { width: 130px; text-align: center; }
+        .tr-nombre .af-estado { margin-left: $spacing-xs; }
+        // Seguimiento de faltas (13/10/2026): apoderado y celular.
+        .tr-anexo-apoderado { text-align: left; }
+        .tr-anexo-celular   { white-space: nowrap; text-align: center; }
+        // Cifras con rótulo en palabras («Cuentan como falta»): el rótulo puede
+        // partirse en dos líneas, la cifra no.
+        th.tr-anexo-cifra   { white-space: normal; }
+        .tr-anexo-cifra     { width: 96px; text-align: center; font-weight: 700; }
+        // Cantidad + fechas de cada categoría (tabla por estudiante).
+        th.tr-anexo-fechas  { white-space: normal; text-align: left; }
+        .tr-anexo-fechas    { min-width: 150px; text-align: left; vertical-align: top; }
+    }
+
+    // Rótulo bajo la pastilla en los encabezados de columna.
+    &__rotulo {
+        display: block;
+        margin-top: 2px;
+    }
+
+
+    // Celular del apoderado: enlace `tel:` que en el teléfono abre el marcador.
+    &__tel {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    // Columna «Sección» del reporte del auxiliar (13/10/2026).
+    &__seccion { white-space: nowrap; text-align: left; }
+}
+
+// Celda de fechas de las justificaciones (13/10/2026), parcial `_celda-fechas.php`:
+// la cantidad y debajo una FICHA por fecha o por tramo de días seguidos. Cada
+// ficha lleva el color de su categoría, con el MISMO patrón que las pastillas
+// del encabezado: FJ + documento · FJ · TJ. Colores e icono salen de los puntos
+// únicos de arriba ($af-*, `af-esquina-motivo`): no copiar valores.
+.just-celda {
+    &__n { display: block; }
+
+    &__fechas {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+    }
+}
+
+.just-fecha {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    background: $bg-secondary;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    line-height: 1.5;
+    white-space: nowrap;
+
+    // Colores de la categoría (los de la pastilla con contorno).
+    &--fj,
+    &--fj-doc { border-color: $af-fj-borde; background: $af-fj-fondo; color: $af-fj-texto; }
+    &--tj     { border-color: $af-tj-borde; background: $af-tj-fondo; color: $af-tj-texto; }
+
+    // Falta justificada con el MOTIVO PRINCIPAL: el icono de documento en la
+    // esquina, como la celda del calendario y la pastilla FJ del encabezado.
+    &--fj-doc {
+        @include af-esquina-motivo;
+        padding-right: 14px;
+    }
+
+    // Tramo de días seguidos: borde más grueso y texto en negrita, para que se
+    // distinga de un día suelto.
+    &--tramo {
+        border-width: 1.5px;
+        font-weight: 600;
+    }
+
+    &__dias { font-weight: 400; opacity: .85; }
+}
+
+// Motivo principal en la tabla «Por motivo» (13/10/2026): se identifica, no se
+// escribe. Nombre en negrita + el MISMO icono de documento de la grilla, las
+// pastillas y las fichas (doc-add.svg, color de FJ).
+.just-motivo--ancla { font-weight: 700; }
+
+.just-motivo__doc {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: 4px;
+    vertical-align: -1px;
+    background-color: $af-fj-texto;
+    -webkit-mask: url('../assets/icons/doc-add.svg') center / contain no-repeat;
+            mask: url('../assets/icons/doc-add.svg') center / contain no-repeat;
+}
+
+// A4 del reporte del auxiliar (13/10/2026), `auxiliar/justificaciones-imprimir.php`.
+// El contenedor, el ancho fijo y la cabecera son de `.cuadros-print`
+// (_cuadros.scss); aquí solo se compacta el cuerpo, que es el MISMO parcial de
+// la pantalla, y se deja partir las tablas largas repitiendo la cabecera.
+.just-print {
+    font-size: 10px;
+
+    .cuadros-kpis { grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; }
+    .cuadros-kpi  { padding: 4px 8px; }
+
+    .asistencia-anexo-titulo {
+        font-size: 12px;
+        margin: 10px 0 4px;
+        padding-bottom: 2px;
+        border-bottom: 1px solid #000;
+    }
+
+    .just-leyenda { font-size: 9px; margin-bottom: 6px; }
+
+    // Sin scroll en papel: la tabla se ve entera y se parte entre hojas.
+    .tabla-notas-wrapper { overflow: visible; }
+    table { font-size: 9px; page-break-inside: auto; }
+    tr    { page-break-inside: avoid; }        // una fila nunca se corta por la mitad
+    thead { display: table-header-group; }     // la cabecera vuelve en cada hoja
+    th, td { padding: 3px 4px; }
+
+    // Los suelos de ancho de pantalla no caben en los 702px útiles de la hoja.
+    .tr-anexo-fechas { min-width: 0; }
+    .tr-anexo-cifra  { width: auto; }
+    .just-fecha      { font-size: 8.5px; padding: 0 4px; }
+    .just-fecha--fj-doc { padding-right: 12px; }
+
+    .just-grafico {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        page-break-inside: avoid;
+
+        // Red de seguridad por si el SVG naciera más ancho que la hoja.
+        svg { max-width: 100%; height: auto; }
+    }
+}
+
+// Leyenda de las justificaciones (13/10/2026), parcial compartido por la vista
+// de la sección y el reporte del auxiliar.
+.just-leyenda {
+    margin: 0 0 $spacing-md;
+    padding: 0;
+    list-style: none;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+
+    // Pastilla en una columna fija: los textos quedan alineados entre sí.
+    li {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+    }
+    li + li { margin-top: $spacing-xs; }
+    .af-tipo { flex-shrink: 0; }
+    strong { color: $text-primary; }
+}
+
 // Selector de mes (mismo patrón que el de años de los criterios de conducta).
 .af-meses {
     display: flex;
@@ -434,6 +618,8 @@ $af-asistio:  $text-secondary;
         top: 0;
         z-index: 4;                               // sobre las celdas fijas del cuerpo
         box-shadow: inset 0 -1px 0 $border-color; // el borde inferior se va con el scroll
+        // NUNCA `opacity` en un th fijo: transparenta también su fondo y las filas
+        // se ven por debajo al bajar. Para atenuar un día, solo su texto (09/10/2026).
     }
     // La esquina (N° y nombre) es fija en los dos ejes: la más alta.
     .af-grilla thead .col-num,
@@ -457,7 +643,8 @@ $af-asistio:  $text-secondary;
         text-align: center;
         line-height: 1.1;
 
-        &--futuro { opacity: .45; }
+        &--futuro .af-th-dia__abrev,
+        &--futuro .af-th-dia__num { color: $text-muted; }
     }
     .af-th-dia__abrev { display: block; font-size: 10px; text-transform: uppercase; }
     .af-th-dia__num   { display: block; font-weight: 700; color: $text-primary; }
@@ -630,7 +817,8 @@ $af-asistio:  $text-secondary;
 // ── Encabezado del día: estado de su LISTA (30/09/2026) ────────────────────
 .af-grilla th.af-th-dia {
     &.af-th-dia--sin-tomar { background: $color-warning-bg; }
-    &.af-th-dia--no-lectivo { opacity: .55; }
+    &.af-th-dia--no-lectivo .af-th-dia__abrev,
+    &.af-th-dia--no-lectivo .af-th-dia__num { color: $text-muted; }
 }
 
 .af-th-dia__lista {
@@ -718,14 +906,47 @@ $af-asistio:  $text-secondary;
     &.af-celda--con-motivo::after { top: 4px; right: 4px; width: 14px; height: 14px; }
 }
 
+// Justificaciones del estudiante (09/10/2026): chips con el color de la pastilla
+// del contador (`.af-tipo--fj|tj`, mixin `af-tipo-colores`) y tabla por fecha.
 .af-justificaciones {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $spacing-xs;
     margin: $spacing-md 0 0;
-    padding: 0;
-    list-style: none;
 
     &[hidden] { display: none; }
+
+    &__titulo {
+        margin: 0 0 $spacing-xs;
+        font-size: $font-size-base;
+        font-weight: 700;
+    }
+
+    &__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+        margin: 0 0 $spacing-sm;
+        padding: 0;
+        list-style: none;
+    }
+
     &__falta { border-style: dashed; color: $color-warning; }
+
+    // Tamaño de botón sobre la pastilla: el color no se toca.
+    .af-tipo.af-justificaciones__chip {
+        min-height: 36px;
+        padding: $spacing-xs $spacing-sm;
+        font-size: $font-size-sm;
+        font-weight: 700;
+        cursor: pointer;
+
+        &.af-tipo--con-motivo { padding-right: 16px; }
+        &:focus-visible { outline: 2px solid $brand-mid; outline-offset: 2px; }
+    }
+
+    &__tabla th { white-space: nowrap; }
+
+    &__fila {
+        cursor: pointer;
+
+        &:focus-visible { outline: 2px solid $brand-mid; outline-offset: -2px; }
+    }
 }

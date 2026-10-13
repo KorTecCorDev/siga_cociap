@@ -7,10 +7,7 @@ Proyecto de tesis para obtener el título de Ingeniero de Sistemas e Informátic
 
 ## Stack tecnológico
 - **Backend:** PHP 8.2 — framework MVC propio (sin Laravel aún)
-- **Frontend:** HTML + SASS + JavaScript vanilla
 - **Base de datos:** MySQL (XAMPP local) - Versión de MariaDB 10.4.32-MariaDB // Conjunto de caracteres del servidor: UTF-8 Unicode (utf8mb4) // Apache/2.4.58 (Win64) OpenSSL/3.1.3 PHP/8.2.12 // Versión del cliente de base de datos: libmysql - mysqlnd 8.2.12 // Versión de PHP: 8.2.12
-- **Build tool:** Gulp (SASS → CSS, BrowserSync)
-- **Control de versiones:** Git + GitHub
 - **Objetivo futuro:** Migrar a Laravel
 ## Filosofía de Trabajo (OBLIGATORIO)
 
@@ -120,21 +117,6 @@ Toda implementación debe respetar las siguientes prácticas:
 - Manejo seguro de sesiones y autenticación cuando corresponda.
 
 Nunca sacrifiques seguridad por rapidez de implementación.
-
----
-
-### Estilo del Código
-
-Respeta siempre:
-
-- Convenciones de nombres existentes.
-- Organización de carpetas.
-- Estructura del proyecto.
-- Estilo de codificación.
-- Patrones ya utilizados.
-- Consistencia con el resto del sistema.
-
-El código nuevo debe integrarse naturalmente con el código existente.
 
 ---
 
@@ -310,16 +292,22 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   Bimestre 2026 son histórico de solo números. Protegido por
   `verif_asistencia_fechas.php` y `verif_confirmacion_conducta.php`. Ver
   `docs/modulos/confirmacion-y-asistencia-por-fechas.md`.
-- **Lista del día y justificación con motivo** (migración 070, 30/09/2026):
-  - **✓ asistió NO es un dato por estudiante.** Es «la sección tiene su lista
-    (`asistencia_jornadas`) ese día» más «el estudiante no tiene incidencia». Sin lista,
-    el día está «Sin tomar» y no se afirma nada.
-  - Cualquier marca toma la lista (`marcarDia`).
-  - El bloqueo del auxiliar/RA exige **0 días sin tomar**; el del director es forzado.
+- **Lista del día, ✓ por estudiante y justificación con motivo** (migraciones 070 y
+  077; deroga el 09/10/2026 la regla «✓ asistió NO es un dato por estudiante»):
+  - Un día de un estudiante está **cubierto** si tiene incidencia, su **propio ✓**
+    (`asistencia_presencias`) o la **lista de la sección** (`asistencia_jornadas` =
+    «todos los que no tienen marca propia asistieron»). Si no, está «Sin tomar» y no se
+    afirma nada. Sirve a los dos modos del auxiliar: en bloque o uno por uno.
+  - **Una marca individual afirma SOLO sobre ese estudiante**: `marcarDia` ya NO toma la
+    lista. Presencia e incidencia de un día nunca conviven (misma transacción). Los dos
+    ✓ se ven IGUAL. **No hay «deshacer lista»**: un día se corrige marcando.
+  - El bloqueo del auxiliar/RA exige **cada estudiante, cada día** (`pendientesPorDia`);
+    el del director es forzado.
   - **FJ/TJ SIEMPRE con motivo**: lo exigen el modelo y el CHECK
     `chk_justificada_con_motivo`, así que no existen ni como borrador.
   - Los **días no lectivos** son de todo el colegio y se excluyen de `diasMarcables`.
-  - PUNTO ÚNICO: `AsistenciaJornadaModel`. Protegido por `verif_asistencia_jornadas.php`.
+  - PUNTO ÚNICO: `AsistenciaJornadaModel` (las tres tablas). Protegido por
+    `verif_asistencia_jornadas.php` y `verif_asistencia_presencias.php`.
 - **Orden de mérito excluye áreas `tipo IN ('transversal','tutoria')`, con UNA excepción:
   ÉTICA Y VALORES cuenta en TODA secundaria, 5.º incluido** (decisión cerrada 05/08/2026).
   **Ética NO es tutoría**: es la nota del área-curso **Educación Religiosa de secundaria**,
@@ -446,6 +434,14 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   tras el commit del guardado oficial. PUNTO ÚNICO `BorradorModel`; se restaura por el `$old`
   del formulario (pintado por el servidor), nunca rellenando campos desde JS. Ver
   `docs/modulos/borradores-y-sesion.md`.
+- **Plazo de registro: PUNTO ÚNICO `EdicionPeriodoModel`** (09/10/2026). Toda pregunta
+  «¿se puede registrar en este periodo?» y todo «días para el cierre» pasan por él, con el
+  ROL de quien registra el dato: `ROL_DOCENTE` (académicas, TIC/GAMA y todo lo del tutor)
+  o `ROL_AUXILIAR` (conducta etapa 1 y asistencia, aunque las registre RA). **Dos fechas**
+  (migración 078): docentes = `limite_notas`; auxiliares = `limite_auxiliares`, ANTERIOR,
+  vacía = la de notas (solo `limiteDe()` elige). El tutor NO tiene plazo extra. NUNCA
+  comparar `limite_notas` a mano (lo barre `verif_plazo_edicion.php`). Ver
+  `docs/modulos/cierre-cuatro-registros.md` §0.
 - **PDO preparado siempre**; `cargas_academicas` y `criterios` NO tienen UNIQUE KEY →
   proteger duplicados con `WHERE NOT EXISTS`.
 - **NUNCA CSS inline en PHP** — todo en SASS bajo `resources/sass/` + `gulp build`.
@@ -499,25 +495,7 @@ lo compila Gulp, `config/database.php` no lleva secretos, `routes/web.php` es la
   - Primaria: obligatoria en B y C
   - Secundaria: obligatoria solo en C
 
-## Flujo de calificaciones (módulo principal)
-```
-1. Docente entra a su carga académica
-2. Define criterios de evaluación (libres, igual peso)
-3. Ingresa notas por criterio para todos los alumnos
-4. Sistema calcula promedio automáticamente
-5. Docente ve resumen → agrega conclusiones descriptivas
-6. Docente aprueba y bloquea la competencia
-7. Padre puede ver notas, criterios y conclusiones
-8. Padre accede a la boleta desde /padre/notas SIEMPRE por token:
-   - "Ver boleta digital"  → /boleta/digital/{token}  (mobile-first)
-   - "🖨 Imprimir"          → /boleta/ver/{token}      (A4 landscape)
-```
-
 ## Convenciones de código
-- **Namespace:** `App\Controllers\`, `App\Models\`, `Core\`
-- **Rutas:** `$router->get('/ruta', 'Namespace\Controlador@metodo')`
-- **Vistas:** `$this->view('carpeta/archivo', ['variable' => $valor])`
-- **JSON:** `$this->json(['success' => true, 'mensaje' => '...'])`
 - **CSRF:** siempre `$this->validateCsrf()` en métodos POST
 - **404:** siempre `$this->notFound()` (`BaseController`, `never`). Hace
   `http_response_code(404)` + `require` de `shared/404.php` + `exit`. NUNCA
@@ -534,16 +512,19 @@ lo compila Gulp, `config/database.php` no lleva secretos, `routes/web.php` es la
   nunca se usó y se eliminó (commit `eb0e9cf`, 20/06/2026). No reintroducir una capa
   de middleware sin acordarlo antes.
 - **Commits:** Conventional Commits en español sin tildes
-- **Estilos:** NUNCA CSS inline en PHP — siempre en SASS bajo `resources/sass/`
 - **config():** la función NO soporta notación de puntos. Usar `config('institucion')`,
   NO `config('app.institucion')`. Las claves son las del array en `config/app.php`.
+- **Los mensajes NO revelan el flujo** (regla del usuario, 06 y 09/10/2026): `confirm()`,
+  alertas, banners, flashes y respuestas JSON dicen QUÉ pasa o QUÉ hacer («Después de esta
+  acción ya no podrás modificarla»), NUNCA quién puede revertirlo, qué regla aplica el
+  servidor, ni cómo funcionan la sesión o las redirecciones. El detalle técnico va a
+  `log_error`. Al tocar una pantalla, auditar también sus textos existentes
 - **Comillas ASCII** en vistas PHP — jamás comillas tipográficas U+201C/U+201D en
   atributos HTML (rompen los `data-*` y el JS en silencio).
 - **`exif_imagetype()` NO disponible en XAMPP local** — usar `\getimagesize($path)[2]`.
 
 ## Notas de entorno
 - Logo del colegio: `public/assets/img/logo_cociap.png` (con guión bajo)
-- URL base dinámica via meta tag: `<meta name="base-url" content="...">`
 - BrowserSync corre en puerto 3000; alias Git Bash `local3000` para iniciar el entorno
 - Todo QR se genera con `qrcode.min.js` local — sin servicios de terceros
 - `hash.php` en raíz: archivo temporal para hashes bcrypt — eliminar tras usarlo,

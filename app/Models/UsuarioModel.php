@@ -115,6 +115,86 @@ class UsuarioModel extends BaseModel
     }
 
     /**
+     * Lo que cada usuario dicta y tutorea en el año ACTIVO, para el buscador de
+     * /admin/usuarios. El tutor es el de HOY (`secciones.tutor_id`): sirve para
+     * ubicar a la persona, no para documentos. La carga TOE no se lista: la
+     * cubre `tutor`. `aula` = secciones unidocentes de las que es tutor (REGLA
+     * es_aula: es_unidocente Y tutor_id = docente).
+     *
+     * @return array<int, array{cursos: array<string, string[]>, tutor: string[], aula: string[]}>
+     */
+    public function contextoAcademico(): array
+    {
+        $contexto = [];
+        $vacio    = ['cursos' => [], 'tutor' => [], 'aula' => []];
+
+        $cargas = $this->query("
+            SELECT ca.docente_id AS usuario_id,
+                   COALESCE(sa.nombre, a.nombre) AS curso,
+                   n.nombre AS nivel, g.nombre_display AS grado, s.nombre AS seccion
+            FROM cargas_academicas ca
+            INNER JOIN anios_academicos an ON an.id = ca.anio_id AND an.estado = 'activo'
+            INNER JOIN secciones s         ON s.id  = ca.seccion_id
+            INNER JOIN grados g            ON g.id  = s.grado_id
+            INNER JOIN niveles n           ON n.id  = g.nivel_id
+            LEFT JOIN subareas sa          ON sa.id = ca.subarea_id
+            LEFT JOIN areas a              ON a.id  = COALESCE(ca.area_id, sa.area_id)
+            WHERE ca.estado = 'activa'
+              AND (a.tipo IS NULL OR a.tipo <> 'tutoria')
+            ORDER BY g.nivel_id, g.numero, s.nombre
+        ");
+        foreach ($cargas as $c) {
+            if ($c['curso'] === null) {
+                continue;
+            }
+            $id = (int) $c['usuario_id'];
+            $contexto[$id] ??= $vacio;
+            $etiqueta  = self::etiquetaSeccion($c['nivel'], $c['grado'], $c['seccion']);
+            $secciones = &$contexto[$id]['cursos'][$c['curso']];
+            $secciones ??= [];
+            if (!in_array($etiqueta, $secciones, true)) {
+                $secciones[] = $etiqueta;
+            }
+            unset($secciones);
+        }
+
+        $tutorias = $this->query("
+            SELECT s.tutor_id AS usuario_id,
+                   n.nombre AS nivel, g.nombre_display AS grado, s.nombre AS seccion,
+                   s.es_unidocente
+            FROM secciones s
+            INNER JOIN anios_academicos an ON an.id = s.anio_id AND an.estado = 'activo'
+            INNER JOIN grados g            ON g.id  = s.grado_id
+            INNER JOIN niveles n           ON n.id  = g.nivel_id
+            WHERE s.tutor_id IS NOT NULL
+            ORDER BY g.nivel_id, g.numero, s.nombre
+        ");
+        foreach ($tutorias as $t) {
+            $id = (int) $t['usuario_id'];
+            $contexto[$id] ??= $vacio;
+            $contexto[$id][(int) $t['es_unidocente'] === 1 ? 'aula' : 'tutor'][]
+                = self::etiquetaSeccion($t['nivel'], $t['grado'], $t['seccion']);
+        }
+
+        return $contexto;
+    }
+
+    /**
+     * Sección con su nivel abreviado («Prim. 4° B»): el mismo grado y letra
+     * existen en primaria y en secundaria.
+     */
+    public static function etiquetaSeccion(string $nivel, string $grado, string $seccion): string
+    {
+        $n       = mb_strtolower($nivel);
+        $prefijo = match (true) {
+            str_starts_with($n, 'prim') => 'Prim.',
+            str_starts_with($n, 'sec')  => 'Sec.',
+            default                     => $nivel,
+        };
+        return $prefijo . ' ' . $grado . ' ' . $seccion;
+    }
+
+    /**
      * Nombre completo formateado: APELLIDOS, Nombres
      */
     public static function nombreCompleto(array $usuario): string

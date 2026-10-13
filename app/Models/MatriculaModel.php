@@ -29,6 +29,11 @@ class MatriculaModel extends BaseModel
             $cond[]   = 'm.anio_id = ?';
             $params[] = (int) $f['anio_id'];
         }
+        if (!empty($f['nivel_id'])) {
+            // `g` está en las tres consultas (listar, contar, nómina).
+            $cond[]   = 'g.nivel_id = ?';
+            $params[] = (int) $f['nivel_id'];
+        }
         if (!empty($f['grado_id'])) {
             $cond[]   = 'g.id = ?';
             $params[] = (int) $f['grado_id'];
@@ -613,6 +618,20 @@ class MatriculaModel extends BaseModel
      *                        aprobar). Obligatorio en 'desactivado' (lo exige el
      *                        controlador, no este método).
      */
+    /**
+     * Agrega una línea de auditoría a `observaciones`, con el mismo formato que
+     * deja `cambiarEstado` ("[fecha] texto"). Uso: cambios de apoderados.
+     */
+    public function registrarTraza(int $id, string $texto): bool
+    {
+        return $this->execute(
+            "UPDATE matriculas
+                SET observaciones = TRIM(CONCAT(COALESCE(observaciones,''), '\n', ?))
+              WHERE id = ?",
+            [sprintf('[%s] %s', date('Y-m-d H:i'), $texto), $id]
+        );
+    }
+
     public function cambiarEstado(int $id, string $estado, int $usuarioId, ?string $motivo = null): bool
     {
         $traza = sprintf(
@@ -952,7 +971,7 @@ class MatriculaModel extends BaseModel
         $sql = "
             SELECT s.id, s.nombre, s.grado_id,
                    g.nombre_display AS grado_nombre, g.numero AS grado_numero,
-                   n.nombre AS nivel_nombre
+                   n.id AS nivel_id, n.nombre AS nivel_nombre
             FROM secciones s
             INNER JOIN grados g  ON g.id = s.grado_id
             INNER JOIN niveles n ON n.id = g.nivel_id

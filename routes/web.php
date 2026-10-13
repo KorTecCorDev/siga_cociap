@@ -97,6 +97,8 @@ $router->post('/admin/auxiliares/{seccion_id}/asignar',   'Admin\AuxiliarControl
 $router->get( '/auxiliar/inicio',                         'Auxiliar\PanelController@inicio');
 $router->get( '/auxiliar/nomina/{seccion_id}/imprimir',   'Auxiliar\PanelController@nominaImprimir');
 $router->get( '/auxiliar/horario/{seccion_id}',           'Auxiliar\PanelController@horario');
+$router->get( '/auxiliar/justificaciones/imprimir',       'Auxiliar\PanelController@justificacionesImprimir');
+$router->get( '/auxiliar/justificaciones',                'Auxiliar\PanelController@justificaciones');
 // Documentos compartidos (admin, RA y Dirección; el auxiliar solo la nómina de
 // docentes). Guarda por método.
 $router->get( '/documentos/nomina-docentes',              'Documentos\DocumentoController@nominaDocentes');
@@ -123,6 +125,7 @@ $router->post('/admin/conducta/confirmar',    'Admin\ConductaController@confirma
 $router->post('/admin/conducta/{id}/bloquear','Admin\ConductaController@bloquear');
 $router->get( '/admin/conducta/{id}/imprimir/{periodo_id}', 'Admin\ConductaController@imprimir');
 $router->get( '/admin/conducta/{id}/estudiante', 'Admin\ConductaController@estudiante');
+$router->get( '/admin/conducta/{id}/resultado', 'Admin\ConductaController@resultado');
 $router->get( '/admin/conducta/{id}',         'Admin\ConductaController@seccion');
 
 // ─── Admin — Asistencia (incidencias) ───────────────────────
@@ -146,6 +149,7 @@ $router->post('/admin/asistencia/{id}/jornada', 'Admin\AsistenciaController@jorn
 $router->post('/admin/asistencia/{id}/bloquear','Admin\AsistenciaController@bloquear');
 $router->get( '/admin/asistencia/{id}/imprimir/{periodo_id}', 'Admin\AsistenciaController@imprimir');
 $router->get( '/admin/asistencia/{id}/estudiante', 'Admin\AsistenciaController@estudiante');
+$router->get( '/admin/asistencia/{id}/justificaciones', 'Admin\AsistenciaController@justificaciones');
 $router->get( '/admin/asistencia/{id}',       'Admin\AsistenciaController@seccion');
 $router->post('/admin/asistencia/guardar',    'Admin\AsistenciaController@guardar');
 
@@ -229,6 +233,13 @@ $router->post('/matriculas/crear',               'Matricula\MatriculaController@
 $router->post('/matriculas/{id}/estudiante',     'Matricula\MatriculaController@actualizarEstudiante');
 $router->get( '/matriculas/{id}/apoderado',      'Matricula\MatriculaController@apoderado');
 $router->post('/matriculas/{id}/apoderado',      'Matricula\MatriculaController@storeApoderado');
+// Gestión de un apoderado vinculado: editar vínculo/persona, quitar (jamás el
+// responsable) y trasladar la responsabilidad (12/10/2026).
+$router->get( '/matriculas/{id}/apoderado/{vinculo}/editar',      'Matricula\MatriculaController@editarApoderado');
+$router->post('/matriculas/{id}/apoderado/{vinculo}/vinculo',     'Matricula\MatriculaController@actualizarVinculo');
+$router->post('/matriculas/{id}/apoderado/{vinculo}/persona',     'Matricula\MatriculaController@actualizarPersonaApoderado');
+$router->post('/matriculas/{id}/apoderado/{vinculo}/quitar',      'Matricula\MatriculaController@quitarApoderado');
+$router->post('/matriculas/{id}/apoderado/{vinculo}/responsable', 'Matricula\MatriculaController@hacerResponsable');
 $router->get( '/matriculas/{id}/documentos',     'Matricula\MatriculaController@documentos');
 $router->post('/matriculas/{id}/documentos',     'Matricula\MatriculaController@storeDocumentos');
 $router->post('/matriculas/{id}/activar',        'Matricula\MatriculaController@activar');
@@ -278,6 +289,11 @@ $router->get( '/rectificaciones/extraordinaria',  'Rectificacion\RectificacionCo
 $router->post('/rectificaciones/extraordinaria/guardar', 'Rectificacion\RectificacionController@guardarExtraordinaria');
 $router->get( '/rectificaciones/extraordinaria/lote', 'Rectificacion\RectificacionController@extraordinariaLote');
 $router->post('/rectificaciones/extraordinaria/lote/guardar', 'Rectificacion\RectificacionController@guardarExtraordinariaLote');
+// F5 (13/10/2026): rectificación de conducta y asistencia. Literales, antes del {id}.
+$router->get( '/rectificaciones/conducta',          'Rectificacion\RectificacionController@conducta');
+$router->post('/rectificaciones/conducta/guardar',  'Rectificacion\RectificacionController@guardarConducta');
+$router->get( '/rectificaciones/asistencia',        'Rectificacion\RectificacionController@asistencia');
+$router->post('/rectificaciones/asistencia/guardar','Rectificacion\RectificacionController@guardarAsistencia');
 $router->get( '/rectificaciones/matricula/{id}',  'Rectificacion\RectificacionController@matricula');
 
 // ─── Consulta de calificaciones (solo lectura) ───────────────
@@ -357,7 +373,9 @@ $router->post('/docente/calificaciones/{carga_id}/omisiones', 'Docente\Calificac
 $router->post('/docente/criterios/crear',             'Docente\CalificacionController@crearCriterio');
 $router->post('/docente/criterios/{id}/renombrar',   'Docente\CalificacionController@renombrarCriterio');
 $router->post('/docente/criterios/{id}/eliminar',    'Docente\CalificacionController@eliminarCriterio');
-$router->post('/docente/calificaciones/conclusion', 'Docente\CalificacionController@guardarConclusion');
+// `POST /docente/calificaciones/conclusion` se retiró el 09/10/2026: ninguna vista
+// la usaba y escribía la conclusión de cualquier carga, bloqueada o no. La única
+// vía es `/{carga_id}/conclusion/{competencia_id}` (guardarConclusionAlumno).
 
 
 // ─── Panel padre ─────────────────────────────────────────────

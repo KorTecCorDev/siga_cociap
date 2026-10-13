@@ -3,6 +3,196 @@
 > **ESTADO: DESPLEGADO en v1.0.5 (30/09/2026)**, con las migraciones `068`, `069` y `070`
 > aplicadas a mano en producción antes del push. Las rondas de abajo son el historial.
 
+> **DÉCIMA RONDA (09/10/2026, decisiones del usuario; migración 077) — ✓ por estudiante:
+> los dos modos de trabajo del auxiliar.** En `dev`. **Deroga** de la quinta ronda «✓ asistió
+> NO es un dato por estudiante», «cualquier marca toma la lista» y «Deshacer lista».
+> 1. **El problema:** unos auxiliares pasan lista en bloque y marcan solo las incidencias;
+>    otros registran uno por uno. Como cualquier marca tomaba la lista de la sección, marcar
+>    ✓ a un estudiante afirmaba que todos los demás asistieron. Obligar a un solo modo no
+>    mejoraba el dato (boleta y SIAGIE solo cuentan F/FJ/T/TJ): fue un requisito que no se
+>    relevó el 30/09.
+> 2. **Modelo:** tabla `asistencia_presencias` (✓ de un estudiante en un día, `origen`
+>    manual/qr). Un día de un estudiante está **cubierto** si tiene incidencia, ✓ propio o
+>    la lista de la sección (que ahora significa «todos los que no tienen marca propia
+>    asistieron»). `marcarDia` escribe el ✓ o lo borra al marcar una incidencia, en su
+>    transacción: **nunca conviven**. El ✓ no toca contadores ni desconfirma.
+> 3. **Pantalla, sin acciones nuevas:**
+>    - el menú de la celda no cambia;
+>    - ⚠ del encabezado = «faltan N, tocar para marcar ✓ a los que faltan»;
+>    - ✓ del encabezado = día completo, **solo indicador**.
+>    - **«Deshacer lista» se eliminó:** un no lectivo ya borra sus listas, y un error se
+>      corrige marcando. Además era un botón con forma de indicador que se tocaba sin querer.
+>    - «Quitar marca» se descartó: un día nunca termina «Sin tomar».
+>    - ✓ propio y ✓ de la lista se ven **igual**.
+> 4. **Aviso de hoy** (`.af-aviso-hoy`, reemplaza a «Pasar lista de hoy» y al texto de la
+>    barra):
+>    - «Hoy, jueves 09/10: todavía no se toma lista. [Todos asistieron]»;
+>    - «faltan N estudiante(s) por marcar. [Marcar a los N como asistentes]»;
+>    - «lista completa · X falta(s) · Y tardanza(s).».
+>    - Va siempre `alert--info`: es un aviso informativo. (El autocierre de `auth.js` NO
+>      lo alcanzaría: ese script solo se carga en el login, `layouts/auth.php`.)
+>    - La grilla abre desplazada hasta la columna de hoy.
+> 5. **Bloqueo:** cada estudiante, cada día (`AsistenciaJornadaModel::pendientesPorDia`). El
+>    mensaje lista «07/10 (3 estudiantes)». `diasSinTomar` = días con al menos uno sin cubrir
+>    (panel del auxiliar y pie de la grilla, que se refresca con cada marca). El forzado del
+>    director no lo exige.
+> 6. **Día no lectivo:** se sigue negando con incidencias. Los ✓ propios de ese día se borran
+>    con sus listas: no suman a ningún contador y, sin «quitar marca», rechazarlos trabaría
+>    el día. Esto **cambia lo dicho en el plan** («se rechaza»), y se avisó al usuario.
+> 7. **Retorno de grado:** `asistencia_presencias` está en `TABLAS_DEL_BIMESTRE` (se mueve y
+>    se revierte con la matrícula).
+> 8. **Datos existentes:** no se tocaron. Las 928 listas locales siguen significando «sección
+>    completa». Los contadores, comparados antes y después de la 077 (suma y huella), salieron
+>    idénticos.
+> 9. **Leyenda y bloqueo** (mismo día): el bloque «Bloquear y aprobar» va ANTES de la leyenda
+>    (`_leyenda-fechas.php`). La leyenda quedó solo con símbolos y una línea («Los totales son
+>    del bimestre entero»).
+> 10. **Verificadores:**
+>     - `verif_asistencia_presencias.php` (nuevo, 30 asertos);
+>     - `verif_asistencia_jornadas.php` reescrito (marcarDia ya NO toma la lista, no existe
+>       deshacer, el bloqueo usa `pendientesPorDia`);
+>     - `verif_reversion_retorno.php` incluye la tabla;
+>     - `verif_asistencia_partial_compartido.php` registra el rol de `justificaciones`.
+>     - `incidenciasDelDia` quedó sin uso (solo la llamaba `deshacer`) y se eliminó
+>       (09/10/2026, turno tarde).
+
+> **NOVENA RONDA (09/10/2026, decisiones del usuario; sin migración) — vista por estudiante
+> y vista «Justificaciones» de la sección.** En `dev`, probada en Chrome con AUXILIAR
+> (ESPINOZA), ADMIN y RA (COLONIA).
+> 1. **Chips → día:** tocar un chip (o una fila de su tabla) desplaza al día del calendario y
+>    abre su menú (`irAlDia` en `asistencia-fechas.js`). El desplazamiento es INMEDIATO a
+>    propósito: el menú enfoca el selector de motivo, y ese foco cortaba un `smooth` a medio
+>    camino.
+> 2. **Chips con la pastilla del contador** (`af-tipo--fj|tj`, + `--con-motivo` con el ancla)
+>    y **tabla** N° · Fecha (con día) · Tipo · Motivo · **Cuenta como** (FJ con el ancla, F con
+>    otro motivo; TJ siempre TJ). Las arma el JS en cada cambio, para seguir al autoguardado.
+>    **El chip dice solo tipo y fecha** («FJ 10/08»): con 40 justificaciones, los chips con
+>    motivo eran una pared. El motivo va en la tabla y en el `title`/`aria-label` del chip.
+> 3. **Los 4 totales viven DENTRO de la cabecera sticky** (`.registro-estudiante__cabecera
+>    .af-totales`, versión compacta), así que siguen a la vista al bajar hasta los últimos meses.
+> 4. **«Ir» del selector solo en `<noscript>`**: con JS, el `change` ya navega.
+> 5. **Vista nueva `/admin/asistencia/{id}/justificaciones`** (botón «Justificaciones» en la
+>    tabla de la sección, solo en bimestres por fechas). Muestra los KPI, una tabla por motivo,
+>    otra por estudiante y el detalle por fecha. **«Autorizada» = FJ con el MOTIVO PRINCIPAL**
+>    (decisión del usuario): la que cuenta como FJ. La regla no se copia:
+>    `AsistenciaModel::resumenJustificaciones` llama a
+>    `AsistenciaEstadisticaModel::tipoQueCuenta`, que pasó a `public`. Roles y alcance son los
+>    de la tabla (admin, RA y el auxiliar de la sección, con 403 fuera de ella; resolución
+>    compartida en `resolverPeriodoVista`). Con el bimestre editable muestra el BORRADOR y
+>    marca «Sin confirmar». En historial o con la sección bloqueada, solo lo oficial.
+>    Cruzada contra los contadores guardados en la BD local: 46 secciones, 153
+>    justificaciones, 0 diferencias.
+
+> **NOVENA RONDA (13/10/2026, decisiones del usuario; sin migración) — «Faltas y
+> justificaciones» y SEGUIMIENTO DE FALTAS.** En `dev`, sin probar en el navegador.
+> La tarea principal del auxiliar es comunicarse con las familias de los estudiantes que faltan.
+> 1. **La vista de la sección se llama «Faltas y justificaciones»**, tanto en el título como en
+>    el botón de la tabla. La ruta sigue siendo `/admin/asistencia/{id}/justificaciones` y
+>    conserva roles y alcance.
+> 2. **Abre con el bloque «Seguimiento de faltas»** (no «Para llamar»: el título dice el dato).
+>    - **Quién entra:** los estudiantes con **5 o más faltas en el bimestre**. Falta = la que
+>      CUENTA como F, es decir, la F y la FJ con un motivo que no es el principal. Es la misma
+>      cifra de la boleta.
+>    - **Columnas:** N°, faltas (F y FJ→F), última falta, apoderado responsable y su celular
+>      como enlace `tel:` (en el teléfono abre el marcador).
+>    - **Puntos únicos:** el umbral es `AsistenciaModel::UMBRAL_SEGUIMIENTO_FALTAS`, el cálculo
+>      es `AsistenciaModel::seguimientoFaltas` (reutiliza `tipoQueCuenta`, sin copiar la regla)
+>      y el contacto sale de `NominaModel::apoderadoResponsable`. El contacto se busca por
+>      matrícula, así que también cubre a los `pendiente` y la operativa de un retorno.
+>    - Sin nadie que llegue al umbral, el bloque no se pinta. Debajo sigue lo de antes: KPIs, por
+>      estudiante, por motivo y detalle.
+> 3. **Reporte del auxiliar, `/auxiliar/justificaciones`:** está en el doc del auxiliar
+>    (`auxiliares.md` §4) y NO lleva el seguimiento de faltas, por decisión del usuario.
+> 4. **Un solo vocabulario y sin marcas de confirmación** (mismo día, tras revisar la vista):
+>    - **Diagnóstico:** el antiguo «Detalle por fecha» ponía en la misma fila Tipo «FJ» y
+>      «Cuenta como F». En el III local, **166 de 325 FJ (51 %)** llevaban «Justificación
+>      verbal» y cuentan como falta, así que la mitad de las filas se contradecían.
+>    - **Regla de la pantalla:** dice lo que cada justificación **VALE**, nunca la marca junto
+>      a su efecto. Las tres categorías son **«Faltas justificadas»** (FJ con el motivo
+>      principal), **«Cuentan como falta»** (FJ con otro motivo; rótulo elegido por el usuario)
+>      y **«Tardanzas justificadas»**. Ya no hay pastillas FJ/TJ ni «FJ→F», tampoco en los KPIs
+>      ni en el seguimiento, donde la columna se llama «Sin justificar».
+>    - **«Por estudiante» y «Detalle por fecha» se unen en UNA tabla:** cada celda lleva la
+>      cantidad y sus fechas, y cada fecha aparece una sola vez, en la columna donde cuenta. El
+>      modelo entrega `fechas` por categoría en cada estudiante de `resumenJustificaciones`, que
+>      ya no devuelve `detalle`.
+>    - **Leyenda y tabla «Por motivo» como parciales** (`_leyenda-justificaciones.php`,
+>      `_tabla-motivos.php`), compartidos con el reporte del auxiliar: el vocabulario vive en un
+>      solo sitio.
+>    - **Sin aviso «Registro en curso», sin columna Estado y sin «Sin confirmar» / «En curso»**,
+>      en las dos vistas (decisión del usuario: informaba de más). La confirmación se ve y se
+>      hace en la grilla. Se sigue leyendo lo mismo: borrador en curso, oficial en historial o
+>      con la sección bloqueada.
+> 5. **Pastillas de vuelta, UNA por categoría** (tercera ronda del mismo día, pedido del
+>    usuario). La regla es **una pastilla y un texto**: la pastilla es la de la grilla y el texto
+>    dice lo que vale. Nunca dos pastillas que se contradigan.
+>    - **FJ con ícono de documento** = Faltas justificadas.
+>    - **FJ sin ícono** = Cuentan como falta (es como se ve en la grilla una FJ verbal).
+>    - **TJ** = Tardanzas justificadas.
+>    - **F** = Sin justificar (solo en el seguimiento).
+>    - Aparecen en la leyenda, los KPIs y los encabezados. El punto único es el parcial
+>      `_pastilla-categoria.php`, que reutiliza `_pastilla-fj.php`.
+>    - La tabla «Por motivo» va **sin** pastillas: su columna «Faltas» mezcla las dos
+>      categorías.
+> 6. **Fechas en FICHAS, y los días seguidos en un TRAMO** (cuarta ronda, decisión del usuario).
+>    - **Por qué:** en el III local hay celdas de hasta **42 fechas**. La mediana es 2, pero 9
+>      de cada 10 llegan a 5–9 y 33 celdas cruzan meses. Una lista separada por comas no se
+>      podía leer.
+>    - **Formato:** cada fecha es una ficha neutra «Lun. 01/09». Los días lectivos SEGUIDOS
+>      se unen en una ficha «Lun. 17/08 al Vie. 25/09 · 28 días».
+>    - **Qué cuenta como seguido:** consecutivos en `diasMarcables` (lunes a viernes, sin no
+>      lectivos), así que el fin de semana y un día no lectivo NO cortan el tramo. Un tramo
+>      solo une días de la misma columna.
+>    - **Resultado en el III:** 404 fechas quedan en 202 fichas. La celda de 42 cabe en UNA
+>      ficha y la de 38 en dos.
+>    - **Punto único:** `AsistenciaModel::tramosDeFechas`, una función pura.
+>      `resumenJustificaciones` recibe los días lectivos (4.º parámetro, opcional) y devuelve
+>      `tramos` junto a `fechas`. Lo pinta el parcial `_celda-fechas.php`, compartido por las
+>      dos vistas.
+>    - **Fichas con el color de su categoría** (pedido del usuario, mismo día; deroga las
+>      fichas grises). Siguen el patrón de las pastillas del encabezado: colores de **FJ +
+>      ícono de documento** (faltas justificadas), **FJ sin ícono** (cuentan como falta) y
+>      **TJ**. Colores e ícono salen de `$af-*` y `af-esquina-motivo`. No se confunden con
+>      una pastilla porque la pastilla lleva la sigla y la ficha, la fecha. Un tramo lleva
+>      borde más grueso y negrita.
+> 7. **«Por motivo» con pastillas en los encabezados**, en las dos vistas (parcial
+>    `_tabla-motivos.php`).
+>    - «Faltas» lleva **las dos FJ** (con y sin documento), porque la columna junta los dos
+>      efectos: la fila del motivo principal justifica y las demás cuentan como falta.
+>    - Una sola FJ sin ícono, bajo la leyenda, diría «cuentan como falta» para toda la columna.
+>    - «Tardanzas» lleva la TJ.
+>    - El resto de la tabla no cambia (decisión del usuario).
+>    - **El motivo principal se IDENTIFICA, no se escribe** (pedido del usuario): nombre en
+>      negrita y el mismo ícono de documento, sin el rótulo «Motivo principal» en la fila. Lo
+>      explica la leyenda, y el ícono conserva `aria-label`/`title` «Motivo principal».
+> 8. Lo protege `verif_seguimiento_faltas.php`, que solo lee:
+>    - prueba los tramos por sus dos ramas (fin de semana y no lectivo no cortan; un día lectivo
+>      sin marca sí) y comprueba con datos reales que los tramos suman las fechas de cada celda;
+>    - comprueba cada fecha en su categoría y que el número de fechas sea la cifra;
+>    - prueba el umbral por las dos ramas;
+>    - comprueba qué cuenta como falta;
+>    - cruza la cifra con el contador `faltas` (III local: 426 confirmados, 33 en
+>      seguimiento, 0 diferencias);
+>    - prueba el consolidado.
+
+> **OCTAVA RONDA (09/10/2026, decisiones del usuario; sin migración) — no se bloquea antes
+> del fin del bimestre, y el índice muestra las secciones bloqueadas.** En `dev`.
+> 1. **Hueco:** `diasSinTomar` corta en `min(fecha_fin, hoy)`, así que los días FUTUROS no
+>    contaban como «sin tomar». Con todo lo pasado al día, el auxiliar/RA podía bloquear a
+>    mitad del bimestre. Después, `dia`, `jornada` y `confirmar` se niegan y el resto del bimestre ya no
+>    se podía registrar. Pasó en local: 1.º A/B y 2.º A/B del III se bloquearon el 07/10 y les
+>    faltan las listas del 08 y 09/10.
+> 2. **Regla:** en un bimestre por fechas, `bloquearRA` (no forzado) se niega mientras
+>    `hoy < fecha_fin` («podrás bloquear desde el DD/MM, su último día»). Punto único
+>    `AsistenciaModel::bimestreTerminado()` (fecha de PHP, no `NOW()`). El panel de la sección
+>    deshabilita el botón y lo dice. **El director (forzado) sigue pudiendo** bloquear antes.
+> 3. ⚠️ **`limite_notas` debe quedar DESPUÉS del último día:** si se apaga antes que
+>    `fecha_fin` termine (el I Bimestre tuvo `limite_notas = fecha_fin 00:00`), el auxiliar/RA
+>    ya no puede bloquear y solo queda el forzado del director.
+> 4. **Índice `/admin/asistencia`:** la card de una sección con cierre vigente en el bimestre
+>    en curso lleva «🔒 Bloqueada» y no pinta la barra, igual que conducta
+>    (`AsistenciaModel::seccionesBloqueadas`, `.asistencia-estado-badge`).
+
 > **SÉPTIMA RONDA (08/10/2026, regla del colegio; migración 076) — una falta solo es
 > justificada con el MOTIVO PRINCIPAL.** **DESPLEGADO el 08/10/2026** (merge `3d58934`, sigue
 > v1.0.5), con la `076` aplicada a mano en producción ANTES del merge: 1 ancla vigente,
@@ -594,3 +784,17 @@ Guardas comunes a todas: `puedeRegistrar`, periodo editable, sección no bloquea
   - medir filas del III con números > 0;
   - comprobar que cada sección de I y II tiene cierre de asistencia vigente (si falta alguno,
     su asistencia desaparecería de la boleta publicada: detenerse y decidir con el usuario).
+
+## Rectificación de conducta y asistencia ya oficiales (13/10/2026, migración 079)
+
+Después de «Bloquear y aprobar» (o con el bimestre cerrado), RA/admin corrigen sin reabrir
+desde `/rectificaciones/matricula/{id}`, con motivo obligatorio y traza:
+- **Conducta:** los Sí/No de los criterios. El registro **sigue confirmado** y el literal se
+  recalcula en vivo con la nota del tutor.
+- **Asistencia por fechas:** la marca de **un día** (✓ asistió, F, FJ, T, TJ; FJ/TJ con motivo).
+  Los contadores los rehace `recalcularContadores` y la fila **conserva su confirmación
+  original**: lo rectificado es oficial, no un borrador.
+- Solo sobre lo **confirmado**: lo que un bloqueo forzado dejó sin confirmar va por la vía
+  extraordinaria.
+
+Reglas, tablas y punto único en `docs/modulos/cierre-cuatro-registros.md` § F5.

@@ -13,6 +13,10 @@
   - `.fila-pendiente` conserva su background naranja en celdas sticky
   - `.conclusion-texto` reemplaza el inline `style="font-size:12px"`
 - Ambas tablas viven dentro de `.tabla-notas-wrapper` (overflow-x:auto)
+- 🔴 **Una celda sticky NUNCA lleva `opacity`** (09/10/2026): transparenta también su
+  fondo y las filas se ven por debajo al desplazarse. Para atenuar una celda fija,
+  atenuar SOLO su texto (`$text-muted`). Pasó en el encabezado de la grilla de asistencia
+  por fechas (días no lectivos y futuros, `_asistencia.scss`).
 
 ### Componentes SASS nuevos/extendidos
 - **`_buttons.scss`** — `.btn-group { display:inline-flex; gap:$spacing-sm }` reutilizable
@@ -792,9 +796,11 @@ componente: fundir los selectores impide que vuelvan a divergir. **Marcado nuevo
 `.alert`.** Los 31 `.flash` que quedan son renombrado cosmético, con **cambio visual cero**,
 y por eso se puede hacer por lotes o nunca.
 
-⚠️ **La migración tiene un bloqueante**, y hay que decidirlo ANTES: `resources/js/auth.js`
-autocierra `.alert--success` y `.alert--warning` **en todas las páginas**. Renombrar los
-`.flash` haría que los mensajes de sesión empezaran a desaparecer solos. Ver `docs/ESTADO.md`.
+**No hay bloqueante de autocierre** (corregido el 09/10/2026): `resources/js/auth.js`
+autocierra `.alert--success` y `.alert--warning` a los 6 s, pero **solo se carga en
+`layouts/auth.php`, o sea en el login**; `layouts/app.php` no lo incluye. Renombrar los
+`.flash` de la app no los haría desaparecer. Solo cambiaría algo en `auth/login.php`.
+Antes se documentó que corría «en todas las páginas», y era falso.
 
 ### Qué NO es este componente
 

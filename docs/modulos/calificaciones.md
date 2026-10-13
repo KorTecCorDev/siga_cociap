@@ -3,6 +3,25 @@
 > Extraído VERBATIM de CLAUDE.md el 03/07/2026 (fase 1 de la red de documentación).
 > Los invariantes globales y la tabla de enrutamiento viven en CLAUDE.md.
 
+## Flujo de calificaciones (módulo principal)
+
+> Movido desde CLAUDE.md el 09/10/2026 (`/doctor`): no hace falta en cada sesión; se lee
+> al tocar este módulo. La regla de seguridad («boletas SIEMPRE por token») sigue en los
+> invariantes de CLAUDE.md.
+
+```
+1. Docente entra a su carga académica
+2. Define criterios de evaluación (libres, igual peso)
+3. Ingresa notas por criterio para todos los alumnos
+4. Sistema calcula promedio automáticamente
+5. Docente ve resumen → agrega conclusiones descriptivas
+6. Docente aprueba y bloquea la competencia
+7. Padre puede ver notas, criterios y conclusiones
+8. Padre accede a la boleta desde /padre/notas SIEMPRE por token:
+   - "Ver boleta digital"  → /boleta/digital/{token}  (mobile-first)
+   - "🖨 Imprimir"          → /boleta/ver/{token}      (A4 landscape)
+```
+
 
 ## Estadísticas por competencia — contadores del resumen (01/09/2026)
 
@@ -491,16 +510,15 @@ competencia se queda sin tabla.
   JS: `resources/js/tutoria.js`.
 
 ### Integración con reaperturas
-- `BloqueoController::desbloquear`: al desbloquear una competencia propia LIBERA
-  en cascada las TIC/GAMA de esa misma carga (`TransversalModel::liberarTransversalesDeCarga`,
-  competencias en área `tipo='transversal'`) y ANULA el cierre vigente de la
-  sección con traza — todo en una transacción. Las transversales se registran
-  bajo la carga del docente pero NO aparecen como filas en el panel; sin la
-  cascada quedaban bloqueadas e inalcanzables. Se repite el ciclo re-bloqueo→re-cierre.
+- ~~`BloqueoController::desbloquear`: al desbloquear una competencia propia LIBERA
+  en cascada las TIC/GAMA de esa misma carga~~ **La cascada se retiró el 07/08/2026**
+  (`verif_desbloqueo_sin_cascada.php`): desbloquear una académica libera SOLO esa
+  competencia y anula el cierre vigente de la sección con traza. Una TIC/GAMA se
+  libera por la vía directa de abajo. `TransversalModel::liberarTransversalesDeCarga`
+  quedó sin uso.
 - **`BloqueoController::liberarTransversalCompetencia` (06/08/2026): la vía DIRECTA.**
   Libera UNA competencia transversal de UNA carga desde el desplegable del panel, sin
-  sacrificar ninguna académica. La cascada de arriba sigue existiendo (es correcta cuando
-  se reabre una carga entera), pero ya no es la única puerta: usarla para corregir una
+  sacrificar ninguna académica. Era la segunda puerta mientras existió la cascada: usarla para corregir una
   TIC/GAMA obligaba a desbloquear una académica que no tenía ningún problema, y no servía
   en absoluto si la carga aún no tenía académicas bloqueadas. Detalle y guards en
   `docs/modulos/admin.md` §"Transversales: los dos niveles".
@@ -596,13 +614,32 @@ Variables calculadas por competencia justo tras `$esTransversal` (líneas ~106):
 > todos los alumnos con nota u omisión. El camino "No se evaluó" (sin criterios)
 > se evalúa antes de la puerta y no se ve afectado.
 
+> **Conclusión obligatoria EN EL SERVIDOR (09/10/2026, F0 del plan de bloqueos).**
+> Hasta ese día solo la exigía `resumen.js`: un POST directo a `bloquear()` aprobaba
+> una competencia con conclusiones obligatorias vacías. `errorBloqueoCompetencia`
+> las exige ahora, por el punto único `CalificacionModel::conclusionObligatoria`
+> (primaria B/C, secundaria C), salvo los exonerados y las **transversales** (su
+> conclusión es del tutor). El navegador exige además 10 caracteres; el servidor,
+> como la rectificación, solo que no esté vacía. Medido el 09/10 en la BD local:
+> ningún bloqueo de docente tenía una obligatoria vacía, así que la regla no
+> cambia nada de lo ya aprobado.
+>
+> **Ruta retirada:** `POST /docente/calificaciones/conclusion`
+> (`guardarConclusion`) ya no existe. Ninguna vista la usaba (el bloque de
+> `calificaciones.js` buscaba un botón que no se pinta) y escribía la conclusión de
+> **cualquier** carga, bloqueada o no, sin plazo. La única vía es
+> `/{carga}/conclusion/{competencia}` (`guardarConclusionAlumno`), que ahora exige
+> además la carga propia y el plazo vigente. Protegido por
+> `verif_guardas_conclusion.php`.
+
 ### "No se evaluó" — acción
 Reusa el endpoint existente `POST /docente/calificaciones/{carga}/bloquear/{comp}`
 con `sin_calificaciones=1` (mismo backend que el botón "no se trabajó" del resumen,
 `errorBloqueoCompetencia` lo acepta solo si NO hay criterios). JS en
 `calificaciones.js` (`.btn-no-evaluo`, con `confirm()` irreversible → recarga).
-Crea un bloqueo `origen='docente'` sin notas. **NO aparece en transversales**
-(no se bloquean individualmente) **ni en periodo bloqueado** (acción de escritura).
+Crea un bloqueo `origen='docente'` sin notas. **NO aparece en periodo bloqueado**
+(acción de escritura). ~~Ni en transversales (no se bloquean individualmente)~~: desde
+el II Bimestre cada TIC/GAMA se aprueba y bloquea por separado, como una académica.
 
 ### Migración `026_criterios_confirmado.sql`
 - `criterios.confirmado_en DATETIME NULL` + `confirmado_por INT UNSIGNED NULL`.
