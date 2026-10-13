@@ -96,7 +96,15 @@ Tres observaciones del usuario sobre el auxiliar. El detalle está en
   (sin el tutor). **Bug hallado y corregido:** la pestaña decía «Tardanzas justificadas» —los
   bucles de categorías usaban `$titulo` y pisaban el `<title>` del layout— (vista de la sección,
   reporte del auxiliar y leyenda; ahora `$rotulo`). `/auxiliar/justificaciones` da 403 a admin.
-- [ ] Repetir con RA y Dirección (la consulta de conducta de Dirección no debe cambiar).
+- [x] **Con DIRECCIÓN en Chrome (13/10/2026, Director EBR WALTER BERNUI)**: la consulta de conducta
+  (`/consulta-notas/{p}/seccion/{s}/conducta`) se ve como antes, en solo lectura y sin botones;
+  «← Áreas» y «Ver la grilla Sí / No» siguen yendo a la consulta (las dos responden 200). El III
+  se ve solo si la sección está cerrada en sus dos etapas (gate de siempre; la regla «solo
+  cerrados» es de `/admin/cuadros`). `/admin/asistencia/{id}/justificaciones` y
+  `/admin/conducta/{id}/resultado` dan **403 a Dirección, igual que antes de hoy** (los dos
+  métodos exigen `ROLES_REGISTRAN` / admin-RA-auxiliar desde su origen); Dirección ve la
+  asistencia por `/consulta-notas/{p}/seccion/{s}/asistencia` (200).
+- [ ] Repetir con RA.
 - [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
 - [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
 
