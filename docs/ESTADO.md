@@ -125,7 +125,10 @@ solo queda la traza. Detalle en `docs/modulos/cierre-cuatro-registros.md` § F5.
 - [x] **Con RA en Chrome (13/10/2026, ROBERTO COLONIA)**: cards visibles; conducta III C1 No → Sí
   («B → A», confirmación intacta); asistencia 06/10 FJ verbal → FJ escrita con clics reales (F 1→0,
   FJ 0→1, confirmación original); traza e historial a su nombre. Datos revertidos.
-- [ ] Falta: 403 con un docente o un auxiliar.
+- [x] **403 con DOCENTE en Chrome (13/10/2026, SAARA SOTELO)**: GET conducta, asistencia,
+  matrícula e índice de `/rectificaciones` y los dos POST `/guardar` → «Acceso denegado»; nada
+  escrito en la BD. (Auxiliar sin probar: mismo guard del constructor, `requireRole(['admin',
+  'registro_academico'])`.)
 - [ ] (reemplazado por lo de arriba) Probar en el navegador **con RA**:
   - `/rectificaciones/matricula/{id}` de un estudiante con conducta confirmada del II o del III
     (cards Conducta/Asistencia solo si hay bimestres rectificables);
