@@ -34,6 +34,10 @@ $cards = [
     'asistencia' => [
         'titulo' => 'Asistencia',
         'sub'    => 'Registra las faltas y tardanzas de cada estudiante y bloquea la sección al terminar.',
+        // Reporte de TODAS sus secciones (13/10/2026): es de la asistencia, así
+        // que vive en SU card, como acción de la cabecera (regla «datos a la
+        // vista, acción aparte», docs/modulos/ui.md). Antes era una card suelta.
+        'accion' => ['url' => 'auxiliar/justificaciones?periodo=' . $pid, 'texto' => 'Faltas y justificaciones'],
     ],
 ];
 ?>
@@ -102,6 +106,13 @@ $cards = [
             <div class="card dpanel-card dpanel-card--<?= $modulo ?> dpanel-card--acciones">
                 <div class="dpanel-card__head">
                     <h2 class="card__title"><?= e($card['titulo']) ?></h2>
+                    <?php if (isset($card['accion'])): ?>
+                        <a href="<?= url($card['accion']['url']) ?>"
+                           class="dpanel-card__accion dpanel-card__accion--<?= $modulo ?>">
+                            <span class="dpanel-card__accion-ico" aria-hidden="true"></span>
+                            <?= e($card['accion']['texto']) ?>
+                        </a>
+                    <?php endif; ?>
                 </div>
                 <p class="dpanel-card__sub"><?= e($card['sub']) ?></p>
 
@@ -177,22 +188,6 @@ $cards = [
                    class="dpanel-card__accion dpanel-card__accion--docentes">
                     <span class="dpanel-card__accion-ico" aria-hidden="true"></span>
                     Imprimir
-                </a>
-            </div>
-        </div>
-
-        <?php // Faltas y justificaciones de TODAS sus secciones (13/10/2026). Un solo
-              // reporte, no por sección: un botón, como la Nómina de docentes. ?>
-        <div class="card dpanel-card dpanel-card--asistencia dpanel-card--acciones">
-            <div class="dpanel-card__head">
-                <h2 class="card__title">Faltas y justificaciones</h2>
-            </div>
-            <p class="dpanel-card__sub">Justificaciones del bimestre en todas tus secciones.</p>
-            <div class="dpanel-card__acciones">
-                <a href="<?= url('auxiliar/justificaciones?periodo=' . $pid) ?>"
-                   class="dpanel-card__accion dpanel-card__accion--asistencia">
-                    <span class="dpanel-card__accion-ico" aria-hidden="true"></span>
-                    Ver reporte
                 </a>
             </div>
         </div>

@@ -192,8 +192,12 @@ Retoma y cierra el «PLAN — FLUJO PROPIO PARA LOS AUXILIARES» del 25/08/2026
 **Ampliación del 13/10/2026 (decisiones del usuario; sin migración; en `dev`, sin probar en
 el navegador):**
 - **Reporte de todas sus secciones, `GET /auxiliar/justificaciones?periodo=`**
-  (`Auxiliar\PanelController::justificaciones`). Es solo del auxiliar y se abre desde la card
-  «Faltas y justificaciones» de su panel.
+  (`Auxiliar\PanelController::justificaciones`). Es solo del auxiliar y se abre con el botón
+  «Faltas y justificaciones» de la **cabecera de la card Asistencia** de su panel. Lo decidió el
+  usuario el 13/10/2026: el reporte es de la asistencia y no un módulo aparte, así que se
+  eliminó la card suelta. Sigue la regla «acciones en la cabecera» de `ui.md`. La clave
+  `accion` de `$cards` en `auxiliar/inicio.php` la pinta, y en el celular baja de línea si no
+  cabe.
   - Contenido: KPIs, una fila **por sección** (con enlace a su vista), **por estudiante** con
     columna Sección y sus fechas, y **por motivo**. Usa el mismo vocabulario que la vista de
     la sección («Faltas justificadas» · «Cuentan como falta» · «Tardanzas justificadas»), con

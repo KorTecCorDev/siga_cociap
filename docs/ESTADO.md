@@ -47,7 +47,8 @@ Tres observaciones del usuario sobre el auxiliar. El detalle está en
 1. La vista de la sección pasa a llamarse «Faltas y justificaciones» y abre con el
    **«Seguimiento de faltas»**: estudiantes con 5 o más faltas que cuentan como F, con el
    apoderado y su celular `tel:`.
-2. **`/auxiliar/justificaciones`**: el reporte de todas sus secciones, con una card en su panel.
+2. **`/auxiliar/justificaciones`**: el reporte de todas sus secciones. Se abre desde la
+   cabecera de la card Asistencia del panel; desde el 13/10 ya no es una card aparte.
 3. **`/admin/conducta/{id}/resultado`**: la nota final con la del tutor, solo con las dos
    etapas cerradas.
 4. Segunda ronda, el mismo día:
