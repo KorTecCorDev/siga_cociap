@@ -924,4 +924,209 @@ class RectificacionModel extends BaseModel
             LIMIT {$limite}
         ", $params);
     }
+
+    // ── Conducta y asistencia (F5, 13/10/2026, migración 079) ────
+
+    /**
+     * ⚠️ El cierre va en un COUNT(*) > 0 y no en un EXISTS: MariaDB convierte el
+     * EXISTS en un IN con la subconsulta de la sección a la izquierda y lo rechaza
+     * (#1235). Lo mismo en la de asistencia.
+     *
+     * Condición SQL: el registro OFICIAL de conducta de la matrícula `$m` en el
+     * periodo `$per` es RECTIFICABLE. PUNTO ÚNICO de la regla (la usan la lista,
+     * el formulario y el POST):
+     *   1. CONFIRMADO: hay confirmación y respuestas. Lo no confirmado de un
+     *      bloqueo forzado no se rectifica: su camino es la vía extraordinaria.
+     *   2. Periodo CERRADO o etapa 1 BLOQUEADA (cierre vigente de la sección
+     *      donde cursó ese bimestre). Abierto y sin bloqueo se corrige en la grilla.
+     */
+    private static function sqlConductaRectificable(string $m = 'm', string $per = 'per'): string
+    {
+        $seccion = CambioSeccionModel::sqlSeccionDelPeriodo($m, "{$per}.id");
+        return "EXISTS (SELECT 1 FROM conducta_confirmaciones rcf
+                        WHERE rcf.matricula_id = {$m}.id AND rcf.periodo_id = {$per}.id)
+                AND EXISTS (SELECT 1 FROM conducta_respuestas rcr
+                            WHERE rcr.matricula_id = {$m}.id AND rcr.periodo_id = {$per}.id)
+                AND ({$per}.estado = 'cerrado'
+                     OR (SELECT COUNT(*) FROM cierres_conducta rcz
+                                WHERE rcz.seccion_id = {$seccion}
+                                  AND rcz.periodo_id = {$per}.id
+                                  AND rcz.anulado_en IS NULL
+                                  AND rcz.ra_bloqueado_en IS NOT NULL) > 0)";
+    }
+
+    /**
+     * Condición SQL: la asistencia OFICIAL de `$m` en `$per` es RECTIFICABLE.
+     *   1. Bimestre POR FECHAS (los de solo números no tienen días que corregir).
+     *   2. Fila CONFIRMADA y no extraordinaria (esa son números sin fechas).
+     *   3. Periodo CERRADO o asistencia BLOQUEADA en la sección donde cursó.
+     */
+    private static function sqlAsistenciaRectificable(string $m = 'm', string $per = 'per'): string
+    {
+        $seccion = CambioSeccionModel::sqlSeccionDelPeriodo($m, "{$per}.id");
+        return "{$per}.asistencia_por_fechas = 1
+                AND EXISTS (SELECT 1 FROM inasistencias rai
+                            WHERE rai.matricula_id = {$m}.id AND rai.periodo_id = {$per}.id
+                              AND rai.extraordinaria = 0
+                              AND " . AsistenciaModel::sqlConfirmada('rai') . ")
+                AND ({$per}.estado = 'cerrado'
+                     OR (SELECT COUNT(*) FROM cierres_asistencia raz
+                                WHERE raz.seccion_id = {$seccion}
+                                  AND raz.periodo_id = {$per}.id
+                                  AND raz.anulado_en IS NULL) > 0)";
+    }
+
+    /** Bimestres de la matrícula que cumplen `$condicion` (alias m / per). */
+    private function periodosQueCumplen(int $matriculaId, string $condicion, ?int $periodoId = null): array
+    {
+        $params = [$matriculaId];
+        $filtro = '';
+        if ($periodoId !== null) {
+            $filtro   = 'AND per.id = ?';
+            $params[] = $periodoId;
+        }
+        return $this->query("
+            SELECT per.id AS periodo_id, per.numero AS periodo_numero,
+                   per.nombre_display AS periodo_nombre, per.estado AS periodo_estado
+            FROM matriculas m
+            INNER JOIN periodos per ON per.anio_id = m.anio_id
+            WHERE m.id = ?
+              {$filtro}
+              AND {$condicion}
+            ORDER BY per.numero
+        ", $params);
+    }
+
+    /** ¿La conducta de la matrícula en ese bimestre es rectificable? */
+    public function conductaRectificable(int $matriculaId, int $periodoId): bool
+    {
+        return $this->periodosQueCumplen($matriculaId, self::sqlConductaRectificable(), $periodoId) !== [];
+    }
+
+    /** ¿La asistencia de la matrícula en ese bimestre es rectificable? */
+    public function asistenciaRectificable(int $matriculaId, int $periodoId): bool
+    {
+        return $this->periodosQueCumplen($matriculaId, self::sqlAsistenciaRectificable(), $periodoId) !== [];
+    }
+
+    /**
+     * Bimestres con conducta rectificable, con el literal actual (aunque la
+     * sección no tenga cierre vigente) y si el tutor ya cerró la etapa 2.
+     */
+    public function getConductaRectificable(int $matriculaId): array
+    {
+        $conducta = new ConductaModel();
+        $filas    = $this->periodosQueCumplen($matriculaId, self::sqlConductaRectificable());
+        foreach ($filas as &$f) {
+            $f['literal'] = $conducta->getParaPeriodo($matriculaId, (int) $f['periodo_id'], false);
+            $f['tutor_cerro'] = $this->tutorCerroConducta($matriculaId, (int) $f['periodo_id']);
+        }
+        unset($f);
+        return $filas;
+    }
+
+    /** ¿El tutor ya cerró la etapa 2 de la sección donde cursó ese bimestre? */
+    public function tutorCerroConducta(int $matriculaId, int $periodoId): bool
+    {
+        return $this->queryOne("
+            SELECT 1 AS ok
+            FROM matriculas m
+            INNER JOIN cierres_conducta z
+                    ON z.seccion_id = " . CambioSeccionModel::sqlSeccionDelPeriodo('m', $periodoId) . "
+                   AND z.periodo_id = ? AND z.anulado_en IS NULL
+                   AND z.tutor_cerrado_en IS NOT NULL
+            WHERE m.id = ?
+        ", [$periodoId, $matriculaId]) !== null;
+    }
+
+    /** Bimestres con asistencia rectificable, con sus 4 contadores. */
+    public function getAsistenciaRectificable(int $matriculaId): array
+    {
+        $asistencia = new AsistenciaModel();
+        $filas      = $this->periodosQueCumplen($matriculaId, self::sqlAsistenciaRectificable());
+        foreach ($filas as &$f) {
+            $f['contadores'] = $asistencia->contadoresDe($matriculaId, (int) $f['periodo_id']);
+        }
+        unset($f);
+        return $filas;
+    }
+
+    /** Una fila de traza por criterio que cambió. Sin transacción propia. */
+    public function registrarConducta(
+        int $matriculaId,
+        int $periodoId,
+        array $cambios,
+        ?string $literalAnterior,
+        ?string $literalNuevo,
+        string $motivo,
+        int $userId
+    ): void {
+        foreach ($cambios as $criterioId => [$antes, $despues]) {
+            $this->execute("
+                INSERT INTO rectificaciones_conducta
+                    (matricula_id, periodo_id, criterio_id, respuesta_anterior, respuesta_nueva,
+                     literal_anterior, literal_nuevo, motivo, rectificado_por)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ", [$matriculaId, $periodoId, (int) $criterioId, (int) $antes, (int) $despues,
+                $literalAnterior, $literalNuevo, $motivo, $userId]);
+        }
+    }
+
+    /** Traza de la rectificación de un día. Sin transacción propia. */
+    public function registrarAsistencia(
+        int $matriculaId,
+        int $periodoId,
+        string $fecha,
+        array $anterior,
+        string $marcaNueva,
+        ?int $motivoNuevoId,
+        string $motivo,
+        int $userId
+    ): void {
+        $this->execute("
+            INSERT INTO rectificaciones_asistencia
+                (matricula_id, periodo_id, fecha, marca_anterior, motivo_anterior_id,
+                 marca_nueva, motivo_nuevo_id, motivo, rectificado_por)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ", [$matriculaId, $periodoId, $fecha, $anterior[0], $anterior[1],
+            $marcaNueva, $motivoNuevoId, $motivo, $userId]);
+    }
+
+    /**
+     * Historial de rectificaciones de conducta y de asistencia de una matrícula
+     * (más recientes primero).
+     *
+     * @return array{conducta: list<array>, asistencia: list<array>}
+     */
+    public function getHistorialRegistros(int $matriculaId): array
+    {
+        $conducta = $this->query("
+            SELECT r.*, k.codigo AS criterio_codigo, k.texto AS criterio_texto,
+                   per.nombre_display AS periodo_nombre,
+                   CONCAT(pu.apellido_paterno, ' ', pu.nombres) AS rectificador
+            FROM rectificaciones_conducta r
+            INNER JOIN criterios_conducta k ON k.id = r.criterio_id
+            INNER JOIN periodos per         ON per.id = r.periodo_id
+            LEFT  JOIN usuarios u           ON u.id = r.rectificado_por
+            LEFT  JOIN personas pu          ON pu.id = u.persona_id
+            WHERE r.matricula_id = ?
+            ORDER BY r.rectificado_en DESC, r.id DESC
+        ", [$matriculaId]);
+
+        $asistencia = $this->query("
+            SELECT r.*, per.nombre_display AS periodo_nombre,
+                   ma.nombre AS motivo_anterior, mn.nombre AS motivo_nuevo,
+                   CONCAT(pu.apellido_paterno, ' ', pu.nombres) AS rectificador
+            FROM rectificaciones_asistencia r
+            INNER JOIN periodos per        ON per.id = r.periodo_id
+            LEFT  JOIN asistencia_motivos ma ON ma.id = r.motivo_anterior_id
+            LEFT  JOIN asistencia_motivos mn ON mn.id = r.motivo_nuevo_id
+            LEFT  JOIN usuarios u          ON u.id = r.rectificado_por
+            LEFT  JOIN personas pu         ON pu.id = u.persona_id
+            WHERE r.matricula_id = ?
+            ORDER BY r.rectificado_en DESC, r.id DESC
+        ", [$matriculaId]);
+
+        return ['conducta' => $conducta, 'asistencia' => $asistencia];
+    }
 }

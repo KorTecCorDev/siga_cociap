@@ -486,6 +486,66 @@ class ConductaModel extends BaseModel
         }
     }
 
+    /**
+     * RECTIFICACIÓN (F5, 13/10/2026, migración 079): RA/admin corrigen los Sí/No
+     * de un registro YA OFICIAL (confirmado y bloqueado, o de un bimestre
+     * cerrado). A diferencia de `guardarBorrador`, NO borra la confirmación: lo
+     * rectificado sigue siendo oficial. La nota final no se guarda: la recalculan
+     * en vivo `componerLiteral`/`promediar` con la del tutor.
+     *
+     * La condición de rectificable y la traza son de `RectificacionModel`.
+     * ⚠️ Sin transacción propia: la abre el controlador (como en notas).
+     *
+     * @param array<int,int> $respuestas  [criterio_id => 0|1]
+     * @param array<int>     $criterioIds ids de criterios vigentes del nivel y año
+     * @return array<int, array{0:int, 1:int}> [criterio_id => [antes, después]] de los que cambiaron
+     */
+    public function rectificar(int $matriculaId, int $periodoId, array $respuestas, int $userId, array $criterioIds): array
+    {
+        $respuestas = array_intersect_key($respuestas, array_flip($criterioIds));
+
+        // Lo que se rectifica es lo OFICIAL (el registro está confirmado): se lee del
+        // punto único. `upsertRespuestas` vuelve a leer y bloquea las filas.
+        $previas = $this->respuestasOficiales($matriculaId, $periodoId);
+
+        $cambios = [];
+        foreach ($respuestas as $cid => $v) {
+            $v = $v ? 1 : 0;
+            // Un criterio sin fila previa (registro forzado a medias) no se
+            // rectifica: no hay valor oficial que corregir.
+            if (array_key_exists((int) $cid, $previas) && $previas[(int) $cid] !== $v) {
+                $cambios[(int) $cid] = [$previas[(int) $cid], $v];
+            }
+        }
+        if ($cambios !== []) {
+            $this->upsertRespuestas(
+                $matriculaId,
+                $periodoId,
+                array_map(static fn(array $c): int => $c[1], $cambios),
+                $userId
+            );
+        }
+        return $cambios;
+    }
+
+    /**
+     * Respuestas OFICIALES de un estudiante en un bimestre, para el formulario de
+     * rectificación: [criterio_id => 0|1].
+     *
+     * @return array<int,int>
+     */
+    public function respuestasOficiales(int $matriculaId, int $periodoId): array
+    {
+        $out = [];
+        foreach ($this->query("
+            SELECT r.criterio_id, r.respuesta FROM " . self::RESPUESTAS_OFICIALES . " r
+            WHERE r.matricula_id = ? AND r.periodo_id = ?
+        ", [$matriculaId, $periodoId]) as $r) {
+            $out[(int) $r['criterio_id']] = (int) $r['respuesta'];
+        }
+        return $out;
+    }
+
     /** ¿Está confirmado el registro de ese estudiante en ese bimestre? */
     public function estaConfirmado(int $matriculaId, int $periodoId): bool
     {
@@ -979,8 +1039,12 @@ class ConductaModel extends BaseModel
         return $out;
     }
 
-    /** Conducta (literal) de un alumno en un solo periodo, o null si no es visible. */
-    public function getParaPeriodo(int $matriculaId, int $periodoId): ?string
+    /**
+     * Conducta (literal) de un alumno en un solo periodo, o null si no es visible.
+     * Con $exigirVisible = false compone el literal aunque la sección no tenga
+     * cierre vigente (la traza de la rectificación, 13/10/2026).
+     */
+    public function getParaPeriodo(int $matriculaId, int $periodoId, bool $exigirVisible = true): ?string
     {
         $r = $this->queryOne("
             SELECT
@@ -1005,7 +1069,7 @@ class ConductaModel extends BaseModel
             WHERE m.id = ?
         ", [$periodoId, $periodoId, $periodoId, $periodoId, $matriculaId]);
 
-        if (!$r || !$r['visible']) {
+        if (!$r || ($exigirVisible && !$r['visible'])) {
             return null;
         }
         return $this->componerLiteral(

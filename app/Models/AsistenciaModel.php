@@ -945,6 +945,121 @@ class AsistenciaModel extends BaseModel
     }
 
     /**
+     * Lo que hay HOY en un día de un estudiante, como lo guarda la traza de la
+     * rectificación: su incidencia (tipo + motivo); si no, `asistio` cuando está
+     * cubierto (✓ propio o lista de la sección donde cursó ese bimestre); si no,
+     * `sin_tomar`.
+     *
+     * @return array{0:string, 1:?int} [marca, motivo_id]
+     */
+    public function marcaDelDia(int $matriculaId, int $periodoId, string $fecha): array
+    {
+        $inc = $this->queryOne("
+            SELECT tipo, motivo_id FROM asistencia_incidencias
+            WHERE matricula_id = ? AND fecha = ?
+        ", [$matriculaId, $fecha]);
+        if ($inc) {
+            return [(string) $inc['tipo'], $inc['motivo_id'] !== null ? (int) $inc['motivo_id'] : null];
+        }
+        $propio = $this->queryOne("
+            SELECT 1 AS ok FROM asistencia_presencias WHERE matricula_id = ? AND fecha = ?
+        ", [$matriculaId, $fecha]);
+        if ($propio) {
+            return ['asistio', null];
+        }
+        $seccionId = (new CambioSeccionModel())->seccionDelPeriodo($matriculaId, $periodoId);
+        if ($seccionId !== null && (new AsistenciaJornadaModel())->estaTomada($seccionId, $periodoId, $fecha)) {
+            return ['asistio', null];
+        }
+        return ['sin_tomar', null];
+    }
+
+    /**
+     * RECTIFICACIÓN de la marca de UN día (F5, 13/10/2026, migración 079): RA/admin
+     * corrigen un registro YA OFICIAL. Mismas validaciones y el mismo cambio
+     * presencia ↔ incidencia que `marcarDia`, con dos diferencias:
+     *   - la fila sigue CONFIRMADA con su confirmación ORIGINAL
+     *     (`recalcularContadores` la borra y aquí se repone en la misma operación);
+     *   - `$tipo = null` («✓ asistió») también se rectifica.
+     * Los contadores los escribe solo `recalcularContadores` (invariante de la 069),
+     * con el ancla del bimestre (`anclaDelPeriodo`, congelada al cerrar).
+     *
+     * La condición de rectificable y la traza son de `RectificacionModel`.
+     * ⚠️ Sin transacción propia: la abre el controlador.
+     *
+     * @return array{ok:bool, mensaje:string, anterior?:array{0:string,1:?int}}
+     */
+    public function rectificarDia(int $matriculaId, int $periodoId, string $fecha, ?string $tipo, ?int $motivoId, int $userId): array
+    {
+        $periodo = $this->periodo($periodoId);
+        if ($periodo === null || (int) $periodo['asistencia_por_fechas'] !== 1) {
+            return ['ok' => false, 'mensaje' => 'Este bimestre no se registra por fechas.'];
+        }
+        $jornadas = new AsistenciaJornadaModel();
+        if (!in_array($fecha, self::diasMarcables($periodo, null, $jornadas->noLectivos()), true)) {
+            return ['ok' => false, 'mensaje' => 'Ese día no se puede marcar (fuera del bimestre, fin de semana o no lectivo).'];
+        }
+        if ($tipo !== null && !in_array($tipo, self::TIPOS, true)) {
+            return ['ok' => false, 'mensaje' => 'Tipo de incidencia no válido.'];
+        }
+        if ($tipo === null || !in_array($tipo, ['FJ', 'TJ'], true)) {
+            $motivoId = null;
+        }
+        if ($motivoId === null && in_array($tipo, ['FJ', 'TJ'], true)) {
+            return ['ok' => false, 'mensaje' => 'Elige el motivo de la justificación.'];
+        }
+        if ($motivoId !== null && !(new AsistenciaMotivoModel())->esVigente($motivoId)) {
+            return ['ok' => false, 'mensaje' => 'Motivo no válido o retirado.'];
+        }
+
+        $fila = $this->queryOne("
+            SELECT confirmado_en, confirmado_por, extraordinaria FROM inasistencias
+            WHERE matricula_id = ? AND periodo_id = ?
+            FOR UPDATE
+        ", [$matriculaId, $periodoId]);
+        // Una fila de la vía extraordinaria son números sin fechas: recontarla
+        // desde las incidencias la borraría.
+        if (!$fila || $fila['confirmado_en'] === null || (int) $fila['extraordinaria'] === 1) {
+            return ['ok' => false, 'mensaje' => 'La asistencia de este estudiante no se puede rectificar.'];
+        }
+
+        $anterior = $this->marcaDelDia($matriculaId, $periodoId, $fecha);
+        $nueva    = [$tipo ?? 'asistio', $motivoId];
+        if ($anterior === $nueva) {
+            return ['ok' => false, 'mensaje' => 'Ese día ya tiene esa marca: no hay cambios que rectificar.'];
+        }
+
+        if ($tipo === null) {
+            $this->execute("
+                DELETE FROM asistencia_incidencias WHERE matricula_id = ? AND fecha = ?
+            ", [$matriculaId, $fecha]);
+            $jornadas->marcarPresente($matriculaId, $periodoId, $fecha, $userId);
+        } else {
+            $jornadas->quitarPresente($matriculaId, $fecha);
+            $this->execute("
+                INSERT INTO asistencia_incidencias
+                    (matricula_id, periodo_id, fecha, tipo, motivo_id, registrado_por)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    tipo = VALUES(tipo), motivo_id = VALUES(motivo_id),
+                    registrado_por = VALUES(registrado_por), modificado_en = NOW()
+            ", [$matriculaId, $periodoId, $fecha, $tipo, $motivoId, $userId]);
+        }
+
+        // Solo si cambió una incidencia hay contadores que rehacer (un ✓ sobre un
+        // día «sin tomar» no los toca). Después, la confirmación ORIGINAL vuelve.
+        if (in_array($anterior[0], self::TIPOS, true) || $tipo !== null) {
+            $this->recalcularContadores($matriculaId, $periodoId, $userId);
+            $this->execute("
+                UPDATE inasistencias SET confirmado_en = ?, confirmado_por = ?
+                WHERE matricula_id = ? AND periodo_id = ?
+            ", [$fila['confirmado_en'], $fila['confirmado_por'], $matriculaId, $periodoId]);
+        }
+
+        return ['ok' => true, 'mensaje' => 'Asistencia rectificada.', 'anterior' => $anterior];
+    }
+
+    /**
      * CONFIRMAR el registro de un estudiante en un bimestre por fechas: exige
      * motivo en TODA FJ/TJ (desde la 070 es solo DEFENSA: el CHECK
      * `chk_justificada_con_motivo` ya impide guardarlas sin él), recalcula los contadores (garantiza el invariante)
