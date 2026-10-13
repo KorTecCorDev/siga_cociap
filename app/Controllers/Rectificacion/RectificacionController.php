@@ -9,6 +9,9 @@ use App\Models\CriterioModel;
 use App\Models\OrdenMeritoModel;
 use App\Models\TransversalModel;
 use App\Models\AsistenciaModel;
+use App\Models\AsistenciaJornadaModel;
+use App\Models\AsistenciaMotivoModel;
+use App\Models\CambioSeccionModel;
 use App\Models\ConductaModel;
 use App\Models\ConclusionReplicaModel;
 use App\Models\BorradorModel;
@@ -122,6 +125,10 @@ class RectificacionController extends BaseController
             'porPeriodo'    => array_values($porPeriodo),
             'porPeriodoIns' => array_values($porPeriodoIns),
             'historial'     => $this->model->getHistorial(20, $matriculaId),
+            // F5 (13/10/2026): conducta y asistencia rectificables y su traza.
+            'conductaRect'   => $this->model->getConductaRectificable($matriculaId),
+            'asistenciaRect' => $this->model->getAsistenciaRectificable($matriculaId),
+            'historialReg'   => $this->model->getHistorialRegistros($matriculaId),
         ]);
     }
 
@@ -1069,6 +1076,222 @@ class RectificacionController extends BaseController
 
         $this->redirectWithSuccess($volverLista,
             'Rectificación aplicada.' . $avisoExtra . $notaRanking . $avisoEmpate);
+    }
+
+    // ── Conducta y asistencia (F5, 13/10/2026, migración 079) ────
+    //
+    // Mismo contrato que la rectificación de notas: rol (constructor) + estado
+    // RECTIFICABLE (`RectificacionModel`) + motivo obligatorio + traza, todo en
+    // una transacción. La escritura la hace el modelo dueño de cada registro.
+    // No toca el orden de mérito: conducta y asistencia no entran en él.
+
+    /**
+     * GET /rectificaciones/conducta?matricula=&periodo=
+     * Los Sí/No OFICIALES de un estudiante en un bimestre, para rectificarlos.
+     */
+    public function conducta(): void
+    {
+        $matriculaId = (int) $this->query('matricula');
+        $periodoId   = (int) $this->query('periodo');
+        $info        = $this->model->getMatriculaInfo($matriculaId);
+        if (!$info) {
+            $this->notFound();
+        }
+        if (!$this->model->conductaRectificable($matriculaId, $periodoId)) {
+            $this->redirectWithError(url('rectificaciones/matricula/' . $matriculaId),
+                'La conducta de ese bimestre no se puede rectificar.');
+        }
+
+        $conducta = new ConductaModel();
+        $this->view('rectificaciones/conducta', [
+            'titulo'     => 'Rectificar conducta',
+            'info'       => $info,
+            'periodo'    => (new AsistenciaModel())->periodo($periodoId),
+            'criterios'  => $conducta->getCriterios((int) $info['nivel_id'], (int) $info['anio_id']),
+            'respuestas' => $conducta->respuestasOficiales($matriculaId, $periodoId),
+            'literal'    => $conducta->getParaPeriodo($matriculaId, $periodoId, false),
+            'tutorCerro' => $this->model->tutorCerroConducta($matriculaId, $periodoId),
+            'old'        => Session::getFlash('rect_cond_old'),
+        ]);
+    }
+
+    /** POST /rectificaciones/conducta/guardar */
+    public function guardarConducta(): void
+    {
+        $this->validateCsrf();
+
+        $matriculaId = (int) $this->input('matricula_id');
+        $periodoId   = (int) $this->input('periodo_id');
+        $motivo      = trim((string) $this->input('motivo', ''));
+        $respPost    = $this->input('resp', []);
+        $usuarioId   = (int) (Session::user()['id'] ?? 0);
+
+        $volverForm  = url('rectificaciones/conducta?matricula=' . $matriculaId . '&periodo=' . $periodoId);
+        $volverLista = url('rectificaciones/matricula/' . $matriculaId);
+        $entrada     = ['resp' => is_array($respPost) ? $respPost : [], 'motivo' => $motivo];
+
+        $info = $this->model->getMatriculaInfo($matriculaId);
+        if (!$info) {
+            $this->notFound();
+        }
+        if ($motivo === '') {
+            $this->volverConEntrada($volverForm, 'El motivo de la rectificación es obligatorio.', 'rect_cond_old', $entrada);
+        }
+        if (!$this->model->conductaRectificable($matriculaId, $periodoId)) {
+            $this->redirectWithError($volverLista, 'La conducta de ese bimestre no se puede rectificar.');
+        }
+
+        $conducta    = new ConductaModel();
+        $criterioIds = array_map(
+            static fn(array $k): int => (int) $k['id'],
+            $conducta->getCriterios((int) $info['nivel_id'], (int) $info['anio_id'])
+        );
+        $respuestas = [];
+        if (is_array($respPost)) {
+            foreach ($respPost as $cid => $v) {
+                if (in_array((int) $cid, $criterioIds, true) && in_array((string) $v, ['0', '1'], true)) {
+                    $respuestas[(int) $cid] = (int) $v;
+                }
+            }
+        }
+        if ($respuestas === []) {
+            $this->volverConEntrada($volverForm, 'Marca Sí o No en los criterios.', 'rect_cond_old', $entrada);
+        }
+
+        $this->model->beginTransaction();
+        try {
+            $literalAntes = $conducta->getParaPeriodo($matriculaId, $periodoId, false);
+            $cambios      = $conducta->rectificar($matriculaId, $periodoId, $respuestas, $usuarioId, $criterioIds);
+            if ($cambios === []) {
+                $this->model->rollback();
+                $this->volverConEntrada($volverForm, 'No hay cambios que rectificar.', 'rect_cond_old', $entrada);
+            }
+            $literalDespues = $conducta->getParaPeriodo($matriculaId, $periodoId, false);
+            $this->model->registrarConducta(
+                $matriculaId, $periodoId, $cambios, $literalAntes, $literalDespues, $motivo, $usuarioId
+            );
+            $this->model->commit();
+        } catch (\Throwable $e) {
+            $this->model->rollback();
+            log_error('Error al rectificar conducta', [
+                'matricula' => $matriculaId, 'periodo' => $periodoId, 'error' => $e->getMessage(),
+            ]);
+            $this->volverConEntrada($volverForm, 'No se pudo aplicar la rectificación.', 'rect_cond_old', $entrada);
+        }
+
+        $this->redirectWithSuccess($volverLista, 'Conducta rectificada: '
+            . ($literalAntes ?? '—') . ' → ' . ($literalDespues ?? '—') . '.');
+    }
+
+    /**
+     * GET /rectificaciones/asistencia?matricula=&periodo=
+     * Marcas del bimestre por fechas de un estudiante, para rectificar un día.
+     */
+    public function asistencia(): void
+    {
+        $matriculaId = (int) $this->query('matricula');
+        $periodoId   = (int) $this->query('periodo');
+        $info        = $this->model->getMatriculaInfo($matriculaId);
+        if (!$info) {
+            $this->notFound();
+        }
+        if (!$this->model->asistenciaRectificable($matriculaId, $periodoId)) {
+            $this->redirectWithError(url('rectificaciones/matricula/' . $matriculaId),
+                'La asistencia de ese bimestre no se puede rectificar.');
+        }
+
+        $asistencia = new AsistenciaModel();
+        $jornadas   = new AsistenciaJornadaModel();
+        $periodo    = $asistencia->periodo($periodoId);
+        $seccionId  = (new CambioSeccionModel())->seccionDelPeriodo($matriculaId, $periodoId);
+        $incid      = $asistencia->incidenciasDe([$matriculaId], $periodoId)[$matriculaId] ?? [];
+        $propios    = $jornadas->presenciasDe([$matriculaId], $periodoId)[$matriculaId] ?? [];
+        $tomadas    = $seccionId !== null ? $jornadas->tomadasDe($seccionId, $periodoId) : [];
+
+        // La marca de cada día marcable, con la MISMA regla que `marcaDelDia`.
+        $dias = [];
+        foreach (AsistenciaModel::diasMarcables($periodo, null, $jornadas->noLectivos()) as $f) {
+            if (isset($incid[$f])) {
+                $dias[$f] = ['marca' => $incid[$f]['tipo'], 'motivo' => $incid[$f]['motivo']];
+            } elseif (isset($propios[$f]) || isset($tomadas[$f])) {
+                $dias[$f] = ['marca' => 'asistio', 'motivo' => null];
+            } else {
+                $dias[$f] = ['marca' => 'sin_tomar', 'motivo' => null];
+            }
+        }
+
+        $motivoModel = new AsistenciaMotivoModel();
+        $ancla       = $motivoModel->anclaDelPeriodo($periodoId);
+        $this->view('rectificaciones/asistencia', [
+            'titulo'     => 'Rectificar asistencia',
+            'info'       => $info,
+            'periodo'    => $periodo,
+            'dias'       => $dias,
+            'contadores' => $asistencia->contadoresDe($matriculaId, $periodoId),
+            'motivos'    => $motivoModel->vigentes($ancla),
+            'old'        => Session::getFlash('rect_asis_old'),
+            'page_scripts' => ['rectificaciones-asistencia'],
+        ]);
+    }
+
+    /** POST /rectificaciones/asistencia/guardar */
+    public function guardarAsistencia(): void
+    {
+        $this->validateCsrf();
+
+        $matriculaId = (int) $this->input('matricula_id');
+        $periodoId   = (int) $this->input('periodo_id');
+        $fecha       = (string) $this->input('fecha', '');
+        $marca       = (string) $this->input('marca', '');
+        $motivoJust  = (int) $this->input('motivo_id', 0);
+        $motivo      = trim((string) $this->input('motivo', ''));
+        $usuarioId   = (int) (Session::user()['id'] ?? 0);
+
+        $volverForm  = url('rectificaciones/asistencia?matricula=' . $matriculaId . '&periodo=' . $periodoId);
+        $volverLista = url('rectificaciones/matricula/' . $matriculaId);
+        $entrada     = ['fecha' => $fecha, 'marca' => $marca, 'motivo_id' => $motivoJust, 'motivo' => $motivo];
+
+        $info = $this->model->getMatriculaInfo($matriculaId);
+        if (!$info) {
+            $this->notFound();
+        }
+        if ($motivo === '') {
+            $this->volverConEntrada($volverForm, 'El motivo de la rectificación es obligatorio.', 'rect_asis_old', $entrada);
+        }
+        if (!in_array($marca, ['asistio', ...AsistenciaModel::TIPOS], true)
+            || preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) !== 1) {
+            $this->volverConEntrada($volverForm, 'Elige el día y la nueva marca.', 'rect_asis_old', $entrada);
+        }
+        if (!$this->model->asistenciaRectificable($matriculaId, $periodoId)) {
+            $this->redirectWithError($volverLista, 'La asistencia de ese bimestre no se puede rectificar.');
+        }
+
+        $tipo     = $marca === 'asistio' ? null : $marca;
+        $motivoId = $motivoJust > 0 ? $motivoJust : null;
+
+        $this->model->beginTransaction();
+        try {
+            $res = (new AsistenciaModel())->rectificarDia($matriculaId, $periodoId, $fecha, $tipo, $motivoId, $usuarioId);
+            if (!$res['ok']) {
+                $this->model->rollback();
+                $this->volverConEntrada($volverForm, $res['mensaje'], 'rect_asis_old', $entrada);
+            }
+            $this->model->registrarAsistencia(
+                $matriculaId, $periodoId, $fecha, $res['anterior'], $marca,
+                in_array($marca, ['FJ', 'TJ'], true) ? $motivoId : null,
+                $motivo, $usuarioId
+            );
+            $this->model->commit();
+        } catch (\Throwable $e) {
+            $this->model->rollback();
+            log_error('Error al rectificar asistencia', [
+                'matricula' => $matriculaId, 'periodo' => $periodoId, 'fecha' => $fecha,
+                'error' => $e->getMessage(),
+            ]);
+            $this->volverConEntrada($volverForm, 'No se pudo aplicar la rectificación.', 'rect_asis_old', $entrada);
+        }
+
+        $this->redirectWithSuccess($volverLista, 'Asistencia rectificada.');
     }
 
 }

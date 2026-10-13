@@ -289,6 +289,11 @@ $router->get( '/rectificaciones/extraordinaria',  'Rectificacion\RectificacionCo
 $router->post('/rectificaciones/extraordinaria/guardar', 'Rectificacion\RectificacionController@guardarExtraordinaria');
 $router->get( '/rectificaciones/extraordinaria/lote', 'Rectificacion\RectificacionController@extraordinariaLote');
 $router->post('/rectificaciones/extraordinaria/lote/guardar', 'Rectificacion\RectificacionController@guardarExtraordinariaLote');
+// F5 (13/10/2026): rectificación de conducta y asistencia. Literales, antes del {id}.
+$router->get( '/rectificaciones/conducta',          'Rectificacion\RectificacionController@conducta');
+$router->post('/rectificaciones/conducta/guardar',  'Rectificacion\RectificacionController@guardarConducta');
+$router->get( '/rectificaciones/asistencia',        'Rectificacion\RectificacionController@asistencia');
+$router->post('/rectificaciones/asistencia/guardar','Rectificacion\RectificacionController@guardarAsistencia');
 $router->get( '/rectificaciones/matricula/{id}',  'Rectificacion\RectificacionController@matricula');
 
 // ─── Consulta de calificaciones (solo lectura) ───────────────
