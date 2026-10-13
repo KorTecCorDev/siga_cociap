@@ -14,18 +14,33 @@ cierre del III. El cierre se hace **a más tardar el domingo 18/10**, para abrir
 19/10: el sistema no deja abrir un bimestre con otro activo, y con la F3 el III **no cierra**
 hasta tener asistencia bloqueada y conducta en sus dos etapas en las 23 secciones.
 
+**🟢 DESPLEGADO el 13/10/2026: merge `fc97b49` en `main`** (`--no-ff`, 33 commits; sigue
+v1.0.5). Comprobado en producción por el usuario antes del merge:
+- `SHOW COLUMNS FROM periodos LIKE 'limite_auxiliares'` → 1 fila (078).
+- `SHOW TABLES` → `asistencia_presencias` (077) y las 2 `rectificaciones_*` (079).
+- `SHOW CREATE TABLE asistencia_incidencias` → **los dos CHECK** presentes.
+  ⚠️ La consulta a `information_schema.CHECK_CONSTRAINTS` volvió **vacía** en producción
+  (igual que la falsa alarma del 05/10): allí NO sirve; usar `SHOW CREATE TABLE`.
+- 0 justificaciones FJ/TJ sin motivo; un solo periodo activo (III), `limite_auxiliares` NULL.
+- La verificación de último momento (`php -l` del lote y búsqueda de archivos sensibles) **no
+  se ejecutó**: el usuario la canceló y pidió el merge directo.
+
 Pasos, en orden:
-1. **Ampliar `limite_notas` del III ANTES de que venza** (14/10 11:59) en `/director/anios/1`;
-   el código actual de producción ya lo permite. `limite_auxiliares` vacía = la de notas: los
-   auxiliares también reciben los 3 días, salvo que se les ponga una fecha propia (tras la 078).
-2. Producción, phpMyAdmin, **envíos separados**: 077 → 078 → 079, y la consulta del CHECK
-   `chk_justificada_con_motivo` en **otro envío aparte** (es un SELECT a `information_schema`).
-3. Avisar a **docentes** (aprobar exige la conclusión obligatoria), **tutores** (transversales
+1. [ ] **Ampliar `limite_notas` del III ANTES de que venza** (14/10 11:59) en
+   `/director/anios/1` → 17/10 11:59. `limite_auxiliares` vacía = la de notas: los auxiliares
+   también reciben los 3 días, salvo que se les ponga una fecha propia.
+2. [x] Producción: 077 → 078 → 079 aplicadas y verificadas (ver arriba).
+3. [ ] Avisar a **docentes** (aprobar exige la conclusión obligatoria), **tutores** (transversales
    y etapa 2 de conducta en solo lectura desde el nuevo límite) y **auxiliares** (marcar a uno
    no toma la lista; el bloqueo exige cada estudiante cada día).
-4. Merge `dev` → `main` con `--no-ff` (preguntar antes, como siempre).
-5. Fin de semana 17–18/10: revisar el panel de bloqueos y cerrar el III con el runbook; abrir
-   el IV el 19/10.
+4. [x] Merge `dev` → `main` (`fc97b49`).
+5. [ ] Pruebas rápidas en prod: tarjeta del III en `/director/anios/1` («Igual al límite de
+   notas»), panel del auxiliar, una grilla de asistencia, `/docente/tutoria`,
+   `/director/bloqueos` (4 donuts). Ante un fallo: `tail ~/siga_logs/siga.log`.
+6. [ ] Fin de semana 17–18/10: revisar el panel de bloqueos y cerrar el III con el runbook
+   (la F3 ya exige conducta y asistencia completas); abrir el IV el lunes 19/10.
+7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
+   asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
 
 ## (HISTÓRICO, reemplazado el 13/10/2026) RETOMAR AQUÍ (12/10/2026) — DESPLIEGUE DESPUÉS DEL III
 
@@ -130,7 +145,7 @@ Tres observaciones del usuario sobre el auxiliar. El detalle está en
   seguimiento y 4 `tel:`, 3.° A sin él; «Ver nota final» solo en prim 2.° A (enlace y 200, vista «←
   Registro», solo lectura) y 404 en 1.° A. Repaso por roles de esta sección: COMPLETO.
 - [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
-- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 RECTIFICACIÓN DE CONDUCTA Y ASISTENCIA — F5 (13/10/2026, en `dev`, migración 079)
 
@@ -169,7 +184,7 @@ solo queda la traza. Detalle en `docs/modulos/cierre-cuatro-registros.md` § F5.
     la card aparece cuando el auxiliar bloquee una. Rectificar F → FJ y comprobar los
     contadores en la boleta. FJ sin motivo y motivo vacío → rechazados sin perder lo escrito;
   - con un docente o un auxiliar, las rutas dan 403.
-- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 PANEL DE BLOQUEOS: BUSCADOR + RESPONSIVE (13/10/2026, en `dev`, sin migración)
 
@@ -184,7 +199,7 @@ inalcanzable): ahora desplazan como las académicas. Detalle en `docs/modulos/ad
   (cada acordeón vuelve a su estado inicial). **Usuario, 13/10/2026: «es exitoso».**
 - [x] Desbloquear una fila: tras el redirect sigue la búsqueda, baja a la fila y destella;
   cancelar el `confirm()` no deja foco guardado. (Mismo visto bueno del usuario.)
-- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 LISTA DE MATRÍCULAS: NIVEL, FILTROS Y VUELTA (12/10/2026, en `dev`, sin migración)
 
@@ -194,7 +209,7 @@ vuelve a la lista filtrada. Detalle en `docs/modulos/matriculas.md` § Lista de 
 - Filtros del modelo y cascada del JS probados por CLI.
 - [x] **Probado en el navegador el 12/10/2026** (pruebas 1-6): todo correcto según el
       usuario.
-- [ ] Desplegar: sin migración; merge `dev` → `main` solo con autorización.
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 GESTIÓN DE APODERADOS VINCULADOS (12/10/2026, en `dev`, sin migración)
 
@@ -212,7 +227,7 @@ perdió su teléfono y correo; corregido a mano el mismo día). Detalle y reglas
       incluida la vista con una sesión de secretaría): todo correcto según el usuario.
 - [ ] Limpiar en la BD local de la oficina los vínculos y datos creados por las pruebas
       (matrículas 162, 163 y 399; teléfonos de GIRALDO LINO y MALLQUI ROBLES).
-- [ ] Desplegar: sin migración; merge `dev` → `main` solo con autorización.
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 BUSCADOR DE USUARIOS EN `/admin/usuarios` (12/10/2026, en `dev`, sin migración)
 
