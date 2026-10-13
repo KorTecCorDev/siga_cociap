@@ -19,10 +19,10 @@ $explicaciones = [
 ];
 ?>
 <ul class="just-leyenda">
-    <?php foreach ($explicaciones as $cat => [$titulo, $texto]): ?>
+    <?php foreach ($explicaciones as $cat => [$rotulo, $texto]): ?>
         <li>
             <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?>
-            <span><strong><?= e($titulo) ?>:</strong> <?= e($texto) ?></span>
+            <span><strong><?= e($rotulo) ?>:</strong> <?= e($texto) ?></span>
         </li>
     <?php endforeach; ?>
 </ul>

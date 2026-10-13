@@ -32,11 +32,11 @@ $fechaCorta = static function (string $f) use ($diasSemana): string {
 $hayGrafico = count($reporte['secciones']) >= 2 && (int) $k['fj'] > 0;
 ?>
 <div class="cuadros-kpis just-seccion__kpis">
-    <?php foreach ($categorias as $cat => $titulo): ?>
+    <?php foreach ($categorias as $cat => $rotulo): ?>
         <div class="cuadros-kpi">
             <span class="cuadros-kpi__n"><?= (int) $k[$cat] ?></span>
             <span class="cuadros-kpi__t">
-                <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?> <?= e($titulo) ?>
+                <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?> <?= e($rotulo) ?>
             </span>
         </div>
     <?php endforeach; ?>
@@ -69,10 +69,10 @@ $hayGrafico = count($reporte['secciones']) >= 2 && (int) $k['fj'] > 0;
         <thead>
             <tr>
                 <th class="just-seccion__seccion">Sección</th>
-                <?php foreach ($categorias as $cat => $titulo): ?>
+                <?php foreach ($categorias as $cat => $rotulo): ?>
                     <th class="tr-anexo-cifra">
                         <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?>
-                        <span class="just-seccion__rotulo"><?= e($titulo) ?></span>
+                        <span class="just-seccion__rotulo"><?= e($rotulo) ?></span>
                     </th>
                 <?php endforeach; ?>
                 <th class="tr-anexo-cifra">Estudiantes</th>
@@ -119,10 +119,10 @@ $hayGrafico = count($reporte['secciones']) >= 2 && (int) $k['fj'] > 0;
                 <th class="just-seccion__seccion">Sección</th>
                 <th class="tr-num">N&deg;</th>
                 <th class="tr-nombre">Apellidos y Nombres</th>
-                <?php foreach ($categorias as $cat => $titulo): ?>
+                <?php foreach ($categorias as $cat => $rotulo): ?>
                     <th class="tr-anexo-fechas">
                         <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?>
-                        <span class="just-seccion__rotulo"><?= e($titulo) ?></span>
+                        <span class="just-seccion__rotulo"><?= e($rotulo) ?></span>
                     </th>
                 <?php endforeach; ?>
             </tr>

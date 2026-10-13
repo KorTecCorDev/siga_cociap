@@ -117,10 +117,10 @@ $categorias   = ['fj_autorizadas' => 'Faltas justificadas', 'fj_como_f' => 'Cuen
                         <th class="tr-num">N&deg;</th>
                         <th class="tr-nombre">Apellidos y Nombres</th>
                         <th class="tr-anexo-tipo">Faltas</th>
-                        <?php foreach (['f' => 'Sin justificar', 'fj_como_f' => 'Cuentan como falta'] as $cat => $titulo): ?>
+                        <?php foreach (['f' => 'Sin justificar', 'fj_como_f' => 'Cuentan como falta'] as $cat => $rotulo): ?>
                             <th class="tr-anexo-cifra">
                                 <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?>
-                                <span class="just-seccion__rotulo"><?= e($titulo) ?></span>
+                                <span class="just-seccion__rotulo"><?= e($rotulo) ?></span>
                             </th>
                         <?php endforeach; ?>
                         <th class="tr-anexo-fecha">Última falta</th>
@@ -170,11 +170,11 @@ $categorias   = ['fj_autorizadas' => 'Faltas justificadas', 'fj_como_f' => 'Cuen
           // «F»: la mitad de las FJ del III llevaban motivo verbal y la misma fila
           // decía FJ y F a la vez. ?>
     <div class="cuadros-kpis just-seccion__kpis">
-        <?php foreach ($categorias as $cat => $titulo): ?>
+        <?php foreach ($categorias as $cat => $rotulo): ?>
             <div class="cuadros-kpi">
                 <span class="cuadros-kpi__n"><?= (int) $k[$cat] ?></span>
                 <span class="cuadros-kpi__t">
-                    <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?> <?= e($titulo) ?>
+                    <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?> <?= e($rotulo) ?>
                 </span>
             </div>
         <?php endforeach; ?>
@@ -195,10 +195,10 @@ $categorias   = ['fj_autorizadas' => 'Faltas justificadas', 'fj_como_f' => 'Cuen
                 <tr>
                     <th class="tr-num">N&deg;</th>
                     <th class="tr-nombre">Apellidos y Nombres</th>
-                    <?php foreach ($categorias as $cat => $titulo): ?>
+                    <?php foreach ($categorias as $cat => $rotulo): ?>
                         <th class="tr-anexo-fechas">
                             <?php require VIEW_PATH . '/admin/asistencia/_pastilla-categoria.php'; ?>
-                            <span class="just-seccion__rotulo"><?= e($titulo) ?></span>
+                            <span class="just-seccion__rotulo"><?= e($rotulo) ?></span>
                         </th>
                     <?php endforeach; ?>
                 </tr>
