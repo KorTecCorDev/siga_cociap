@@ -30,7 +30,7 @@
 | F2 | Coherencia: semáforo del auxiliar con `bimestreTerminado`; transversales del tutor bajo la compuerta; forzados solo con el periodo `activo`; comentarios vencidos | no | **HECHA en `dev` (09/10/2026)** — `verif_coherencia_bloqueos.php`. ⚠️ **Avisar a los tutores ANTES de desplegarla** |
 | F3 | Guard del cierre: asistencia bloqueada y conducta en sus dos etapas, todas las secciones del año | no | **HECHA en `dev` (09/10/2026)** — `verif_guard_cierre_registros.php`. ⚠️ Antes de desplegar, medir en PROD que el III Bimestre pueda cumplirla |
 | F4 | `periodos.limite_auxiliares` (NULL = vale `limite_notas`); `fecha_fin ≤ limite_auxiliares ≤ limite_notas` | **sí (078)** | **HECHA en `dev` (09/10/2026)** — `verif_plazo_edicion.php` § 5. 078 aplicada solo en la BD local de la oficina |
-| F5 | Rectificación de conducta y asistencia (RA/admin, motivo + auditoría) | **sí** | pendiente — decisiones abajo; **abiertas**: tabla de auditoría y boleta ya publicada |
+| F5 | Rectificación de conducta y asistencia (RA/admin, motivo + auditoría) | **sí (079)** | **HECHA en `dev` (13/10/2026)** — `verif_rectificacion_registros.php`. 079 aplicada solo en la BD local de la oficina |
 
 ### F4 — cómo quedó (09/10/2026)
 - Campo opcional «Fecha límite para auxiliares (conducta y asistencia)» en el modal
@@ -50,8 +50,30 @@
 - **Etapa 2 ya cerrada por el tutor:** la rectificación **solo deja la traza**; no reabre.
 - Solo sobre un registro **bloqueado** o un bimestre **cerrado**, con **motivo obligatorio**,
   como `RectificacionModel::esRectificable`.
-- **Abiertas:** una tabla de auditoría común o una por registro; cómo se refleja en una
-  boleta ya publicada (en notas, al instante).
+- **Cerradas el 13/10/2026:** **una tabla de auditoría por registro**; en una boleta ya
+  publicada **se ve al instante** (como en notas); se entra desde **`/rectificaciones`**.
+
+### F5 — cómo quedó (13/10/2026, migración 079)
+- **Tablas:** `rectificaciones_conducta` (una fila por criterio que cambió: Sí/No antes y
+  después + literal antes y después) y `rectificaciones_asistencia` (una por día: marca y
+  motivo antes y después; la marca anterior puede ser `sin_tomar`).
+- **Rectificable** (punto único `RectificacionModel::sqlConductaRectificable` /
+  `sqlAsistenciaRectificable`): registro **CONFIRMADO** (lo no confirmado de un forzado va
+  por la vía extraordinaria) **y** bimestre cerrado **o** bloqueo vigente en la sección donde
+  cursó (`CambioSeccionModel::sqlSeccionDelPeriodo`). Asistencia: además periodo por fechas y
+  fila no extraordinaria. ⚠️ El cierre va en `COUNT(*) > 0`, no en `EXISTS`: MariaDB
+  convierte ese EXISTS en un IN con subconsulta a la izquierda y lo rechaza (#1235).
+- **Escritura en el modelo dueño, sin transacción propia** (la abre el controlador):
+  `ConductaModel::rectificar` (no borra la confirmación; el literal se recalcula en vivo) y
+  `AsistenciaModel::rectificarDia` (mismas validaciones que `marcarDia`; recuenta con
+  `recalcularContadores` y **repone la confirmación ORIGINAL**). `getParaPeriodo` admite
+  `$exigirVisible = false` para la traza.
+- **Pantallas** (admin/RA): `/rectificaciones/matricula/{id}` suma las cards «Conducta» y
+  «Asistencia» (solo si hay bimestres rectificables) y sus historiales;
+  `/rectificaciones/conducta` y `/rectificaciones/asistencia` (+ `/guardar`). Sin
+  `BorradorModel`: son formularios cortos y un rechazo vuelve con `$old`.
+- No toca el mérito ni reabre nada: si el tutor ya cerró la etapa 2, solo queda la traza.
+- I y II Bimestre 2026 (asistencia solo de números) no tienen asistencia rectificable.
 
 ### F1 — cómo quedó (09/10/2026)
 - **`app/Models/EdicionPeriodoModel.php`**: `esEditable(periodo, rol)`, `motivoNoEditable()`

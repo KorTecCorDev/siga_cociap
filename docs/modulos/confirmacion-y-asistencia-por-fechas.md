@@ -784,3 +784,17 @@ Guardas comunes a todas: `puedeRegistrar`, periodo editable, sección no bloquea
   - medir filas del III con números > 0;
   - comprobar que cada sección de I y II tiene cierre de asistencia vigente (si falta alguno,
     su asistencia desaparecería de la boleta publicada: detenerse y decidir con el usuario).
+
+## Rectificación de conducta y asistencia ya oficiales (13/10/2026, migración 079)
+
+Después de «Bloquear y aprobar» (o con el bimestre cerrado), RA/admin corrigen sin reabrir
+desde `/rectificaciones/matricula/{id}`, con motivo obligatorio y traza:
+- **Conducta:** los Sí/No de los criterios. El registro **sigue confirmado** y el literal se
+  recalcula en vivo con la nota del tutor.
+- **Asistencia por fechas:** la marca de **un día** (✓ asistió, F, FJ, T, TJ; FJ/TJ con motivo).
+  Los contadores los rehace `recalcularContadores` y la fila **conserva su confirmación
+  original**: lo rectificado es oficial, no un borrador.
+- Solo sobre lo **confirmado**: lo que un bloqueo forzado dejó sin confirmar va por la vía
+  extraordinaria.
+
+Reglas, tablas y punto único en `docs/modulos/cierre-cuatro-registros.md` § F5.

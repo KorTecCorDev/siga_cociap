@@ -17,7 +17,8 @@ Pasos, en orden:
    `docs/runbooks/cierre-de-bimestre.md`, con la **Fase 3.5 a mano** (sin F3, el código no la
    exige y la boleta sale con guiones). Límite de notas: **14/10/2026 11:59**.
 2. Producción, phpMyAdmin, **envíos separados**: `077_asistencia_presencias.sql` → 
-   `078_periodos_limite_auxiliares.sql` (idempotentes, no tocan datos).
+   `078_periodos_limite_auxiliares.sql` → `079_rectificaciones_registros.sql` (idempotentes,
+   no tocan datos).
 3. Producción: comprobar el CHECK (la copia local no los conserva). Si no devuelve una fila,
    revisar antes del merge:
    `SELECT CONSTRAINT_NAME, TABLE_NAME FROM information_schema.CHECK_CONSTRAINTS
@@ -92,6 +93,29 @@ Tres observaciones del usuario sobre el auxiliar. El detalle está en
   - «Ver nota final» antes del cierre del tutor (no aparece y la URL da 404) y después.
 - [ ] Repetir con admin, RA y Dirección (la consulta de conducta de Dirección no debe cambiar).
 - [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
+- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+
+## 🆕 RECTIFICACIÓN DE CONDUCTA Y ASISTENCIA — F5 (13/10/2026, en `dev`, migración 079)
+
+RA/admin rectifican, desde `/rectificaciones/matricula/{id}`, los Sí/No de conducta y la marca
+de un día de asistencia (bimestres por fechas) de un registro **confirmado** con bloqueo
+vigente o bimestre cerrado. Motivo obligatorio y traza en `rectificaciones_conducta` /
+`rectificaciones_asistencia`. Se ve al instante en la boleta. Si el tutor ya cerró la etapa 2,
+solo queda la traza. Detalle en `docs/modulos/cierre-cuatro-registros.md` § F5.
+- **079 aplicada en la BD LOCAL** de la oficina (13/10/2026). ⚠️ **Producción: aplicarla a
+  mano ANTES del merge**, después de 077 y 078 (ver «RETOMAR AQUÍ»).
+- Comprobado: `php -l`, `verif_rectificacion_registros.php` TODO OK (transacción + rollback,
+  sin residuos), render por CLI de las 3 vistas sin avisos, rutas nuevas → login sin sesión. La
+  batería vecina (`verif_asistencia_fechas`, `_jornadas`, `_presencias`,
+  `verif_confirmacion_conducta`, `verif_rol_auxiliar`) da la MISMA salida que en `HEAD`.
+- [ ] Probar en el navegador **con RA**:
+  - `/rectificaciones/matricula/{id}` de un estudiante con conducta confirmada del II o del III
+    (cards Conducta/Asistencia solo si hay bimestres rectificables);
+  - rectificar un criterio → el literal cambia en la boleta y en el historial;
+  - asistencia: hoy **ninguna sección del III tiene la asistencia bloqueada** (0/23), así que
+    la card aparece cuando el auxiliar bloquee una. Rectificar F → FJ y comprobar los
+    contadores en la boleta. FJ sin motivo y motivo vacío → rechazados sin perder lo escrito;
+  - con un docente o un auxiliar, las rutas dan 403.
 - [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
 
 ## 🆕 PANEL DE BLOQUEOS: BUSCADOR + RESPONSIVE (13/10/2026, en `dev`, sin migración)
@@ -189,7 +213,8 @@ fases F0–F5 en **`docs/modulos/cierre-cuatro-registros.md` §0**.
   **marca de un día** en asistencia por fechas (los contadores se recalculan); si el tutor
   ya cerró la etapa 2, **solo deja la traza** (no la reabre). Abiertas: tabla de auditoría
   (una común o una por registro) y cómo se refleja en una boleta ya publicada.
-- **Pendiente:** F5 (migración).
+- **F5 HECHA en `dev` el 13/10/2026** (migración 079): ver la sección «RECTIFICACIÓN DE
+  CONDUCTA Y ASISTENCIA».
 - **PRUEBAS — COMPLETAS (12/10/2026): bloques 1 a 6 ✓.** Pendiente solo decidir el despliegue
   (077 y 078 en prod antes del merge; avisar a los tutores por F2; con datos de prod del 12/10 el
   III tenía 0/23 asistencias bloqueadas y 3/23 conductas cerradas por el tutor: no desplegar F2/F3
