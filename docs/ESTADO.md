@@ -1,7 +1,7 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **09/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **13/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
@@ -29,15 +29,18 @@ Pasos, en orden:
 6. Pruebas rápidas en prod: tarjeta de `/director/anios/1` («Igual al límite de notas»), panel
    del auxiliar, una grilla de asistencia, `/docente/tutoria`, `/matriculas` con filtro Nivel.
 
-**Medido con datos de prod del 12/10/2026 13:53** (código de `dev`), lo que le falta al III:
-- Asistencia bloqueada **0/23**. Primaria 3.° A, 3.° B, 4.° A y 4.° B con **0 confirmados**;
-  sec 3.° A 21/22. **14 secciones sin lista del 30/09**: fue día LECTIVO (lo confirmó el
-  usuario) y lo registran los auxiliares. Otros pendientes sueltos: 01/10, 05/10, 09/10.
-- Conducta etapa 1 **23/23**; etapa 2 (tutor) **3/23** (solo prim 2.° A, 5.° A y 6.° A).
+**Medido con datos de prod del 13/10/2026 15:38** (código de `dev`), lo que le falta al III:
+- Asistencia bloqueada **0/23**. Primaria 3.° A, 3.° B, 4.° A y 4.° B siguen con **0
+  confirmados**; sec 3.° A 21/22; las otras 18, todos confirmados. **13 secciones sin lista del
+  30/09** (día LECTIVO, lo registran los auxiliares). Prim 3.° B, 4.° A y 4.° B, además, sin
+  01, 05, 06, 07 y 09/10; prim 3.° A, 2.° B y sec 3.° A sin el 09/10.
+- Conducta etapa 1 **23/23**; etapa 2 (tutor) **7/23** (eran 3 el 12/10).
 - Transversales cerradas por el tutor **0/23**.
-- Académicas aprobadas **168/283**; en 51 pendientes faltan **322 conclusiones obligatorias**.
+- Académicas (panel de bloqueos): **185 bloqueadas · 101 pendientes · 307 sin criterios** de
+  593. En las no bloqueadas faltan **291 conclusiones obligatorias** en 47 competencias (322 el
+  12/10, medidas con otra consulta: comparar con cuidado).
 
-**BD local de la oficina:** copia de prod del 12/10 13:53 **con 077 y 078 aplicadas** a mano.
+**BD local de la oficina:** copia de prod del 13/10 15:38 **con 077 y 078 aplicadas** a mano.
 
 ## 🆕 AUXILIAR: FALTAS Y JUSTIFICACIONES + NOTA FINAL DE CONDUCTA (13/10/2026, en `dev`, sin migración)
 
@@ -100,10 +103,10 @@ transversales, conducta y asistencia se recortaban en pantallas angostas (Accion
 inalcanzable): ahora desplazan como las académicas. Detalle en `docs/modulos/admin.md`.
 - Comprobado: `php -l`, `gulp build`, CSS de `/admin/usuarios` equivalente (mixin común) y
   medición sin desborde a 432/820/1024/1366 px con datos del III (sesión de admin).
-- [ ] Probar en el navegador el buscador: «5b», un docente, segmento «Bloqueadas», × / Esc
-  (cada acordeón vuelve a su estado inicial).
-- [ ] Desbloquear una fila: tras el redirect sigue la búsqueda, baja a la fila y destella;
-  cancelar el `confirm()` no deja foco guardado.
+- [x] Probar en el navegador el buscador: «5b», un docente, segmento «Bloqueadas», × / Esc
+  (cada acordeón vuelve a su estado inicial). **Usuario, 13/10/2026: «es exitoso».**
+- [x] Desbloquear una fila: tras el redirect sigue la búsqueda, baja a la fila y destella;
+  cancelar el `confirm()` no deja foco guardado. (Mismo visto bueno del usuario.)
 - [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
 
 ## 🆕 LISTA DE MATRÍCULAS: NIVEL, FILTROS Y VUELTA (12/10/2026, en `dev`, sin migración)
