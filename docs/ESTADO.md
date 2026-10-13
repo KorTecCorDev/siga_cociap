@@ -5,7 +5,29 @@
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
-## 🔜 RETOMAR AQUÍ (12/10/2026, fin del turno en la oficina) — DESPLIEGUE DESPUÉS DEL III
+## 🔜 RETOMAR AQUÍ (13/10/2026) — DESPLIEGUE CON EL III ACTIVO + 3 DÍAS DE PLAZO
+
+**Decisión del usuario (13/10/2026): deja sin efecto la opción A de abajo.** Todo `dev`
+(32 commits) se despliega **con el III todavía activo**: el límite de notas se amplía 3 días
+(14/10 11:59 → **17/10 11:59**), así que las reglas nuevas (F0, F2, F3 y la 077) rigen ya el
+cierre del III. El cierre se hace **a más tardar el domingo 18/10**, para abrir el IV el lunes
+19/10: el sistema no deja abrir un bimestre con otro activo, y con la F3 el III **no cierra**
+hasta tener asistencia bloqueada y conducta en sus dos etapas en las 23 secciones.
+
+Pasos, en orden:
+1. **Ampliar `limite_notas` del III ANTES de que venza** (14/10 11:59) en `/director/anios/1`;
+   el código actual de producción ya lo permite. `limite_auxiliares` vacía = la de notas: los
+   auxiliares también reciben los 3 días, salvo que se les ponga una fecha propia (tras la 078).
+2. Producción, phpMyAdmin, **envíos separados**: 077 → 078 → 079, y la consulta del CHECK
+   `chk_justificada_con_motivo` en **otro envío aparte** (es un SELECT a `information_schema`).
+3. Avisar a **docentes** (aprobar exige la conclusión obligatoria), **tutores** (transversales
+   y etapa 2 de conducta en solo lectura desde el nuevo límite) y **auxiliares** (marcar a uno
+   no toma la lista; el bloqueo exige cada estudiante cada día).
+4. Merge `dev` → `main` con `--no-ff` (preguntar antes, como siempre).
+5. Fin de semana 17–18/10: revisar el panel de bloqueos y cerrar el III con el runbook; abrir
+   el IV el 19/10.
+
+## (HISTÓRICO, reemplazado el 13/10/2026) RETOMAR AQUÍ (12/10/2026) — DESPLIEGUE DESPUÉS DEL III
 
 **Decisión del usuario (12/10/2026): opción A.** Todo `dev` (16 commits: bloqueos y plazos
 F0–F4, asistencia 077, usuarios, matrículas) se despliega **DESPUÉS de cerrar con éxito el III
