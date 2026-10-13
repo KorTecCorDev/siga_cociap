@@ -175,79 +175,18 @@ foreach ($competencias as $c) {
 ?>
 
 <?php
-$_t   = $stats['total'];
-$_pB  = $_t > 0 ? $stats['bloqueadas']    / $_t * 100 : 0;
-$_pP  = $_t > 0 ? $stats['pendientes']    / $_t * 100 : 0;
-$_pS  = $_t > 0 ? $stats['sin_criterios'] / $_t * 100 : 0;
-
-// stroke-dasharray: segmento visible, resto oculto (circunferencia = 100)
-$_dB  = round($_pB, 2) . ' ' . round(100 - $_pB, 2);
-$_dP  = round($_pP, 2) . ' ' . round(100 - $_pP, 2);
-$_dS  = round($_pS, 2) . ' ' . round(100 - $_pS, 2);
-
-// stroke-dashoffset: posición de inicio de cada arco (12 en punto = offset 25)
-$_oB  = 25;
-$_oP  = round(25 - $_pB, 2);
-$_oS  = round(25 - $_pB - $_pP, 2);
+$donut = [
+    'total'     => (int) $stats['total'],
+    'unidad'    => 'competencias',
+    'aria'      => 'Gráfico de estado de competencias',
+    'segmentos' => [
+        ['label' => 'Bloqueadas',    'num' => (int) $stats['bloqueadas'],    'mod' => 'ok'],
+        ['label' => 'Pendientes',    'num' => (int) $stats['pendientes'],    'mod' => 'warn'],
+        ['label' => 'Sin criterios', 'num' => (int) $stats['sin_criterios'], 'mod' => 'err'],
+    ],
+];
+require __DIR__ . '/_donut.php';
 ?>
-
-<div class="bloqueos-donut card mb-md">
-    <div class="bloqueos-donut__svg-wrap" role="img" aria-label="Gráfico de estado de competencias">
-        <svg viewBox="0 0 42 42" class="bloqueos-donut__svg">
-            <!-- Fondo -->
-            <circle cx="21" cy="21" r="15.9155" fill="none"
-                    stroke="#e5e7eb" stroke-width="4"/>
-            <!-- Bloqueadas -->
-            <?php if ($_pB > 0): ?>
-            <circle cx="21" cy="21" r="15.9155" fill="none"
-                    stroke="#16a34a" stroke-width="4"
-                    stroke-dasharray="<?= $_dB ?>"
-                    stroke-dashoffset="<?= $_oB ?>"/>
-            <?php endif; ?>
-            <!-- Pendientes -->
-            <?php if ($_pP > 0): ?>
-            <circle cx="21" cy="21" r="15.9155" fill="none"
-                    stroke="#d97706" stroke-width="4"
-                    stroke-dasharray="<?= $_dP ?>"
-                    stroke-dashoffset="<?= $_oP ?>"/>
-            <?php endif; ?>
-            <!-- Sin criterios -->
-            <?php if ($_pS > 0): ?>
-            <circle cx="21" cy="21" r="15.9155" fill="none"
-                    stroke="#dc2626" stroke-width="4"
-                    stroke-dasharray="<?= $_dS ?>"
-                    stroke-dashoffset="<?= $_oS ?>"/>
-            <?php endif; ?>
-            <!-- Texto central -->
-            <text x="21" y="19.5" class="bloqueos-donut__pct-svg"><?= number_format($_pB, 2) ?>%</text>
-            <text x="21" y="24"   class="bloqueos-donut__sub-svg">completado</text>
-        </svg>
-    </div>
-
-    <div class="bloqueos-donut__leyenda">
-        <p class="bloqueos-donut__titulo">
-            <?= $_t ?> competencias &mdash; <?= e($periodo['nombre_display']) ?>
-        </p>
-        <div class="bloqueos-donut__item">
-            <span class="bloqueos-donut__dot bloqueos-donut__dot--ok"></span>
-            <span class="bloqueos-donut__label">Bloqueadas</span>
-            <strong class="bloqueos-donut__num"><?= $stats['bloqueadas'] ?></strong>
-            <span class="bloqueos-donut__pct-txt"><?= number_format($_pB, 2) ?>%</span>
-        </div>
-        <div class="bloqueos-donut__item">
-            <span class="bloqueos-donut__dot bloqueos-donut__dot--warn"></span>
-            <span class="bloqueos-donut__label">Pendientes</span>
-            <strong class="bloqueos-donut__num"><?= $stats['pendientes'] ?></strong>
-            <span class="bloqueos-donut__pct-txt"><?= number_format($_pP, 2) ?>%</span>
-        </div>
-        <div class="bloqueos-donut__item">
-            <span class="bloqueos-donut__dot bloqueos-donut__dot--err"></span>
-            <span class="bloqueos-donut__label">Sin criterios</span>
-            <strong class="bloqueos-donut__num"><?= $stats['sin_criterios'] ?></strong>
-            <span class="bloqueos-donut__pct-txt"><?= number_format($_pS, 2) ?>%</span>
-        </div>
-    </div>
-</div>
 
 <?php if (($periodo['estado'] ?? '') === 'activo' && $stats['cierre_forzado'] > 0): ?>
 <div class="card mb-md bloqueos-cierre-accion">
@@ -638,6 +577,20 @@ $_oS  = round(25 - $_pB - $_pP, 2);
          role="tabpanel" aria-labelledby="tabcard-transversales" hidden>
 
 <?php if (!empty($transversales)): ?>
+<?php
+$_trConBloq = count(array_filter($transversales, fn($s) => !$s['cerrada'] && $s['n_bloqueos'] > 0));
+$donut = [
+    'total'     => $trTotal,
+    'unidad'    => 'secciones',
+    'aria'      => 'Gráfico de estado de las competencias transversales',
+    'segmentos' => [
+        ['label' => 'Cerradas por el tutor',  'num' => $trCerr,                          'mod' => 'ok'],
+        ['label' => 'Con bloqueos de carga',  'num' => $_trConBloq,                      'mod' => 'warn'],
+        ['label' => 'Sin bloqueos',           'num' => $trTotal - $trCerr - $_trConBloq, 'mod' => 'err'],
+    ],
+];
+require __DIR__ . '/_donut.php';
+?>
     <p class="bloqueos-nivel-titulo">Competencias Transversales (TIC/GAMA) &mdash; cierre del tutor</p>
     <div class="card mb-md">
         <div class="card__body">
@@ -817,6 +770,19 @@ $_oS  = round(25 - $_pB - $_pP, 2);
          role="tabpanel" aria-labelledby="tabcard-conducta" hidden>
 
 <?php if (!empty($conducta)): ?>
+<?php
+$donut = [
+    'total'     => $coTotal,
+    'unidad'    => 'secciones',
+    'aria'      => 'Gráfico de estado de la conducta',
+    'segmentos' => [
+        ['label' => 'Cerradas',           'num' => count(array_filter($conducta, fn($c) => $c['estado'] === 'cerrada')),            'mod' => 'ok'],
+        ['label' => 'Pendiente tutor',    'num' => count(array_filter($conducta, fn($c) => $c['estado'] === 'pendiente_tutor')),    'mod' => 'warn'],
+        ['label' => 'Pendiente auxiliar', 'num' => count(array_filter($conducta, fn($c) => $c['estado'] === 'pendiente_auxiliar')), 'mod' => 'err'],
+    ],
+];
+require __DIR__ . '/_donut.php';
+?>
     <p class="bloqueos-nivel-titulo">Conducta &mdash; dos etapas: auxiliar académico &rarr; tutor</p>
     <div class="card mb-md">
         <div class="card__body">
@@ -951,6 +917,21 @@ $_oS  = round(25 - $_pB - $_pP, 2);
          role="tabpanel" aria-labelledby="tabcard-asistencia" hidden>
 
 <?php if (!empty($asistencia)): ?>
+<?php
+$_asListas = count(array_filter($asistencia, fn($s) => !$s['bloqueada']
+    && (int) $s['registrados'] >= (int) $s['esperados']));
+$donut = [
+    'total'     => $asTotal,
+    'unidad'    => 'secciones',
+    'aria'      => 'Gráfico de estado de la asistencia',
+    'segmentos' => [
+        ['label' => 'Bloqueadas',                  'num' => $asBloq,                       'mod' => 'ok'],
+        ['label' => 'Listas para bloquear',        'num' => $_asListas,                    'mod' => 'warn'],
+        ['label' => 'Con estudiantes sin confirmar', 'num' => $asTotal - $asBloq - $_asListas, 'mod' => 'err'],
+    ],
+];
+require __DIR__ . '/_donut.php';
+?>
     <p class="bloqueos-nivel-titulo">Asistencia &mdash; una etapa: auxiliar acad&eacute;mico</p>
     <div class="card mb-md">
         <div class="card__body">

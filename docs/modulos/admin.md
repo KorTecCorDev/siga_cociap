@@ -148,6 +148,18 @@ del modelo viejo). Lo que eso implica:
 - **SASS** en `pages/_admin.scss`: `.bloqueos-hub`, `.bloqueos-tabcard--*` (tokens
   wayfinding; fondo tenue solo en `--activa`), `.bloqueos-panel`, `.td-acciones-conducta`.
 
+### Donut de estado en los 4 paneles (13/10/2026)
+- Parcial `resources/views/director/bloqueos/_donut.php` (`$donut`: `total`, `unidad`,
+  `aria`, `segmentos[]` con `label`/`num`/`mod` ok·warn·err). El primer segmento es el
+  «completado» del centro. Académicas lo usa con la salida HTML idéntica a la anterior.
+- Los otros tres cuentan **secciones**, con 3 estados cada uno (conteos en la vista, el
+  controlador no cambia):
+  - **Transversales:** cerradas por el tutor · sin cerrar con algún bloqueo de carga
+    (`n_bloqueos > 0`) · sin bloqueos.
+  - **Conducta:** `cerrada` · `pendiente_tutor` · `pendiente_auxiliar`.
+  - **Asistencia:** bloqueadas · listas para bloquear (`registrados >= esperados`) · con
+    estudiantes sin confirmar.
+
 ### Buscador de competencias académicas (13/10/2026)
 - Card `#bloqueos-buscador` sobre los acordeones del panel **académicas** (solo ahí).
   Mismo aspecto que el de `/admin/usuarios`: ambos salen del `@mixin buscador-vivo`
