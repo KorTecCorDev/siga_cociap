@@ -122,7 +122,10 @@ solo queda la traza. Detalle en `docs/modulos/cierre-cuatro-registros.md` § F5.
   - asistencia: el motivo de justificación aparece y se exige solo con FJ/TJ; FJ sin motivo →
     rechazo con lo escrito; 06/10 FJ verbal → FJ escrita: F 1→0, FJ 0→1, confirmación original;
   - IV / asistencia del II → vuelve a la lista con aviso; matrícula inexistente → 404.
-- [ ] Falta: RA (mismo flujo) y 403 con un docente o un auxiliar.
+- [x] **Con RA en Chrome (13/10/2026, ROBERTO COLONIA)**: cards visibles; conducta III C1 No → Sí
+  («B → A», confirmación intacta); asistencia 06/10 FJ verbal → FJ escrita con clics reales (F 1→0,
+  FJ 0→1, confirmación original); traza e historial a su nombre. Datos revertidos.
+- [ ] Falta: 403 con un docente o un auxiliar.
 - [ ] (reemplazado por lo de arriba) Probar en el navegador **con RA**:
   - `/rectificaciones/matricula/{id}` de un estudiante con conducta confirmada del II o del III
     (cards Conducta/Asistencia solo si hay bimestres rectificables);
