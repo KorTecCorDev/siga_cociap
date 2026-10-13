@@ -104,7 +104,9 @@ Tres observaciones del usuario sobre el auxiliar. El detalle está en
   `/admin/conducta/{id}/resultado` dan **403 a Dirección, igual que antes de hoy** (los dos
   métodos exigen `ROLES_REGISTRAN` / admin-RA-auxiliar desde su origen); Dirección ve la
   asistencia por `/consulta-notas/{p}/seccion/{s}/asistencia` (200).
-- [ ] Repetir con RA.
+- [x] **Con RA en Chrome (13/10/2026, ROBERTO COLONIA)**: lo mismo que con admin — 5.° B con
+  seguimiento y 4 `tel:`, 3.° A sin él; «Ver nota final» solo en prim 2.° A (enlace y 200, vista «←
+  Registro», solo lectura) y 404 en 1.° A. Repaso por roles de esta sección: COMPLETO.
 - [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
 - [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
 
