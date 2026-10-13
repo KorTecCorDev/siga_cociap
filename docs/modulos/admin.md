@@ -148,6 +148,31 @@ del modelo viejo). Lo que eso implica:
 - **SASS** en `pages/_admin.scss`: `.bloqueos-hub`, `.bloqueos-tabcard--*` (tokens
   wayfinding; fondo tenue solo en `--activa`), `.bloqueos-panel`, `.td-acciones-conducta`.
 
+### Buscador de competencias académicas (13/10/2026)
+- Card `#bloqueos-buscador` sobre los acordeones del panel **académicas** (solo ahí).
+  Mismo aspecto que el de `/admin/usuarios`: ambos salen del `@mixin buscador-vivo`
+  (`pages/_admin.scss`). Nace `hidden`: sin JS la vista es la de siempre.
+- Texto (sección «5b» / «5.° B», nivel, área, subárea, competencia, docente; sin tildes)
+  + segmento Todas · Bloqueadas · Pendientes · Sin criterios. Lee los `data-buscar` /
+  `data-estado` de cada `tr.bloqueo-fila` (*bloqueada sin notas* cuenta como bloqueada).
+- Filtrando: oculta filas, secciones y títulos de nivel sin coincidencias y **abre** las
+  secciones con coincidencias (también las completas, que nacen cerradas). Al limpiar,
+  cada acordeón vuelve a su estado inicial. Badges y `X/Y` del header NO cambian.
+- `sessionStorage` por periodo: `bloqueos.buscar.{id}` (búsqueda) y `bloqueos.foco.{id}`
+  (`data-fila` = `carga_id-competencia_id` de la fila cuyo formulario se envió; si el
+  `confirm()` se cancela no se guarda). Tras el redirect se baja a esa fila y destella
+  (`.bloqueo-fila--foco`). El controlador no cambia.
+
+### Responsive del panel (13/10/2026)
+- `.tabla-ranking` tiene `min-width: 680px` y `.card` lleva `overflow: hidden`: sin un
+  contenedor que desplace, en pantallas angostas la tabla se **recortaba** y la columna
+  **Acciones** quedaba inalcanzable. Académicas siempre desplazó (`.bloqueo-seccion__body`);
+  transversales, conducta y asistencia van ahora dentro de `.tabla-responsive` (componente
+  existente). Toda tabla nueva de este panel debe ir igual.
+- Los botones de `.td-acciones-conducta` no parten su texto, y los 4 segmentos del buscador
+  tampoco (se desplazan si no caben; padding menor bajo 480px).
+- Medido a 432/820/1024/1366 px: sin desborde de página.
+
 ### Transversales: LOS DOS NIVELES (06/08/2026)
 
 El bloque de transversales gobierna **dos cosas distintas**, y confundirlas costaba una

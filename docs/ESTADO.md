@@ -91,6 +91,21 @@ Tres observaciones del usuario sobre el auxiliar. El detalle está en
 - [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
 - [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
 
+## 🆕 PANEL DE BLOQUEOS: BUSCADOR + RESPONSIVE (13/10/2026, en `dev`, sin migración)
+
+En `/director/bloqueos`, pestaña académicas: buscador en vivo (sección «5b», área, competencia,
+docente + Todas/Bloqueadas/Pendientes/Sin criterios) que abre solo las secciones con
+coincidencias y, tras Desbloquear/Bloquear, vuelve a la fila. Además, las tablas de
+transversales, conducta y asistencia se recortaban en pantallas angostas (Acciones
+inalcanzable): ahora desplazan como las académicas. Detalle en `docs/modulos/admin.md`.
+- Comprobado: `php -l`, `gulp build`, CSS de `/admin/usuarios` equivalente (mixin común) y
+  medición sin desborde a 432/820/1024/1366 px con datos del III (sesión de admin).
+- [ ] Probar en el navegador el buscador: «5b», un docente, segmento «Bloqueadas», × / Esc
+  (cada acordeón vuelve a su estado inicial).
+- [ ] Desbloquear una fila: tras el redirect sigue la búsqueda, baja a la fila y destella;
+  cancelar el `confirm()` no deja foco guardado.
+- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+
 ## 🆕 LISTA DE MATRÍCULAS: NIVEL, FILTROS Y VUELTA (12/10/2026, en `dev`, sin migración)
 
 Nivel en la celda «Grado / Sección» y en el filtro Sección (5° A primaria ≠ secundaria),

@@ -66,9 +66,10 @@
     line-height: 1.35;
 }
 
-// ── Buscador de usuarios (/admin/usuarios) ────────────────────
+// ── Buscador en vivo (/admin/usuarios y /director/bloqueos) ──
 // Filtra en el navegador; sin JS la card no se muestra (nace `hidden`).
-.usuarios-buscador {
+// Mixin para que las dos vistas se vean igual con su propio bloque BEM.
+@mixin buscador-vivo {
     padding: $spacing-md;
     margin-bottom: $spacing-md;
 
@@ -212,6 +213,9 @@
     }
 }
 
+.usuarios-buscador { @include buscador-vivo; }
+.bloqueos-buscador { @include buscador-vivo; }
+
 // Chip de filtro con contador. Clase propia: `.orden-chip` ya tiene dos
 // consumidores (/matriculas y /admin/cuadros) y no se acopla a un tercero.
 .filtro-chip {
@@ -280,9 +284,12 @@
 }
 
 @media (max-width: 640px) {
-    .usuarios-buscador__atajo { display: none; }
-    .usuarios-buscador__limpiar { right: 12px; }
-    .usuarios-buscador__input { padding-right: 44px; }
+    .usuarios-buscador__atajo,
+    .bloqueos-buscador__atajo { display: none; }
+    .usuarios-buscador__limpiar,
+    .bloqueos-buscador__limpiar { right: 12px; }
+    .usuarios-buscador__input,
+    .bloqueos-buscador__input { padding-right: 44px; }
 }
 
 // ── Fila de usuario inactivo ──────────────────────────────────
@@ -475,6 +482,8 @@ tr.fila-separador-nivel td {
 .td-acciones-conducta {
     .btn-group { flex-wrap: wrap; }
     form { display: inline; }
+    // Dentro de .tabla-responsive la tabla se desplaza: el botón no parte su texto.
+    .btn { white-space: nowrap; }
 }
 
 // ── Donut chart — estado de bloqueos ─────────────────────────
@@ -996,6 +1005,52 @@ tr.fila-transversal-detalle > td {
     &[data-open] &__body {
         display: block;
     }
+
+    &[hidden] { display: none; }
+}
+
+// ── Bloqueos — buscador de competencias académicas ───────────
+// Filas, secciones y niveles que el filtro oculta; resaltado igual
+// que en /admin/usuarios.
+.bloqueos-nivel-titulo[hidden],
+.bloqueo-fila[hidden],
+.bloqueos-sin-resultados[hidden] { display: none; }
+
+// Cuatro segmentos: en pantallas angostas no parten su texto en dos
+// líneas; si no caben, el control se desplaza a los lados.
+.bloqueos-buscador__estado {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.bloqueos-buscador__seg {
+    white-space: nowrap;
+
+    @media (max-width: 480px) { padding: 4px $spacing-sm; }
+}
+
+.bloqueo-fila mark {
+    padding: 0 1px;
+    color: inherit;
+    background: $brand-light;
+    border-radius: 3px;
+    box-shadow: inset 0 -2px 0 rgba($brand-accent, .55);
+}
+
+.bloqueos-sin-resultados {
+    padding: $spacing-xl $spacing-md;
+    text-align: center;
+    color: $text-secondary;
+}
+
+// Fila a la que se vuelve tras Desbloquear/Bloquear: destello breve.
+@keyframes bloqueo-fila-foco {
+    from { background-color: $brand-light; }
+    to   { background-color: transparent; }
+}
+
+.bloqueo-fila--foco td {
+    animation: bloqueo-fila-foco 2.4s ease-out;
 }
 
 // ── Módulo de Cargas Académicas — grid de secciones ──────────

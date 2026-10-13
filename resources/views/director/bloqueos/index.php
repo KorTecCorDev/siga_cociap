@@ -401,9 +401,37 @@ $_oS  = round(25 - $_pB - $_pP, 2);
     </div><!-- /.bloqueos-widgets -->
 </div><!-- /.bloqueos-lateral -->
 
+<?php // Buscador en vivo (bloqueos.js). Nace oculto: sin JS la lista se ve como siempre. ?>
+<div class="card bloqueos-buscador" id="bloqueos-buscador" hidden>
+    <div class="bloqueos-buscador__caja">
+        <svg class="bloqueos-buscador__lupa" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+        </svg>
+        <input type="search" id="bloqueos-buscar" class="bloqueos-buscador__input"
+               placeholder="Busca por sección, área, competencia o docente"
+               autocomplete="off" spellcheck="false"
+               aria-label="Buscar competencias">
+        <button type="button" class="bloqueos-buscador__limpiar" id="bloqueos-limpiar"
+                aria-label="Limpiar búsqueda" hidden>&times;</button>
+        <kbd class="bloqueos-buscador__atajo" title="Pulsa / para buscar">/</kbd>
+    </div>
+
+    <div class="bloqueos-buscador__filtros">
+        <div class="bloqueos-buscador__estado" role="group" aria-label="Filtrar por estado">
+            <button type="button" class="bloqueos-buscador__seg bloqueos-buscador__seg--activo" data-estado="" aria-pressed="true">Todas</button>
+            <button type="button" class="bloqueos-buscador__seg" data-estado="bloqueada" aria-pressed="false">Bloqueadas</button>
+            <button type="button" class="bloqueos-buscador__seg" data-estado="pendiente" aria-pressed="false">Pendientes</button>
+            <button type="button" class="bloqueos-buscador__seg" data-estado="sin-criterios" aria-pressed="false">Sin criterios</button>
+        </div>
+    </div>
+
+    <p class="bloqueos-buscador__contador" id="bloqueos-contador" aria-live="polite"></p>
+</div>
+
 <?php foreach ($porNivel as $nivelNombre => $secciones): ?>
 
-    <p class="bloqueos-nivel-titulo"><?= e($nivelNombre) ?></p>
+    <p class="bloqueos-nivel-titulo" data-nivel="<?= e($nivelNombre) ?>"><?= e($nivelNombre) ?></p>
 
     <?php foreach ($secciones as $seccionId => $sec):
         $total      = $sec['total'];
@@ -434,6 +462,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
     ?>
 
     <div class="bloqueo-seccion bloqueo-seccion--<?= $secEstado ?>"
+         data-nivel="<?= e($nivelNombre) ?>"
          <?= $expandir ? 'data-open' : '' ?>>
 
         <button class="bloqueo-seccion__header"
@@ -488,23 +517,37 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                             $estado  = 'sin-criterios';
                             $filaCss = 'fila-sin-criterios';
                         }
+
+                        // Datos del buscador en vivo (bloqueos.js).
+                        $filaBuscar = implode(' ', [
+                            $nivelNombre,
+                            $sec['grado_nombre'] . ' ' . $sec['seccion_nombre'],
+                            $fila['area_nombre'] ?? '',
+                            $fila['subarea_nombre'] ?? '',
+                            $fila['competencia_nombre'] ?? '',
+                            ($fila['docente_apellido'] ?? '') . ' ' . ($fila['docente_nombres'] ?? ''),
+                        ]);
+                        $filaEstado = $bloqueada ? 'bloqueada' : $estado;
                     ?>
-                    <tr class="<?= $filaCss ?>">
+                    <tr class="bloqueo-fila <?= $filaCss ?>"
+                        data-buscar="<?= e($filaBuscar) ?>"
+                        data-estado="<?= $filaEstado ?>"
+                        data-fila="<?= (int) $fila['carga_id'] ?>-<?= (int) $fila['competencia_id'] ?>">
 
                         <td>
-                            <?= e($fila['area_nombre'] ?? '—') ?>
+                            <span data-resaltar><?= e($fila['area_nombre'] ?? '—') ?></span>
                             <?php if ($fila['subarea_nombre']): ?>
-                                <br><span class="text-sm text-muted"><?= e($fila['subarea_nombre']) ?></span>
+                                <br><span class="text-sm text-muted" data-resaltar><?= e($fila['subarea_nombre']) ?></span>
                             <?php endif; ?>
                         </td>
 
                         <td class="bloqueos-competencia">
-                            <?= e($fila['competencia_nombre']) ?>
+                            <span data-resaltar><?= e($fila['competencia_nombre']) ?></span>
                         </td>
 
                         <td class="text-sm">
-                            <?= e($fila['docente_apellido']) ?>,
-                            <span class="text-muted"><?= e($fila['docente_nombres']) ?></span>
+                            <span data-resaltar><?= e($fila['docente_apellido']) ?></span>,
+                            <span class="text-muted" data-resaltar><?= e($fila['docente_nombres']) ?></span>
                         </td>
 
                         <td>
@@ -578,6 +621,10 @@ $_oS  = round(25 - $_pB - $_pP, 2);
     <?php endforeach; ?>
 <?php endforeach; ?>
 
+<p class="bloqueos-sin-resultados" id="bloqueos-sin-resultados" hidden>
+    Ninguna competencia coincide con la búsqueda.
+</p>
+
 <?php else: ?>
     <div class="empty-state">
         <p>No hay cargas academicas activas para este periodo.</p>
@@ -613,6 +660,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                     de arriba porque las transversales cuelgan de un area propia.
                 </li>
             </ul>
+            <div class="tabla-responsive">
             <table class="tabla-ranking tabla-bloqueos">
                 <thead>
                     <tr>
@@ -753,6 +801,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 <?php else: ?>
@@ -777,6 +826,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                 etapa o <em>reabrir</em> para correcciones. Si fuerzas la etapa del auxiliar con
                 estudiantes sin confirmar, su conducta queda fuera de la boleta (guion).
             </p>
+            <div class="tabla-responsive">
             <table class="tabla-ranking tabla-bloqueos">
                 <thead>
                     <tr>
@@ -885,6 +935,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 <?php else: ?>
@@ -909,6 +960,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                 bloqueo o <em>reabrir</em> para correcciones. Si fuerzas el bloqueo con
                 estudiantes sin confirmar, su asistencia queda fuera de la boleta (guion).
             </p>
+            <div class="tabla-responsive">
             <table class="tabla-ranking tabla-bloqueos">
                 <thead>
                     <tr>
@@ -978,6 +1030,7 @@ $_oS  = round(25 - $_pB - $_pP, 2);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 <?php else: ?>
