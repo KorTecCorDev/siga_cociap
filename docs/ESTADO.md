@@ -91,7 +91,12 @@ Tres observaciones del usuario sobre el auxiliar. El detalle está en
   - el reporte y su card;
   - 403 en una sección ajena;
   - «Ver nota final» antes del cierre del tutor (no aparece y la URL da 404) y después.
-- [ ] Repetir con admin, RA y Dirección (la consulta de conducta de Dirección no debe cambiar).
+- [x] **Con ADMIN en Chrome (13/10/2026)**: 5.° B con 4 en seguimiento y 4 `tel:`; 2.° A (sec. 5)
+  sin bloque de seguimiento; «Ver nota final» 200 en prim 2.° A (dos etapas) y 404 en 1.° A
+  (sin el tutor). **Bug hallado y corregido:** la pestaña decía «Tardanzas justificadas» —los
+  bucles de categorías usaban `$titulo` y pisaban el `<title>` del layout— (vista de la sección,
+  reporte del auxiliar y leyenda; ahora `$rotulo`). `/auxiliar/justificaciones` da 403 a admin.
+- [ ] Repetir con RA y Dirección (la consulta de conducta de Dirección no debe cambiar).
 - [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
 - [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
 
@@ -108,7 +113,17 @@ solo queda la traza. Detalle en `docs/modulos/cierre-cuatro-registros.md` § F5.
   sin residuos), render por CLI de las 3 vistas sin avisos, rutas nuevas → login sin sesión. La
   batería vecina (`verif_asistencia_fechas`, `_jornadas`, `_presencias`,
   `verif_confirmacion_conducta`, `verif_rol_auxiliar`) da la MISMA salida que en `HEAD`.
-- [ ] Probar en el navegador **con RA**:
+- [x] **Probado en Chrome con ADMIN (13/10/2026, matrícula 171, prim 1.° A)**, datos revertidos al final:
+  - card Conducta con II y III; Asistencia solo con bloqueo (uno temporal, borrado después);
+  - conducta III: sin cambios → «No hay cambios que rectificar»; motivo vacío (sin el `required`
+    del navegador) → rechazo que conserva lo marcado; C1 No → Sí → «B → A», confirmación
+    original intacta, traza e historial;
+  - conducta II (publicado): C5 y C7 → la **boleta digital mostró A al instante**;
+  - asistencia: el motivo de justificación aparece y se exige solo con FJ/TJ; FJ sin motivo →
+    rechazo con lo escrito; 06/10 FJ verbal → FJ escrita: F 1→0, FJ 0→1, confirmación original;
+  - IV / asistencia del II → vuelve a la lista con aviso; matrícula inexistente → 404.
+- [ ] Falta: RA (mismo flujo) y 403 con un docente o un auxiliar.
+- [ ] (reemplazado por lo de arriba) Probar en el navegador **con RA**:
   - `/rectificaciones/matricula/{id}` de un estudiante con conducta confirmada del II o del III
     (cards Conducta/Asistencia solo si hay bimestres rectificables);
   - rectificar un criterio → el literal cambia en la boleta y en el historial;
