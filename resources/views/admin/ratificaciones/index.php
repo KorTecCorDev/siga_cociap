@@ -39,7 +39,10 @@ $anioId   = $anio !== null ? (int) $anio['id'] : 0;
             <?php endif; ?>
         </p>
     </div>
-    <a href="<?= url('admin/ratificaciones/motivos') ?>?anio_id=<?= $anioId ?>" class="btn btn--secondary btn--sm">Motivos</a>
+    <div class="ratif-cabecera-acciones">
+        <a href="<?= url('admin/ratificaciones/plantillas') ?>?anio_id=<?= $anioId ?>" class="btn btn--secondary btn--sm">Plantillas</a>
+        <a href="<?= url('admin/ratificaciones/motivos') ?>?anio_id=<?= $anioId ?>" class="btn btn--secondary btn--sm">Motivos</a>
+    </div>
 </div>
 
 <?php if ($anio === null): ?>

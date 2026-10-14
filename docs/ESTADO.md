@@ -1,7 +1,7 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **13/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **14/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
@@ -54,7 +54,29 @@ HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6
   ⚠️ La **080 solo está aplicada en la BD local de la oficina**: aplicarla en casa antes de abrir
   el módulo. Si `dev` se mergea a `main` con el módulo a medias, aplicar la 080 en prod ANTES
   (la card aparece en el dashboard y sin las tablas la pantalla falla).
-- [ ] Fases 2-5 (plantillas por bloques, emisión + QR, lote y aviso, documentación).
+- [x] Fase 2 (14/10): plantillas por bloques en `/admin/ratificaciones/plantillas` (párrafo con
+  variables, tabla, imagen, salto; versión nueva al editar una congelada; copiar del año
+  anterior; vista previa A4). Probada en Chrome con admin. Imágenes en
+  `config('ratificacion_img_path')`: en prod `~/siga_uploads/ratificacion/` (el código la crea
+  al subir la primera; verificar permisos al desplegar), en local `storage/ratificacion/`
+  (ignorada por git).
+- [ ] Fases 3-5 (emisión + QR, lote y aviso, documentación). Detalle de cada una, correcciones
+  al plan y recomendaciones: `docs/modulos/ratificaciones.md` § «Fases — plan de implementación y avance».
+
+### 🔜 RETOMAR AQUÍ (14/10/2026, fin del turno en la oficina) — en el escritorio de casa
+1. `git pull` en `dev` (Fases 1 y 2 están en `origin/dev`; `main` no las tiene).
+2. **Aplicar la 080 en la BD local de casa** (`database/migrations/080_ratificaciones.sql`,
+   idempotente; solo crea 5 tablas). Comprobar con `SHOW TABLES LIKE 'ratificacion%'` → 5.
+3. `npx gulp build` si el CSS/JS no se ve (los compilados ya van en el commit).
+4. `php database/verificaciones/verif_ratificaciones.php` → debe dar **TODO OK**.
+   (`verif_direccion_superficies.php` trae 1 FAIL PREEXISTENTE de `ROLES_MATRICULAN`, no es del módulo.)
+5. Pruebas pendientes del usuario: Ctrl+P en la vista previa de una plantilla (el salto de página
+   corta la hoja) y entrar con un **director** a `/admin/ratificaciones`, `/motivos` y
+   `/plantillas` (ve todo, sin formularios ni editor).
+6. Seguir con la **Fase 3** (emisión, A4 con firma y QR, anulación, verificación pública).
+- En la BD de la OFICINA quedaron datos de prueba: plantillas «(PRUEBA CLAUDE)» ids 12, 13 y 14
+  (+ una imagen en `storage/ratificacion/`), además del motivo y la decisión que creó el usuario.
+  Borrar las de prueba al volver a la oficina si ya no sirven. En casa no existen.
 - [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).**
 - [ ] Pedir a Dirección los textos y el catálogo de motivos de 2026 (ruta crítica real).
 

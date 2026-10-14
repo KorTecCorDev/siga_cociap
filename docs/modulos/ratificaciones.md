@@ -1,8 +1,10 @@
 # Ratificación de matrícula
 
-> **Estado (13/10/2026): PLAN APROBADO, SIN IMPLEMENTAR.** Implementación prevista en la
-> siguiente sesión, en `dev`. **No desplegar antes de cerrar el III y abrir el IV (18-19/10/2026).**
-> Al implementar, esta cabecera y el plan de abajo pasan a describir lo construido.
+> **Estado (14/10/2026): EN CONSTRUCCIÓN en `dev` — Fases 1 y 2 HECHAS y en `origin/dev`;
+> faltan las Fases 3, 4 y 5.** Ver **«Fases — plan de implementación y avance»** más abajo:
+> es el plan vivo (lo construido, las correcciones al plan del 13/10 y el detalle de lo que
+> falta). **Sin desplegar. No desplegar antes de cerrar el III y abrir el IV (18-19/10/2026).**
+> La migración 080 solo está aplicada en la BD local de la oficina.
 
 
 ## Contexto
@@ -24,6 +26,8 @@ No existe nada previo en código ni en docs.
 | Motivo | **Catálogo por año** (párrafo oficial redactado por Dirección) + **detalle opcional** por estudiante. |
 | QR | Solo **autenticidad**: estudiante, año, fecha de emisión y estado (vigente/anulado). Nunca el tipo ni el motivo. |
 | Numeración | **No** hay correlativo; solo la fecha de emisión. |
+| Apoderado en el documento (14/10) | Variable **`{apoderado}`** = el apoderado **RESPONSABLE** del estudiante (`vinculo_familiar.es_responsable = 1`; el vínculo es del estudiante, no de la matrícula). Al 14/10 los 474 estudiantes del universo tenían exactamente uno. |
+| Datos al reimprimir (14/10) | Las variables (estudiante, DNI, grado, apoderado…) se **leen al imprimir**, NO se congelan en la emisión: si cambia un dato, la reimpresión sale con el nuevo. Solo el texto del motivo y del detalle se copia al emitir. |
 
 ## Hechos del repo que condicionan el diseño
 - No hay dependencias PHP (ni `composer.json` ni `vendor/`). El PDF lo hace el navegador: `window.print()` para un documento, `html2pdf` + `jszip` para lotes (`public/js/archivar-boletas.js`).
@@ -102,17 +106,118 @@ Idempotente y con la cabecera estándar. Cierra con `SHOW TABLES`, nunca con un 
 ### Textos
 Los mensajes siguen la regla «no revelan el flujo». Los párrafos oficiales los redacta Dirección; el sistema no inventa ninguna redacción legal.
 
-## Fases
-1. **Migración 080** + modelos + decisiones por sección + catálogo de motivos.
-2. **Plantillas por bloques** (editor, imágenes, versión, duplicar del año anterior, vista previa).
-3. **Emisión**: documento individual A4, anulación, QR y página de verificación.
-4. **Lote por sección** (PDF/ZIP) + **aviso al matricular**.
-5. **Documentación**:
-   - `docs/modulos/ratificaciones.md` (nuevo);
-   - fila nueva en la tabla de CLAUDE.md (módulo nuevo);
-   - `docs/ESTADO.md` (migración 080 pendiente en prod; se AVISA, no se ejecuta).
+## Fases — plan de implementación y avance (aprobado el 14/10/2026)
 
-Commits separados por tema, en español y sin tildes.
+Reglas del plan: un commit por fase (Conventional Commits, español sin tildes); `php -l` +
+`verif_ratificaciones.php` al cerrar cada fase; **me detengo entre fases y aviso**; prueba en
+Chrome con la sesión del usuario, diciendo con QUÉ rol se probó.
+
+### Decisiones del usuario del 14/10 (se suman a las del 13/10)
+| Tema | Decisión |
+|---|---|
+| Quién escribe | `admin`, `registro_academico`, `secretaria_academica`, `secretaria_administrativa` (`RatificacionModel::ROLES_REGISTRAN`). `ROLES_DIRECCION` solo ve (`ROLES_VEN`). Rige para decisiones, motivos y plantillas. |
+| Universo | Fuera trasladados, retirados, la operativa de un retorno y 5.º de secundaria. **Todos los estados** (pendiente/aprobada/desactivado). Punto único `RatificacionModel::sqlUniverso()`. |
+| Emisión | Botón **«Emitir»** explícito (POST individual o por sección, en transacción). Imprimir es un GET que **reimprime la MISMA emisión** (mismo token). |
+| Cambio con emisión vigente | `confirm()` que lista cada campo antes → después; en la MISMA transacción se anula la emisión vigente. El servidor exige `confirmar_anulacion=1` (ya construido en la Fase 1). |
+| Verificación pública | Nombre completo, año, fecha de emisión y estado (vigente/anulado). **Nunca DNI, tipo ni motivo.** |
+| Apoderado | Variable `{apoderado}` = el **responsable** (ver tabla de decisiones de arriba). |
+| Datos al reimprimir | Se leen al imprimir; solo el texto del motivo y del detalle se congela en la emisión. |
+
+### Correcciones al plan del 13/10 (verificadas contra el repo; prevalecen sobre lo de arriba)
+1. `config('ratificacion_img_path')` — clave plana; `config()` no admite puntos. Se detecta por el
+   home de Hostinger, como `siagie_tmp_path`: en prod `~/siga_uploads/ratificacion/`, en local
+   `storage/ratificacion/` (en `.gitignore`). El controlador crea la carpeta al subir la primera.
+2. **No hay menú lateral**: la entrada es una card en `resources/views/dashboard/index.php`.
+3. La verificación pública **no** va en `Admin\RatificacionController` (la auth está en su
+   constructor): va en un controlador propio en la raíz, `app/Controllers/RatificacionVerificacionController.php`,
+   como `FirmaController` / `BoletaPublicaController`. Ruta `GET /ratificacion/verificar/{token}`.
+4. Las imágenes de plantilla se sirven **con login** por `RatificacionPlantillaController@imagen`
+   (PNG o JPG, nombre estricto, `realpath`, `nosniff`); no por `FirmaController`, que es público y solo PNG.
+5. 5.º de secundaria = `niveles.codigo = 'sec' AND grados.numero = 5`, nunca por id.
+6. Año anterior/siguiente por **número** (`anios_academicos.anio ± 1`); los ids tienen huecos.
+   La BD local solo tiene 2026: el aviso al matricular se prueba con el verificador (año temporal).
+7. `archivar-boletas.js` existe solo en `public/js/`: el JS nuevo va en `resources/js/` (gulp) y se
+   reutiliza el PATRÓN, no el archivo.
+8. **`verif_direccion_solo_lectura.php` NO se tocó**: exige que la escritura sea solo admin + RA, y
+   aquí escriben también las secretarías. Se siguió el precedente de `AsistenciaController`:
+   constantes propias en el modelo y verificador propio (`verif_ratificaciones.php` §4, que falla
+   si nace un método público sin clasificar como lectura o escritura).
+   **Sí** se actualizó `verif_direccion_superficies.php` (lista exacta de cards de Dirección).
+
+### ✅ Fase 1 — Migración 080 + decisiones + motivos (commit `c8ffa1a`)
+- `database/migrations/080_ratificaciones.sql`: 5 tablas, idempotente. Además del plan: columna
+  `vigente` 1/NULL con UNIQUE(ratificacion_id, vigente) = **una sola emisión vigente**;
+  `actualizado_por`; UNIQUE(anio_id, nombre) en motivos; UNIQUE(plantilla_id, orden) en bloques;
+  CHECKs `chk_ratif_decision_motivo` (ratificado ⇒ sin motivo ni detalle), `chk_rate_vigente`,
+  `chk_rate_motivo`, `chk_ratb_tipo_dato`, `chk_ratb_tabla_json`.
+- `RatificacionModel` (universo, `guardarDecision` con anulación confirmada, `anularEmision`),
+  `RatificacionMotivoModel` (por año; se retira, nunca DELETE), `Admin\RatificacionController`,
+  vistas `index.php` y `motivos.php`, `resources/js/ratificacion.js`, `_ratificacion.scss`, card del dashboard.
+- Probada en Chrome con **admin**. Corregido en la prueba: el error volvía con ancla a la fila y
+  el mensaje quedaba fuera de vista (con error ahora vuelve arriba); `scroll-margin-top` en filas.
+
+### ✅ Fase 2 — Plantillas por bloques (commit de esta sesión, ver `git log`)
+- `RatificacionPlantillaModel`: PUNTO ÚNICO de versiones (`guardar`: reescribe la no congelada,
+  crea la versión siguiente sobre la congelada; `huella` sha256 para «sin cambios» y para no pisar
+  a quien guardó entretanto), validación (`validarBloques`, límites en constantes), render seguro
+  (`renderParrafo`: escapa primero, luego `**negrita**` y variables; variable desconocida = error),
+  `duplicarDelAnioAnterior`, `bloquesParaDocumento`, `varsEjemplo`.
+- `Admin\RatificacionPlantillaController`: `index`, `guardar` (multipart: valida subidas por
+  contenido, mueve los archivos solo tras validar y los borra si el guardado falla), `duplicar`,
+  `vistaPrevia`, `imagen`.
+- Vistas `plantillas.php` (pestañas por tipo con `.consulta-eje`; Dirección ve el contenido sin
+  editor), `_bloque-editor.php` (⚠️ se incluye SOLO dentro de una función: suelto, su `$i` pisaba
+  la clave del bloque siguiente y se perdía la tabla — lo vigila el verificador), `documento.php`
+  (A4, layout `print`, esqueleto de la constancia de traslado; hoy solo como vista previa).
+- `resources/js/ratificacion-plantilla.js`; no se puede quitar el último bloque.
+- Probada en Chrome con **admin** (guardar, sin cambios, versión congelada → v2, imagen falsa
+  rechazada, rutas de imagen 302 sin sesión y 404 con `../`).
+- **Pendiente de probar por el usuario:** Ctrl+P en la vista previa (que el salto corte la hoja) y
+  la pantalla con un **director** (contenido visible, sin editor). Tampoco se probó aún con un
+  director la Fase 1 (sin formularios; POST → 403).
+
+### ⏳ Fase 3 — Emisión, documento A4, anulación y verificación pública (SIGUIENTE)
+- `RatificacionModel::emitir()` individual y por sección, en transacción: bloquea `FOR UPDATE` la
+  plantilla vigente del año y tipo (el mismo candado que usa `RatificacionPlantillaModel::guardar`),
+  la **congela** (`congelada_en`), copia `motivo_texto` (texto oficial del motivo) y `detalle_texto`,
+  token `bin2hex(random_bytes(16))` (**NUNCA `matriculas.token_acceso`**). Solo con decisión
+  registrada (pendiente = sin documento) y sin otra emisión vigente (UNIQUE `uq_rate_vigente`).
+  Sin plantilla del tipo para el año → mensaje claro, no emite.
+- `anular()` (acción explícita, con `confirm`) y `porToken()`.
+- Documento: reusar `documento.php` con datos reales — variables desde la matrícula **oficial**
+  (estudiante, DNI, grado, sección, nivel, año, año siguiente) y `{apoderado}` = responsable
+  (`vinculo_familiar.es_responsable = 1`, por `estudiante_id`), **leídas al imprimir**. Código
+  modular según el nivel (como `TrasladoController::imprimir`). Firma y sello:
+  `DirectorEbrModel::getVigenteEnFecha($anioId, fecha_emision)`; cargo por sexo. QR como
+  `boleta/alumno.php` (`data-qr-url` + `qrcode.min.js` local). Sello «ANULADA» como
+  `.constancia-anulada-sello` y sin firma si está anulada. El layout `print` no carga
+  `page_scripts`: revisar cómo inyecta el QR la boleta antes de escribirlo.
+- `RatificacionVerificacionController@verificar` + vista `verificar.php`: regex `^[a-f0-9]{32}$`;
+  token desconocido → misma respuesta neutra; `noindex`; muestra solo lo de la tabla de decisiones.
+- Pantalla de la sección: botones «Emitir» (fila y sección), «Imprimir» (GET) y «Anular».
+- Verificador: emitir congela; editar tras emitir crea versión y la emisión vieja conserva la suya;
+  el texto del motivo queda copiado aunque se edite el catálogo; token anulado/desconocido; las
+  guardas de los métodos nuevos (añadirlos a `$escritura`/`$lectura` del §4).
+
+### ⏳ Fase 4 — Lote por sección + aviso al matricular
+- `lote.php` + `resources/js/ratificacion-lote.js` con el patrón html2pdf + jszip de
+  `public/js/archivar-boletas.js`; solo emisiones vigentes.
+- Aviso: leer antes `docs/modulos/matriculas.md` y § banners de `docs/modulos/ui.md`.
+  `RatificacionModel::avisoNoRatificado($estudianteId, $anioActivo)` (año anterior por número,
+  emisión vigente `no_ratificado`); `MatriculaController::create()` pasa el dato y
+  `matriculas/crear.php` pinta `alert alert--warning`, sin glifos (revisar el autocierre de
+  `auth.js`). El texto dice QUÉ pasa, no la regla. No bloquea.
+
+### ⏳ Fase 5 — Documentación
+Este doc pasa a describir lo construido (cabecera y secciones de diseño); `docs/ESTADO.md`
+(080 pendiente en prod; carpeta de imágenes); CLAUDE.md ya tiene la fila (no se toca).
+
+### Recomendaciones anotadas (NO autorizadas, solo para el informe final)
+- Acción en lote «marcar pendientes como ratificados» en una sección.
+- Poder devolver una decisión a «pendiente».
+- Arreglar el aserto de `verif_direccion_superficies.php` que busca `private const ROLES_MATRICULAN`
+  (es `public` desde el commit 3452567, 06/10): **falla también en HEAD**, no es de este módulo.
+- Aviso al salir del editor de plantillas con cambios sin guardar.
 
 ## Esfuerzo e impacto
 - **Esfuerzo estimado:** de 4 a 6 sesiones de trabajo, entre 15 y 25 h en total contando las pruebas en Chrome y los ajustes del A4.

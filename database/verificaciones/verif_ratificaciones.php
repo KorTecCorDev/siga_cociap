@@ -25,6 +25,9 @@
  *   3. guardarDecision(): validaciones, «sin cambios», anulación con confirmación.
  *   4. Guardas del controlador (estático, sin BD).
  *   5. ROLLBACK: todo vuelve a su valor inicial.
+ *   6. Plantillas (Fase 2): validación de bloques, render sin XSS, versiones
+ *      (reescribe la no congelada, crea la siguiente sobre la congelada),
+ *      huella contra ediciones simultáneas, CHECK de bloques y duplicar.
  */
 
 define('ROOT_PATH', dirname(__DIR__, 2));
@@ -46,6 +49,7 @@ require_once APP_PATH . '/Helpers/helpers.php';
 
 use App\Models\RatificacionModel;
 use App\Models\RatificacionMotivoModel;
+use App\Models\RatificacionPlantillaModel;
 
 $pdo = Core\Database::connect();
 
@@ -213,8 +217,11 @@ try {
     $mot->reactivar($motivoId);
 
     // Documento emitido (fila mínima de plantilla + emisión, se revierte).
-    $pdo->prepare("INSERT INTO ratificacion_plantillas (anio_id, tipo, titulo, creado_por) VALUES (?, 'no_ratificado', 'Prueba', ?)")
-        ->execute([$anioId, $uid]);
+    // Versión siguiente a la más alta: el año real puede tener ya sus plantillas.
+    $pdo->prepare("INSERT INTO ratificacion_plantillas (anio_id, tipo, version, titulo, creado_por)
+                   SELECT ?, 'no_ratificado', COALESCE(MAX(version), 0) + 1, 'Prueba', ?
+                   FROM ratificacion_plantillas WHERE anio_id = ? AND tipo = 'no_ratificado'")
+        ->execute([$anioId, $uid, $anioId]);
     $plantillaId = (int) $pdo->lastInsertId();
     $ratId = (int) $fila['id'];
     $pdo->prepare("INSERT INTO ratificacion_emisiones (ratificacion_id, plantilla_id, decision, motivo_texto, token, emitido_por)
@@ -245,6 +252,84 @@ try {
         'motivo con nombre repetido en el año: rechazado');
     $ok($rechaza(fn() => $mot->crear($anioId, 'Corto', 'breve')) !== null,
         'motivo con texto oficial demasiado corto: rechazado');
+
+    // ── 6. Plantillas por bloques (Fase 2) ───────────────────────
+    // Sobre el año temporal 2099 (sin plantillas) y 2100, que se crea aquí.
+    echo "\n=== 6. Plantillas por bloques ===\n";
+    $pla = new RatificacionPlantillaModel();
+    $parrafo = fn(string $t): array => ['tipo' => 'parrafo', 'texto' => $t];
+    $tabla   = fn(array $f): array => ['tipo' => 'tabla', 'tabla_json' => json_encode($f)];
+
+    $ok($rechaza(fn() => $pla->validarBloques('Ti', [$parrafo('Hola')])) !== null, 'título de 2 caracteres: rechazado');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [])) !== null, 'sin bloques: rechazado');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [['tipo' => 'video']])) !== null, 'tipo de bloque inválido: rechazado');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [$parrafo('   ')])) !== null, 'párrafo vacío: rechazado');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [$parrafo('Hola {nombre}')])) !== null, 'variable desconocida {nombre}: rechazada');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [$tabla([['a', 'b'], ['c']])])) !== null, 'tabla con filas desiguales: rechazada');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [$tabla([['', ''], [' ', '']])])) !== null, 'tabla sin texto: rechazada');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [$tabla([array_fill(0, 9, 'x')])])) !== null, 'tabla de 9 columnas: rechazada');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [['tipo' => 'tabla', 'tabla_json' => '{"a":1}']])) !== null, 'tabla que no es lista de filas: rechazada');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [['tipo' => 'imagen', 'imagen_archivo' => '../x.png', 'imagen_tamano' => 'media']])) !== null,
+        'imagen con ruta (../): rechazada');
+    $ok($rechaza(fn() => $pla->validarBloques('Título', [['tipo' => 'imagen', 'imagen_archivo' => 'a.png', 'imagen_tamano' => 'gigante']])) !== null,
+        'imagen con tamaño inválido: rechazada');
+    $val = $pla->validarBloques('  Constancia  ', [$parrafo("Línea 1\r\nLínea 2 {estudiante}"), ['tipo' => 'salto'],
+        $tabla([['Cab', 'Otra'], [' a ', 'b']])]);
+    $ok($val['titulo'] === 'Constancia' && $val['bloques'][0]['texto'] === "Línea 1\nLínea 2 {estudiante}"
+        && $val['bloques'][2]['tabla_json'] === '[["Cab","Otra"],["a","b"]]',
+        'validarBloques() recorta el título, normaliza saltos y celdas');
+
+    $html = RatificacionPlantillaModel::renderParrafo("<script>x</script> **{estudiante}** {dni}\nfin",
+        ['estudiante' => '<b>ÑUFLO**</b>', 'dni' => '1"2']);
+    $ok(!str_contains($html, '<script') && !str_contains($html, '<b>') && str_contains($html, '&lt;script&gt;'),
+        'renderParrafo(): el texto y los datos se escapan (sin XSS)');
+    $ok(str_contains($html, '<strong>&lt;b&gt;ÑUFLO**&lt;/b&gt;</strong>') && str_contains($html, '1&quot;2'),
+        'renderParrafo(): **negrita** y variables sobre el texto escapado');
+    $ok(str_contains($html, '<br>'), 'renderParrafo(): respeta los saltos de línea');
+
+    $pl1 = $pla->validarBloques('Constancia', [$parrafo('Uno'), $parrafo('Dos')]);
+    $ok($pla->guardar($anioOtro, 'ratificado', $pl1, $uid, '') === true, 'primera plantilla: guardada');
+    $v1 = $pla->vigente($anioOtro, 'ratificado');
+    $ok((int) $v1['version'] === 1 && count($pla->bloques((int) $v1['id'])) === 2, '… como versión 1 con sus 2 bloques');
+    $h1 = $pla->huellaVigente($anioOtro, 'ratificado');
+    $ok($pla->guardar($anioOtro, 'ratificado', $pl1, $uid, $h1) === false, 'mismo contenido: «sin cambios» (false)');
+    $ok($rechaza(fn() => $pla->guardar($anioOtro, 'ratificado', $pl1, $uid, '')) !== null,
+        'huella vieja (otra persona guardó entretanto): rechazado');
+
+    $pl2 = $pla->validarBloques('Constancia', [$parrafo('Solo uno')]);
+    $ok($pla->guardar($anioOtro, 'ratificado', $pl2, $uid, $h1) === true, 'NO congelada: se guarda el cambio');
+    $v1b = $pla->vigente($anioOtro, 'ratificado');
+    $ok((int) $v1b['id'] === (int) $v1['id'] && (int) $v1b['version'] === 1
+        && count($pla->bloques((int) $v1['id'])) === 1, '… reescribe la MISMA versión (1 bloque)');
+
+    $pdo->prepare("UPDATE ratificacion_plantillas SET congelada_en = NOW() WHERE id = ?")->execute([(int) $v1['id']]);
+    $pl3 = $pla->validarBloques('Constancia nueva', [$parrafo('Versión dos'), ['tipo' => 'salto']]);
+    $ok($pla->guardar($anioOtro, 'ratificado', $pl3, $uid, $pla->huellaVigente($anioOtro, 'ratificado')) === true,
+        'congelada: se guarda el cambio');
+    $v2 = $pla->vigente($anioOtro, 'ratificado');
+    $ok((int) $v2['version'] === 2 && (int) $v2['id'] !== (int) $v1['id'] && $v2['congelada_en'] === null,
+        '… como versión 2 (nueva, sin congelar)');
+    $ok(count($pla->bloques((int) $v1['id'])) === 1 && $pla->plantilla((int) $v1['id'])['titulo'] === 'Constancia',
+        '… y la versión 1 queda intacta');
+
+    $ok($bdRechaza("INSERT INTO ratificacion_bloques (plantilla_id, orden, tipo) VALUES (?, 9, 'parrafo')", [(int) $v2['id']]),
+        'CHECK: párrafo sin texto → rechazado');
+    $ok($bdRechaza("INSERT INTO ratificacion_bloques (plantilla_id, orden, tipo, tabla_json) VALUES (?, 9, 'tabla', 'no-json')", [(int) $v2['id']]),
+        'CHECK: tabla con JSON inválido → rechazado');
+    $ok($bdRechaza("INSERT INTO ratificacion_bloques (plantilla_id, orden, tipo) VALUES (?, 1, 'salto')", [(int) $v2['id']]),
+        'UNIQUE: dos bloques con el mismo orden → rechazado');
+
+    // Duplicar del año anterior: 2100 copia de 2099 (por número de año).
+    $pdo->exec("INSERT INTO anios_academicos (anio, fecha_inicio, fecha_fin, estado) VALUES (2100, '2100-03-01', '2100-12-20', 'planificado')");
+    $anio2100 = (int) $pdo->lastInsertId();
+    $ok($rechaza(fn() => $pla->duplicarDelAnioAnterior($anio2100, 'no_ratificado', $uid)) !== null,
+        'duplicar sin plantilla del año anterior: rechazado');
+    $pla->duplicarDelAnioAnterior($anio2100, 'ratificado', $uid);
+    $copia = $pla->vigente($anio2100, 'ratificado');
+    $ok($copia !== null && (int) $copia['version'] === 1 && $copia['titulo'] === 'Constancia nueva'
+        && count($pla->bloques((int) $copia['id'])) === 2, 'duplicar: copia la vigente de 2099 como versión 1 de 2100');
+    $ok($rechaza(fn() => $pla->duplicarDelAnioAnterior($anio2100, 'ratificado', $uid)) !== null,
+        'duplicar cuando el año ya tiene plantilla: rechazado');
 } finally {
     $pdo->rollBack();
 }
@@ -266,6 +351,28 @@ foreach ($escritura as $metodo) {
             . '\s*\$this->requireRole\(RatificacionModel::ROLES_REGISTRAN\);\s*\r?\n\s*\$this->validateCsrf\(\);/';
     $ok((bool) preg_match($patron, $src), "{$metodo}: requireRole(ROLES_REGISTRAN) + CSRF como primeras sentencias");
 }
+// El controlador de plantillas (Fase 2), con la misma regla.
+$srcP = file_get_contents(APP_PATH . '/Controllers/Admin/RatificacionPlantillaController.php');
+$ok(str_contains($srcP, '$this->requireRole(RatificacionModel::ROLES_VEN);'),
+    'plantillas: el constructor deja entrar a ROLES_VEN');
+$lecturaP   = ['index', 'vistaPrevia', 'imagen'];
+$escrituraP = ['guardar', 'duplicar'];
+preg_match_all('/public function (\w+)\(/', $srcP, $m);
+$sinDecidirP = array_diff(array_values(array_diff($m[1], ['__construct'])), $lecturaP, $escrituraP);
+$ok($sinDecidirP === [], 'plantillas: todo método público está clasificado'
+    . ($sinDecidirP ? ' | SIN DECIDIR: ' . implode(', ', $sinDecidirP) : ''));
+foreach ($escrituraP as $metodo) {
+    $patron = '/public function ' . $metodo . '\([^)]*\)(?:\s*:\s*\w+)?\s*\r?\n\s*\{\s*\r?\n'
+            . '\s*\$this->requireRole\(RatificacionModel::ROLES_REGISTRAN\);\s*\r?\n\s*\$this->validateCsrf\(\);/';
+    $ok((bool) preg_match($patron, $srcP), "plantillas {$metodo}: requireRole(ROLES_REGISTRAN) + CSRF como primeras sentencias");
+}
+// El parcial de bloque se incluye SOLO dentro de su función aislada: incluido
+// suelto, su `$i` de filas de tabla pisaba la clave del bloque siguiente y el
+// formulario perdía la tabla (visto en Chrome el 14/10/2026).
+$vistaP = file_get_contents(ROOT_PATH . '/resources/views/admin/ratificaciones/plantillas.php');
+$ok(substr_count($vistaP, "_bloque-editor.php'") === 1
+    && (bool) preg_match('/static function \(string \$clave, array \$b\): void \{\s*include __DIR__ \. \'\/_bloque-editor\.php\';/', $vistaP),
+    'plantillas.php incluye _bloque-editor.php una sola vez, dentro de una función (ámbito aislado)');
 $ok(array_intersect(ROLES_DIRECCION, RatificacionModel::ROLES_REGISTRAN) === [],
     'ningún rol de Dirección está en ROLES_REGISTRAN (solo lectura)');
 $ok(array_diff(ROLES_DIRECCION, RatificacionModel::ROLES_VEN) === [],
@@ -278,7 +385,7 @@ foreach ($tablas as $t) {
 }
 $ok($pdo->query("SELECT id, estado, tipo FROM matriculas ORDER BY id")->fetchAll(PDO::FETCH_ASSOC) === $antesEstados,
     'matriculas: estados y tipos idénticos');
-$ok((int) $uno("SELECT COUNT(*) FROM anios_academicos WHERE anio = 2099") === 0, 'el año temporal 2099 no quedó');
+$ok((int) $uno("SELECT COUNT(*) FROM anios_academicos WHERE anio IN (2099, 2100)") === 0, 'los años temporales 2099 y 2100 no quedaron');
 
 echo "\n" . ($fallos === 0 ? "TODO OK" : "FALLAS: {$fallos}") . "\n";
 exit($fallos === 0 ? 0 : 1);
