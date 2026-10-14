@@ -161,6 +161,7 @@ decisiones de diseño y gotchas que NO son visibles en el código:
 | Boletas (imprimible, digital, token, pública dormida, firmas) | `docs/modulos/boletas.md` |
 | Calificaciones, criterios, bloqueos, transversales, consulta de notas | `docs/modulos/calificaciones.md` |
 | Matrículas, apoderados, estados, alta provisional, retorno/traslado | `docs/modulos/matriculas.md` |
+| **Ratificación de matrícula** (decisión por estudiante, motivos, plantilla por bloques por año, documento A4 + QR) | `docs/modulos/ratificaciones.md` |
 | **Retorno de grado** (matrícula oficial vs operativa, candado, uniones) | `docs/modulos/retorno-grado.md` |
 | Horarios, cargas académicas, solapes, Tutoría TOE | `docs/modulos/horarios.md` |
 | Orden de mérito, snapshot, desempates, rectificaciones | `docs/modulos/orden-merito.md` |

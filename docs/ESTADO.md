@@ -42,6 +42,17 @@ Pasos, en orden:
 7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
    asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
 
+## 📋 PLAN: RATIFICACIÓN DE MATRÍCULA (13/10/2026, aprobado, sin implementar)
+
+Módulo nuevo: el admin/Secretaría registra la decisión de Dirección (ratificado / no
+ratificado con motivo) y el sistema emite el documento A4 con QR de autenticidad. El
+contenido de cada año se arma con **bloques editables** (párrafo, tabla, imagen, salto), sin
+HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6 sesiones):
+**`docs/modulos/ratificaciones.md`**.
+- [ ] Implementar en la siguiente sesión, en `dev` (migración **080**, solo tablas nuevas).
+- [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).**
+- [ ] Pedir a Dirección los textos y el catálogo de motivos de 2026 (ruta crítica real).
+
 ## (HISTÓRICO, reemplazado el 13/10/2026) RETOMAR AQUÍ (12/10/2026) — DESPLIEGUE DESPUÉS DEL III
 
 **Decisión del usuario (12/10/2026): opción A.** Todo `dev` (16 commits: bloqueos y plazos
