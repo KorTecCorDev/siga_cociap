@@ -1,0 +1,36 @@
+// _ratificacion.scss — Ratificación de matrícula (migración 080, 14/10/2026).
+// Ver docs/modulos/ratificaciones.md.
+
+// ── Estado de la fila: SOLO la franja del N° ────────────────────────────────
+// Mismo criterio que `.conducta-grilla` (decisión del usuario, 30/09/2026): sin
+// fondo de fila; ámbar = pendiente de decidir, verde = decisión registrada.
+// No se colorea POR decisión: ratificado / no ratificado se lee en su columna.
+.ratif-tabla td.col-num { box-shadow: inset 3px 0 0 var(--franja, transparent); }
+.ratif-fila--pendiente td.col-num { --franja: #{$color-warning}; }
+.ratif-fila--decidida  td.col-num { --franja: #{$color-success}; }
+
+// Al volver de guardar, el ancla #m{id} deja la fila bajo la barra superior fija.
+.ratif-tabla tbody tr { scroll-margin-top: $topbar-height + $spacing-md; }
+
+// Controles de la decisión dentro de la celda: en línea y sin desbordar.
+.ratif-decision {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    align-items: center;
+
+    .form-select,
+    .form-input { width: auto; min-width: 150px; }
+
+    .form-input--detalle { min-width: 220px; }
+
+    // ratificacion.js oculta motivo y detalle salvo en «No ratificado».
+    [hidden] { display: none; }
+}
+
+// Texto oficial de un motivo: conserva los saltos de línea que escribió Dirección.
+.ratif-texto-oficial {
+    white-space: pre-line;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+}

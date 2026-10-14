@@ -128,6 +128,16 @@ $router->get( '/admin/conducta/{id}/estudiante', 'Admin\ConductaController@estud
 $router->get( '/admin/conducta/{id}/resultado', 'Admin\ConductaController@resultado');
 $router->get( '/admin/conducta/{id}',         'Admin\ConductaController@seccion');
 
+// ─── Admin — Ratificación de matrícula (migración 080, 14/10/2026) ───
+// Literales (`/motivos…`) ANTES del patrón `/{matricula_id}/decision`.
+$router->get( '/admin/ratificaciones',                          'Admin\RatificacionController@index');
+$router->get( '/admin/ratificaciones/motivos',                  'Admin\RatificacionController@motivos');
+$router->post('/admin/ratificaciones/motivos/crear',            'Admin\RatificacionController@crearMotivo');
+$router->post('/admin/ratificaciones/motivos/{id}/editar',      'Admin\RatificacionController@actualizarMotivo');
+$router->post('/admin/ratificaciones/motivos/{id}/retirar',     'Admin\RatificacionController@retirarMotivo');
+$router->post('/admin/ratificaciones/motivos/{id}/reactivar',   'Admin\RatificacionController@reactivarMotivo');
+$router->post('/admin/ratificaciones/{matricula_id}/decision',  'Admin\RatificacionController@guardarDecision');
+
 // ─── Admin — Asistencia (incidencias) ───────────────────────
 $router->get( '/admin/asistencia',            'Admin\AsistenciaController@index');
 // Asistencia por fechas (29/09/2026): literales ANTES de los patrones {id}.

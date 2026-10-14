@@ -80,6 +80,9 @@ $esperadasDirector = [
     'admin/conducta/criterios',
     // Motivos de justificación de la asistencia (29/09/2026): solo lectura.
     'admin/asistencia/motivos',
+    // Ratificación de matrícula (14/10/2026, migración 080): solo lectura; la
+    // escritura la vigila verif_ratificaciones.php.
+    'admin/ratificaciones',
 ];
 foreach (ROLES_DIRECCION as $rol) {
     $suyas = array_keys(array_filter($cards, fn($r) => in_array($rol, $r, true)));

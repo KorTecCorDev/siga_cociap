@@ -42,14 +42,19 @@ Pasos, en orden:
 7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
    asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
 
-## 📋 PLAN: RATIFICACIÓN DE MATRÍCULA (13/10/2026, aprobado, sin implementar)
+## 📋 PLAN: RATIFICACIÓN DE MATRÍCULA (13/10/2026, aprobado; en construcción en `dev` desde el 14/10)
 
 Módulo nuevo: el admin/Secretaría registra la decisión de Dirección (ratificado / no
 ratificado con motivo) y el sistema emite el documento A4 con QR de autenticidad. El
 contenido de cada año se arma con **bloques editables** (párrafo, tabla, imagen, salto), sin
 HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6 sesiones):
 **`docs/modulos/ratificaciones.md`**.
-- [ ] Implementar en la siguiente sesión, en `dev` (migración **080**, solo tablas nuevas).
+- [x] Fase 1 (14/10): migración **080** (5 tablas), decisiones y motivos en `/admin/ratificaciones`,
+  `verif_ratificaciones.php`. Probada en Chrome con admin; falta la prueba con un director.
+  ⚠️ La **080 solo está aplicada en la BD local de la oficina**: aplicarla en casa antes de abrir
+  el módulo. Si `dev` se mergea a `main` con el módulo a medias, aplicar la 080 en prod ANTES
+  (la card aparece en el dashboard y sin las tablas la pantalla falla).
+- [ ] Fases 2-5 (plantillas por bloques, emisión + QR, lote y aviso, documentación).
 - [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).**
 - [ ] Pedir a Dirección los textos y el catálogo de motivos de 2026 (ruta crítica real).
 
