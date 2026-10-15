@@ -42,7 +42,7 @@ Pasos, en orden:
 7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
    asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
 
-## 📋 PLAN: RATIFICACIÓN DE MATRÍCULA (13/10/2026, aprobado; en construcción en `dev` desde el 14/10)
+## 🆕 RATIFICACIÓN DE MATRÍCULA — CONSTRUIDO en `dev` (14-15/10/2026, migración 080), SIN DESPLEGAR
 
 Módulo nuevo: el admin/Secretaría registra la decisión de Dirección (ratificado / no
 ratificado con motivo) y el sistema emite el documento A4 con QR de autenticidad. El
@@ -50,7 +50,7 @@ contenido de cada año se arma con **bloques editables** (párrafo, tabla, image
 HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6 sesiones):
 **`docs/modulos/ratificaciones.md`**.
 - [x] Fase 1 (14/10): migración **080** (5 tablas), decisiones y motivos en `/admin/ratificaciones`,
-  `verif_ratificaciones.php`. Probada en Chrome con admin; falta la prueba con un director.
+  `verif_ratificaciones.php`. Probada en Chrome con admin y con director.
   ⚠️ La **080 solo está aplicada en la BD local de la oficina**: aplicarla en casa antes de abrir
   el módulo. Si `dev` se mergea a `main` con el módulo a medias, aplicar la 080 en prod ANTES
   (la card aparece en el dashboard y sin las tablas la pantalla falla).
@@ -60,22 +60,36 @@ HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6
   `config('ratificacion_img_path')`: en prod `~/siga_uploads/ratificacion/` (el código la crea
   al subir la primera; verificar permisos al desplegar), en local `storage/ratificacion/`
   (ignorada por git).
-- [ ] Fases 3-5 (emisión + QR, lote y aviso, documentación). Detalle de cada una, correcciones
-  al plan y recomendaciones: `docs/modulos/ratificaciones.md` § «Fases — plan de implementación y avance».
+- [x] Fase 3 (15/10, `0b8f530`): emitir (individual y por sección), A4 con firma + sello y QR,
+  anular, verificación pública `/ratificacion/verificar/{token}`.
+- [x] Fase 4 (15/10, `7ebcc71`): ZIP de PDF por sección y aviso no bloqueante en el alta de matrícula.
+- [x] Fase 5 (15/10): documentación. El usuario probó todo el módulo con admin y con director,
+  incluidos Ctrl+P y la descarga real del ZIP.
+- Lo construido: `docs/modulos/ratificaciones.md` § «Cómo funciona».
 
-### 🔜 RETOMAR AQUÍ (14/10/2026; Fase 3 añadida el 15/10 en la oficina) — en el escritorio de casa
-1. `git pull` en `dev` (Fases 1 a 4 están en `origin/dev`; `main` no las tiene).
+### Despliegue del módulo (cuando se despliegue `dev`, DESPUÉS de cerrar el III y abrir el IV)
+1. Producción, phpMyAdmin: aplicar `080_ratificaciones.sql` **ANTES del merge** (idempotente; solo
+   crea 5 tablas). Comprobar: `SHOW TABLES LIKE 'ratificacion%'` → 5.
+2. Comprobar los CHECK en producción (la copia local no los conserva):
+   `SELECT CONSTRAINT_NAME FROM information_schema.CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND CONSTRAINT_NAME LIKE 'chk_rat%';` → 5 filas (`chk_ratif_decision_motivo`, `chk_ratb_tipo_dato`,
+   `chk_ratb_tabla_json`, `chk_rate_vigente`, `chk_rate_motivo`).
+3. Crear `~/siga_uploads/ratificacion/` y comprobar que PHP puede escribir en ella.
+4. Merge `dev` → `main` (preguntar antes, como siempre).
+5. En producción: subir una imagen de prueba a una plantilla, emitir e imprimir un documento
+   (firma y sello SÍ deben verse allí), escanear el QR con un celular y, para 2027, matricular a
+   un no ratificado y ver el aviso.
+6. Dirección: entregar los textos de las plantillas y el catálogo de motivos de 2026.
+
+### 🔜 RETOMAR AQUÍ (14/10/2026; actualizado el 15/10 con el módulo terminado) — en el escritorio de casa
+1. `git pull` en `dev` (las 5 fases están en `origin/dev`; `main` no las tiene).
 2. **Aplicar la 080 en la BD local de casa** (`database/migrations/080_ratificaciones.sql`,
    idempotente; solo crea 5 tablas). Comprobar con `SHOW TABLES LIKE 'ratificacion%'` → 5.
 3. `npx gulp build` si el CSS/JS no se ve (los compilados ya van en el commit).
 4. `php database/verificaciones/verif_ratificaciones.php` → debe dar **TODO OK**.
    (`verif_direccion_superficies.php` trae 1 FAIL PREEXISTENTE de `ROLES_MATRICULAN`, no es del módulo.)
-5. Pruebas pendientes del usuario: Ctrl+P en la vista previa de una plantilla (el salto de página
-   corta la hoja) y entrar con un **director** a `/admin/ratificaciones`, `/motivos` y
-   `/plantillas` (ve todo, sin formularios ni editor).
-6. ~~Fases 3 y 4~~ HECHAS el 15/10 (ver `docs/modulos/ratificaciones.md`); el usuario ya probó la 3
-   con admin y director. Prueba suya pendiente: descargar de verdad el ZIP del lote.
-7. Sigue la **Fase 5** (documentación final del módulo).
+5. Módulo TERMINADO y probado por el usuario (admin y director). Lo que queda es desplegarlo:
+   ver «Despliegue del módulo» arriba.
 - En la BD de la OFICINA quedaron datos de prueba: plantillas «(PRUEBA CLAUDE)» ids 12, 13 y 14
   (+ una imagen en `storage/ratificacion/`), además del motivo y la decisión que creó el usuario.
   El 15/10 la prueba de la Fase 3 dejó 2 emisiones ANULADAS (ids 29 y 30) de la matrícula 221 y

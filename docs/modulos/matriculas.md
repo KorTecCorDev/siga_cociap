@@ -1029,3 +1029,15 @@ usan **un solo correlativo por año académico**, con el formato del traslado
   de la transacción (defensa contra la carrera, como ya hacía el traslado).
 - ⚠️ **`TrasladoModel` lee `cambios_seccion`**: la `075` debe estar aplicada **ANTES** de
   desplegar este código, o el formulario de traslado falla.
+
+## Aviso de NO ratificación en el alta (15/10/2026)
+
+Al buscar un estudiante por DNI en «Nueva matrícula» (`MatriculaController::create`), si tiene
+un documento de **no ratificación VIGENTE del año anterior**, `matriculas/crear.php` muestra un
+`alert alert--warning`: no fue ratificado, el año del documento y su fecha de emisión.
+
+- **No bloquea**: la matrícula se registra igual (decisión del usuario, 13/10/2026).
+- El año anterior se busca **por número** (`anios_academicos.anio - 1`), nunca por id.
+- Un documento ANULADO o una decisión sin documento emitido no muestran aviso.
+- Regla y consulta: `RatificacionModel::avisoNoRatificado()`. Módulo completo:
+  `docs/modulos/ratificaciones.md`.

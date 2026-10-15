@@ -1,10 +1,10 @@
 # Ratificación de matrícula
 
-> **Estado (15/10/2026): EN CONSTRUCCIÓN en `dev` — Fases 1 a 4 HECHAS;
-> falta la Fase 5 (documentación final).** Ver **«Fases — plan de implementación y avance»** más abajo:
-> es el plan vivo (lo construido, las correcciones al plan del 13/10 y el detalle de lo que
-> falta). **Sin desplegar. No desplegar antes de cerrar el III y abrir el IV (18-19/10/2026).**
-> La migración 080 solo está aplicada en la BD local de la oficina.
+> **Estado (15/10/2026): CONSTRUIDO en `dev` (Fases 1 a 5) y probado en Chrome con admin y con
+> director. SIN DESPLEGAR.** No desplegar antes de cerrar el III y abrir el IV (18-19/10/2026).
+> La migración 080 solo está aplicada en la BD local de la oficina; los pasos de despliegue van
+> en `docs/ESTADO.md`. Lo construido se describe en **«Cómo funciona»**; la sección «Fases»
+> queda como bitácora de la construcción.
 
 
 ## Contexto
@@ -29,82 +29,103 @@ No existe nada previo en código ni en docs.
 | Apoderado en el documento (14/10) | Variable **`{apoderado}`** = el apoderado **RESPONSABLE** del estudiante (`vinculo_familiar.es_responsable = 1`; el vínculo es del estudiante, no de la matrícula). Al 14/10 los 474 estudiantes del universo tenían exactamente uno. |
 | Datos al reimprimir (14/10) | Las variables (estudiante, DNI, grado, apoderado…) se **leen al imprimir**, NO se congelan en la emisión: si cambia un dato, la reimpresión sale con el nuevo. Solo el texto del motivo y del detalle se copia al emitir. |
 
-## Hechos del repo que condicionan el diseño
-- No hay dependencias PHP (ni `composer.json` ni `vendor/`). El PDF lo hace el navegador: `window.print()` para un documento, `html2pdf` + `jszip` para lotes (`public/js/archivar-boletas.js`).
-- **NUNCA CSS inline**: todo el diseño va en SASS. Por eso no se usa WYSIWYG.
-- Modelo de documento por estudiante: `resources/views/traslados/constancia.php` + layout `print` (`resources/views/layouts/print.php`, `public/js/print-fit.js`).
-- Firma y sello: `DirectorEbrModel::getVigenteEnFecha($anioId, $fecha)`, pintados como en `boleta/alumno.php:394-403`.
-- Subida de imágenes: patrón de `DirectorEbrController::subirImagen()` (`getimagesize`, 2 MB, `move_uploaded_file`). Se sirven como en `FirmaController` (regex de nombre + `realpath`).
-- Archivos fuera del repo (`~/siga_uploads/`): el auto-deploy borra todo lo no versionado.
-- QR local con `qrcode.min.js` (patrón `data-qr-url` de `boleta/alumno.php:338-369`).
-- La próxima migración libre es la **080**.
-
-## Diseño
+## Cómo funciona (lo construido)
 
 ### Reglas de negocio (invariantes del módulo)
-1. **Tres estados**: `pendiente` (sin fila) / `ratificado` / `no_ratificado`. El olvido nunca produce una carta negativa: un estudiante pendiente no recibe documento.
-2. **`no_ratificado` exige motivo**, por modelo y por `CHECK` en BD.
-3. **Un documento emitido es inmutable.**
-   - Emitir congela la plantilla de su año y tipo (`congelada_en`).
-   - Editar una plantilla congelada crea una **versión nueva**; las emisiones anteriores apuntan a la suya.
-   - La emisión guarda una copia del texto del motivo y del detalle (editar el catálogo no reescribe cartas ya entregadas).
-4. **Cambiar la decisión de un estudiante con documento emitido** obliga a ANULAR la emisión (`anulado_en`). El QR de una emisión anulada dice «anulado».
-5. **El token del QR es propio de la emisión** (32 hex, `random_bytes`). **NUNCA `matriculas.token_acceso`**, que abre la boleta.
+1. **Tres estados**: `pendiente` (sin fila) / `ratificado` / `no_ratificado`. El olvido nunca
+   produce una carta negativa: un pendiente no recibe documento, ni individual ni en lote.
+2. **`no_ratificado` exige motivo** (modelo + CHECK `chk_ratif_decision_motivo`); un
+   `ratificado` no lleva motivo ni detalle. El motivo es del MISMO año; uno retirado solo lo
+   conserva quien ya lo tenía.
+3. **Universo** — PUNTO ÚNICO `RatificacionModel::sqlUniverso()`: matrículas del año en
+   CUALQUIER estado, menos trasladados y retirados (`matriculas_vigentes()`), la operativa de un
+   retorno (`matricula_documento()`) y 5.º de secundaria (`niveles.codigo='sec' AND
+   grados.numero=5`, nunca por id).
+4. **Un documento emitido es inmutable.** Emitir congela la plantilla vigente (`congelada_en`);
+   editarla después crea la versión siguiente y la emisión conserva la suya. El texto oficial del
+   motivo y el detalle se COPIAN a la emisión. Las demás variables (estudiante, DNI, grado,
+   apoderado…) se LEEN al imprimir: una reimpresión sale con los datos corregidos.
+5. **Una sola emisión vigente por decisión** (`vigente` 1/NULL + UNIQUE). Cambiar la decisión
+   con documento emitido exige confirmación (`confirmar_anulacion=1`) y lo ANULA en la misma
+   transacción. `emitir`, `anular` y `guardarDecision` toman el MISMO candado (`FOR UPDATE`
+   sobre la fila de `ratificaciones`): no se cruzan.
+6. **El token del QR es propio de la emisión** (32 hex, `random_bytes`). **NUNCA
+   `matriculas.token_acceso`**, que abre la boleta (lo barre el verificador).
+7. **La verificación pública solo dice si el documento es auténtico**: nombre, año, fecha de
+   emisión y vigente/anulado. Nunca DNI, tipo ni motivo. Token desconocido o mal formado: la
+   misma respuesta (404).
 
-### Migración `database/migrations/080_ratificaciones.sql`
-Idempotente y con la cabecera estándar. Cierra con `SHOW TABLES`, nunca con un SELECT a `information_schema`.
+### Quién hace qué
+- **Escriben** (decisiones, motivos, plantillas, emitir, anular): `RatificacionModel::ROLES_REGISTRAN`
+  = admin, registro_academico, secretaria_academica, secretaria_administrativa.
+- **Ven** (`ROLES_VEN`): los anteriores + `ROLES_DIRECCION` en solo lectura. Dirección también
+  **imprime y descarga el lote** de lo ya emitido (es lectura).
+- Acceso mixto como `AsistenciaController`: el constructor admite `ROLES_VEN` y cada método de
+  escritura empieza con `requireRole(ROLES_REGISTRAN)` + `validateCsrf()`. No entra en
+  `verif_direccion_solo_lectura.php` (que exige admin + RA): lo vigila `verif_ratificaciones.php`
+  §4, que falla si nace un método público sin clasificar.
 
-| Tabla | Campos |
+### Base de datos — migración `080_ratificaciones.sql` (solo CREA tablas)
+| Tabla | Qué guarda |
 |---|---|
-| `ratificacion_plantillas` | id, anio_id, tipo ENUM('ratificado','no_ratificado'), version, titulo, congelada_en NULL, creado_por, creado_en. UNIQUE(anio_id, tipo, version). |
-| `ratificacion_bloques` | id, plantilla_id, orden, tipo ENUM('parrafo','tabla','imagen','salto'), texto TEXT NULL (párrafo), tabla_json LONGTEXT NULL con CHECK `json_valid`, imagen_archivo NULL, imagen_tamano ENUM('pequena','media','completa') NULL. |
-| `ratificacion_motivos` | id, anio_id, nombre, texto_oficial TEXT, activo. |
-| `ratificaciones` | id, matricula_id UNIQUE, decision ENUM('ratificado','no_ratificado'), motivo_id NULL, detalle VARCHAR(500) NULL, registrado_por, registrado_en, actualizado_en. CHECK (decision='ratificado' OR motivo_id IS NOT NULL). |
-| `ratificacion_emisiones` | id, ratificacion_id, plantilla_id, decision, motivo_texto, detalle_texto, token CHAR(32) UNIQUE, emitido_por, emitido_en, anulado_por NULL, anulado_en NULL. |
+| `ratificacion_plantillas` | (año, tipo, versión) UNIQUE, título, `congelada_en`. La vigente es la de versión más alta. |
+| `ratificacion_bloques` | orden UNIQUE por plantilla; tipo `parrafo`/`tabla`/`imagen`/`salto` con su dato (CHECK `chk_ratb_tipo_dato`, JSON válido). |
+| `ratificacion_motivos` | catálogo por año (UNIQUE año + nombre), `texto_oficial`, `activo` (se retira, nunca DELETE). |
+| `ratificaciones` | una decisión por matrícula (UNIQUE), motivo, detalle ≤ 500, quién y cuándo. |
+| `ratificacion_emisiones` | plantilla usada, copia del motivo y del detalle, `token` UNIQUE, `vigente` 1/NULL, emitido/anulado por y en. |
 
-### Contenido por bloques (el núcleo del enfoque D)
-- **Esqueleto fijo** en la vista:
-  - membrete y logo;
-  - título de la plantilla;
-  - datos del estudiante (nombre, DNI, grado/sección actual, año siguiente);
-  - [cuerpo por bloques];
-  - motivo (solo en no ratificado);
-  - lugar y fecha;
-  - firma y sello del Director EBR;
-  - QR.
-- **Párrafo**: texto plano. Se escapa con `e()` y después se aplica un marcado mínimo: `**negrita**` y las variables `{estudiante}`, `{dni}`, `{grado}`, `{seccion}`, `{nivel}`, `{anio}` y `{anio_siguiente}`. Se reemplazan sobre texto ya escapado, así que no hay XSS posible.
-- **Tabla**: editor de filas y columnas. La primera fila es la cabecera. Celdas de texto plano escapadas.
-- **Imagen**: PNG o JPEG validado con `getimagesize`, máximo 2 MB. Se guarda en `config('app')['ratificacion_img_path']`, en `~/siga_uploads/ratificacion/` (prod) y `storage/ratificacion/` (local). Se sirve por una ruta con autenticación al estilo de `FirmaController`. Solo admite tres tamaños, con clases SASS.
-- **Salto de página**: `break-before: page`.
-- Botón **«Duplicar plantilla del año anterior»**, para no reescribir desde cero cada año.
-- **Vista previa** con datos de ejemplo, sin firma ni QR (como `$vistaPrevia` en la boleta).
+### Contenido por bloques (enfoque D)
+- **Esqueleto fijo** (`documento.php`, layout `print`, estilo de la constancia de traslado):
+  lema, membrete con código modular **según el nivel**, título de la plantilla, datos del
+  estudiante, [cuerpo], motivo (solo no ratificado), lugar y fecha, **firma + sello** del
+  Director EBR vigente en la FECHA DE EMISIÓN, QR de verificación y pie.
+- **Párrafo**: texto plano; `renderParrafo()` escapa PRIMERO y luego aplica `**negrita**` y las
+  variables `{estudiante}` `{dni}` `{grado}` `{seccion}` `{nivel}` `{anio}` `{anio_siguiente}`
+  `{apoderado}` (= el apoderado RESPONSABLE). Una variable desconocida no se puede guardar.
+- **Tabla**: la primera fila es la cabecera. **Imagen**: PNG/JPEG de hasta 2 MB, validado por
+  contenido, en tres tamaños. **Salto de página**: `break-before: page`.
+- Versiones, «Duplicar del año anterior» (por número de año) y vista previa con datos de
+  ejemplo y marca de agua, sin firma, sello ni QR.
+- Las imágenes viven en `config('ratificacion_img_path')`: `~/siga_uploads/ratificacion/` en
+  prod, `storage/ratificacion/` en local (ignorada por git). Se sirven **con login** por
+  `RatificacionPlantillaController@imagen` (nombre estricto + `realpath` + `nosniff`).
 
-### Capas (MVP)
-- **Modelos** (`app/Models/`):
-  - `RatificacionModel`: universo, decisiones, emisiones, anulación y consulta por token. Es el PUNTO ÚNICO del universo: reutiliza `matriculas_vigentes()` / `matricula_documento()` de `helpers.php` y la exclusión de `tipo IN ('trasladado','retirado')`. Se verifican sus firmas exactas al implementar.
-  - `RatificacionPlantillaModel`: plantillas, versiones, bloques y congelado.
-  - `RatificacionMotivoModel`.
-- **Controladores**:
-  - `app/Controllers/Admin/RatificacionController.php` y `RatificacionPlantillaController.php`. Escritura guardada POR MÉTODO con `ROLES_ESCRIBEN`; `ROLES_DIRECCION` puede ver. CSRF en todo POST. `notFound()` / `forbidden()`.
-  - Verificación pública: `RatificacionController@verificar`, que valida el token con la regex `^[a-f0-9]{32}$`.
-- **Vistas** (`resources/views/admin/ratificaciones/`):
-  - `index` (por sección: estado de cada estudiante, marcar ratificado / no ratificado + motivo, contadores);
-  - `plantillas` (editor de bloques);
-  - `motivos`;
-  - `documento.php` (A4, layout `print`);
-  - `lote.php` (por sección, html2pdf + jszip);
-  - `verificar.php` (pública, solo autenticidad).
-- **Rutas** (`routes/web.php`): las literales ANTES que las de `{param}`. Pública: `GET /ratificacion/verificar/{token}`.
-- **SASS**: `resources/sass/pages/_ratificacion.scss` importado en `app.scss`, con `@page` A4 como `_boleta.scss`. Gulp ya corre, no se compila a mano.
-- **JS**: `resources/js/ratificacion-plantilla.js` (agregar, ordenar y quitar bloques; editor de tabla que serializa a JSON en un input oculto). El lote reutiliza el patrón de `archivar-boletas.js`.
+### Pantallas y rutas
+| Ruta | Qué es | Acceso |
+|---|---|---|
+| `GET /admin/ratificaciones` | secciones con contadores; con `seccion_id`, la decisión de cada estudiante y su documento | ver |
+| `POST /admin/ratificaciones/{matricula_id}/decision` | registrar o cambiar la decisión | escribir |
+| `POST /admin/ratificaciones/{matricula_id}/emitir` · `/anular` | emitir o anular un documento | escribir |
+| `POST /admin/ratificaciones/seccion/{id}/emitir` | emitir a los decididos sin documento; si falta una plantilla, emite al resto y lo informa | escribir |
+| `GET /admin/ratificaciones/emision/{id}/imprimir` | A4 de la MISMA emisión (mismo QR); una anulada sale con el sello ANULADA, sin firma ni sello | ver |
+| `GET /admin/ratificaciones/seccion/{id}/lote` | ZIP con un PDF por documento VIGENTE (html2pdf + JSZip) | ver |
+| `GET /admin/ratificaciones/motivos` (+ crear, editar, retirar, reactivar) | catálogo por año | ver / escribir |
+| `GET /admin/ratificaciones/plantillas` (+ guardar, duplicar, vista previa, imagen) | editor por bloques | ver / escribir |
+| `GET /ratificacion/verificar/{token}` | verificación PÚBLICA del QR (`RatificacionVerificacionController`, layout `digital`) | público |
 
-### Aviso al matricular (toca el módulo de matrículas, mínimo)
-- En el alta de matrícula, si el estudiante tiene en el año anterior una `ratificacion` con `no_ratificado` y una emisión vigente, se muestra un banner de aviso no bloqueante.
-- Leer antes `docs/modulos/matriculas.md` y la sección de banners de `docs/modulos/ui.md`.
-- El texto dice QUÉ pasa, nunca la regla interna.
+Entrada: card en `resources/views/dashboard/index.php` (no hay menú lateral).
+
+### Aviso al matricular
+`MatriculaController::create` llama a `RatificacionModel::avisoNoRatificado($estudianteId,
+$anioActivo['anio'])`: emisión VIGENTE `no_ratificado` del año anterior **por número de año**.
+`matriculas/crear.php` pinta un `alert alert--warning` (sin glifo) con el año del documento y
+su fecha de emisión. **No bloquea** la matrícula. Ver también `docs/modulos/matriculas.md`.
+
+### Gotchas (vistos al construir)
+- **Un parcial incluido en un bucle se aísla en una función.** `_bloque-editor.php` y cada
+  documento del lote se incluyen dentro de un `static function`: sueltos, sus variables pisan
+  las del siguiente (así se perdía la tabla del bloque siguiente).
+- **html2pdf**: márgenes POR HOJA en `ratificacion-lote.js` (en el ítem solo darían margen a la
+  primera y a la última) y `pagebreak: avoid-all + css + legacy`. html2canvas pinta con estilos
+  de PANTALLA: lo que solo debe verse en pantalla se anula dentro de `.ratif-lote-item`.
+- El layout `print` no carga `page_scripts`: el QR se genera con un script en la propia vista,
+  una sola vez por página (`RATIF_QR_SCRIPT_LOADED`).
+- **Con BrowserSync** la URL impresa bajo el QR sale `//localhost:3000/…` (reescribe enlaces);
+  PHP la genera completa. En la oficina no hay `storage/firmas/`: firma y sello no se ven en local.
 
 ### Textos
-Los mensajes siguen la regla «no revelan el flujo». Los párrafos oficiales los redacta Dirección; el sistema no inventa ninguna redacción legal.
+Los mensajes siguen la regla «no revelan el flujo». Los párrafos oficiales y los motivos los
+redacta Dirección; el sistema no inventa ninguna redacción legal.
 
 ## Fases — plan de implementación y avance (aprobado el 14/10/2026)
 
@@ -123,7 +144,7 @@ Chrome con la sesión del usuario, diciendo con QUÉ rol se probó.
 | Apoderado | Variable `{apoderado}` = el **responsable** (ver tabla de decisiones de arriba). |
 | Datos al reimprimir | Se leen al imprimir; solo el texto del motivo y del detalle se congela en la emisión. |
 
-### Correcciones al plan del 13/10 (verificadas contra el repo; prevalecen sobre lo de arriba)
+### Correcciones al plan del 13/10 (historial: ya incorporadas en «Cómo funciona»)
 1. `config('ratificacion_img_path')` — clave plana; `config()` no admite puntos. Se detecta por el
    home de Hostinger, como `siagie_tmp_path`: en prod `~/siga_uploads/ratificacion/`, en local
    `storage/ratificacion/` (en `.gitignore`). El controlador crea la carpeta al subir la primera.
@@ -156,7 +177,7 @@ Chrome con la sesión del usuario, diciendo con QUÉ rol se probó.
 - Probada en Chrome con **admin**. Corregido en la prueba: el error volvía con ancla a la fila y
   el mensaje quedaba fuera de vista (con error ahora vuelve arriba); `scroll-margin-top` en filas.
 
-### ✅ Fase 2 — Plantillas por bloques (commit de esta sesión, ver `git log`)
+### ✅ Fase 2 — Plantillas por bloques (commit `2a8c8af`)
 - `RatificacionPlantillaModel`: PUNTO ÚNICO de versiones (`guardar`: reescribe la no congelada,
   crea la versión siguiente sobre la congelada; `huella` sha256 para «sin cambios» y para no pisar
   a quien guardó entretanto), validación (`validarBloques`, límites en constantes), render seguro
@@ -176,7 +197,7 @@ Chrome con la sesión del usuario, diciendo con QUÉ rol se probó.
   la pantalla con un **director** (contenido visible, sin editor). Tampoco se probó aún con un
   director la Fase 1 (sin formularios; POST → 403).
 
-### ✅ Fase 3 — Emisión, documento A4, anulación y verificación pública (15/10/2026)
+### ✅ Fase 3 — Emisión, documento A4, anulación y verificación pública (commit `0b8f530`, 15/10/2026)
 Decisiones del usuario del 15/10: **firma + sello** del Director EBR; **«Emitir sección» emite lo
 que se pueda** y avisa cuántos quedaron sin emitir y qué plantilla falta; **Dirección puede
 imprimir** un documento ya emitido (es lectura; emitir y anular siguen siendo de `ROLES_REGISTRAN`).
@@ -209,7 +230,7 @@ imprimir** un documento ya emitido (es lectura; emitir y anular siguen siendo de
 - ✅ El usuario probó el 15/10 el Ctrl+P del documento emitido y todo el módulo con un
   **director** (Fases 1-3): correcto.
 
-### ✅ Fase 4 — Lote por sección + aviso al matricular (15/10/2026)
+### ✅ Fase 4 — Lote por sección + aviso al matricular (commit `7ebcc71`, 15/10/2026)
 - **Lote** `GET /admin/ratificaciones/seccion/{id}/lote?anio_id=` (`RatificacionController@lote`,
   LECTURA: Dirección también). Solo emisiones VIGENTES de la sección dentro del universo
   (`RatificacionModel::emisionesVigentesDeSeccion()`, orden alfabético). `imprimir` y `lote`
@@ -233,12 +254,14 @@ imprimir** un documento ya emitido (es lectura; emitir y anular siguen siendo de
   (interceptado dentro de un iframe, sin descargar), 1 PDF de 3 hojas con márgenes, QR y sin
   la línea punteada. El banner del alta se probó renderizando la vista con datos de ejemplo
   (la BD local solo tiene 2026) y su regla, con el verificador.
-- **Pendiente de probar por el usuario:** descargar el ZIP de verdad y abrir un PDF; en
-  producción, el aviso al matricular para 2027 a un no ratificado.
+- ✅ El usuario descargó el ZIP de verdad el 15/10: correcto. Queda para producción el aviso al
+  matricular para 2027 a un no ratificado.
 
-### ⏳ Fase 5 — Documentación
-Este doc pasa a describir lo construido (cabecera y secciones de diseño); `docs/ESTADO.md`
-(080 pendiente en prod; carpeta de imágenes); CLAUDE.md ya tiene la fila (no se toca).
+### ✅ Fase 5 — Documentación (15/10/2026)
+Este doc describe lo construido («Cómo funciona», «Impacto, despliegue y verificación»);
+`docs/modulos/matriculas.md` documenta el aviso del alta; `docs/infraestructura.md`, la carpeta
+de imágenes fuera del repo; `docs/ESTADO.md`, los pasos de despliegue. CLAUDE.md ya tenía la
+fila de la tabla (no se tocó). El usuario probó el 15/10 la descarga real del ZIP: correcta.
 
 ### Recomendaciones anotadas (NO autorizadas, solo para el informe final)
 - Acción en lote «marcar pendientes como ratificados» en una sección.
@@ -247,36 +270,16 @@ Este doc pasa a describir lo construido (cabecera y secciones de diseño); `docs
   (es `public` desde el commit 3452567, 06/10): **falla también en HEAD**, no es de este módulo.
 - Aviso al salir del editor de plantillas con cambios sin guardar.
 
-## Esfuerzo e impacto
-- **Esfuerzo estimado:** de 4 a 6 sesiones de trabajo, entre 15 y 25 h en total contando las pruebas en Chrome y los ajustes del A4.
-  - Fase 2 (editor de bloques) es la más grande: unas 6 a 9 h.
-  - Fase 4 (lote + aviso) es la que más se puede recortar.
-- **Archivos:** unos 17 nuevos y unos 7 modificados:
-  - `routes/web.php`;
-  - `app.scss`;
-  - `config/app.php` (ruta de imágenes);
-  - el menú lateral;
-  - `MatriculaController` y la vista del alta (aviso);
-  - `CLAUDE.md` y `docs/ESTADO.md`.
-- **Impacto en lo existente:** BAJO.
-  - La migración 080 solo CREA tablas y no altera ninguna existente, así que se revierte con `DROP`.
-  - El único flujo existente que se toca es el alta de matrícula, y solo para mostrar un aviso que no bloquea.
-- **En producción:** aplicar la 080 a mano y crear `~/siga_uploads/ratificacion/`.
-- **Calendario:** desarrollar en `dev` y desplegar **después de cerrar el III y abrir el IV (18-19/10)**. Ruta crítica real: Dirección debe entregar los textos y el catálogo de motivos de 2026.
-
-## Verificación
-- `database/verificaciones/verif_ratificaciones.php` (transacción + ROLLBACK, sin DELETE de datos ajenos). Comprueba que:
-  - el universo excluye a trasladados, retirados, 5.º de secundaria y la matrícula operativa de un retorno;
-  - el CHECK impide un `no_ratificado` sin motivo;
-  - emitir congela la plantilla y editarla crea una versión;
-  - la emisión conserva su texto aunque se edite el motivo;
-  - un token desconocido o anulado no revela nada.
-- `php -l` en cada archivo PHP nuevo o tocado.
-- Prueba en Chrome (local):
-  - registrar decisiones;
-  - armar una plantilla con párrafo, tabla e imagen;
-  - emitir, imprimir el A4 y descargar el lote;
-  - escanear la URL del QR;
-  - anular la emisión;
-  - matricular en el año siguiente a un no ratificado y ver el aviso.
-- Revisar que la boleta, las matrículas y el panel de bloqueos siguen funcionando igual (regresión).
+## Impacto, despliegue y verificación
+- **Impacto en lo existente: BAJO.** La 080 solo CREA tablas (se revierte con `DROP`). Fuera del
+  módulo solo se tocaron el alta de matrícula (aviso no bloqueante), la card del dashboard y
+  `verif_direccion_superficies.php` (lista de cards de Dirección).
+- **Despliegue** (pasos en `docs/ESTADO.md`): aplicar la **080 en producción ANTES del merge**
+  (la card aparece en el dashboard y, sin las tablas, la pantalla falla); crear
+  `~/siga_uploads/ratificacion/` con permisos de escritura; no desplegar antes de cerrar el III y
+  abrir el IV.
+- **Verificación**: `php database/verificaciones/verif_ratificaciones.php` (transacción +
+  ROLLBACK, sin DELETE; años temporales 2099/2100). Cubre universo, CHECK, decisiones con
+  anulación confirmada, plantillas (validación, XSS, versiones, huella, duplicar), emisión
+  (congelado, copia del motivo, token propio, lote con plantilla faltante), anulación,
+  verificación pública, lote y aviso al matricular, y las guardas de los dos controladores.

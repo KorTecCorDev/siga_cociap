@@ -38,11 +38,20 @@ subido debe vivir FUERA del repo** (`~/...`), nunca bajo `public_html/`.
   nombre contra path traversal). La subida guarda en BD `firmas/{archivo}`.
 - Ya NO se usa `public/assets/img/firmas/`.
 
+### Imágenes de las plantillas de ratificación — fuera del repo (15/10/2026)
+- Se guardan en `~/siga_uploads/ratificacion/` (config `ratificacion_img_path`, env-aware por
+  `is_dir('/home/u761410128')`); en local, `storage/ratificacion/` (en `.gitignore`).
+- El controlador crea la carpeta al subir la primera imagen; en producción conviene crearla a
+  mano al desplegar y comprobar que PHP puede escribir en ella.
+- Se sirven **con login** por `GET /admin/ratificaciones/plantillas/imagen/{archivo}`
+  (no por `FirmaController`, que es público y solo PNG). Ver `docs/modulos/ratificaciones.md`.
+
 ### config/app.php — valores env-aware (no fijos)
 - `debug`: `true` solo en hosts locales/privados (localhost, 127.*, 192.168.*, 10.*);
   `false` en producción y ante un `Host` inyectado (default seguro OFF).
 - `app_url`: `https://sigacociap.net` si el host es `sigacociap.net`; `''` en local.
 - `firmas_path`: `~/siga_uploads/firmas` en prod; `storage/firmas` en local.
+- `ratificacion_img_path`: `~/siga_uploads/ratificacion` en prod; `storage/ratificacion` en local.
 - El manejo de errores se cablea en `public/index.php` según `debug`:
   producción → `display_errors=0` + `log_errors=1`; local → `display_errors=1`.
 
