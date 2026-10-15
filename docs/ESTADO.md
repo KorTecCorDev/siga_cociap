@@ -1,7 +1,7 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **14/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **15/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
@@ -81,21 +81,45 @@ HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6
    un no ratificado y ver el aviso.
 6. Dirección: entregar los textos de las plantillas y el catálogo de motivos de 2026.
 
-### 🔜 RETOMAR AQUÍ (14/10/2026; actualizado el 15/10 con el módulo terminado) — en el escritorio de casa
-1. `git pull` en `dev` (las 5 fases están en `origin/dev`; `main` no las tiene).
+### 🔜 RETOMAR AQUÍ (15/10/2026, fin del turno en la oficina) — en el escritorio de casa
+Hoy quedó TERMINADO el módulo de ratificación (5 fases) y su **rediseño como CONTRATO /
+COMUNICADO** (cabecera del Acompañamiento, partes, dos firmas, marca de agua en cada hoja).
+Todo en `origin/dev`; `main` no lo tiene.
+
+**Preparar el escritorio (en este orden):**
+1. `git pull` en `dev`.
 2. **Aplicar la 080 en la BD local de casa** (`database/migrations/080_ratificaciones.sql`,
    idempotente; solo crea 5 tablas). Comprobar con `SHOW TABLES LIKE 'ratificacion%'` → 5.
 3. `npx gulp build` si el CSS/JS no se ve (los compilados ya van en el commit).
 4. `php database/verificaciones/verif_ratificaciones.php` → debe dar **TODO OK**.
    (`verif_direccion_superficies.php` trae 1 FAIL PREEXISTENTE de `ROLES_MATRICULAN`, no es del módulo.)
-5. Módulo TERMINADO y probado por el usuario (admin y director). Lo que queda es desplegarlo:
-   ver «Despliegue del módulo» arriba.
-- Datos de prueba de la BD de la OFICINA BORRADOS el 15/10/2026 (a pedido del usuario): plantillas
-  12 y 14, motivo 3, decisiones 2 y 18, emisiones 29-31 y la imagen de prueba. Se CONSERVÓ la
-  plantilla 13 (texto real para 2027, v2, descongelada y sin el bloque de la imagen de prueba).
-  En casa nunca existieron.
-- [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).**
-- [ ] Pedir a Dirección los textos y el catálogo de motivos de 2026 (ruta crítica real).
+5. En casa la BD **no tiene plantillas, motivos ni decisiones**: para probar, crear una plantilla
+   de cada tipo y un motivo (o «Duplicar del año anterior» no sirve: solo hay 2026).
+
+**Pruebas pendientes (del usuario):**
+- [ ] **Lote en ZIP con el diseño NUEVO** (contrato y comunicado): descargarlo y abrir los PDF.
+  Se probó el lote con el diseño anterior; el nuevo (cabecera en rejilla, QR arriba, dos firmas)
+  aún no pasó por html2pdf. Mirar que el QR de la cabecera salga y que las firmas no se partan.
+- [ ] Ctrl+P de un documento **ANULADO** de varias hojas: «ANULADA» entera en cada hoja (la de
+  VISTA PREVIA ya se comprobó el 15/10).
+- [ ] Contrato de un estudiante **sin apoderado responsable** (1 caso al 15/10): los datos del
+  apoderado deben salir en líneas para llenar a mano.
+- [ ] En **producción**, tras desplegar: firma y sello visibles (en local no hay `storage/firmas/`),
+  escanear el QR con un celular y, en 2027, el aviso al matricular a un no ratificado.
+
+**Decisiones pendientes del usuario / del colegio:**
+- [ ] Plantilla de ratificado (v3): quitar el **salto de página final** para que las firmas
+  compartan hoja con la última cláusula (recomendación, no obligatorio).
+- [ ] Pedir a Dirección los textos definitivos del contrato y del comunicado y el catálogo de
+  motivos de 2026 (ruta crítica real).
+- [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).** Pasos: «Despliegue del
+  módulo» arriba (080 en prod ANTES del merge).
+
+**Datos en la BD de la OFICINA** (solo allí): los de prueba del 14/10 se borraron el 15/10 (se
+conservó la plantilla 13). El usuario creó el 15/10 nuevos datos de prueba: plantillas 65
+(«COMUNICADO DEL COMITÉ DIRECTIVO») y 66 (ratificado v3), motivo 36, decisiones 27 (mat. 171) y 28
+(mat. 213), emisiones 52 y 53 vigentes. La 52 la anuló Claude por error a las 12:30 y se
+restauró por SQL con el visto bueno del usuario (mismo token). Borrarlos cuando ya no sirvan.
 
 ## (HISTÓRICO, reemplazado el 13/10/2026) RETOMAR AQUÍ (12/10/2026) — DESPLIEGUE DESPUÉS DEL III
 

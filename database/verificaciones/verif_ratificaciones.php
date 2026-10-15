@@ -380,7 +380,7 @@ try {
         'porToken(): desconocido, mal formado o en mayúsculas → null');
 
     $doc = $rat->emisionParaDocumento((int) $em1['id']);
-    $vars = RatificacionModel::varsDeEmision($doc);
+    $vars = RatificacionModel::varsDeEmision($doc, ["madre" => "Madre"]);
     $ok($doc !== null && $vars['anio_siguiente'] === (string) ((int) $doc['anio'] + 1)
         && array_keys($vars) === array_keys(RatificacionPlantillaModel::VARIABLES),
         'emisionParaDocumento() + varsDeEmision(): todas las variables del párrafo');

@@ -525,13 +525,8 @@ class RatificacionModel extends BaseModel
                    CONCAT(p.apellido_paterno, ' ', p.apellido_materno, ', ', p.nombres) AS estudiante,
                    s.nombre AS seccion_nombre, g.nombre_display AS grado_nombre,
                    n.nombre AS nivel_nombre, n.codigo AS nivel_codigo,
-                   (SELECT CONCAT(pa.apellido_paterno, ' ', pa.apellido_materno, ', ', pa.nombres)
-                    FROM vinculo_familiar vf
-                    INNER JOIN apoderados ap ON ap.id = vf.apoderado_id
-                    INNER JOIN personas   pa ON pa.id = ap.persona_id
-                    WHERE vf.estudiante_id = m.estudiante_id AND vf.es_responsable = 1
-                    ORDER BY vf.id
-                    LIMIT 1) AS apoderado
+                   CONCAT(pa.apellido_paterno, ' ', pa.apellido_materno, ', ', pa.nombres) AS apoderado,
+                   pa.dni AS apoderado_dni, vf.tipo_vinculo
             FROM ratificacion_emisiones e
             INNER JOIN ratificaciones   r ON r.id = e.ratificacion_id
             INNER JOIN matriculas       m ON m.id = r.matricula_id
@@ -541,6 +536,14 @@ class RatificacionModel extends BaseModel
             INNER JOIN secciones        s ON s.id = m.seccion_id
             INNER JOIN grados           g ON g.id = s.grado_id
             INNER JOIN niveles          n ON n.id = g.nivel_id
+            -- El apoderado RESPONSABLE (uno por estudiante; sin él, NULL y el
+            -- documento deja sus datos en blanco para llenarlos a mano).
+            LEFT  JOIN vinculo_familiar vf ON vf.id = (
+                       SELECT v2.id FROM vinculo_familiar v2
+                       WHERE v2.estudiante_id = m.estudiante_id AND v2.es_responsable = 1
+                       ORDER BY v2.id LIMIT 1)
+            LEFT  JOIN apoderados      ap ON ap.id = vf.apoderado_id
+            LEFT  JOIN personas        pa ON pa.id = ap.persona_id
             WHERE e.id = ?
         ", [$emisionId]);
     }
@@ -590,9 +593,14 @@ class RatificacionModel extends BaseModel
         ", [$estudianteId, $anioActual - 1]);
     }
 
-    /** Valores de las variables del párrafo para una emisión (ver VARIABLES). */
-    public static function varsDeEmision(array $em): array
+    /**
+     * Valores de las variables del párrafo para una emisión (ver VARIABLES).
+     * `$etiquetasVinculo` traduce `tipo_vinculo` a su texto («tio» → «Tío»); es
+     * el catálogo de `MatriculaController::tiposVinculo()`, que pasa el controlador.
+     */
+    public static function varsDeEmision(array $em, array $etiquetasVinculo = []): array
     {
+        $vinculo = (string) ($em['tipo_vinculo'] ?? '');
         return [
             'estudiante'     => (string) $em['estudiante'],
             'dni'            => (string) $em['dni'],
@@ -602,6 +610,8 @@ class RatificacionModel extends BaseModel
             'anio'           => (string) $em['anio'],
             'anio_siguiente' => (string) ((int) $em['anio'] + 1),
             'apoderado'      => (string) ($em['apoderado'] ?? ''),
+            'apoderado_dni'  => (string) ($em['apoderado_dni'] ?? ''),
+            'parentesco'     => $vinculo === '' ? '' : (string) ($etiquetasVinculo[$vinculo] ?? ucfirst($vinculo)),
         ];
     }
 

@@ -74,14 +74,42 @@ No existe nada previo en código ni en docs.
 | `ratificaciones` | una decisión por matrícula (UNIQUE), motivo, detalle ≤ 500, quién y cuándo. |
 | `ratificacion_emisiones` | plantilla usada, copia del motivo y del detalle, `token` UNIQUE, `vigente` 1/NULL, emitido/anulado por y en. |
 
+### Diseño del documento: CONTRATO y COMUNICADO (15/10/2026)
+Decisión del usuario: el documento de un ratificado es un **contrato** de reserva de matrícula,
+que da garantía a las dos partes; el de un no ratificado es un **comunicado** (carta).
+- **Cabecera** tomada del informe de Acompañamiento pedagógico (`.cuadros-print__head`): logo a
+  la izquierda, institución (ente rector, nombre oficial, códigos modular —**según el nivel**— y
+  de local, resoluciones), **QR de verificación arriba a la derecha** y regla negra de 2 px.
+  Debajo, el lema del año. Todo en negro y grises. NO se copia su letra de 10-11 px: este
+  documento lo lee y lo firma una familia (cuerpo a 10,5 pt).
+- **Título** = el de la plantilla, sin subtítulo fijo (lo redacta Dirección).
+- **Cuadro de datos** (rótulo gris + valor):
+  - contrato: EL COLEGIO (representado por el Director EBR, con su cargo y nombre), EL APODERADO
+    (responsable: nombre, DNI, parentesco) y EL ESTUDIANTE (nombre, DNI, grado, sección, nivel, año);
+  - comunicado: APODERADO(A) y ESTUDIANTE.
+  - **Sin apoderado responsable registrado** (1 estudiante al 15/10), sus datos salen en blanco
+    para llenarlos a mano: el documento NO se bloquea.
+- **Cuerpo** por bloques; en el comunicado, el **motivo** en un recuadro gris con filete negro.
+- **Cierre** (lugar, fecha y firmas, `break-inside: avoid`: no se separan entre hojas):
+  - contrato: DOS firmas lado a lado: «Por el colegio» (firma + sello del Director EBR vigente en
+    la FECHA DE EMISIÓN) y «El apoderado» (línea, nombre y DNI impresos);
+  - comunicado: solo la del Director, centrada.
+- **Un solo ejemplar** por PDF: si el colegio necesita dos, imprime dos veces.
+- **Marca de agua** (VISTA PREVIA gris / ANULADA roja): `position: fixed`, NO `absolute`. Al
+  imprimir, Chrome repite un elemento fijo en CADA hoja, centrado; con `absolute` había una sola
+  marca al 46 % del documento entero y en uno de varias hojas caía partida en el corte. En
+  pantalla queda centrada en la ventana. ⚠️ Si un contenedor padre recibiera `transform` o
+  `filter`, la marca dejaría de anclarse a la hoja.
+- Estilo propio en `_ratificacion.scss` (`.ratif-doc`), **independiente de `_constancia.scss`**:
+  tocar la constancia de traslado no mueve este documento.
+- Recomendación para las plantillas: en un contrato, no terminar con un salto de página, para
+  que las firmas compartan hoja con la última cláusula.
+
 ### Contenido por bloques (enfoque D)
-- **Esqueleto fijo** (`documento.php`, layout `print`, estilo de la constancia de traslado):
-  lema, membrete con código modular **según el nivel**, título de la plantilla, datos del
-  estudiante, [cuerpo], motivo (solo no ratificado), lugar y fecha, **firma + sello** del
-  Director EBR vigente en la FECHA DE EMISIÓN, QR de verificación y pie.
 - **Párrafo**: texto plano; `renderParrafo()` escapa PRIMERO y luego aplica `**negrita**` y las
   variables `{estudiante}` `{dni}` `{grado}` `{seccion}` `{nivel}` `{anio}` `{anio_siguiente}`
-  `{apoderado}` (= el apoderado RESPONSABLE). Una variable desconocida no se puede guardar.
+  `{apoderado}` (= el apoderado RESPONSABLE), `{apoderado_dni}` y `{parentesco}` (etiqueta de
+  `MatriculaController::tiposVinculo()`). Una variable desconocida no se puede guardar.
 - **Tabla**: la primera fila es la cabecera. **Imagen**: PNG/JPEG de hasta 2 MB, validado por
   contenido, en tres tamaños. **Salto de página**: `break-before: page`.
 - Versiones, «Duplicar del año anterior» (por número de año) y vista previa con datos de

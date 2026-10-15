@@ -47,6 +47,8 @@ class RatificacionPlantillaModel extends BaseModel
         // no de la matrícula): hay uno solo y siempre existe. Se lee al imprimir,
         // no se congela en la emisión (decisión del usuario, 14/10/2026).
         'apoderado'      => 'apoderado responsable',
+        'apoderado_dni'  => 'DNI del apoderado',
+        'parentesco'     => 'parentesco del apoderado',
     ];
 
     public const TITULO_MIN  = 3;
@@ -452,6 +454,8 @@ class RatificacionPlantillaModel extends BaseModel
             'anio'           => (string) $anio,
             'anio_siguiente' => (string) ($anio + 1),
             'apoderado'      => 'APELLIDO APELLIDO, NOMBRES DEL APODERADO',
+            'apoderado_dni'  => '00000000',
+            'parentesco'     => 'Madre',
         ];
     }
 }

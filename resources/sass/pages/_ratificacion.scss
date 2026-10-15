@@ -138,13 +138,46 @@
 
 .ratif-lectura > * + * { margin-top: $spacing-sm; }
 
-// ── Documento A4 (layout print; hereda el esqueleto de `.constancia`) ───────
+// ── Documento A4 (layout print) — diseño del 15/10/2026 ─────────────────────
+// Contrato (ratificado) y comunicado (no ratificado) con el MISMO esqueleto.
+// La cabecera toma la del informe de Acompañamiento pedagógico
+// (`.cuadros-print__head`): logo a la izquierda, institución, regla negra de
+// 2px, todo en negro. Lo que NO se copia es su tamaño de letra (10-11px): este
+// documento lo lee y lo firma una familia, así que el cuerpo va a 10.5pt.
+// Independiente de `_constancia.scss` a propósito: tocar la constancia de
+// traslado no debe mover este documento.
+$ratif-tinta: #111;
+$ratif-suave: #555;
+$ratif-linea: #bbb;
+$ratif-fondo: #f2f2f2;
+
 .ratif-doc {
-    // Marca de agua de la vista previa: misma forma que el sello ANULADA de la
-    // constancia, en gris, para que el papel de prueba no circule como oficial.
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-height: 250mm;              // ancla el pie al fondo de la última hoja
+    max-width: 175mm;
+    margin: 0 auto;
+    font-family: $font-family;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: $ratif-tinta;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+
+    p { margin: 0; }
+
+    // ── Marca de agua: VISTA PREVIA (gris) o ANULADA (rojo) ──
+    // `fixed`, NO `absolute` (decisión del usuario, 15/10/2026): al imprimir,
+    // Chrome repite un elemento fijo en CADA hoja, centrado en ella; con
+    // `absolute` había UNA marca al 46 % del documento entero y en uno de
+    // varias hojas caía partida en el corte. En pantalla queda centrada en la
+    // ventana mientras se desplaza. El lote (html2pdf) no la repetiría, pero
+    // solo lleva documentos vigentes, que no tienen marca.
     .ratif-doc__marca {
-        position: absolute;
-        top: 46%;
+        position: fixed;
+        top: 50%;
         left: 50%;
         transform: translate(-50%, -50%) rotate(-20deg);
         font-size: 44pt;
@@ -157,34 +190,134 @@
         padding: 2mm 8mm;
         pointer-events: none;
         z-index: 10;
+
+        &--anulada {
+            color: rgba($color-error, 0.16);
+            border-color: rgba($color-error, 0.16);
+        }
     }
 
-    .ratif-doc__datos {
+    // ── Cabecera: logo · institución · QR ──
+    .ratif-doc__cabecera {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1.5mm 6mm;
+        grid-template-columns: 18mm 1fr 22mm;
+        align-items: center;
+        gap: 4mm;
+        padding-bottom: 2.5mm;
+        border-bottom: 2px solid #000;
+    }
+
+    .ratif-doc__logo {
+        width: 18mm;
+        height: auto;
+    }
+
+    .ratif-doc__rector {
+        font-size: 7.5pt;
+        letter-spacing: 0.4pt;
+        text-transform: uppercase;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__colegio {
+        font-size: 13pt;
+        font-weight: 700;
+        line-height: 1.25;
+    }
+
+    .ratif-doc__inst-datos {
+        margin-top: 0.5mm;
+        font-size: 7.5pt;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__verif {
+        text-align: center;
+    }
+
+    .ratif-doc__qr-code {
+        width: 20mm;
+        height: 20mm;
+        margin: 0 auto;
+
+        img,
+        canvas {
+            width: 20mm !important;
+            height: 20mm !important;
+        }
+    }
+
+    .ratif-doc__verif-texto {
+        margin-top: 0.5mm;
+        font-size: 6.5pt;
+        letter-spacing: 0.3pt;
+        text-transform: uppercase;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__lema {
+        margin-top: 1.5mm;
+        font-size: 7.5pt;
+        font-style: italic;
+        text-align: center;
+        color: $ratif-suave;
+    }
+
+    // ── Título ──
+    .ratif-doc__titulo {
         margin: 6mm 0 5mm;
-        font-size: 10pt;
+        font-size: 13pt;
+        font-weight: 700;
+        line-height: 1.3;
+        text-align: center;
+        text-transform: uppercase;
+    }
 
-        div:first-child { grid-column: 1 / -1; }
+    // ── Partes / datos: tabla de rótulo + valor (estilo de las tablas del informe) ──
+    .ratif-doc__partes {
+        width: 100%;
+        margin-bottom: 5mm;
+        border-collapse: collapse;
+        font-size: 9.5pt;
+        break-inside: avoid;
 
-        dt {
-            font-size: 7.5pt;
+        th,
+        td {
+            padding: 1.6mm 2.5mm;
+            border: 0.5pt solid $ratif-linea;
+            vertical-align: top;
+            text-align: left;
+        }
+
+        th {
+            width: 32mm;
+            font-size: 8pt;
+            font-weight: 700;
+            letter-spacing: 0.3pt;
             text-transform: uppercase;
-            letter-spacing: 0.6pt;
-            color: $text-secondary;
+            background: $ratif-fondo;
         }
+    }
 
-        dd {
-            margin: 0;
-            font-weight: 600;
-        }
+    // Dato que se llena a mano (apoderado sin registrar): rótulo + línea.
+    .ratif-doc__llenar {
+        display: inline-block;
+        min-width: 60mm;
+        margin-right: 6mm;
+        border-bottom: 0.5pt solid $ratif-tinta;
+    }
+
+    // ── Cuerpo ──
+    .ratif-doc__cuerpo {
+        text-align: justify;
+
+        > p { margin-bottom: 3mm; }
     }
 
     .ratif-doc__tabla {
         width: 100%;
-        border-collapse: collapse;
         margin: 0 0 3.5mm;
+        border-collapse: collapse;
         font-size: 9.5pt;
         line-height: 1.35;
         text-align: left;
@@ -192,16 +325,14 @@
 
         th,
         td {
-            border: 0.5pt solid #d7dee6;
             padding: 1.2mm 2mm;
+            border: 0.5pt solid $ratif-linea;
             vertical-align: top;
         }
 
         th {
-            font-weight: 600;
-            background: #f1f5f9;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            font-weight: 700;
+            background: $ratif-fondo;
         }
     }
 
@@ -234,76 +365,120 @@
         }
     }
 
+    // ── Motivo (comunicado): recuadro con filete a la izquierda ──
     .ratif-doc__motivo {
-        margin-top: 2mm;
-
-        .ratif-doc__motivo-titulo {
-            margin-bottom: 1mm;
-            font-size: 9pt;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8pt;
-        }
-
-        .ratif-doc__motivo-texto { white-space: pre-line; }
+        margin: 1mm 0 3mm;
+        padding: 2mm 3mm;
+        border-left: 2px solid #000;
+        background: $ratif-fondo;
+        break-inside: avoid;
     }
 
-    // Firma al centro y sello a su izquierda; la tercera columna (vacía) iguala
-    // a la del sello para que la firma quede centrada en la hoja.
+    .ratif-doc__motivo-titulo {
+        margin: 0 0 1mm;
+        font-size: 8pt;
+        font-weight: 700;
+        letter-spacing: 0.6pt;
+        text-transform: uppercase;
+    }
+
+    .ratif-doc__motivo-texto {
+        white-space: pre-line;
+
+        & + & { margin-top: 1.5mm; }
+    }
+
+    // ── Lugar, fecha y firmas: un solo bloque que no se parte ──
+    // El pie usa `margin-top: auto`, que en un documento más largo que la hoja
+    // vale 0: la separación con el pie va aquí.
+    .ratif-doc__cierre {
+        margin: 4mm 0 8mm;
+        break-inside: avoid;
+    }
+
+    .ratif-doc__lugar-fecha {
+        text-align: right;
+    }
+
     .ratif-doc__firmas {
-        display: flex;
-        justify-content: center;
-        align-items: flex-end;
-        gap: 4mm;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12mm;
+        margin-top: 4mm;
 
-        .constancia-firma { margin: 0; }
+        &--una {
+            grid-template-columns: 75mm;
+            justify-content: center;
+        }
     }
 
-    .ratif-doc__sello {
-        width: 30mm;
+    .ratif-doc__firma {
+        text-align: center;
+    }
+
+    // Altura fija: la línea queda al mismo nivel haya o no firma (patrón de la
+    // boleta). El sello va a la izquierda, por detrás de la firma.
+    .ratif-doc__firma-espacio {
+        position: relative;
+        height: 24mm;
         display: flex;
         align-items: flex-end;
         justify-content: center;
     }
 
-    .ratif-doc__sello-img {
-        max-width: 30mm;
-        max-height: 30mm;
+    .ratif-doc__firma-img {
+        position: relative;
+        max-width: 55mm;
+        max-height: 20mm;
         object-fit: contain;
     }
 
-    // QR de autenticidad, encima del pie (patrón `.boleta-qr-wrap`).
-    .ratif-doc__qr {
-        display: flex;
-        align-items: center;
-        gap: 4mm;
-        margin-top: 6mm;
-        break-inside: avoid;
+    .ratif-doc__sello-img {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        max-width: 24mm;
+        max-height: 24mm;
+        object-fit: contain;
+        opacity: 0.9;
+    }
+
+    .ratif-doc__firma-linea {
+        border-top: 0.75pt solid $ratif-tinta;
+        margin: 0 4mm 1.2mm;
+    }
+
+    .ratif-doc__firma-nombre {
+        min-height: 1.5em;
+        font-size: 9.5pt;
+        font-weight: 700;
+    }
+
+    .ratif-doc__firma-cargo {
         font-size: 8pt;
-        color: $text-secondary;
-
-        p { margin: 0 0 0.8mm; }
+        color: $ratif-suave;
     }
 
-    .ratif-doc__qr-code {
-        flex: 0 0 auto;
-        width: 21mm;
-        height: 21mm;
-
-        img,
-        canvas {
-            width: 21mm !important;
-            height: 21mm !important;
-        }
+    .ratif-doc__firma-parte {
+        margin-top: 1mm;
+        font-size: 7.5pt;
+        letter-spacing: 0.4pt;
+        text-transform: uppercase;
+        color: $ratif-suave;
     }
 
-    .ratif-doc__qr-titulo {
-        font-weight: 600;
-        color: $text-primary;
-    }
-
-    .ratif-doc__qr-url {
+    // ── Pie ──
+    .ratif-doc__pie {
+        margin-top: auto;
+        padding-top: 2.5mm;
+        border-top: 0.75pt solid $ratif-linea;
         font-size: 7pt;
+        text-align: center;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__pie-verif {
+        margin-top: 0.6mm;
         word-break: break-all;
     }
 }

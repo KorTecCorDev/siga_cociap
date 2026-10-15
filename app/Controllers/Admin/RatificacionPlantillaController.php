@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Models\DirectorEbrModel;
 use App\Models\RatificacionModel;
 use App\Models\RatificacionPlantillaModel;
 use Core\Session;
@@ -155,7 +156,9 @@ class RatificacionPlantillaController extends BaseController
                 ? 'Aquí va el texto oficial del motivo elegido para el estudiante.' : null,
             'detalleTexto' => null,
             'fecha'       => date('Y-m-d'),
-            'directorEbr' => null,
+            // El nombre real del Director para juzgar el diseño; la firma y el
+            // sello no salen en la vista previa (`documento.php`).
+            'directorEbr' => (new DirectorEbrModel())->getVigenteEnFecha((int) $plantilla['anio_id'], date('Y-m-d')),
         ]);
     }
 

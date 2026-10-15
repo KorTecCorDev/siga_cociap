@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Controllers\Matricula\MatriculaController;
 use App\Models\DirectorEbrModel;
 use App\Models\RatificacionModel;
 use App\Models\RatificacionMotivoModel;
@@ -316,7 +317,7 @@ class RatificacionController extends BaseController
     {
         $plantilla = $plantillas->plantilla((int) $em['plantilla_id']);
         $anio      = $plantillas->anio((int) $em['anio_id']);
-        $vars      = RatificacionModel::varsDeEmision($em);
+        $vars      = RatificacionModel::varsDeEmision($em, MatriculaController::tiposVinculo());
         $datos     = config('institucion_datos') ?? [];
         $fecha     = substr((string) $em['emitido_en'], 0, 10);
 
