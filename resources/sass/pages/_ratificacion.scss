@@ -247,4 +247,100 @@
 
         .ratif-doc__motivo-texto { white-space: pre-line; }
     }
+
+    // Firma al centro y sello a su izquierda; la tercera columna (vacía) iguala
+    // a la del sello para que la firma quede centrada en la hoja.
+    .ratif-doc__firmas {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 4mm;
+
+        .constancia-firma { margin: 0; }
+    }
+
+    .ratif-doc__sello {
+        width: 30mm;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+    }
+
+    .ratif-doc__sello-img {
+        max-width: 30mm;
+        max-height: 30mm;
+        object-fit: contain;
+    }
+
+    // QR de autenticidad, encima del pie (patrón `.boleta-qr-wrap`).
+    .ratif-doc__qr {
+        display: flex;
+        align-items: center;
+        gap: 4mm;
+        margin-top: 6mm;
+        break-inside: avoid;
+        font-size: 8pt;
+        color: $text-secondary;
+
+        p { margin: 0 0 0.8mm; }
+    }
+
+    .ratif-doc__qr-code {
+        flex: 0 0 auto;
+        width: 21mm;
+        height: 21mm;
+
+        img,
+        canvas {
+            width: 21mm !important;
+            height: 21mm !important;
+        }
+    }
+
+    .ratif-doc__qr-titulo {
+        font-weight: 600;
+        color: $text-primary;
+    }
+
+    .ratif-doc__qr-url {
+        font-size: 7pt;
+        word-break: break-all;
+    }
+}
+
+// ── Pantalla de la sección: documento emitido ───────────────────────────────
+.ratif-documento {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs $spacing-sm;
+    margin-top: $spacing-xs;
+    font-size: $font-size-sm;
+
+    form { display: inline; }
+}
+
+// ── Verificación pública del QR (layout digital, tarjeta de `.bpf-*`) ───────
+.ratif-verif {
+    &__estado {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: $font-size-sm;
+
+        &--vigente { background: rgba($color-success, 0.12); color: $color-success; }
+        &--anulado { background: rgba($color-error, 0.12);   color: $color-error; }
+    }
+
+    &__datos {
+        margin: $spacing-md 0 0;
+
+        dt {
+            font-size: $font-size-sm;
+            color: $text-secondary;
+        }
+
+        dd { margin: 0 0 $spacing-sm; font-weight: 600; }
+    }
 }

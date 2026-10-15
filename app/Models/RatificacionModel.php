@@ -254,6 +254,18 @@ class RatificacionModel extends BaseModel
                     VALUES (?, ?, ?, ?, ?)
                 ", [$matriculaId, $decision, $motivoId, $detalle, $userId]);
             } else {
+                // Mismo candado que `emitir`: si entretanto se emitió o anuló el
+                // documento, la confirmación que trae el usuario ya no aplica.
+                $ahora = $this->queryOne("
+                    SELECT e.id AS emision_id
+                    FROM ratificaciones r
+                    LEFT JOIN ratificacion_emisiones e ON e.ratificacion_id = r.id AND e.vigente = 1
+                    WHERE r.id = ?
+                    FOR UPDATE
+                ", [(int) $actual['id']]);
+                if (($ahora['emision_id'] ?? null) !== $actual['emision_id']) {
+                    throw new \DomainException('Los datos de este estudiante cambiaron mientras los editabas. Vuelve a intentarlo.');
+                }
                 if ($tieneEmision) {
                     $this->anularEmision((int) $actual['emision_id'], $userId);
                 }
@@ -290,4 +302,285 @@ class RatificacionModel extends BaseModel
             WHERE id = ? AND vigente = 1
         ", [$userId, $emisionId]);
     }
+
+    // ── Emisión (Fase 3) ────────────────────────────────────────
+
+    /**
+     * EMITE el documento de una matrícula: lo que después se imprime y lleva QR.
+     *
+     *  - Solo con decisión registrada (pendiente = sin documento) y sin otra
+     *    emisión vigente (también lo frena el UNIQUE `uq_rate_vigente`).
+     *  - Usa la plantilla VIGENTE del año y tipo y la CONGELA bajo el mismo
+     *    candado que `RatificacionPlantillaModel::guardar()`: editarla después
+     *    crea una versión nueva y esta emisión conserva la suya.
+     *  - Copia el texto oficial del motivo y el detalle: editar el catálogo no
+     *    reescribe un documento entregado.
+     *  - Token propio de 32 hex. NUNCA `matriculas.token_acceso` (abre la boleta).
+     *
+     * @throws \DomainException con el motivo del rechazo (texto para el usuario)
+     */
+    public function emitir(int $matriculaId, int $userId): void
+    {
+        if ($this->matriculaDelUniverso($matriculaId) === null) {
+            throw new \DomainException('Este estudiante no está en la lista de ratificación.');
+        }
+
+        $propia = !$this->db->inTransaction();
+        if ($propia) {
+            $this->beginTransaction();
+        }
+        try {
+            $plantillas = [];
+            $this->emitirEnTransaccion($matriculaId, $userId, $plantillas);
+            if ($propia) {
+                $this->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($propia) {
+                $this->rollback();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Emite a TODA la sección: a quienes tienen decisión y aún no tienen
+     * documento vigente. Los pendientes nunca se emiten. Si falta la plantilla
+     * de un tipo, se emite a los demás y se informa a cuántos no (decisión del
+     * usuario, 15/10/2026). Todo en una transacción.
+     *
+     * @return array{emitidos:int, sin_plantilla:array<string,int>} sin_plantilla: tipo => cuántos
+     */
+    public function emitirSeccion(int $seccionId, int $userId): array
+    {
+        $propia = !$this->db->inTransaction();
+        if ($propia) {
+            $this->beginTransaction();
+        }
+        try {
+            $porEmitir = $this->query("
+                SELECT m.id AS matricula_id, m.anio_id, r.decision
+                FROM matriculas m
+                INNER JOIN secciones s ON s.id = m.seccion_id
+                INNER JOIN grados    g ON g.id = s.grado_id
+                INNER JOIN niveles   n ON n.id = g.nivel_id
+                INNER JOIN ratificaciones r ON r.matricula_id = m.id
+                LEFT  JOIN ratificacion_emisiones e ON e.ratificacion_id = r.id AND e.vigente = 1
+                WHERE m.seccion_id = ? AND e.id IS NULL
+                  " . self::sqlUniverso() . "
+            ", [$seccionId]);
+
+            $emitidos     = 0;
+            $sinPlantilla = [];
+            $plantillas   = [];
+            foreach ($porEmitir as $fila) {
+                $tipo = (string) $fila['decision'];
+                if (!$this->hayPlantilla((int) $fila['anio_id'], $tipo)) {
+                    $sinPlantilla[$tipo] = ($sinPlantilla[$tipo] ?? 0) + 1;
+                    continue;
+                }
+                $this->emitirEnTransaccion((int) $fila['matricula_id'], $userId, $plantillas);
+                $emitidos++;
+            }
+            if ($propia) {
+                $this->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($propia) {
+                $this->rollback();
+            }
+            throw $e;
+        }
+        return ['emitidos' => $emitidos, 'sin_plantilla' => $sinPlantilla];
+    }
+
+    /** ¿El año tiene alguna plantilla del tipo? (el lote salta a quien no). */
+    private function hayPlantilla(int $anioId, string $tipo): bool
+    {
+        return $this->queryOne(
+            "SELECT 1 FROM ratificacion_plantillas WHERE anio_id = ? AND tipo = ? LIMIT 1",
+            [$anioId, $tipo]
+        ) !== null;
+    }
+
+    /**
+     * Núcleo de la emisión, dentro de una transacción ya abierta. `$plantillas`
+     * guarda la plantilla ya bloqueada y congelada de cada tipo (lote).
+     *
+     * @throws \DomainException también si el año no tiene plantilla del tipo
+     */
+    private function emitirEnTransaccion(int $matriculaId, int $userId, array &$plantillas): void
+    {
+        // Candado sobre la decisión: `guardarDecision` toma el mismo, así un
+        // cambio y una emisión simultáneos no se cruzan.
+        $rat = $this->queryOne("
+            SELECT r.id, r.decision, r.detalle, m.anio_id, rm.texto_oficial
+            FROM ratificaciones r
+            INNER JOIN matriculas m ON m.id = r.matricula_id
+            LEFT  JOIN ratificacion_motivos rm ON rm.id = r.motivo_id
+            WHERE r.matricula_id = ?
+            FOR UPDATE
+        ", [$matriculaId]);
+        if ($rat === null) {
+            throw new \DomainException('Registra primero la decisión del estudiante.');
+        }
+        $vigente = $this->queryOne(
+            "SELECT id FROM ratificacion_emisiones WHERE ratificacion_id = ? AND vigente = 1",
+            [(int) $rat['id']]
+        );
+        if ($vigente !== null) {
+            throw new \DomainException('Este estudiante ya tiene su documento emitido.');
+        }
+
+        $tipo = (string) $rat['decision'];
+        if (!isset($plantillas[$tipo])) {
+            // Mismo candado que RatificacionPlantillaModel::guardar().
+            $plantilla = $this->queryOne("
+                SELECT id, congelada_en
+                FROM ratificacion_plantillas
+                WHERE anio_id = ? AND tipo = ?
+                ORDER BY version DESC
+                LIMIT 1
+                FOR UPDATE
+            ", [(int) $rat['anio_id'], $tipo]);
+            if ($plantilla === null) {
+                throw new \DomainException(
+                    $tipo === 'ratificado'
+                        ? 'Antes de emitir, prepara la plantilla del documento de ratificados.'
+                        : 'Antes de emitir, prepara la plantilla del documento de no ratificados.'
+                );
+            }
+            if ($plantilla['congelada_en'] === null) {
+                $this->execute(
+                    "UPDATE ratificacion_plantillas SET congelada_en = NOW() WHERE id = ?",
+                    [(int) $plantilla['id']]
+                );
+            }
+            $plantillas[$tipo] = (int) $plantilla['id'];
+        }
+
+        $this->execute("
+            INSERT INTO ratificacion_emisiones
+                (ratificacion_id, plantilla_id, decision, motivo_texto, detalle_texto, token, emitido_por)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ", [
+            (int) $rat['id'],
+            $plantillas[$tipo],
+            $tipo,
+            $tipo === 'no_ratificado' ? (string) $rat['texto_oficial'] : null,
+            $tipo === 'no_ratificado' ? $rat['detalle'] : null,
+            bin2hex(random_bytes(16)),
+            $userId,
+        ]);
+    }
+
+    /**
+     * Anula el documento VIGENTE de una matrícula (acción explícita). La
+     * decisión se conserva: se puede volver a emitir, con un QR nuevo.
+     *
+     * @throws \DomainException si no hay documento vigente
+     */
+    public function anular(int $matriculaId, int $userId): void
+    {
+        $propia = !$this->db->inTransaction();
+        if ($propia) {
+            $this->beginTransaction();
+        }
+        try {
+            $fila = $this->queryOne("
+                SELECT r.id, e.id AS emision_id
+                FROM ratificaciones r
+                LEFT JOIN ratificacion_emisiones e ON e.ratificacion_id = r.id AND e.vigente = 1
+                WHERE r.matricula_id = ?
+                FOR UPDATE
+            ", [$matriculaId]);
+            if ($fila === null || $fila['emision_id'] === null) {
+                throw new \DomainException('Este estudiante no tiene un documento emitido.');
+            }
+            $this->anularEmision((int) $fila['emision_id'], $userId);
+            if ($propia) {
+                $this->commit();
+            }
+        } catch (\Throwable $e) {
+            if ($propia) {
+                $this->rollback();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Todo lo que el DOCUMENTO de una emisión necesita, o null. Los datos del
+     * estudiante, su grado y el apoderado se leen AHORA (decisión del usuario,
+     * 14/10/2026: una reimpresión sale con los datos corregidos); el motivo y
+     * el detalle salen de la copia guardada al emitir.
+     */
+    public function emisionParaDocumento(int $emisionId): ?array
+    {
+        return $this->queryOne("
+            SELECT e.id, e.plantilla_id, e.decision, e.motivo_texto, e.detalle_texto,
+                   e.token, e.vigente, e.emitido_en, e.anulado_en,
+                   m.id AS matricula_id, m.anio_id, m.seccion_id, a.anio,
+                   p.dni,
+                   CONCAT(p.apellido_paterno, ' ', p.apellido_materno, ', ', p.nombres) AS estudiante,
+                   s.nombre AS seccion_nombre, g.nombre_display AS grado_nombre,
+                   n.nombre AS nivel_nombre, n.codigo AS nivel_codigo,
+                   (SELECT CONCAT(pa.apellido_paterno, ' ', pa.apellido_materno, ', ', pa.nombres)
+                    FROM vinculo_familiar vf
+                    INNER JOIN apoderados ap ON ap.id = vf.apoderado_id
+                    INNER JOIN personas   pa ON pa.id = ap.persona_id
+                    WHERE vf.estudiante_id = m.estudiante_id AND vf.es_responsable = 1
+                    ORDER BY vf.id
+                    LIMIT 1) AS apoderado
+            FROM ratificacion_emisiones e
+            INNER JOIN ratificaciones   r ON r.id = e.ratificacion_id
+            INNER JOIN matriculas       m ON m.id = r.matricula_id
+            INNER JOIN anios_academicos a ON a.id = m.anio_id
+            INNER JOIN estudiantes     es ON es.id = m.estudiante_id
+            INNER JOIN personas         p ON p.id = es.persona_id
+            INNER JOIN secciones        s ON s.id = m.seccion_id
+            INNER JOIN grados           g ON g.id = s.grado_id
+            INNER JOIN niveles          n ON n.id = g.nivel_id
+            WHERE e.id = ?
+        ", [$emisionId]);
+    }
+
+    /** Valores de las variables del párrafo para una emisión (ver VARIABLES). */
+    public static function varsDeEmision(array $em): array
+    {
+        return [
+            'estudiante'     => (string) $em['estudiante'],
+            'dni'            => (string) $em['dni'],
+            'grado'          => (string) $em['grado_nombre'],
+            'seccion'        => (string) $em['seccion_nombre'],
+            'nivel'          => (string) $em['nivel_nombre'],
+            'anio'           => (string) $em['anio'],
+            'anio_siguiente' => (string) ((int) $em['anio'] + 1),
+            'apoderado'      => (string) ($em['apoderado'] ?? ''),
+        ];
+    }
+
+    /**
+     * Verificación PÚBLICA por el token del QR: SOLO autenticidad (nombre, año,
+     * fecha de emisión y si sigue vigente). Nunca DNI, tipo ni motivo.
+     * Null si el token no existe.
+     */
+    public function porToken(string $token): ?array
+    {
+        if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
+            return null;
+        }
+        return $this->queryOne("
+            SELECT CONCAT(p.apellido_paterno, ' ', p.apellido_materno, ', ', p.nombres) AS estudiante,
+                   a.anio, e.emitido_en, e.vigente, e.anulado_en
+            FROM ratificacion_emisiones e
+            INNER JOIN ratificaciones   r ON r.id = e.ratificacion_id
+            INNER JOIN matriculas       m ON m.id = r.matricula_id
+            INNER JOIN anios_academicos a ON a.id = m.anio_id
+            INNER JOIN estudiantes     es ON es.id = m.estudiante_id
+            INNER JOIN personas         p ON p.id = es.persona_id
+            WHERE e.token = ?
+        ", [$token]);
+    }
 }
+

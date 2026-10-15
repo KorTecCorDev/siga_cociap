@@ -8,10 +8,14 @@
  * de la constancia de traslado (`_constancia.scss`); lo propio va en
  * `_ratificacion.scss`.
  *
- * Con `$vistaPrevia` (Fase 2) lleva datos de ejemplo, marca de agua y ni firma
- * ni QR. La emisión real (firma del Director EBR y QR) llega en la Fase 3.
+ * Con `$vistaPrevia` (plantillas) lleva datos de ejemplo, marca de agua y ni
+ * firma, ni sello, ni QR. Una emisión (Fase 3) lleva firma y sello del Director
+ * EBR vigente en la fecha de emisión y el QR de verificación; si está ANULADA,
+ * el sello «ANULADA» y sin firma ni sello.
  *
  * @var bool        $vistaPrevia
+ * @var bool        $anulada       solo emisión (por defecto false)
+ * @var string|null $urlVerificar  URL del QR, solo emisión
  * @var array       $plantilla     { titulo, tipo }
  * @var array       $bloques       RatificacionPlantillaModel::bloquesParaDocumento()
  * @var array       $vars          valores de las variables (estudiante, dni, …)
@@ -21,9 +25,13 @@
  * @var string|null $motivoTexto   texto oficial del motivo (solo no ratificado)
  * @var string|null $detalleTexto
  * @var string      $fecha         Y-m-d
- * @var array|null  $directorEbr   { nombre_completo, sexo, firma_path }
+ * @var array|null  $directorEbr   { nombre_completo, sexo, firma_path, sello_path }
  */
 $inst = $institucion;
+$anulada      = $anulada ?? false;
+$urlVerificar = $urlVerificar ?? null;
+// Firma y sello solo en el documento definitivo y vigente (criterio de la boleta).
+$conFirma     = !$vistaPrevia && !$anulada;
 $cargoDirector = match($directorEbr['sexo'] ?? null) {
     'F'     => 'Directora de Educación Básica Regular',
     'M'     => 'Director de Educación Básica Regular',
@@ -36,6 +44,8 @@ $tamanoClase = ['pequena' => 'ratif-doc__img--pequena', 'media' => 'ratif-doc__i
 
     <?php if ($vistaPrevia): ?>
         <div class="ratif-doc__marca" aria-hidden="true">VISTA PREVIA</div>
+    <?php elseif ($anulada): ?>
+        <div class="constancia-anulada-sello">ANULADA</div>
     <?php endif; ?>
 
     <!-- ── Membrete (el de la constancia de traslado) ── -->
@@ -120,20 +130,41 @@ $tamanoClase = ['pequena' => 'ratif-doc__img--pequena', 'media' => 'ratif-doc__i
         <?= e($inst['lugar'] ?? 'Huaraz') ?>, <?= fecha_es($fecha) ?>.
     </p>
 
-    <!-- ── Firma del Director EBR ── -->
-    <div class="constancia-firma">
-        <div class="constancia-firma__espacio">
-            <?php if (!$vistaPrevia && !empty($directorEbr['firma_path'])): ?>
-                <img src="<?= url($directorEbr['firma_path']) ?>" alt="" aria-hidden="true"
-                     class="constancia-firma__img">
+    <!-- ── Firma y sello del Director EBR ── -->
+    <div class="ratif-doc__firmas">
+        <div class="ratif-doc__sello">
+            <?php if ($conFirma && !empty($directorEbr['sello_path'])): ?>
+                <img src="<?= url($directorEbr['sello_path']) ?>" alt="" aria-hidden="true"
+                     class="ratif-doc__sello-img">
             <?php endif; ?>
         </div>
-        <div class="constancia-firma__linea"></div>
-        <?php if (!empty($directorEbr['nombre_completo'])): ?>
-            <div class="constancia-firma__nombre"><?= e($directorEbr['nombre_completo']) ?></div>
-        <?php endif; ?>
-        <div class="constancia-firma__cargo"><?= $cargoDirector ?></div>
+        <div class="constancia-firma">
+            <div class="constancia-firma__espacio">
+                <?php if ($conFirma && !empty($directorEbr['firma_path'])): ?>
+                    <img src="<?= url($directorEbr['firma_path']) ?>" alt="" aria-hidden="true"
+                         class="constancia-firma__img">
+                <?php endif; ?>
+            </div>
+            <div class="constancia-firma__linea"></div>
+            <?php if (!empty($directorEbr['nombre_completo'])): ?>
+                <div class="constancia-firma__nombre"><?= e($directorEbr['nombre_completo']) ?></div>
+            <?php endif; ?>
+            <div class="constancia-firma__cargo"><?= $cargoDirector ?></div>
+        </div>
+        <div class="ratif-doc__sello" aria-hidden="true"></div>
     </div>
+
+    <?php if ($urlVerificar !== null && !$vistaPrevia): ?>
+        <!-- ── QR de autenticidad (solo dice si el documento es auténtico y vigente) ── -->
+        <div class="ratif-doc__qr">
+            <div class="ratif-doc__qr-code" data-qr-url="<?= e($urlVerificar) ?>"></div>
+            <div class="ratif-doc__qr-texto">
+                <p class="ratif-doc__qr-titulo">Verificación del documento</p>
+                <p>Escanea el código QR para comprobar que este documento es auténtico y está vigente.</p>
+                <code class="ratif-doc__qr-url"><?= e($urlVerificar) ?></code>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <footer class="constancia-pie">
         <div class="constancia-pie__inst">
@@ -146,3 +177,27 @@ $tamanoClase = ['pequena' => 'ratif-doc__img--pequena', 'media' => 'ratif-doc__i
     </footer>
 
 </article>
+
+<?php if ($urlVerificar !== null && !$vistaPrevia && !defined('RATIF_QR_SCRIPT_LOADED')): define('RATIF_QR_SCRIPT_LOADED', true); ?>
+<?php // El layout `print` no carga page_scripts: mismo patrón que boleta/alumno.php (QR local, sin terceros). ?>
+<script src="<?= url('js/qrcode.min.js') ?>"></script>
+<script>
+(function () {
+    function generarQRs() {
+        document.querySelectorAll('.ratif-doc [data-qr-url]').forEach(function (el) {
+            if (el.dataset.qrInit) return;
+            el.dataset.qrInit = '1';
+            var u = el.getAttribute('data-qr-url');
+            if (u && typeof QRCode !== 'undefined') {
+                new QRCode(el, { text: u, width: 80, height: 80, correctLevel: QRCode.CorrectLevel.M });
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', generarQRs);
+    } else {
+        generarQRs();
+    }
+})();
+</script>
+<?php endif; ?>

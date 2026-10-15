@@ -63,8 +63,8 @@ HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6
 - [ ] Fases 3-5 (emisión + QR, lote y aviso, documentación). Detalle de cada una, correcciones
   al plan y recomendaciones: `docs/modulos/ratificaciones.md` § «Fases — plan de implementación y avance».
 
-### 🔜 RETOMAR AQUÍ (14/10/2026, fin del turno en la oficina) — en el escritorio de casa
-1. `git pull` en `dev` (Fases 1 y 2 están en `origin/dev`; `main` no las tiene).
+### 🔜 RETOMAR AQUÍ (14/10/2026; Fase 3 añadida el 15/10 en la oficina) — en el escritorio de casa
+1. `git pull` en `dev` (Fases 1, 2 y 3 están en `origin/dev`; `main` no las tiene).
 2. **Aplicar la 080 en la BD local de casa** (`database/migrations/080_ratificaciones.sql`,
    idempotente; solo crea 5 tablas). Comprobar con `SHOW TABLES LIKE 'ratificacion%'` → 5.
 3. `npx gulp build` si el CSS/JS no se ve (los compilados ya van en el commit).
@@ -73,9 +73,13 @@ HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6
 5. Pruebas pendientes del usuario: Ctrl+P en la vista previa de una plantilla (el salto de página
    corta la hoja) y entrar con un **director** a `/admin/ratificaciones`, `/motivos` y
    `/plantillas` (ve todo, sin formularios ni editor).
-6. Seguir con la **Fase 3** (emisión, A4 con firma y QR, anulación, verificación pública).
+6. ~~Fase 3~~ HECHA el 15/10 (ver `docs/modulos/ratificaciones.md`). Pruebas del usuario: Ctrl+P de
+   un documento EMITIDO y la pantalla de la sección con un **director** (ve «Imprimir», sin Emitir/Anular).
+7. Seguir con la **Fase 4** (lote por sección html2pdf + jszip, aviso al matricular).
 - En la BD de la OFICINA quedaron datos de prueba: plantillas «(PRUEBA CLAUDE)» ids 12, 13 y 14
   (+ una imagen en `storage/ratificacion/`), además del motivo y la decisión que creó el usuario.
+  El 15/10 la prueba de la Fase 3 dejó 2 emisiones ANULADAS (ids 29 y 30) de la matrícula 221 y
+  congeló la plantilla 14.
   Borrar las de prueba al volver a la oficina si ya no sirven. En casa no existen.
 - [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).**
 - [ ] Pedir a Dirección los textos y el catálogo de motivos de 2026 (ruta crítica real).

@@ -114,11 +114,23 @@ $anioId   = $anio !== null ? (int) $anio['id'] : 0;
     $total      = count($estudiantes);
     $pendientes = count(array_filter($estudiantes, static fn($r) => $r['decision'] === null));
     $noRatif    = count(array_filter($estudiantes, static fn($r) => $r['decision'] === 'no_ratificado'));
+    $porEmitir  = count(array_filter($estudiantes, static fn($r) => $r['decision'] !== null && $r['emision_id'] === null));
+    $emitidos   = count(array_filter($estudiantes, static fn($r) => $r['emision_id'] !== null));
     ?>
-    <p class="text-sm text-muted mb-md">
-        <?= $total ?> estudiante(s) · <?= $total - $pendientes - $noRatif ?> ratificado(s) ·
-        <?= $noRatif ?> no ratificado(s) · <?= $pendientes ?> pendiente(s)
-    </p>
+    <div class="ratif-documento mb-md">
+        <span class="text-muted">
+            <?= $total ?> estudiante(s) · <?= $total - $pendientes - $noRatif ?> ratificado(s) ·
+            <?= $noRatif ?> no ratificado(s) · <?= $pendientes ?> pendiente(s) · <?= $emitidos ?> documento(s) emitido(s)
+        </span>
+        <?php if ($puedeEscribir && $porEmitir > 0): ?>
+            <form method="POST" action="<?= url('admin/ratificaciones/seccion/' . (int) $seccion['id'] . '/emitir') ?>"
+                  data-confirm="Se emitirá el documento de <?= $porEmitir ?> estudiante(s) con decisión registrada.">
+                <?= csrf_field() ?>
+                <input type="hidden" name="anio_id" value="<?= $anioId ?>">
+                <button type="submit" class="btn btn--primary btn--sm">Emitir documentos de la sección (<?= $porEmitir ?>)</button>
+            </form>
+        <?php endif; ?>
+    </div>
 
     <?php if ($puedeEscribir && $motivos === []): ?>
         <div class="alert alert--info">
@@ -200,6 +212,29 @@ $anioId   = $anio !== null ? (int) $anio['id'] : 0;
                                                    value="<?= e((string) ($r['detalle'] ?? '')) ?>">
                                             <button type="submit" class="btn btn--primary btn--sm">Guardar</button>
                                         </form>
+                                    <?php endif; ?>
+
+                                    <?php // Documento: emitido (imprimir / anular) o por emitir. Un pendiente no tiene documento. ?>
+                                    <?php if ($r['emision_id'] !== null): ?>
+                                        <div class="ratif-documento">
+                                            <span class="text-muted">Documento emitido el <?= e(date('d/m/Y', strtotime((string) $r['emitido_en']))) ?></span>
+                                            <a href="<?= url('admin/ratificaciones/emision/' . (int) $r['emision_id'] . '/imprimir') ?>"
+                                               target="_blank" rel="noopener" class="btn btn--secondary btn--sm">Imprimir</a>
+                                            <?php if ($puedeEscribir): ?>
+                                                <form method="POST" action="<?= url('admin/ratificaciones/' . $mid . '/anular') ?>"
+                                                      data-confirm="El documento de <?= e($nombre) ?> dejará de ser válido. Después podrás emitir uno nuevo.">
+                                                    <?= csrf_field() ?>
+                                                    <button type="submit" class="btn btn--danger btn--sm">Anular</button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php elseif ($puedeEscribir && $decision !== null): ?>
+                                        <div class="ratif-documento">
+                                            <form method="POST" action="<?= url('admin/ratificaciones/' . $mid . '/emitir') ?>">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn--secondary btn--sm">Emitir documento</button>
+                                            </form>
+                                        </div>
                                     <?php endif; ?>
                                 </td>
                             </tr>

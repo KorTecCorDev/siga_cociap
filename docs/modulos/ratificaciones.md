@@ -1,7 +1,7 @@
 # Ratificación de matrícula
 
-> **Estado (14/10/2026): EN CONSTRUCCIÓN en `dev` — Fases 1 y 2 HECHAS y en `origin/dev`;
-> faltan las Fases 3, 4 y 5.** Ver **«Fases — plan de implementación y avance»** más abajo:
+> **Estado (15/10/2026): EN CONSTRUCCIÓN en `dev` — Fases 1, 2 y 3 HECHAS;
+> faltan las Fases 4 y 5.** Ver **«Fases — plan de implementación y avance»** más abajo:
 > es el plan vivo (lo construido, las correcciones al plan del 13/10 y el detalle de lo que
 > falta). **Sin desplegar. No desplegar antes de cerrar el III y abrir el IV (18-19/10/2026).**
 > La migración 080 solo está aplicada en la BD local de la oficina.
@@ -176,28 +176,38 @@ Chrome con la sesión del usuario, diciendo con QUÉ rol se probó.
   la pantalla con un **director** (contenido visible, sin editor). Tampoco se probó aún con un
   director la Fase 1 (sin formularios; POST → 403).
 
-### ⏳ Fase 3 — Emisión, documento A4, anulación y verificación pública (SIGUIENTE)
-- `RatificacionModel::emitir()` individual y por sección, en transacción: bloquea `FOR UPDATE` la
-  plantilla vigente del año y tipo (el mismo candado que usa `RatificacionPlantillaModel::guardar`),
-  la **congela** (`congelada_en`), copia `motivo_texto` (texto oficial del motivo) y `detalle_texto`,
-  token `bin2hex(random_bytes(16))` (**NUNCA `matriculas.token_acceso`**). Solo con decisión
-  registrada (pendiente = sin documento) y sin otra emisión vigente (UNIQUE `uq_rate_vigente`).
-  Sin plantilla del tipo para el año → mensaje claro, no emite.
-- `anular()` (acción explícita, con `confirm`) y `porToken()`.
-- Documento: reusar `documento.php` con datos reales — variables desde la matrícula **oficial**
-  (estudiante, DNI, grado, sección, nivel, año, año siguiente) y `{apoderado}` = responsable
-  (`vinculo_familiar.es_responsable = 1`, por `estudiante_id`), **leídas al imprimir**. Código
-  modular según el nivel (como `TrasladoController::imprimir`). Firma y sello:
-  `DirectorEbrModel::getVigenteEnFecha($anioId, fecha_emision)`; cargo por sexo. QR como
-  `boleta/alumno.php` (`data-qr-url` + `qrcode.min.js` local). Sello «ANULADA» como
-  `.constancia-anulada-sello` y sin firma si está anulada. El layout `print` no carga
-  `page_scripts`: revisar cómo inyecta el QR la boleta antes de escribirlo.
-- `RatificacionVerificacionController@verificar` + vista `verificar.php`: regex `^[a-f0-9]{32}$`;
-  token desconocido → misma respuesta neutra; `noindex`; muestra solo lo de la tabla de decisiones.
-- Pantalla de la sección: botones «Emitir» (fila y sección), «Imprimir» (GET) y «Anular».
-- Verificador: emitir congela; editar tras emitir crea versión y la emisión vieja conserva la suya;
-  el texto del motivo queda copiado aunque se edite el catálogo; token anulado/desconocido; las
-  guardas de los métodos nuevos (añadirlos a `$escritura`/`$lectura` del §4).
+### ✅ Fase 3 — Emisión, documento A4, anulación y verificación pública (15/10/2026)
+Decisiones del usuario del 15/10: **firma + sello** del Director EBR; **«Emitir sección» emite lo
+que se pueda** y avisa cuántos quedaron sin emitir y qué plantilla falta; **Dirección puede
+imprimir** un documento ya emitido (es lectura; emitir y anular siguen siendo de `ROLES_REGISTRAN`).
+- `RatificacionModel`: `emitir()`, `emitirSeccion()` (una transacción; salta los tipos sin
+  plantilla con `hayPlantilla()`), núcleo privado `emitirEnTransaccion()` (candado `FOR UPDATE`
+  sobre la decisión y sobre la plantilla vigente, la congela, copia `motivo_texto` y
+  `detalle_texto`, token `bin2hex(random_bytes(16))`), `anular()`, `emisionParaDocumento()`
+  (variables y apoderado responsable leídos AL IMPRIMIR), `varsDeEmision()`, `porToken()`.
+  `guardarDecision()` toma ahora el MISMO candado y rechaza si la emisión cambió entretanto.
+- `Admin\RatificacionController`: `emitir`, `emitirSeccion`, `anular` (escritura) e `imprimir`
+  (lectura, `GET /admin/ratificaciones/emision/{id}/imprimir`: la MISMA emisión, mismo QR; una
+  anulada sale con el sello ANULADA y sin firma ni sello). Código modular por nivel.
+- `RatificacionVerificacionController@verificar` (`GET /ratificacion/verificar/{token}`, sin
+  login, layout `digital`, vista `ratificacion/verificar.php`): nombre, año, fecha de emisión y
+  vigente/anulado (+ fecha de anulación). Token desconocido o mal formado: mismo mensaje, 404.
+- `documento.php`: firma + sello (`.ratif-doc__firmas`) y QR local (`qrcode.min.js`, script en
+  la vista porque el layout `print` no carga `page_scripts`; guarda `RATIF_QR_SCRIPT_LOADED`
+  para el lote de la Fase 4).
+- Pantalla de la sección: «Emitir documento» por fila, «Emitir documentos de la sección (N)»,
+  y con documento: fecha, «Imprimir» y «Anular» (confirm).
+- `verif_ratificaciones.php` §7 (20 asertos) + §4 con los métodos nuevos. Encontró un bug real
+  (`[]` literal pasado por referencia en `emitir()`).
+- Probada en Chrome con **admin** (oficina): emitir, imprimir, QR vigente, anular, QR anulado,
+  reimpresión con ANULADA, emitir sección, cambio de decisión con emisión (confirm antes →
+  después + anulación).
+- ⚠️ En local **no hay firma ni sello**: `storage/firmas/` no existe en la oficina, las `<img>`
+  salen con su ruta correcta pero 404. Se ven en prod (`~/siga_uploads/firmas/`).
+- ⚠️ Con BrowserSync la URL impresa bajo el QR sale `//localhost:3000/...`: es su reescritura de
+  enlaces del proxy; PHP la genera completa (`http://…`, comprobado contra Apache directo).
+- **Pendiente de probar por el usuario:** Ctrl+P del documento emitido (QR y firma en la hoja) y
+  la pantalla con un **director** (ve «Imprimir», no ve Emitir/Anular).
 
 ### ⏳ Fase 4 — Lote por sección + aviso al matricular
 - `lote.php` + `resources/js/ratificacion-lote.js` con el patrón html2pdf + jszip de

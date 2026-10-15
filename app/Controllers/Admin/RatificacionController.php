@@ -3,9 +3,12 @@
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Models\DirectorEbrModel;
 use App\Models\RatificacionModel;
 use App\Models\RatificacionMotivoModel;
+use App\Models\RatificacionPlantillaModel;
 use Core\Session;
+use Core\View;
 
 /**
  * RATIFICACIÓN DE MATRÍCULA (migración 080, 14/10/2026) — decisiones por
@@ -91,6 +94,110 @@ class RatificacionController extends BaseController
         }
 
         $this->redirectWithSuccess($volver . '#m' . (int) $mat['id'], $cambio ? 'Decisión guardada.' : 'No había cambios que guardar.');
+    }
+
+    // POST /admin/ratificaciones/{matricula_id}/emitir
+    public function emitir(string $matriculaId): void
+    {
+        $this->requireRole(RatificacionModel::ROLES_REGISTRAN);
+        $this->validateCsrf();
+
+        $mat = $this->model->matriculaDelUniverso((int) $matriculaId);
+        if ($mat === null) {
+            $this->notFound();
+        }
+        $volver = $this->urlSeccion($mat);
+        try {
+            $this->model->emitir((int) $mat['id'], (int) Session::user()['id']);
+        } catch (\DomainException $e) {
+            $this->redirectWithError($volver, $e->getMessage());
+        }
+        $this->redirectWithSuccess($volver . '#m' . (int) $mat['id'], 'Documento emitido.');
+    }
+
+    // POST /admin/ratificaciones/seccion/{seccion_id}/emitir
+    public function emitirSeccion(string $seccionId): void
+    {
+        $this->requireRole(RatificacionModel::ROLES_REGISTRAN);
+        $this->validateCsrf();
+
+        $seccion = $this->model->seccion((int) $seccionId, (int) $this->input('anio_id', 0));
+        if ($seccion === null) {
+            $this->notFound();
+        }
+        $volver = $this->urlSeccion(['anio_id' => $seccion['anio_id'], 'seccion_id' => $seccion['id']]);
+
+        $r = $this->model->emitirSeccion((int) $seccion['id'], (int) Session::user()['id']);
+
+        $nombres = ['ratificado' => 'ratificados', 'no_ratificado' => 'no ratificados'];
+        $faltan  = [];
+        foreach ($r['sin_plantilla'] as $tipo => $n) {
+            $faltan[] = $n . ' sin emitir: falta la plantilla de ' . $nombres[$tipo] . '.';
+        }
+        if ($r['emitidos'] === 0 && $faltan === []) {
+            $this->redirectWithError($volver, 'No hay documentos por emitir en esta sección.');
+        }
+        $mensaje = $r['emitidos'] . ' documento(s) emitido(s).' . ($faltan !== [] ? ' ' . implode(' ', $faltan) : '');
+        if ($faltan !== []) {
+            $this->redirectWithError($volver, $mensaje);
+        }
+        $this->redirectWithSuccess($volver, $mensaje);
+    }
+
+    // POST /admin/ratificaciones/{matricula_id}/anular
+    public function anular(string $matriculaId): void
+    {
+        $this->requireRole(RatificacionModel::ROLES_REGISTRAN);
+        $this->validateCsrf();
+
+        $mat = $this->model->matriculaDelUniverso((int) $matriculaId);
+        if ($mat === null) {
+            $this->notFound();
+        }
+        $volver = $this->urlSeccion($mat);
+        try {
+            $this->model->anular((int) $mat['id'], (int) Session::user()['id']);
+        } catch (\DomainException $e) {
+            $this->redirectWithError($volver, $e->getMessage());
+        }
+        $this->redirectWithSuccess($volver . '#m' . (int) $mat['id'], 'Documento anulado.');
+    }
+
+    // GET /admin/ratificaciones/emision/{id}/imprimir
+    // Lectura: reimprime la MISMA emisión (mismo QR). Dirección también puede
+    // (decisión del usuario, 15/10/2026). Una anulada sale con el sello ANULADA.
+    public function imprimir(string $id): void
+    {
+        $em = $this->model->emisionParaDocumento((int) $id);
+        if ($em === null) {
+            $this->notFound();
+        }
+        $plantillas = new RatificacionPlantillaModel();
+        $plantilla  = $plantillas->plantilla((int) $em['plantilla_id']);
+        $anio       = $plantillas->anio((int) $em['anio_id']);
+        $vars       = RatificacionModel::varsDeEmision($em);
+        $datos      = config('institucion_datos') ?? [];
+        $fecha      = substr((string) $em['emitido_en'], 0, 10);
+
+        View::setLayout('print');
+        $this->view('admin/ratificaciones/documento', [
+            'titulo'       => $plantilla['titulo'] . ' — ' . $vars['estudiante'],
+            'vistaPrevia'  => false,
+            'anulada'      => $em['vigente'] === null,
+            'plantilla'    => $plantilla,
+            'bloques'      => $plantillas->bloquesParaDocumento((int) $plantilla['id'], $vars),
+            'vars'         => $vars,
+            'lema'         => (string) ($anio['lema_oficial'] ?? ''),
+            'institucion'  => $datos,
+            'codModular'   => (string) ($em['nivel_codigo'] === 'prim'
+                ? ($datos['codigo_modular_primaria'] ?? '')
+                : ($datos['codigo_modular_secundaria'] ?? '')),
+            'motivoTexto'  => $em['decision'] === 'no_ratificado' ? (string) $em['motivo_texto'] : null,
+            'detalleTexto' => $em['detalle_texto'],
+            'fecha'        => $fecha,
+            'directorEbr'  => (new DirectorEbrModel())->getVigenteEnFecha((int) $em['anio_id'], $fecha),
+            'urlVerificar' => url('ratificacion/verificar/' . $em['token']),
+        ]);
     }
 
     // GET /admin/ratificaciones/motivos?anio_id=
@@ -184,6 +291,13 @@ class RatificacionController extends BaseController
             }
         }
         return $anios[0] ?? null;
+    }
+
+    /** Pantalla de la sección de una matrícula ({ anio_id, seccion_id }). */
+    private function urlSeccion(array $mat): string
+    {
+        return url('admin/ratificaciones?anio_id=' . (int) $mat['anio_id']
+            . '&seccion_id=' . (int) $mat['seccion_id']);
     }
 
     private function anioDelMotivoOFalla(int $id): int

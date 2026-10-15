@@ -141,7 +141,13 @@ $router->post('/admin/ratificaciones/plantillas/guardar',       'Admin\Ratificac
 $router->post('/admin/ratificaciones/plantillas/duplicar',      'Admin\RatificacionPlantillaController@duplicar');
 $router->get( '/admin/ratificaciones/plantillas/imagen/{archivo}', 'Admin\RatificacionPlantillaController@imagen');
 $router->get( '/admin/ratificaciones/plantillas/{id}/vista-previa', 'Admin\RatificacionPlantillaController@vistaPrevia');
+$router->post('/admin/ratificaciones/seccion/{seccion_id}/emitir', 'Admin\RatificacionController@emitirSeccion');
+$router->get( '/admin/ratificaciones/emision/{id}/imprimir',    'Admin\RatificacionController@imprimir');
 $router->post('/admin/ratificaciones/{matricula_id}/decision',  'Admin\RatificacionController@guardarDecision');
+$router->post('/admin/ratificaciones/{matricula_id}/emitir',    'Admin\RatificacionController@emitir');
+$router->post('/admin/ratificaciones/{matricula_id}/anular',    'Admin\RatificacionController@anular');
+// Verificación PÚBLICA del QR del documento (sin login; solo autenticidad).
+$router->get( '/ratificacion/verificar/{token}',                'RatificacionVerificacionController@verificar');
 
 // ─── Admin — Asistencia (incidencias) ───────────────────────
 $router->get( '/admin/asistencia',            'Admin\AsistenciaController@index');

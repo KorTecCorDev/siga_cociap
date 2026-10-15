@@ -28,6 +28,9 @@
  *   6. Plantillas (Fase 2): validación de bloques, render sin XSS, versiones
  *      (reescribe la no congelada, crea la siguiente sobre la congelada),
  *      huella contra ediciones simultáneas, CHECK de bloques y duplicar.
+ *   7. Emisión (Fase 3): pendiente sin documento, congelado, versión nueva al
+ *      editar, copia del motivo, token propio, anulación, porToken() solo
+ *      autenticidad, lote por sección con plantilla faltante.
  */
 
 define('ROOT_PATH', dirname(__DIR__, 2));
@@ -330,6 +333,99 @@ try {
         && count($pla->bloques((int) $copia['id'])) === 2, 'duplicar: copia la vigente de 2099 como versión 1 de 2100');
     $ok($rechaza(fn() => $pla->duplicarDelAnioAnterior($anio2100, 'ratificado', $uid)) !== null,
         'duplicar cuando el año ya tiene plantilla: rechazado');
+
+    // ── 7. Emisión, anulación y verificación (Fase 3) ────────────
+    // Sobre el año real de $normal; todo se revierte. $normal llega aquí
+    // `ratificado` y con su emisión de prueba ANULADA (sección 3).
+    echo "\n=== 7. Emisión, anulación y verificación ===\n";
+    $sinDecision = $sujeto("m.seccion_id = {$secNormal} AND m.id <> {$normal}
+        AND m.tipo IN ('continuador','nuevo')
+        AND m.id NOT IN (SELECT matricula_id FROM ratificaciones)
+        AND m.id NOT IN (SELECT matricula_operativa_id FROM retornos_grado)");
+    $ok($sinDecision > 0 && $rechaza(fn() => $rat->emitir($sinDecision, $uid)) !== null,
+        "PENDIENTE ({$sinDecision}): emitir rechazado (el olvido no produce documento)");
+    $ok($rechaza(fn() => $rat->emitir($quinto, $uid)) !== null, 'fuera del universo (5.º sec): emitir rechazado');
+
+    // Plantilla de ratificado del año real con contenido propio de la prueba.
+    $plR = $pla->validarBloques('Verif F3', [$parrafo('Ratificado {estudiante}')]);
+    $pla->guardar($anioId, 'ratificado', $plR, $uid, $pla->huellaVigente($anioId, 'ratificado'));
+    $vigR = $pla->vigente($anioId, 'ratificado');
+
+    $rat->emitir($normal, $uid);
+    $em1 = $pdo->query("SELECT e.* FROM ratificacion_emisiones e JOIN ratificaciones r ON r.id = e.ratificacion_id
+                        WHERE r.matricula_id = {$normal} AND e.vigente = 1")->fetch(PDO::FETCH_ASSOC);
+    $ok($em1 !== false && (int) $em1['plantilla_id'] === (int) $vigR['id'] && $em1['decision'] === 'ratificado'
+        && $em1['motivo_texto'] === null, 'emitir: emisión vigente con la plantilla vigente del tipo, sin motivo');
+    $ok((bool) preg_match('/^[a-f0-9]{32}$/', (string) $em1['token'])
+        && (int) $uno("SELECT COUNT(*) FROM matriculas WHERE token_acceso = ?", [$em1['token']]) === 0,
+        'el token es propio (32 hex) y no es el token_acceso de una matrícula');
+    $ok($pla->plantilla((int) $vigR['id'])['congelada_en'] !== null, 'emitir CONGELA la plantilla');
+    $ok($rechaza(fn() => $rat->emitir($normal, $uid)) !== null, 'segunda emisión con una vigente: rechazada');
+
+    $plR2 = $pla->validarBloques('Verif F3 editada', [$parrafo('Otro texto')]);
+    $pla->guardar($anioId, 'ratificado', $plR2, $uid, $pla->huellaVigente($anioId, 'ratificado'));
+    $ok((int) $pla->vigente($anioId, 'ratificado')['version'] === (int) $vigR['version'] + 1
+        && (int) $uno("SELECT plantilla_id FROM ratificacion_emisiones WHERE id = ?", [$em1['id']]) === (int) $vigR['id'],
+        'editar tras emitir crea versión nueva; la emisión conserva la suya');
+
+    // Verificación pública por token: solo autenticidad.
+    $pub = $rat->porToken((string) $em1['token']);
+    $ok($pub !== null && (int) $pub['vigente'] === 1, 'porToken(): emisión vigente → vigente');
+    $ok($pub !== null && array_keys($pub) === ['estudiante', 'anio', 'emitido_en', 'vigente', 'anulado_en'],
+        'porToken(): solo nombre, año, fechas y estado (nunca DNI, tipo ni motivo)');
+    $ok($rat->porToken(bin2hex(random_bytes(16))) === null && $rat->porToken("' OR 1=1 --") === null
+        && $rat->porToken(strtoupper((string) $em1['token'])) === null,
+        'porToken(): desconocido, mal formado o en mayúsculas → null');
+
+    $doc = $rat->emisionParaDocumento((int) $em1['id']);
+    $vars = RatificacionModel::varsDeEmision($doc);
+    $ok($doc !== null && $vars['anio_siguiente'] === (string) ((int) $doc['anio'] + 1)
+        && array_keys($vars) === array_keys(RatificacionPlantillaModel::VARIABLES),
+        'emisionParaDocumento() + varsDeEmision(): todas las variables del párrafo');
+
+    // No ratificado: el texto del motivo queda COPIADO al emitir.
+    $rat->guardarDecision($normal, 'no_ratificado', $motivoId, 'Detalle F3', $uid, true);
+    $ok($rat->porToken((string) $em1['token'])['vigente'] === null,
+        'cambiar la decisión con confirmación anula la emisión: el QR dice anulado');
+    $rat->emitir($normal, $uid);
+    $em2 = $pdo->query("SELECT e.* FROM ratificacion_emisiones e JOIN ratificaciones r ON r.id = e.ratificacion_id
+                        WHERE r.matricula_id = {$normal} AND e.vigente = 1")->fetch(PDO::FETCH_ASSOC);
+    $ok($em2['motivo_texto'] === 'Texto oficial de prueba del verificador.' && $em2['detalle_texto'] === 'Detalle F3'
+        && $em2['token'] !== $em1['token'], 'no ratificado: copia texto oficial y detalle, con QR nuevo');
+    $mot->actualizar($motivoId, 'Motivo de prueba verif', 'Texto oficial CAMBIADO después de emitir.');
+    $ok($uno("SELECT motivo_texto FROM ratificacion_emisiones WHERE id = ?", [$em2['id']]) === 'Texto oficial de prueba del verificador.',
+        'editar el motivo NO reescribe el documento emitido');
+
+    // Anular (acción explícita).
+    $rat->anular($normal, $uid);
+    $ok($rat->porToken((string) $em2['token'])['vigente'] === null && $rat->decisionDe($normal)['decision'] === 'no_ratificado',
+        'anular: el QR dice anulado y la decisión se conserva');
+    $ok($rechaza(fn() => $rat->anular($normal, $uid)) !== null, 'anular sin documento vigente: rechazado');
+
+    // Lote por sección sin plantilla de no ratificados: emite al resto y lo informa.
+    $pdo->prepare("UPDATE ratificacion_plantillas SET anio_id = ? WHERE anio_id = ? AND tipo = 'no_ratificado'")
+        ->execute([$anioOtro, $anioId]);
+    $rat->guardarDecision($sinDecision, 'ratificado', null, null, $uid, false);
+    $esperados = (int) $uno("
+        SELECT COUNT(*) FROM ratificaciones r JOIN matriculas m ON m.id = r.matricula_id
+        LEFT JOIN ratificacion_emisiones e ON e.ratificacion_id = r.id AND e.vigente = 1
+        WHERE m.seccion_id = ? AND r.decision = 'ratificado' AND e.id IS NULL", [$secNormal]);
+    $noRatifSec = (int) $uno("
+        SELECT COUNT(*) FROM ratificaciones r JOIN matriculas m ON m.id = r.matricula_id
+        LEFT JOIN ratificacion_emisiones e ON e.ratificacion_id = r.id AND e.vigente = 1
+        WHERE m.seccion_id = ? AND r.decision = 'no_ratificado' AND e.id IS NULL", [$secNormal]);
+    $pendSec = (int) $uno("SELECT COUNT(*) FROM matriculas m WHERE m.seccion_id = ?
+        AND m.id NOT IN (SELECT matricula_id FROM ratificaciones)", [$secNormal]);
+    $res = $rat->emitirSeccion($secNormal, $uid);
+    $ok($res['emitidos'] === $esperados && ($res['sin_plantilla']['no_ratificado'] ?? 0) === $noRatifSec
+        && !isset($res['sin_plantilla']['ratificado']),
+        "lote: emite {$esperados} ratificado(s) e informa {$noRatifSec} no ratificado(s) sin plantilla");
+    $ok($rat->decisionDe($normal)['emision_id'] === null && $rat->decisionDe($sinDecision)['emision_id'] !== null,
+        'lote: el no ratificado queda sin documento; el ratificado lo recibe');
+    $ok((int) $uno("SELECT COUNT(*) FROM matriculas m WHERE m.seccion_id = ?
+        AND m.id NOT IN (SELECT matricula_id FROM ratificaciones)", [$secNormal]) === $pendSec,
+        'lote: los pendientes siguen pendientes y sin documento');
+    $ok($rat->emitirSeccion($secNormal, $uid)['emitidos'] === 0, 'lote repetido: no emite nada dos veces');
 } finally {
     $pdo->rollBack();
 }
@@ -339,8 +435,9 @@ echo "\n=== 4. Guardas del controlador ===\n";
 $src = file_get_contents(APP_PATH . '/Controllers/Admin/RatificacionController.php');
 $ok(str_contains($src, '$this->requireRole(RatificacionModel::ROLES_VEN);'),
     'el constructor deja entrar a ROLES_VEN (incluye Dirección)');
-$lectura   = ['index', 'motivos'];
-$escritura = ['guardarDecision', 'crearMotivo', 'actualizarMotivo', 'retirarMotivo', 'reactivarMotivo'];
+$lectura   = ['index', 'motivos', 'imprimir'];
+$escritura = ['guardarDecision', 'crearMotivo', 'actualizarMotivo', 'retirarMotivo', 'reactivarMotivo',
+              'emitir', 'emitirSeccion', 'anular'];
 preg_match_all('/public function (\w+)\(/', $src, $m);
 $publicos = array_values(array_diff($m[1], ['__construct']));
 $sinDecidir = array_diff($publicos, $lectura, $escritura);
@@ -373,6 +470,17 @@ $vistaP = file_get_contents(ROOT_PATH . '/resources/views/admin/ratificaciones/p
 $ok(substr_count($vistaP, "_bloque-editor.php'") === 1
     && (bool) preg_match('/static function \(string \$clave, array \$b\): void \{\s*include __DIR__ \. \'\/_bloque-editor\.php\';/', $vistaP),
     'plantillas.php incluye _bloque-editor.php una sola vez, dentro de una función (ámbito aislado)');
+// Verificación pública (Fase 3): sin sesión y solo por porToken().
+$srcV = file_get_contents(APP_PATH . '/Controllers/RatificacionVerificacionController.php');
+$ok(!str_contains($srcV, 'requireRole') && !str_contains($srcV, 'requireAuth') && str_contains($srcV, '->porToken($token)'),
+    'verificación pública: sin login y solo por porToken()');
+// Solo el CÓDIGO: los comentarios del modelo nombran la columna para prohibirla.
+$codigoModelo = implode('', array_map(
+    static fn($t) => is_array($t) ? (in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true) ? '' : $t[1]) : $t,
+    token_get_all(file_get_contents(APP_PATH . '/Models/RatificacionModel.php'))
+));
+$ok(!str_contains($codigoModelo, 'token_acceso'),
+    'RatificacionModel nunca usa matriculas.token_acceso (abre la boleta)');
 $ok(array_intersect(ROLES_DIRECCION, RatificacionModel::ROLES_REGISTRAN) === [],
     'ningún rol de Dirección está en ROLES_REGISTRAN (solo lectura)');
 $ok(array_diff(ROLES_DIRECCION, RatificacionModel::ROLES_VEN) === [],
