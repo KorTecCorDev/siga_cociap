@@ -31,6 +31,8 @@
  *   7. Emisión (Fase 3): pendiente sin documento, congelado, versión nueva al
  *      editar, copia del motivo, token propio, anulación, porToken() solo
  *      autenticidad, lote por sección con plantilla faltante.
+ *      Fase 4: lote solo con emisiones vigentes y aviso al matricular (año
+ *      siguiente por número, solo no ratificado vigente).
  */
 
 define('ROOT_PATH', dirname(__DIR__, 2));
@@ -396,8 +398,22 @@ try {
     $ok($uno("SELECT motivo_texto FROM ratificacion_emisiones WHERE id = ?", [$em2['id']]) === 'Texto oficial de prueba del verificador.',
         'editar el motivo NO reescribe el documento emitido');
 
+    // Fase 4: lote y aviso al matricular, con la emisión NO ratificada vigente.
+    $ok(in_array((int) $em2['id'], $rat->emisionesVigentesDeSeccion($secNormal), true)
+        && !in_array((int) $em1['id'], $rat->emisionesVigentesDeSeccion($secNormal), true),
+        'lote: entra la emisión vigente, no la anulada');
+    $estNormal = (int) $uno("SELECT estudiante_id FROM matriculas WHERE id = ?", [$normal]);
+    $anioNum   = (int) $uno("SELECT anio FROM anios_academicos WHERE id = ?", [$anioId]);
+    $aviso = $rat->avisoNoRatificado($estNormal, $anioNum + 1);
+    $ok($aviso !== null && (int) $aviso['anio'] === $anioNum,
+        'aviso al matricular en el año SIGUIENTE (por número): sí, con el año del documento');
+    $ok($rat->avisoNoRatificado($estNormal, $anioNum) === null
+        && $rat->avisoNoRatificado($estNormal, $anioNum + 2) === null,
+        'aviso: no sale en el mismo año ni dos años después');
+
     // Anular (acción explícita).
     $rat->anular($normal, $uid);
+    $ok($rat->avisoNoRatificado($estNormal, $anioNum + 1) === null, 'aviso: no sale con el documento anulado');
     $ok($rat->porToken((string) $em2['token'])['vigente'] === null && $rat->decisionDe($normal)['decision'] === 'no_ratificado',
         'anular: el QR dice anulado y la decisión se conserva');
     $ok($rechaza(fn() => $rat->anular($normal, $uid)) !== null, 'anular sin documento vigente: rechazado');
@@ -426,6 +442,8 @@ try {
         AND m.id NOT IN (SELECT matricula_id FROM ratificaciones)", [$secNormal]) === $pendSec,
         'lote: los pendientes siguen pendientes y sin documento');
     $ok($rat->emitirSeccion($secNormal, $uid)['emitidos'] === 0, 'lote repetido: no emite nada dos veces');
+    $estSin = (int) $uno("SELECT estudiante_id FROM matriculas WHERE id = ?", [$sinDecision]);
+    $ok($rat->avisoNoRatificado($estSin, $anioNum + 1) === null, 'aviso: un RATIFICADO con documento no lo recibe');
 } finally {
     $pdo->rollBack();
 }
@@ -435,7 +453,7 @@ echo "\n=== 4. Guardas del controlador ===\n";
 $src = file_get_contents(APP_PATH . '/Controllers/Admin/RatificacionController.php');
 $ok(str_contains($src, '$this->requireRole(RatificacionModel::ROLES_VEN);'),
     'el constructor deja entrar a ROLES_VEN (incluye Dirección)');
-$lectura   = ['index', 'motivos', 'imprimir'];
+$lectura   = ['index', 'motivos', 'imprimir', 'lote'];
 $escritura = ['guardarDecision', 'crearMotivo', 'actualizarMotivo', 'retirarMotivo', 'reactivarMotivo',
               'emitir', 'emitirSeccion', 'anular'];
 preg_match_all('/public function (\w+)\(/', $src, $m);

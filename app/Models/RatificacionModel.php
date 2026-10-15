@@ -545,6 +545,51 @@ class RatificacionModel extends BaseModel
         ", [$emisionId]);
     }
 
+    /**
+     * Emisiones VIGENTES de una sección (dentro del universo), en orden
+     * alfabético: lo que entra al lote de PDF (Fase 4).
+     *
+     * @return list<int> ids de emisión
+     */
+    public function emisionesVigentesDeSeccion(int $seccionId): array
+    {
+        $filas = $this->query("
+            SELECT e.id
+            FROM matriculas m
+            INNER JOIN estudiantes es ON es.id = m.estudiante_id
+            INNER JOIN personas    p  ON p.id  = es.persona_id
+            INNER JOIN secciones   s  ON s.id  = m.seccion_id
+            INNER JOIN grados      g  ON g.id  = s.grado_id
+            INNER JOIN niveles     n  ON n.id  = g.nivel_id
+            INNER JOIN ratificaciones r ON r.matricula_id = m.id
+            INNER JOIN ratificacion_emisiones e ON e.ratificacion_id = r.id AND e.vigente = 1
+            WHERE m.seccion_id = ?
+              " . self::sqlUniverso() . "
+            ORDER BY " . orden_alfabetico('p') . "
+        ", [$seccionId]);
+        return array_map(static fn(array $f): int => (int) $f['id'], $filas);
+    }
+
+    /**
+     * AVISO al matricular (Fase 4): si el estudiante tiene un documento de NO
+     * ratificación VIGENTE del año anterior (por número de año, nunca por id),
+     * devuelve { anio, emitido_en }; si no, null. No bloquea nada: solo informa.
+     */
+    public function avisoNoRatificado(int $estudianteId, int $anioActual): ?array
+    {
+        return $this->queryOne("
+            SELECT a.anio, e.emitido_en
+            FROM ratificacion_emisiones e
+            INNER JOIN ratificaciones   r ON r.id = e.ratificacion_id
+            INNER JOIN matriculas       m ON m.id = r.matricula_id
+            INNER JOIN anios_academicos a ON a.id = m.anio_id
+            WHERE m.estudiante_id = ? AND a.anio = ?
+              AND e.vigente = 1 AND e.decision = 'no_ratificado'
+            ORDER BY e.emitido_en DESC
+            LIMIT 1
+        ", [$estudianteId, $anioActual - 1]);
+    }
+
     /** Valores de las variables del párrafo para una emisión (ver VARIABLES). */
     public static function varsDeEmision(array $em): array
     {

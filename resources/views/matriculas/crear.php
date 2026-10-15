@@ -7,6 +7,7 @@
  * @var string $dni
  * @var array|null $estudiante
  * @var bool   $yaMatriculado
+ * @var array|null $noRatificado  RatificacionModel::avisoNoRatificado() { anio, emitido_en }
  */
 $pasos = [1 => 'Estudiante', 2 => 'Apoderado', 3 => 'Documentos'];
 ?>
@@ -47,6 +48,14 @@ $pasos = [1 => 'Estudiante', 2 => 'Apoderado', 3 => 'Documentos'];
 
 <?php if ($dni !== '' && $estudiante && $yaMatriculado): ?>
     <div class="flash flash--warning">Este estudiante ya tiene una matrícula registrada en el año activo.</div>
+<?php endif; ?>
+
+<?php if (!empty($noRatificado)): ?>
+    <div class="alert alert--warning">
+        Este estudiante <strong>no fue ratificado</strong> para continuar en el colegio: tiene un documento de
+        no ratificación del año <?= e((string) $noRatificado['anio']) ?>, emitido el
+        <?= e(date('d/m/Y', strtotime((string) $noRatificado['emitido_en']))) ?>.
+    </div>
 <?php endif; ?>
 
 <!-- Formulario de matrícula -->

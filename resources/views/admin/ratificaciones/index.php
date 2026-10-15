@@ -130,6 +130,10 @@ $anioId   = $anio !== null ? (int) $anio['id'] : 0;
                 <button type="submit" class="btn btn--primary btn--sm">Emitir documentos de la sección (<?= $porEmitir ?>)</button>
             </form>
         <?php endif; ?>
+        <?php if ($emitidos > 0): ?>
+            <a href="<?= url('admin/ratificaciones/seccion/' . (int) $seccion['id'] . '/lote') ?>?anio_id=<?= $anioId ?>"
+               target="_blank" rel="noopener" class="btn btn--secondary btn--sm">Descargar documentos en PDF (<?= $emitidos ?>)</a>
+        <?php endif; ?>
     </div>
 
     <?php if ($puedeEscribir && $motivos === []): ?>

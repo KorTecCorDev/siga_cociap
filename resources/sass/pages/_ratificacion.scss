@@ -308,6 +308,22 @@
     }
 }
 
+// ── Lote (html2pdf): cada documento es una hoja A4 VERTICAL ─────────────────
+// `.archivo-items-wrap` mide 297 mm (boletas apaisadas); el ítem fija el ancho
+// ÚTIL de la hoja (210 − 2 × 17,5 mm): los márgenes los pone html2pdf en cada
+// página (`ratificacion-lote.js`).
+.ratif-lote-item {
+    width: 175mm;
+    background: #fff;
+
+    // html2canvas pinta con los estilos de PANTALLA: sin esto, la línea
+    // punteada que marca el salto en pantalla saldría en el PDF.
+    .ratif-doc__salto {
+        border-top: 0;
+        margin: 0;
+    }
+}
+
 // ── Pantalla de la sección: documento emitido ───────────────────────────────
 .ratif-documento {
     display: flex;

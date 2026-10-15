@@ -1,7 +1,7 @@
 # Ratificación de matrícula
 
-> **Estado (15/10/2026): EN CONSTRUCCIÓN en `dev` — Fases 1, 2 y 3 HECHAS;
-> faltan las Fases 4 y 5.** Ver **«Fases — plan de implementación y avance»** más abajo:
+> **Estado (15/10/2026): EN CONSTRUCCIÓN en `dev` — Fases 1 a 4 HECHAS;
+> falta la Fase 5 (documentación final).** Ver **«Fases — plan de implementación y avance»** más abajo:
 > es el plan vivo (lo construido, las correcciones al plan del 13/10 y el detalle de lo que
 > falta). **Sin desplegar. No desplegar antes de cerrar el III y abrir el IV (18-19/10/2026).**
 > La migración 080 solo está aplicada en la BD local de la oficina.
@@ -206,17 +206,35 @@ imprimir** un documento ya emitido (es lectura; emitir y anular siguen siendo de
   salen con su ruta correcta pero 404. Se ven en prod (`~/siga_uploads/firmas/`).
 - ⚠️ Con BrowserSync la URL impresa bajo el QR sale `//localhost:3000/...`: es su reescritura de
   enlaces del proxy; PHP la genera completa (`http://…`, comprobado contra Apache directo).
-- **Pendiente de probar por el usuario:** Ctrl+P del documento emitido (QR y firma en la hoja) y
-  la pantalla con un **director** (ve «Imprimir», no ve Emitir/Anular).
+- ✅ El usuario probó el 15/10 el Ctrl+P del documento emitido y todo el módulo con un
+  **director** (Fases 1-3): correcto.
 
-### ⏳ Fase 4 — Lote por sección + aviso al matricular
-- `lote.php` + `resources/js/ratificacion-lote.js` con el patrón html2pdf + jszip de
-  `public/js/archivar-boletas.js`; solo emisiones vigentes.
-- Aviso: leer antes `docs/modulos/matriculas.md` y § banners de `docs/modulos/ui.md`.
-  `RatificacionModel::avisoNoRatificado($estudianteId, $anioActivo)` (año anterior por número,
-  emisión vigente `no_ratificado`); `MatriculaController::create()` pasa el dato y
-  `matriculas/crear.php` pinta `alert alert--warning`, sin glifos (revisar el autocierre de
-  `auth.js`). El texto dice QUÉ pasa, no la regla. No bloquea.
+### ✅ Fase 4 — Lote por sección + aviso al matricular (15/10/2026)
+- **Lote** `GET /admin/ratificaciones/seccion/{id}/lote?anio_id=` (`RatificacionController@lote`,
+  LECTURA: Dirección también). Solo emisiones VIGENTES de la sección dentro del universo
+  (`RatificacionModel::emisionesVigentesDeSeccion()`, orden alfabético). `imprimir` y `lote`
+  comparten `datosDocumento()`. Vista `lote.php` (cada documento se incluye en su PROPIO ámbito,
+  la lección de `_bloque-editor.php`) + `resources/js/ratificacion-lote.js` (patrón de
+  `archivar-boletas.js`). ZIP `NIVEL_GRADO_SECCION_RATIFICACION_AÑO.zip`, un PDF por
+  estudiante `APELLIDOS_NOMBRES.pdf` (conserva tildes y Ñ). Botón «Descargar documentos en PDF
+  (N)» en la pantalla de la sección cuando hay emitidos.
+  - html2pdf con márgenes POR HOJA (`[15, 17.5]` mm, ítem de 175 mm de ancho útil) y
+    `pagebreak: avoid-all + css + legacy`: no parte párrafos ni tablas y respeta el salto.
+    Con margen en el ítem solo la 1.ª y la última hoja salían con margen.
+  - html2canvas pinta con estilos de PANTALLA: la línea punteada del salto se anula dentro de
+    `.ratif-lote-item`.
+- **Aviso al matricular** (`MatriculaController::create` → `matriculas/crear.php`):
+  `RatificacionModel::avisoNoRatificado($estudianteId, $anioActivo['anio'])` busca una emisión
+  VIGENTE `no_ratificado` del año anterior **por número**. Banner `alert alert--warning`, sin
+  glifo, NO bloquea. Dice qué pasa (no fue ratificado, año del documento y fecha de emisión).
+- `verif_ratificaciones.php`: §7 suma 5 asertos (lote solo vigentes; aviso en año+1 por número,
+  no en el mismo ni en +2, no con anulada, no a un ratificado) y `lote` en la lista de lectura.
+- Probado en Chrome con sesión de **director** (la que estaba abierta): el lote generó el ZIP
+  (interceptado dentro de un iframe, sin descargar), 1 PDF de 3 hojas con márgenes, QR y sin
+  la línea punteada. El banner del alta se probó renderizando la vista con datos de ejemplo
+  (la BD local solo tiene 2026) y su regla, con el verificador.
+- **Pendiente de probar por el usuario:** descargar el ZIP de verdad y abrir un PDF; en
+  producción, el aviso al matricular para 2027 a un no ratificado.
 
 ### ⏳ Fase 5 — Documentación
 Este doc pasa a describir lo construido (cabecera y secciones de diseño); `docs/ESTADO.md`

@@ -19,6 +19,7 @@ use App\Models\BoletaModel;
 use App\Models\RetornoGradoModel;
 use App\Models\BorradorModel;
 use App\Models\CambioSeccionModel;
+use App\Models\RatificacionModel;
 use Core\Session;
 use Core\View;
 
@@ -442,6 +443,7 @@ class MatriculaController extends BaseController
         $estudiante = null;
         $yaMatriculado = false;
         $seccionSugerida = null;
+        $noRatificado  = null;
 
         if ($dni !== '') {
             $estudiante = $this->model->estudiantePorDni($dni);
@@ -449,6 +451,12 @@ class MatriculaController extends BaseController
                 $yaMatriculado = $this->model->existeMatricula(
                     (int) $estudiante['estudiante_id'],
                     (int) $anioActivo['id']
+                );
+                // Aviso NO bloqueante: documento de no ratificación vigente del
+                // año anterior (docs/modulos/ratificaciones.md, Fase 4).
+                $noRatificado = (new RatificacionModel())->avisoNoRatificado(
+                    (int) $estudiante['estudiante_id'],
+                    (int) $anioActivo['anio']
                 );
             }
         }
@@ -462,6 +470,7 @@ class MatriculaController extends BaseController
             'dni'             => $dni,
             'estudiante'      => $estudiante,
             'yaMatriculado'   => $yaMatriculado,
+            'noRatificado'    => $noRatificado,
             'seccionSugerida' => $seccionSugerida,
             'page_scripts'    => ['matriculas'],
         ]);

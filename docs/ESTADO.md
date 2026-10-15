@@ -64,7 +64,7 @@ HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6
   al plan y recomendaciones: `docs/modulos/ratificaciones.md` § «Fases — plan de implementación y avance».
 
 ### 🔜 RETOMAR AQUÍ (14/10/2026; Fase 3 añadida el 15/10 en la oficina) — en el escritorio de casa
-1. `git pull` en `dev` (Fases 1, 2 y 3 están en `origin/dev`; `main` no las tiene).
+1. `git pull` en `dev` (Fases 1 a 4 están en `origin/dev`; `main` no las tiene).
 2. **Aplicar la 080 en la BD local de casa** (`database/migrations/080_ratificaciones.sql`,
    idempotente; solo crea 5 tablas). Comprobar con `SHOW TABLES LIKE 'ratificacion%'` → 5.
 3. `npx gulp build` si el CSS/JS no se ve (los compilados ya van en el commit).
@@ -73,9 +73,9 @@ HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6
 5. Pruebas pendientes del usuario: Ctrl+P en la vista previa de una plantilla (el salto de página
    corta la hoja) y entrar con un **director** a `/admin/ratificaciones`, `/motivos` y
    `/plantillas` (ve todo, sin formularios ni editor).
-6. ~~Fase 3~~ HECHA el 15/10 (ver `docs/modulos/ratificaciones.md`). Pruebas del usuario: Ctrl+P de
-   un documento EMITIDO y la pantalla de la sección con un **director** (ve «Imprimir», sin Emitir/Anular).
-7. Seguir con la **Fase 4** (lote por sección html2pdf + jszip, aviso al matricular).
+6. ~~Fases 3 y 4~~ HECHAS el 15/10 (ver `docs/modulos/ratificaciones.md`); el usuario ya probó la 3
+   con admin y director. Prueba suya pendiente: descargar de verdad el ZIP del lote.
+7. Sigue la **Fase 5** (documentación final del módulo).
 - En la BD de la OFICINA quedaron datos de prueba: plantillas «(PRUEBA CLAUDE)» ids 12, 13 y 14
   (+ una imagen en `storage/ratificacion/`), además del motivo y la decisión que creó el usuario.
   El 15/10 la prueba de la Fase 3 dejó 2 emisiones ANULADAS (ids 29 y 30) de la matrícula 221 y

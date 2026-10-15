@@ -172,31 +172,44 @@ class RatificacionController extends BaseController
         if ($em === null) {
             $this->notFound();
         }
-        $plantillas = new RatificacionPlantillaModel();
-        $plantilla  = $plantillas->plantilla((int) $em['plantilla_id']);
-        $anio       = $plantillas->anio((int) $em['anio_id']);
-        $vars       = RatificacionModel::varsDeEmision($em);
-        $datos      = config('institucion_datos') ?? [];
-        $fecha      = substr((string) $em['emitido_en'], 0, 10);
+        $doc = $this->datosDocumento($em, new RatificacionPlantillaModel(), new DirectorEbrModel());
 
         View::setLayout('print');
-        $this->view('admin/ratificaciones/documento', [
-            'titulo'       => $plantilla['titulo'] . ' — ' . $vars['estudiante'],
-            'vistaPrevia'  => false,
-            'anulada'      => $em['vigente'] === null,
-            'plantilla'    => $plantilla,
-            'bloques'      => $plantillas->bloquesParaDocumento((int) $plantilla['id'], $vars),
-            'vars'         => $vars,
-            'lema'         => (string) ($anio['lema_oficial'] ?? ''),
-            'institucion'  => $datos,
-            'codModular'   => (string) ($em['nivel_codigo'] === 'prim'
-                ? ($datos['codigo_modular_primaria'] ?? '')
-                : ($datos['codigo_modular_secundaria'] ?? '')),
-            'motivoTexto'  => $em['decision'] === 'no_ratificado' ? (string) $em['motivo_texto'] : null,
-            'detalleTexto' => $em['detalle_texto'],
-            'fecha'        => $fecha,
-            'directorEbr'  => (new DirectorEbrModel())->getVigenteEnFecha((int) $em['anio_id'], $fecha),
-            'urlVerificar' => url('ratificacion/verificar/' . $em['token']),
+        $this->view('admin/ratificaciones/documento', $doc + [
+            'titulo' => $doc['plantilla']['titulo'] . ' — ' . $doc['vars']['estudiante'],
+        ]);
+    }
+
+    // GET /admin/ratificaciones/seccion/{seccion_id}/lote?anio_id=
+    // Lectura: un PDF por documento VIGENTE de la sección, en un ZIP (patrón
+    // de `admin/boletas-publicas/archivar`). Mismo acceso que imprimir.
+    public function lote(string $seccionId): void
+    {
+        $seccion = $this->model->seccion((int) $seccionId, (int) $this->query('anio_id', 0));
+        if ($seccion === null) {
+            $this->notFound();
+        }
+        $plantillas = new RatificacionPlantillaModel();
+        $directores = new DirectorEbrModel();
+
+        $documentos = [];
+        foreach ($this->model->emisionesVigentesDeSeccion((int) $seccion['id']) as $emisionId) {
+            $em  = $this->model->emisionParaDocumento($emisionId);
+            $doc = $this->datosDocumento($em, $plantillas, $directores);
+            // Nombre del PDF: APELLIDOS_NOMBRES (sin DNI), como el archivo de boletas.
+            $doc['nombre_archivo'] = preg_replace('/[^\p{L}\p{N}_]+/u', '', str_replace([' ', ','], ['_', ''],
+                mb_strtoupper((string) $em['estudiante'])));
+            $documentos[] = $doc;
+        }
+
+        $grado = mb_strtoupper(preg_replace('/[°\s.]+/u', '', (string) $seccion['grado_nombre']));
+        View::setLayout('print');
+        $this->view('admin/ratificaciones/lote', [
+            'titulo'     => 'Documentos de ratificación — ' . $seccion['grado_nombre'] . ' "' . $seccion['nombre'] . '"',
+            'documentos' => $documentos,
+            'nombreZip'  => mb_strtoupper(str_replace(' ', '_', (string) $seccion['nivel_nombre']))
+                . "_{$grado}_" . mb_strtoupper((string) $seccion['nombre'])
+                . '_RATIFICACION_' . (int) ($this->model->anio((int) $seccion['anio_id'])['anio'] ?? 0) . '.zip',
         ]);
     }
 
@@ -291,6 +304,39 @@ class RatificacionController extends BaseController
             }
         }
         return $anios[0] ?? null;
+    }
+
+    /**
+     * Variables de `admin/ratificaciones/documento` para una emisión
+     * (`RatificacionModel::emisionParaDocumento()`): lo comparten la impresión
+     * individual y el lote. Firma y sello: el Director EBR vigente en la fecha
+     * de emisión. Código modular según el nivel.
+     */
+    private function datosDocumento(array $em, RatificacionPlantillaModel $plantillas, DirectorEbrModel $directores): array
+    {
+        $plantilla = $plantillas->plantilla((int) $em['plantilla_id']);
+        $anio      = $plantillas->anio((int) $em['anio_id']);
+        $vars      = RatificacionModel::varsDeEmision($em);
+        $datos     = config('institucion_datos') ?? [];
+        $fecha     = substr((string) $em['emitido_en'], 0, 10);
+
+        return [
+            'vistaPrevia'  => false,
+            'anulada'      => $em['vigente'] === null,
+            'plantilla'    => $plantilla,
+            'bloques'      => $plantillas->bloquesParaDocumento((int) $plantilla['id'], $vars),
+            'vars'         => $vars,
+            'lema'         => (string) ($anio['lema_oficial'] ?? ''),
+            'institucion'  => $datos,
+            'codModular'   => (string) ($em['nivel_codigo'] === 'prim'
+                ? ($datos['codigo_modular_primaria'] ?? '')
+                : ($datos['codigo_modular_secundaria'] ?? '')),
+            'motivoTexto'  => $em['decision'] === 'no_ratificado' ? (string) $em['motivo_texto'] : null,
+            'detalleTexto' => $em['detalle_texto'],
+            'fecha'        => $fecha,
+            'directorEbr'  => $directores->getVigenteEnFecha((int) $em['anio_id'], $fecha),
+            'urlVerificar' => url('ratificacion/verificar/' . $em['token']),
+        ];
     }
 
     /** Pantalla de la sección de una matrícula ({ anio_id, seccion_id }). */

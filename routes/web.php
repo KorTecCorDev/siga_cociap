@@ -143,6 +143,7 @@ $router->get( '/admin/ratificaciones/plantillas/imagen/{archivo}', 'Admin\Ratifi
 $router->get( '/admin/ratificaciones/plantillas/{id}/vista-previa', 'Admin\RatificacionPlantillaController@vistaPrevia');
 $router->post('/admin/ratificaciones/seccion/{seccion_id}/emitir', 'Admin\RatificacionController@emitirSeccion');
 $router->get( '/admin/ratificaciones/emision/{id}/imprimir',    'Admin\RatificacionController@imprimir');
+$router->get( '/admin/ratificaciones/seccion/{seccion_id}/lote', 'Admin\RatificacionController@lote');
 $router->post('/admin/ratificaciones/{matricula_id}/decision',  'Admin\RatificacionController@guardarDecision');
 $router->post('/admin/ratificaciones/{matricula_id}/emitir',    'Admin\RatificacionController@emitir');
 $router->post('/admin/ratificaciones/{matricula_id}/anular',    'Admin\RatificacionController@anular');
