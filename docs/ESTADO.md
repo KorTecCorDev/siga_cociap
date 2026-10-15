@@ -90,11 +90,10 @@ HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6
    (`verif_direccion_superficies.php` trae 1 FAIL PREEXISTENTE de `ROLES_MATRICULAN`, no es del módulo.)
 5. Módulo TERMINADO y probado por el usuario (admin y director). Lo que queda es desplegarlo:
    ver «Despliegue del módulo» arriba.
-- En la BD de la OFICINA quedaron datos de prueba: plantillas «(PRUEBA CLAUDE)» ids 12, 13 y 14
-  (+ una imagen en `storage/ratificacion/`), además del motivo y la decisión que creó el usuario.
-  El 15/10 la prueba de la Fase 3 dejó 2 emisiones ANULADAS (ids 29 y 30) de la matrícula 221 y
-  congeló la plantilla 14.
-  Borrar las de prueba al volver a la oficina si ya no sirven. En casa no existen.
+- Datos de prueba de la BD de la OFICINA BORRADOS el 15/10/2026 (a pedido del usuario): plantillas
+  12 y 14, motivo 3, decisiones 2 y 18, emisiones 29-31 y la imagen de prueba. Se CONSERVÓ la
+  plantilla 13 (texto real para 2027, v2, descongelada y sin el bloque de la imagen de prueba).
+  En casa nunca existieron.
 - [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).**
 - [ ] Pedir a Dirección los textos y el catálogo de motivos de 2026 (ruta crítica real).
 
