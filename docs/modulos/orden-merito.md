@@ -110,6 +110,69 @@ en documento oficial inmutable por snapshot.
 - Limitación menor conocida: `getConteosGrado` (header del reporte) sigue en vivo —
   solo afecta el conteo del grado operativo de un retorno revertido, no los puestos.
 
+## Expediente del desempate (17/10/2026, migración 081) — en `dev`, sin desplegar
+
+La pantalla `/director/orden-merito/{periodo}/desempate/{grado}` dejó de mostrar solo
+promedio y AD/B/C: es el **expediente comparativo** del grupo empatado, para decidir y
+para documentar. **Es evidencia, no motor: la cascada no cambió y ningún puesto se mueve.**
+
+Decisiones del usuario (17/10/2026, no re-preguntar):
+1. **Solo evidencia.** Asistencia y conducta NO son pasos automáticos de la cascada.
+2. Periodo: el **bimestre en disputa** destacado (azul) + todos los anteriores del año y el
+   **acumulado** hasta él. Nunca bimestres posteriores.
+3. **El acta imprime el expediente completo**, asistencia y conducta incluidas. Se advirtió
+   que cada familia que reciba el acta verá los datos de los otros estudiantes del grupo.
+4. Motivo = **criterios marcados + texto**. Lista FIJA en código:
+   `DesempateMeritoModel::CRITERIOS` (notas por competencia, asistencia, conducta, trayectoria
+   del año, otro). La tabla `desempates_merito_criterios` (081) guarda solo los marcados y no
+   lleva CHECK: añadir un criterio es un deploy, no una migración. Las resoluciones anteriores
+   salen con «Criterios: No registrados».
+5. **Dirección ve el expediente en solo lectura**: `desempate()` ya no exige `ROLES_ESCRIBEN`;
+   el formulario se pinta solo con `puedeEscribir`, y `guardarDesempate` conserva el guard.
+   En el ranking, Dirección ve «Ver expediente» donde quien escribe ve «Resolver empate».
+6. Conducta = literal por bimestre + criterios cumplidos de N y la lista de NO cumplidos del
+   bimestre en disputa (solo `RESPUESTAS_OFICIALES`, y solo si su literal es visible).
+
+Qué muestra, por grupo: por qué empatan (N, promedio y los 5 conteos: C, B, AD, 15-16, 16),
+detalle por competencia (las notas que forman el promedio), asistencia (4 contadores
+**independientes**, nunca restados), conducta y boleta (numeral + literal en los dos niveles,
+porque es justo la diferencia que el literal oculta).
+
+Ubicación de la resolución (decisión del usuario, 17/10/2026): **UN SOLO formulario** para
+toda la pantalla, en el modal `#modalDesempate` (`Modal` de `app.js`). Cada grupo lleva en la
+cabecera de su card el botón «Resolver este empate» con sus estudiantes en `data-alumnos`;
+`js/desempate.js` pinta las filas de orden al abrir (con `textContent`). Con **más de un
+grupo**, una **pestaña por grupo** (`.tabs` + `js/tabs.js`); con uno, sin pestañas. El
+servidor identifica el grupo por las matrículas de `orden[]`, como antes. Dos gotchas:
+- `desempate.js` carga ANTES que `app.js`: `window.Modal` se lee al abrir, no al cargar.
+- La validación de criterios va en el **clic** de Guardar, no en `submit`: `app.js` pone
+  «Guardando…» y deshabilita el botón en la fase de CAPTURA del submit, antes de que un
+  `preventDefault` posterior pudiera evitarlo, y el botón quedaba bloqueado.
+- Un error al guardar vuelve a la pantalla del empate (`$volver`), no al ranking.
+
+Implementación:
+- **PUNTO ÚNICO de la evidencia: `DesempateMeritoModel::expediente($ids, $periodoId)`**. Lo usan
+  la pantalla y las dos actas; el parcial `director/_desempate-expediente.php` la pinta en modo
+  `pantalla` o `acta`. Sin SQL nuevo de notas: `BoletaModel::armar(..., 'todos', true)`.
+  ⚠️ **NO `'archivo'`**: ese umbral solo trae bimestres CERRADOS y el empate se resuelve ANTES
+  de cerrar; el bimestre en disputa saldría vacío. `'todos'` sigue trayendo solo competencias
+  bloqueadas, y asistencia y conducta solo confirmadas con cierre. Respeta retorno de grado y
+  cambio de sección por tramo.
+- **Defecto corregido 1 (la pantalla leía el snapshot):** usaba `rankingGrado` (snapshot-aware).
+  En un bimestre REABIERTO que ya estuvo publicado decía «No hay empates» mientras el cierre y
+  la card de `/admin/control` (en vivo) sí los veían: el empate era irresoluble. Ahora usa
+  `OrdenMeritoModel::gruposEmpatePendientesLive`.
+- **Defecto corregido 2 (el comparativo no cuadraba):** `getComparativoCompetencias` no aplicaba
+  los filtros del motor. Medido en local: 4 notas de más en B1 y 4 en B2 entre las resoluciones
+  guardadas. Ahora usa `OrdenMeritoModel::sqlNotasQueCuentan()`.
+  ⚠️ Los mismos filtros siguen **copiados** en las 2 consultas del ranking en vivo (no se
+  refactorizaron). Si se mueve una regla, moverla en los 3 sitios: lo vigila
+  `database/verificaciones/verif_desempate_expediente.php` (solo lectura; compara cuenta y suma
+  del comparativo con el motor en cada grupo, y la pantalla con el guard del cierre).
+- Validación del criterio: cliente (`resources/js/desempate.js`, ≥ 1 marcado) y servidor (≥ 1,
+  lista blanca, motivo ≤ 500). Re-resolver reemplaza el orden y los criterios.
+- Rendimiento medido en local (III, 17/10): 10 grupos en 1,8 s; acta de 7 resoluciones en 1,3 s.
+
 ## Inmutabilidad del oficial + versión rectificada (migración 046, 24/07/2026)
 
 Fase B del rediseño. Regla: **el snapshot OFICIAL (`orden_merito_snapshot`) no cambia

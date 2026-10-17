@@ -1,7 +1,7 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **15/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **17/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
@@ -120,6 +120,26 @@ conservó la plantilla 13). El usuario creó el 15/10 nuevos datos de prueba: pl
 («COMUNICADO DEL COMITÉ DIRECTIVO») y 66 (ratificado v3), motivo 36, decisiones 27 (mat. 171) y 28
 (mat. 213), emisiones 52 y 53 vigentes. La 52 la anuló Claude por error a las 12:30 y se
 restauró por SQL con el visto bueno del usuario (mismo token). Borrarlos cuando ya no sirvan.
+
+## 🆕 EXPEDIENTE DEL DESEMPATE — CONSTRUIDO en `dev` (17/10/2026, migración 081), SIN DESPLEGAR
+
+La pantalla «Resolver empate» pasa a ser un **expediente comparativo** del grupo: por qué
+empatan (los 5 conteos de la cascada), detalle por competencia, asistencia, conducta y boleta
+hasta el bimestre en disputa. Quien resuelve marca **criterios aplicados** + motivo, y el acta
+(en pantalla e impresa) imprime todo eso. La resolución es UN modal compartido, abierto desde
+cada grupo; con varios grupos, una pestaña por grupo. La Dirección lo ve en solo lectura.
+**La cascada NO cambia.** Detalle y decisiones: `docs/modulos/orden-merito.md` § «Expediente del desempate».
+Corrige además dos defectos (pantalla leía el snapshot; comparativo no cuadraba con el promedio).
+- [x] Migración **081** (`desempates_merito_criterios`, aditiva) aplicada en la BD local donde se
+  construyó. Aplicarla en la otra BD local antes de abrir la pantalla.
+- [x] `verif_desempate_expediente.php` → 82 grupos, 0 fallos (local). Probado en Chrome con admin
+  (pantalla, validación del cliente, acta en pantalla e impresa). El guardado se probó por CLI
+  (criterios, re-resolver, limpieza de lo creado).
+- [ ] **Probar con un usuario de DIRECCIÓN**: entra al expediente sin formulario y el POST da 403.
+  No se probó en el navegador (no hay sesión de director a mano).
+- [ ] **No llega al cierre del III** (18/10): aplica desde el IV. Despliegue junto con `dev`:
+  aplicar `081_desempates_criterios.sql` en prod **ANTES del merge** (sin la tabla, guardar un
+  desempate falla) y comprobar con `SHOW COLUMNS FROM desempates_merito_criterios` → 2 filas.
 
 ## (HISTÓRICO, reemplazado el 13/10/2026) RETOMAR AQUÍ (12/10/2026) — DESPLIEGUE DESPUÉS DEL III
 
