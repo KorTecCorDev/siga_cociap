@@ -63,6 +63,44 @@ class OrdenMeritoModel extends BaseModel
         )
     ";
 
+    /**
+     * QUÉ NOTAS suman al mérito, como condiciones WHERE (17/10/2026). Reproduce
+     * los filtros del ranking EN VIVO para quien muestre notas que deben cuadrar
+     * con un promedio del ranking: hoy, el cuadro comparativo del desempate
+     * (`DesempateMeritoModel::getComparativoCompetencias`), que hasta este día
+     * NO los aplicaba y podía enseñar notas que no formaban el promedio empatado.
+     *
+     * Son los mismos cuatro filtros que `rankingGradoLive`/`rankingPorSeccionLive`:
+     * competencia BLOQUEADA (aquí con EXISTS: `uq_bloqueo` es UNIQUE, así que
+     * equivale al INNER JOIN del motor), no extraordinaria, regla transversal/
+     * tutoría con la excepción de Ética, y área o subárea NO exonerada.
+     * ⚠️ Esas dos consultas siguen con su copia; si se mueve una regla, moverla
+     * en los tres sitios. Lo vigila `verif_desempate_expediente.php`, que exige
+     * que el comparativo cuente y promedie lo mismo que el motor.
+     *
+     * Alias: $cal = calificaciones, $a = areas (ya resuelta con COALESCE),
+     * $comp = competencias. Constantes del código, nunca entrada.
+     */
+    public static function sqlNotasQueCuentan(string $cal = 'cal', string $a = 'a', string $comp = 'comp'): string
+    {
+        return "
+              EXISTS (
+                  SELECT 1 FROM bloqueos_competencia bcx
+                  WHERE bcx.carga_id       = {$cal}.carga_id
+                    AND bcx.competencia_id = {$cal}.competencia_id
+                    AND bcx.periodo_id     = {$cal}.periodo_id
+              )
+              AND {$cal}.extraordinaria = 0
+              AND ({$a}.tipo NOT IN ('transversal', 'tutoria')
+                   OR {$a}.nombre_boleta = '" . AREA_ETICA_NOMBRE_BOLETA . "')
+              AND NOT EXISTS (
+                  SELECT 1 FROM exoneraciones exx
+                  WHERE exx.matricula_id = {$cal}.matricula_id
+                    AND exx.revocado_en IS NULL
+                    AND (exx.area_id = {$a}.id OR exx.subarea_id = {$comp}.subarea_id)
+              )";
+    }
+
     private DesempateMeritoModel $desempateModel;
     private PublicacionBoletaModel $publicacionModel;
 

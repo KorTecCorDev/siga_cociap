@@ -250,9 +250,13 @@ class DesempateMeritoModel extends BaseModel
      * DISTINTA nota numeral (la diferencia que la boleta literal oculta — clave para
      * explicar el desempate a los padres, sobre todo en primaria).
      *
-     * Replica el camino de enlace del ranking (area/subarea via `competencias`, sin
-     * filtrar por bloqueos y excluyendo transversales) para que estas notas cuadren
-     * exactamente con el promedio que produjo el empate.
+     * Replica el camino de enlace del ranking (area/subarea via `competencias`) Y
+     * sus filtros de QUÉ NOTAS suman (`OrdenMeritoModel::sqlNotasQueCuentan`:
+     * bloqueadas, no extraordinarias, regla de Ética, sin áreas exoneradas), para
+     * que estas notas cuadren exactamente con el promedio que produjo el empate.
+     * Hasta el 17/10/2026 no los aplicaba (decía «sin filtrar por bloqueos» y solo
+     * excluía transversales): podía enseñar una extraordinaria o una nota EXO que
+     * el promedio no contaba. Lo protege `verif_desempate_expediente.php`.
      *
      * Retorna [ {label, notas[matricula_id=>int|null], literales[matricula_id=>str|null],
      *            resaltar} ] ordenado por area y competencia.
@@ -279,7 +283,8 @@ class DesempateMeritoModel extends BaseModel
             INNER JOIN areas a           ON a.id   = COALESCE(sa.area_id, comp.area_id)
             WHERE cal.matricula_id IN ($ph)
               AND cal.periodo_id = ?
-              AND a.tipo != 'transversal'
+              AND cal.nota_numerica IS NOT NULL
+              AND " . OrdenMeritoModel::sqlNotasQueCuentan('cal', 'a', 'comp') . "
             ORDER BY a.orden, comp.orden, comp.id
         ", array_merge($ids, [$periodoId]));
 
