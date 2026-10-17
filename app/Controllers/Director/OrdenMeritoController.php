@@ -417,14 +417,10 @@ class OrdenMeritoController extends BaseController
             );
         }
 
-        // Detectar los grupos pendientes a partir del ranking general del grado.
-        $estudiantes = $this->calcularRanking($gradoId, $periodoId);
-        $grupos = [];
-        foreach ($estudiantes as $est) {
-            if (!empty($est['empate_pendiente'])) {
-                $grupos[$est['empate_clave']][] = $est;
-            }
-        }
+        // Grupos pendientes EN VIVO (no snapshot-aware): los mismos que ven el
+        // guard del cierre y la card del Centro de Control. Ver
+        // OrdenMeritoModel::gruposEmpatePendientesLive.
+        $grupos = $this->ordenMeritoModel->gruposEmpatePendientesLive($gradoId, $periodoId);
 
         $this->view('director/orden-merito-desempate', [
             'titulo'  => 'Resolver empate — ' . $grado['nombre_display'],

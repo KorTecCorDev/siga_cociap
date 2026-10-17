@@ -146,6 +146,28 @@ class OrdenMeritoModel extends BaseModel
         return false;
     }
 
+    /**
+     * Grupos empatados SIN resolver de un grado, calculados EN VIVO:
+     * [empate_clave => filas del ranking]. Fuente de la pantalla «Resolver empate».
+     *
+     * Ignora el snapshot por la misma razón que `gradosConEmpatesPendientes`: valida
+     * lo que se va a congelar. Hasta el 17/10/2026 la pantalla leía `rankingGrado`
+     * (snapshot-aware), así que en un bimestre REABIERTO que ya estuvo publicado
+     * decía «No hay empates» mientras el cierre y la card del Centro de Control
+     * —ambos en vivo— sí los veían y enlazaban a ella: el empate quedaba
+     * irresoluble desde la interfaz.
+     */
+    public function gruposEmpatePendientesLive(int $gradoId, int $periodoId): array
+    {
+        $grupos = [];
+        foreach ($this->rankingGradoLive($gradoId, $periodoId) as $fila) {
+            if (!empty($fila['empate_pendiente']) && !empty($fila['empate_clave'])) {
+                $grupos[$fila['empate_clave']][] = $fila;
+            }
+        }
+        return $grupos;
+    }
+
     /** Cálculo EN VIVO del ranking de grado (fuente de la vista activa y del snapshot). */
     private function rankingGradoLive(int $gradoId, int $periodoId): array
     {
