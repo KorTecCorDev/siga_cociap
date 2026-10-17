@@ -76,10 +76,15 @@
                         </span>
                         <?php /* El AVISO lo ve todo el mundo —el director necesita
                                  saber que el grado tiene un empate sin resolver—;
-                                 el boton que RESUELVE, solo quien escribe. */ ?>
+                                 el boton que RESUELVE, solo quien escribe. Desde el
+                                 17/10/2026 la Direccion entra al mismo expediente en
+                                 solo lectura (sin formulario). */ ?>
                         <?php if ($puedeEscribir): ?>
                         <a href="<?= url('director/orden-merito/' . $periodo['id'] . '/desempate/' . $data['grado']['id']) ?>"
                            class="btn btn--primary btn--sm">Resolver empate</a>
+                        <?php else: ?>
+                        <a href="<?= url('director/orden-merito/' . $periodo['id'] . '/desempate/' . $data['grado']['id']) ?>"
+                           class="btn btn--secondary btn--sm">Ver expediente</a>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>

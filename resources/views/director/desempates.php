@@ -6,7 +6,7 @@
  * @var array $resoluciones  [ { grado_nombre, nivel_nombre, motivo, resuelto_en,
  *                               resuelto_por_nombre, alumnos[ {orden_manual, apellido_*,
  *                               nombres, seccion_nombre, promedio_general, num_*,
- *                               puesto_grado} ] } ]
+ *                               puesto_grado} ], criterios[], comparativo, expediente } ]
  */
 $fmtFecha = static function (?string $f): string {
     if (empty($f)) {
@@ -80,6 +80,7 @@ $fmtFecha = static function (?string $f): string {
                             <th class="text-center">Comp.</th>
                             <th class="text-center">Promedio</th>
                             <th class="text-center">AD / B / C</th>
+                            <th class="text-center">15-16 / 16</th>
                             <th class="text-center">Puesto en el grado</th>
                         </tr>
                     </thead>
@@ -108,6 +109,9 @@ $fmtFecha = static function (?string $f): string {
                                     <?php else: ?>
                                         —
                                     <?php endif; ?>
+                                </td>
+                                <td class="text-center">
+                                    <?= $al['num_alto'] !== null ? (int) $al['num_alto'] . ' / ' . (int) $al['num_16'] : '—' ?>
                                 </td>
                                 <td class="text-center">
                                     <?= $al['puesto_grado'] !== null ? (int) $al['puesto_grado'] . '°' : '—' ?>
@@ -158,7 +162,21 @@ $fmtFecha = static function (?string $f): string {
                     </div>
                 <?php endif; ?>
 
+                <?php
+                $exp      = $res['expediente'] ?? [];
+                $columnas = array_map(static fn($al) => [
+                    'mid'      => (int) $al['matricula_id'],
+                    'etiqueta' => (int) $al['orden_manual'] . '° ' . $al['apellido_paterno'],
+                ], $res['alumnos']);
+                $modo     = 'pantalla';
+                require VIEW_PATH . '/director/_desempate-expediente.php';
+                ?>
+
                 <div class="acta-motivo">
+                    <span class="acta-motivo__label">Criterios aplicados</span>
+                    <p class="acta-motivo__texto">
+                        <?= !empty($res['criterios']) ? e(implode(' · ', $res['criterios'])) : 'No registrados' ?>
+                    </p>
                     <span class="acta-motivo__label">Motivo de la decisión</span>
                     <p class="acta-motivo__texto"><?= e($res['motivo']) ?></p>
                 </div>

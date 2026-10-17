@@ -1,0 +1,163 @@
+// ============================================================
+// _desempate-expediente.scss — Expediente de un empate del mérito (17/10/2026)
+//
+// Parcial `director/_desempate-expediente.php`, en dos contextos:
+//   · Pantalla (resolución y acta en pantalla) → .tabla-expediente
+//   · Acta imprimible (A4 portrait)            → .tabla-exp-acta
+// La columna del bimestre en disputa va en AZUL (libre): el verde, el ámbar y
+// el gris están reservados para ESTADO; el ámbar ya marca, además, las filas
+// resaltadas del detalle por competencia.
+// ============================================================
+
+// ── Pantalla ─────────────────────────────────────────────────
+.expediente-bloque {
+    margin-bottom: $spacing-sm;
+}
+
+.tabla-expediente {
+    font-size: $font-size-sm;
+
+    th,
+    td {
+        white-space: nowrap;
+    }
+
+    .exp-nombre {
+        text-align: left;
+        white-space: normal;
+        min-width: 180px;
+    }
+
+    .exp-disputado {
+        background: $color-info-bg;
+    }
+
+    .exp-grupo {
+        border-left: 2px solid $border-color;
+    }
+
+    .exp-area td {
+        background: $bg-secondary;
+        font-weight: 600;
+        color: $text-primary;
+    }
+
+    .exp-criterios {
+        white-space: normal;
+        min-width: 220px;
+    }
+}
+
+.exp-criterio {
+    display: block;
+    line-height: $line-height;
+}
+
+// Formulario de resolución (solo admin/RA)
+.desempate-form {
+    display: block;
+}
+
+.desempate-criterios {
+    border: 0;
+    padding: 0;
+    margin: $spacing-md 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 $spacing-lg;
+
+    legend {
+        width: 100%;
+        margin-bottom: $spacing-xs;
+    }
+
+    .form-error {
+        width: 100%;
+    }
+}
+
+// ── Acta imprimible (A4 portrait) ────────────────────────────
+// El expediente hace que una resolución pueda ocupar más de una hoja: se deja
+// partir el bloque y se protege cada tabla y su subtítulo.
+.acta-resolucion--expediente {
+    break-inside: auto;
+    page-break-inside: auto;
+
+    .acta-resolucion__cab,
+    .tabla-acta,
+    .acta-resolucion__motivo {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
+
+.tabla-exp-acta {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6.5pt;
+    margin-bottom: 1mm;
+
+    thead {
+        display: table-header-group;   // repite la cabecera si la tabla salta de hoja
+    }
+
+    tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    thead th {
+        background: #efefef;
+        font-weight: bold;
+        font-size: 6pt;
+        color: #333;
+        padding: 0.6mm 0.8mm;
+        border: 0.4pt solid #999;
+        border-bottom: 1pt solid #000;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    tbody td {
+        padding: 0.5mm 0.8mm;
+        border: 0.3pt solid #ddd;
+        vertical-align: middle;
+        background: #fff;
+        line-height: 1.2;
+        text-align: center;
+    }
+
+    .exp-nombre {
+        text-align: left;
+        padding-left: 1.2mm;
+        word-break: break-word;
+    }
+
+    .exp-criterios {
+        text-align: left;
+    }
+
+    .exp-disputado {
+        background: #e8f1f8;
+    }
+
+    tbody td.exp-disputado {
+        background: #f1f7fb;
+    }
+
+    .exp-grupo {
+        border-left: 1pt solid #777;
+    }
+
+    .exp-area td {
+        background: #f3f3f3;
+        font-weight: bold;
+        text-align: left;
+        padding-left: 1.2mm;
+    }
+
+    // Asegura que la impresión conserve los fondos de la columna en disputa.
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
