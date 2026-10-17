@@ -1,7 +1,7 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **13/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **17/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
 
@@ -14,18 +14,132 @@ cierre del III. El cierre se hace **a más tardar el domingo 18/10**, para abrir
 19/10: el sistema no deja abrir un bimestre con otro activo, y con la F3 el III **no cierra**
 hasta tener asistencia bloqueada y conducta en sus dos etapas en las 23 secciones.
 
+**🟢 DESPLEGADO el 13/10/2026: merge `fc97b49` en `main`** (`--no-ff`, 33 commits; sigue
+v1.0.5). Comprobado en producción por el usuario antes del merge:
+- `SHOW COLUMNS FROM periodos LIKE 'limite_auxiliares'` → 1 fila (078).
+- `SHOW TABLES` → `asistencia_presencias` (077) y las 2 `rectificaciones_*` (079).
+- `SHOW CREATE TABLE asistencia_incidencias` → **los dos CHECK** presentes.
+  ⚠️ La consulta a `information_schema.CHECK_CONSTRAINTS` volvió **vacía** en producción
+  (igual que la falsa alarma del 05/10): allí NO sirve; usar `SHOW CREATE TABLE`.
+- 0 justificaciones FJ/TJ sin motivo; un solo periodo activo (III), `limite_auxiliares` NULL.
+- La verificación de último momento (`php -l` del lote y búsqueda de archivos sensibles) **no
+  se ejecutó**: el usuario la canceló y pidió el merge directo.
+
 Pasos, en orden:
-1. **Ampliar `limite_notas` del III ANTES de que venza** (14/10 11:59) en `/director/anios/1`;
-   el código actual de producción ya lo permite. `limite_auxiliares` vacía = la de notas: los
-   auxiliares también reciben los 3 días, salvo que se les ponga una fecha propia (tras la 078).
-2. Producción, phpMyAdmin, **envíos separados**: 077 → 078 → 079, y la consulta del CHECK
-   `chk_justificada_con_motivo` en **otro envío aparte** (es un SELECT a `information_schema`).
-3. Avisar a **docentes** (aprobar exige la conclusión obligatoria), **tutores** (transversales
+1. [ ] **Ampliar `limite_notas` del III ANTES de que venza** (14/10 11:59) en
+   `/director/anios/1` → 17/10 11:59. `limite_auxiliares` vacía = la de notas: los auxiliares
+   también reciben los 3 días, salvo que se les ponga una fecha propia.
+2. [x] Producción: 077 → 078 → 079 aplicadas y verificadas (ver arriba).
+3. [ ] Avisar a **docentes** (aprobar exige la conclusión obligatoria), **tutores** (transversales
    y etapa 2 de conducta en solo lectura desde el nuevo límite) y **auxiliares** (marcar a uno
    no toma la lista; el bloqueo exige cada estudiante cada día).
-4. Merge `dev` → `main` con `--no-ff` (preguntar antes, como siempre).
-5. Fin de semana 17–18/10: revisar el panel de bloqueos y cerrar el III con el runbook; abrir
-   el IV el 19/10.
+4. [x] Merge `dev` → `main` (`fc97b49`).
+5. [ ] Pruebas rápidas en prod: tarjeta del III en `/director/anios/1` («Igual al límite de
+   notas»), panel del auxiliar, una grilla de asistencia, `/docente/tutoria`,
+   `/director/bloqueos` (4 donuts). Ante un fallo: `tail ~/siga_logs/siga.log`.
+6. [ ] Fin de semana 17–18/10: revisar el panel de bloqueos y cerrar el III con el runbook
+   (la F3 ya exige conducta y asistencia completas); abrir el IV el lunes 19/10.
+7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
+   asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
+
+## 🆕 RATIFICACIÓN DE MATRÍCULA — CONSTRUIDO en `dev` (14-15/10/2026, migración 080), SIN DESPLEGAR
+
+Módulo nuevo: el admin/Secretaría registra la decisión de Dirección (ratificado / no
+ratificado con motivo) y el sistema emite el documento A4 con QR de autenticidad. El
+contenido de cada año se arma con **bloques editables** (párrafo, tabla, imagen, salto), sin
+HTML guardado. Plan completo, decisiones del usuario y estimación (15-25 h, 4-6 sesiones):
+**`docs/modulos/ratificaciones.md`**.
+- [x] Fase 1 (14/10): migración **080** (5 tablas), decisiones y motivos en `/admin/ratificaciones`,
+  `verif_ratificaciones.php`. Probada en Chrome con admin y con director.
+  ⚠️ La **080 solo está aplicada en la BD local de la oficina**: aplicarla en casa antes de abrir
+  el módulo. Si `dev` se mergea a `main` con el módulo a medias, aplicar la 080 en prod ANTES
+  (la card aparece en el dashboard y sin las tablas la pantalla falla).
+- [x] Fase 2 (14/10): plantillas por bloques en `/admin/ratificaciones/plantillas` (párrafo con
+  variables, tabla, imagen, salto; versión nueva al editar una congelada; copiar del año
+  anterior; vista previa A4). Probada en Chrome con admin. Imágenes en
+  `config('ratificacion_img_path')`: en prod `~/siga_uploads/ratificacion/` (el código la crea
+  al subir la primera; verificar permisos al desplegar), en local `storage/ratificacion/`
+  (ignorada por git).
+- [x] Fase 3 (15/10, `0b8f530`): emitir (individual y por sección), A4 con firma + sello y QR,
+  anular, verificación pública `/ratificacion/verificar/{token}`.
+- [x] Fase 4 (15/10, `7ebcc71`): ZIP de PDF por sección y aviso no bloqueante en el alta de matrícula.
+- [x] Fase 5 (15/10): documentación. El usuario probó todo el módulo con admin y con director,
+  incluidos Ctrl+P y la descarga real del ZIP.
+- Lo construido: `docs/modulos/ratificaciones.md` § «Cómo funciona».
+
+### Despliegue del módulo (cuando se despliegue `dev`, DESPUÉS de cerrar el III y abrir el IV)
+1. Producción, phpMyAdmin: aplicar `080_ratificaciones.sql` **ANTES del merge** (idempotente; solo
+   crea 5 tablas). Comprobar: `SHOW TABLES LIKE 'ratificacion%'` → 5.
+2. Comprobar los CHECK en producción (la copia local no los conserva):
+   `SELECT CONSTRAINT_NAME FROM information_schema.CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND CONSTRAINT_NAME LIKE 'chk_rat%';` → 5 filas (`chk_ratif_decision_motivo`, `chk_ratb_tipo_dato`,
+   `chk_ratb_tabla_json`, `chk_rate_vigente`, `chk_rate_motivo`).
+3. Crear `~/siga_uploads/ratificacion/` y comprobar que PHP puede escribir en ella.
+4. Merge `dev` → `main` (preguntar antes, como siempre).
+5. En producción: subir una imagen de prueba a una plantilla, emitir e imprimir un documento
+   (firma y sello SÍ deben verse allí), escanear el QR con un celular y, para 2027, matricular a
+   un no ratificado y ver el aviso.
+6. Dirección: entregar los textos de las plantillas y el catálogo de motivos de 2026.
+
+### 🔜 RETOMAR AQUÍ (15/10/2026, fin del turno en la oficina) — en el escritorio de casa
+Hoy quedó TERMINADO el módulo de ratificación (5 fases) y su **rediseño como CONTRATO /
+COMUNICADO** (cabecera del Acompañamiento, partes, dos firmas, marca de agua en cada hoja).
+Todo en `origin/dev`; `main` no lo tiene.
+
+**Preparar el escritorio (en este orden):**
+1. `git pull` en `dev`.
+2. **Aplicar la 080 en la BD local de casa** (`database/migrations/080_ratificaciones.sql`,
+   idempotente; solo crea 5 tablas). Comprobar con `SHOW TABLES LIKE 'ratificacion%'` → 5.
+3. `npx gulp build` si el CSS/JS no se ve (los compilados ya van en el commit).
+4. `php database/verificaciones/verif_ratificaciones.php` → debe dar **TODO OK**.
+   (`verif_direccion_superficies.php` trae 1 FAIL PREEXISTENTE de `ROLES_MATRICULAN`, no es del módulo.)
+5. En casa la BD **no tiene plantillas, motivos ni decisiones**: para probar, crear una plantilla
+   de cada tipo y un motivo (o «Duplicar del año anterior» no sirve: solo hay 2026).
+
+**Pruebas pendientes (del usuario):**
+- [ ] **Lote en ZIP con el diseño NUEVO** (contrato y comunicado): descargarlo y abrir los PDF.
+  Se probó el lote con el diseño anterior; el nuevo (cabecera en rejilla, QR arriba, dos firmas)
+  aún no pasó por html2pdf. Mirar que el QR de la cabecera salga y que las firmas no se partan.
+- [ ] Ctrl+P de un documento **ANULADO** de varias hojas: «ANULADA» entera en cada hoja (la de
+  VISTA PREVIA ya se comprobó el 15/10).
+- [ ] Contrato de un estudiante **sin apoderado responsable** (1 caso al 15/10): los datos del
+  apoderado deben salir en líneas para llenar a mano.
+- [ ] En **producción**, tras desplegar: firma y sello visibles (en local no hay `storage/firmas/`),
+  escanear el QR con un celular y, en 2027, el aviso al matricular a un no ratificado.
+
+**Decisiones pendientes del usuario / del colegio:**
+- [ ] Plantilla de ratificado (v3): quitar el **salto de página final** para que las firmas
+  compartan hoja con la última cláusula (recomendación, no obligatorio).
+- [ ] Pedir a Dirección los textos definitivos del contrato y del comunicado y el catálogo de
+  motivos de 2026 (ruta crítica real).
+- [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).** Pasos: «Despliegue del
+  módulo» arriba (080 en prod ANTES del merge).
+
+**Datos en la BD de la OFICINA** (solo allí): los de prueba del 14/10 se borraron el 15/10 (se
+conservó la plantilla 13). El usuario creó el 15/10 nuevos datos de prueba: plantillas 65
+(«COMUNICADO DEL COMITÉ DIRECTIVO») y 66 (ratificado v3), motivo 36, decisiones 27 (mat. 171) y 28
+(mat. 213), emisiones 52 y 53 vigentes. La 52 la anuló Claude por error a las 12:30 y se
+restauró por SQL con el visto bueno del usuario (mismo token). Borrarlos cuando ya no sirvan.
+
+## 🆕 EXPEDIENTE DEL DESEMPATE — CONSTRUIDO en `dev` (17/10/2026, migración 081), SIN DESPLEGAR
+
+La pantalla «Resolver empate» pasa a ser un **expediente comparativo** del grupo: por qué
+empatan (los 5 conteos de la cascada), detalle por competencia, asistencia, conducta y boleta
+hasta el bimestre en disputa. Quien resuelve marca **criterios aplicados** + motivo, y el acta
+(en pantalla e impresa) imprime todo eso. La resolución es UN modal compartido, abierto desde
+cada grupo; con varios grupos, una pestaña por grupo. La Dirección lo ve en solo lectura.
+**La cascada NO cambia.** Detalle y decisiones: `docs/modulos/orden-merito.md` § «Expediente del desempate».
+Corrige además dos defectos (pantalla leía el snapshot; comparativo no cuadraba con el promedio).
+- [x] Migración **081** (`desempates_merito_criterios`, aditiva) aplicada en la BD local donde se
+  construyó. Aplicarla en la otra BD local antes de abrir la pantalla.
+- [x] `verif_desempate_expediente.php` → 82 grupos, 0 fallos (local). Probado en Chrome con admin
+  (pantalla, validación del cliente, acta en pantalla e impresa). El guardado se probó por CLI
+  (criterios, re-resolver, limpieza de lo creado).
+- [ ] **Probar con un usuario de DIRECCIÓN**: entra al expediente sin formulario y el POST da 403.
+  No se probó en el navegador (no hay sesión de director a mano).
+- [ ] **No llega al cierre del III** (18/10): aplica desde el IV. Despliegue junto con `dev`:
+  aplicar `081_desempates_criterios.sql` en prod **ANTES del merge** (sin la tabla, guardar un
+  desempate falla) y comprobar con `SHOW COLUMNS FROM desempates_merito_criterios` → 2 filas.
 
 ## (HISTÓRICO, reemplazado el 13/10/2026) RETOMAR AQUÍ (12/10/2026) — DESPLIEGUE DESPUÉS DEL III
 
@@ -130,7 +244,7 @@ Tres observaciones del usuario sobre el auxiliar. El detalle está en
   seguimiento y 4 `tel:`, 3.° A sin él; «Ver nota final» solo en prim 2.° A (enlace y 200, vista «←
   Registro», solo lectura) y 404 en 1.° A. Repaso por roles de esta sección: COMPLETO.
 - [x] **Verificado en el navegador por el usuario el 13/10/2026: «todo es correcto»** (commit en `dev`). No dijo con qué roles: la repetición con admin, RA y Dirección queda abierta.
-- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 RECTIFICACIÓN DE CONDUCTA Y ASISTENCIA — F5 (13/10/2026, en `dev`, migración 079)
 
@@ -169,7 +283,7 @@ solo queda la traza. Detalle en `docs/modulos/cierre-cuatro-registros.md` § F5.
     la card aparece cuando el auxiliar bloquee una. Rectificar F → FJ y comprobar los
     contadores en la boleta. FJ sin motivo y motivo vacío → rechazados sin perder lo escrito;
   - con un docente o un auxiliar, las rutas dan 403.
-- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 PANEL DE BLOQUEOS: BUSCADOR + RESPONSIVE (13/10/2026, en `dev`, sin migración)
 
@@ -184,7 +298,7 @@ inalcanzable): ahora desplazan como las académicas. Detalle en `docs/modulos/ad
   (cada acordeón vuelve a su estado inicial). **Usuario, 13/10/2026: «es exitoso».**
 - [x] Desbloquear una fila: tras el redirect sigue la búsqueda, baja a la fila y destella;
   cancelar el `confirm()` no deja foco guardado. (Mismo visto bueno del usuario.)
-- [ ] Desplegar con todo `dev` después del III (ver «RETOMAR AQUÍ»).
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 LISTA DE MATRÍCULAS: NIVEL, FILTROS Y VUELTA (12/10/2026, en `dev`, sin migración)
 
@@ -194,7 +308,7 @@ vuelve a la lista filtrada. Detalle en `docs/modulos/matriculas.md` § Lista de 
 - Filtros del modelo y cascada del JS probados por CLI.
 - [x] **Probado en el navegador el 12/10/2026** (pruebas 1-6): todo correcto según el
       usuario.
-- [ ] Desplegar: sin migración; merge `dev` → `main` solo con autorización.
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 GESTIÓN DE APODERADOS VINCULADOS (12/10/2026, en `dev`, sin migración)
 
@@ -212,7 +326,7 @@ perdió su teléfono y correo; corregido a mano el mismo día). Detalle y reglas
       incluida la vista con una sesión de secretaría): todo correcto según el usuario.
 - [ ] Limpiar en la BD local de la oficina los vínculos y datos creados por las pruebas
       (matrículas 162, 163 y 399; teléfonos de GIRALDO LINO y MALLQUI ROBLES).
-- [ ] Desplegar: sin migración; merge `dev` → `main` solo con autorización.
+- [x] Desplegado el 13/10/2026 (merge `fc97b49`).
 
 ## 🆕 BUSCADOR DE USUARIOS EN `/admin/usuarios` (12/10/2026, en `dev`, sin migración)
 

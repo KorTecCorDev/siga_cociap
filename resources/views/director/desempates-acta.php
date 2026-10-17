@@ -78,7 +78,7 @@ $totalResoluciones = count($resoluciones);
     <?php else: ?>
 
         <?php foreach ($resoluciones as $res): ?>
-            <div class="acta-resolucion">
+            <div class="acta-resolucion acta-resolucion--expediente">
                 <div class="acta-resolucion__cab">
                     <span class="acta-resolucion__grado">
                         <?= e($res['nivel_nombre']) ?> &mdash; <?= e($res['grado_nombre']) ?>
@@ -97,6 +97,7 @@ $totalResoluciones = count($resoluciones);
                             <th class="ta-comp">Comp.</th>
                             <th class="ta-promedio">Promedio</th>
                             <th class="ta-dist">AD / B / C</th>
+                            <th class="ta-dist">15-16 / 16</th>
                             <th class="ta-puesto">Puesto grado</th>
                         </tr>
                     </thead>
@@ -123,6 +124,9 @@ $totalResoluciones = count($resoluciones);
                                     <?php else: ?>
                                         —
                                     <?php endif; ?>
+                                </td>
+                                <td class="ta-dist">
+                                    <?= $al['num_alto'] !== null ? (int) $al['num_alto'] . ' / ' . (int) $al['num_16'] : '—' ?>
                                 </td>
                                 <td class="ta-puesto">
                                     <?= $al['puesto_grado'] !== null ? (int) $al['puesto_grado'] . '°' : '—' ?>
@@ -169,7 +173,20 @@ $totalResoluciones = count($resoluciones);
                     </p>
                 <?php endif; ?>
 
+                <?php
+                $exp      = $res['expediente'] ?? [];
+                $columnas = array_map(static fn($al) => [
+                    'mid'      => (int) $al['matricula_id'],
+                    'etiqueta' => (int) $al['orden_manual'] . '° ' . $al['apellido_paterno'],
+                ], $res['alumnos']);
+                $modo     = 'acta';
+                require VIEW_PATH . '/director/_desempate-expediente.php';
+                ?>
+
                 <div class="acta-resolucion__motivo">
+                    <span class="acta-resolucion__motivo-label">Criterios aplicados:</span>
+                    <?= !empty($res['criterios']) ? e(implode(' · ', $res['criterios'])) : 'No registrados' ?>
+                    <br>
                     <span class="acta-resolucion__motivo-label">Motivo de la decisión:</span>
                     <?= e($res['motivo']) ?>
                 </div>

@@ -1,0 +1,537 @@
+// _ratificacion.scss — Ratificación de matrícula (migración 080, 14/10/2026).
+// Ver docs/modulos/ratificaciones.md.
+
+// ── Estado de la fila: SOLO la franja del N° ────────────────────────────────
+// Mismo criterio que `.conducta-grilla` (decisión del usuario, 30/09/2026): sin
+// fondo de fila; ámbar = pendiente de decidir, verde = decisión registrada.
+// No se colorea POR decisión: ratificado / no ratificado se lee en su columna.
+.ratif-tabla td.col-num { box-shadow: inset 3px 0 0 var(--franja, transparent); }
+.ratif-fila--pendiente td.col-num { --franja: #{$color-warning}; }
+.ratif-fila--decidida  td.col-num { --franja: #{$color-success}; }
+
+// Al volver de guardar, el ancla #m{id} deja la fila bajo la barra superior fija.
+.ratif-tabla tbody tr { scroll-margin-top: $topbar-height + $spacing-md; }
+
+// Controles de la decisión dentro de la celda: en línea y sin desbordar.
+.ratif-decision {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    align-items: center;
+
+    .form-select,
+    .form-input { width: auto; min-width: 150px; }
+
+    .form-input--detalle { min-width: 220px; }
+
+    // ratificacion.js oculta motivo y detalle salvo en «No ratificado».
+    [hidden] { display: none; }
+}
+
+// Texto oficial de un motivo: conserva los saltos de línea que escribió Dirección.
+.ratif-texto-oficial {
+    white-space: pre-line;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+}
+
+// Botones de la cabecera de la pantalla principal (Plantillas · Motivos).
+.ratif-cabecera-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+}
+
+// ── Editor de plantillas por bloques (pantalla) ─────────────────────────────
+.ratif-ayuda {
+    margin: $spacing-sm 0 $spacing-md;
+    line-height: 1.7;
+
+    code { white-space: nowrap; }
+}
+
+.ratif-bloques {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+}
+
+.ratif-bloque {
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    padding: $spacing-sm $spacing-md $spacing-md;
+    background: $bg-secondary;
+
+    &__cabecera {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: $spacing-sm;
+        margin-bottom: $spacing-sm;
+    }
+
+    &__tipo {
+        font-size: $font-size-sm;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: $text-secondary;
+    }
+
+    &__acciones {
+        display: flex;
+        gap: $spacing-xs;
+    }
+}
+
+.ratif-editor__agregar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+    margin: $spacing-md 0;
+}
+
+.ratif-tabla-editor {
+    &__tabla {
+        border-collapse: collapse;
+
+        td { padding: 2px; }
+
+        .form-input { min-width: 140px; }
+    }
+
+    // La primera fila es la cabecera del documento: se distingue al editarla.
+    &__cabecera .form-input { font-weight: 600; }
+
+    &__acciones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+    }
+}
+
+.ratif-imagen-editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: $spacing-md;
+
+    &__campos {
+        flex: 1 1 260px;
+        min-width: 0;
+    }
+}
+
+// Miniatura de una imagen de plantilla (editor y solo lectura).
+.ratif-imagen-editor__vista {
+    display: block;
+    max-width: 220px;
+    max-height: 160px;
+    object-fit: contain;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+    background: #fff;
+
+    &[hidden] { display: none; }
+}
+
+.ratif-lectura > * + * { margin-top: $spacing-sm; }
+
+// ── Documento A4 (layout print) — diseño del 15/10/2026 ─────────────────────
+// Contrato (ratificado) y comunicado (no ratificado) con el MISMO esqueleto.
+// La cabecera toma la del informe de Acompañamiento pedagógico
+// (`.cuadros-print__head`): logo a la izquierda, institución, regla negra de
+// 2px, todo en negro. Lo que NO se copia es su tamaño de letra (10-11px): este
+// documento lo lee y lo firma una familia, así que el cuerpo va a 10.5pt.
+// Independiente de `_constancia.scss` a propósito: tocar la constancia de
+// traslado no debe mover este documento.
+$ratif-tinta: #111;
+$ratif-suave: #555;
+$ratif-linea: #bbb;
+$ratif-fondo: #f2f2f2;
+
+.ratif-doc {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-height: 250mm;              // ancla el pie al fondo de la última hoja
+    max-width: 175mm;
+    margin: 0 auto;
+    font-family: $font-family;
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: $ratif-tinta;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+
+    p { margin: 0; }
+
+    // ── Marca de agua: VISTA PREVIA (gris) o ANULADA (rojo) ──
+    // `fixed`, NO `absolute` (decisión del usuario, 15/10/2026): al imprimir,
+    // Chrome repite un elemento fijo en CADA hoja, centrado en ella; con
+    // `absolute` había UNA marca al 46 % del documento entero y en uno de
+    // varias hojas caía partida en el corte. En pantalla queda centrada en la
+    // ventana mientras se desplaza. El lote (html2pdf) no la repetiría, pero
+    // solo lleva documentos vigentes, que no tienen marca.
+    .ratif-doc__marca {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-20deg);
+        font-size: 44pt;
+        font-weight: 700;
+        letter-spacing: 5pt;
+        white-space: nowrap;
+        color: rgba($text-secondary, 0.14);
+        border: 3pt solid rgba($text-secondary, 0.14);
+        border-radius: 4mm;
+        padding: 2mm 8mm;
+        pointer-events: none;
+        z-index: 10;
+
+        &--anulada {
+            color: rgba($color-error, 0.16);
+            border-color: rgba($color-error, 0.16);
+        }
+    }
+
+    // ── Cabecera: logo · institución · QR ──
+    .ratif-doc__cabecera {
+        display: grid;
+        grid-template-columns: 18mm 1fr 22mm;
+        align-items: center;
+        gap: 4mm;
+        padding-bottom: 2.5mm;
+        border-bottom: 2px solid #000;
+    }
+
+    .ratif-doc__logo {
+        width: 18mm;
+        height: auto;
+    }
+
+    .ratif-doc__rector {
+        font-size: 7.5pt;
+        letter-spacing: 0.4pt;
+        text-transform: uppercase;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__colegio {
+        font-size: 13pt;
+        font-weight: 700;
+        line-height: 1.25;
+    }
+
+    .ratif-doc__inst-datos {
+        margin-top: 0.5mm;
+        font-size: 7.5pt;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__verif {
+        text-align: center;
+    }
+
+    .ratif-doc__qr-code {
+        width: 20mm;
+        height: 20mm;
+        margin: 0 auto;
+
+        img,
+        canvas {
+            width: 20mm !important;
+            height: 20mm !important;
+        }
+    }
+
+    .ratif-doc__verif-texto {
+        margin-top: 0.5mm;
+        font-size: 6.5pt;
+        letter-spacing: 0.3pt;
+        text-transform: uppercase;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__lema {
+        margin-top: 1.5mm;
+        font-size: 7.5pt;
+        font-style: italic;
+        text-align: center;
+        color: $ratif-suave;
+    }
+
+    // ── Título ──
+    .ratif-doc__titulo {
+        margin: 6mm 0 5mm;
+        font-size: 13pt;
+        font-weight: 700;
+        line-height: 1.3;
+        text-align: center;
+        text-transform: uppercase;
+    }
+
+    // ── Partes / datos: tabla de rótulo + valor (estilo de las tablas del informe) ──
+    .ratif-doc__partes {
+        width: 100%;
+        margin-bottom: 5mm;
+        border-collapse: collapse;
+        font-size: 9.5pt;
+        break-inside: avoid;
+
+        th,
+        td {
+            padding: 1.6mm 2.5mm;
+            border: 0.5pt solid $ratif-linea;
+            vertical-align: top;
+            text-align: left;
+        }
+
+        th {
+            width: 32mm;
+            font-size: 8pt;
+            font-weight: 700;
+            letter-spacing: 0.3pt;
+            text-transform: uppercase;
+            background: $ratif-fondo;
+        }
+    }
+
+    // Dato que se llena a mano (apoderado sin registrar): rótulo + línea.
+    .ratif-doc__llenar {
+        display: inline-block;
+        min-width: 60mm;
+        margin-right: 6mm;
+        border-bottom: 0.5pt solid $ratif-tinta;
+    }
+
+    // ── Cuerpo ──
+    .ratif-doc__cuerpo {
+        text-align: justify;
+
+        > p { margin-bottom: 3mm; }
+    }
+
+    .ratif-doc__tabla {
+        width: 100%;
+        margin: 0 0 3.5mm;
+        border-collapse: collapse;
+        font-size: 9.5pt;
+        line-height: 1.35;
+        text-align: left;
+        break-inside: avoid;
+
+        th,
+        td {
+            padding: 1.2mm 2mm;
+            border: 0.5pt solid $ratif-linea;
+            vertical-align: top;
+        }
+
+        th {
+            font-weight: 700;
+            background: $ratif-fondo;
+        }
+    }
+
+    .ratif-doc__figura {
+        margin: 0 0 3.5mm;
+        text-align: center;
+        break-inside: avoid;
+    }
+
+    .ratif-doc__img {
+        display: block;
+        margin: 0 auto;
+        max-width: 100%;
+        max-height: 120mm;
+        object-fit: contain;
+
+        &--pequena  { width: 40mm; }
+        &--media    { width: 90mm; }
+        &--completa { width: 100%; }
+    }
+
+    .ratif-doc__salto { break-before: page; }
+
+    // En pantalla el salto no se ve: una línea punteada marca dónde empieza la
+    // hoja siguiente. En el papel no se imprime.
+    @media screen {
+        .ratif-doc__salto {
+            border-top: 1px dashed $text-muted;
+            margin: 6mm 0;
+        }
+    }
+
+    // ── Motivo (comunicado): recuadro con filete a la izquierda ──
+    .ratif-doc__motivo {
+        margin: 1mm 0 3mm;
+        padding: 2mm 3mm;
+        border-left: 2px solid #000;
+        background: $ratif-fondo;
+        break-inside: avoid;
+    }
+
+    .ratif-doc__motivo-titulo {
+        margin: 0 0 1mm;
+        font-size: 8pt;
+        font-weight: 700;
+        letter-spacing: 0.6pt;
+        text-transform: uppercase;
+    }
+
+    .ratif-doc__motivo-texto {
+        white-space: pre-line;
+
+        & + & { margin-top: 1.5mm; }
+    }
+
+    // ── Lugar, fecha y firmas: un solo bloque que no se parte ──
+    // El pie usa `margin-top: auto`, que en un documento más largo que la hoja
+    // vale 0: la separación con el pie va aquí.
+    .ratif-doc__cierre {
+        margin: 4mm 0 8mm;
+        break-inside: avoid;
+    }
+
+    .ratif-doc__lugar-fecha {
+        text-align: right;
+    }
+
+    .ratif-doc__firmas {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12mm;
+        margin-top: 4mm;
+
+        &--una {
+            grid-template-columns: 75mm;
+            justify-content: center;
+        }
+    }
+
+    .ratif-doc__firma {
+        text-align: center;
+    }
+
+    // Altura fija: la línea queda al mismo nivel haya o no firma (patrón de la
+    // boleta). El sello va a la izquierda, por detrás de la firma.
+    .ratif-doc__firma-espacio {
+        position: relative;
+        height: 24mm;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+    }
+
+    .ratif-doc__firma-img {
+        position: relative;
+        max-width: 55mm;
+        max-height: 20mm;
+        object-fit: contain;
+    }
+
+    .ratif-doc__sello-img {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        max-width: 24mm;
+        max-height: 24mm;
+        object-fit: contain;
+        opacity: 0.9;
+    }
+
+    .ratif-doc__firma-linea {
+        border-top: 0.75pt solid $ratif-tinta;
+        margin: 0 4mm 1.2mm;
+    }
+
+    .ratif-doc__firma-nombre {
+        min-height: 1.5em;
+        font-size: 9.5pt;
+        font-weight: 700;
+    }
+
+    .ratif-doc__firma-cargo {
+        font-size: 8pt;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__firma-parte {
+        margin-top: 1mm;
+        font-size: 7.5pt;
+        letter-spacing: 0.4pt;
+        text-transform: uppercase;
+        color: $ratif-suave;
+    }
+
+    // ── Pie ──
+    .ratif-doc__pie {
+        margin-top: auto;
+        padding-top: 2.5mm;
+        border-top: 0.75pt solid $ratif-linea;
+        font-size: 7pt;
+        text-align: center;
+        color: $ratif-suave;
+    }
+
+    .ratif-doc__pie-verif {
+        margin-top: 0.6mm;
+        word-break: break-all;
+    }
+}
+
+// ── Lote (html2pdf): cada documento es una hoja A4 VERTICAL ─────────────────
+// `.archivo-items-wrap` mide 297 mm (boletas apaisadas); el ítem fija el ancho
+// ÚTIL de la hoja (210 − 2 × 17,5 mm): los márgenes los pone html2pdf en cada
+// página (`ratificacion-lote.js`).
+.ratif-lote-item {
+    width: 175mm;
+    background: #fff;
+
+    // html2canvas pinta con los estilos de PANTALLA: sin esto, la línea
+    // punteada que marca el salto en pantalla saldría en el PDF.
+    .ratif-doc__salto {
+        border-top: 0;
+        margin: 0;
+    }
+}
+
+// ── Pantalla de la sección: documento emitido ───────────────────────────────
+.ratif-documento {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-xs $spacing-sm;
+    margin-top: $spacing-xs;
+    font-size: $font-size-sm;
+
+    form { display: inline; }
+}
+
+// ── Verificación pública del QR (layout digital, tarjeta de `.bpf-*`) ───────
+.ratif-verif {
+    &__estado {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: $font-size-sm;
+
+        &--vigente { background: rgba($color-success, 0.12); color: $color-success; }
+        &--anulado { background: rgba($color-error, 0.12);   color: $color-error; }
+    }
+
+    &__datos {
+        margin: $spacing-md 0 0;
+
+        dt {
+            font-size: $font-size-sm;
+            color: $text-secondary;
+        }
+
+        dd { margin: 0 0 $spacing-sm; font-weight: 600; }
+    }
+}

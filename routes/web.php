@@ -128,6 +128,28 @@ $router->get( '/admin/conducta/{id}/estudiante', 'Admin\ConductaController@estud
 $router->get( '/admin/conducta/{id}/resultado', 'Admin\ConductaController@resultado');
 $router->get( '/admin/conducta/{id}',         'Admin\ConductaController@seccion');
 
+// ─── Admin — Ratificación de matrícula (migración 080, 14/10/2026) ───
+// Literales (`/motivos…`) ANTES del patrón `/{matricula_id}/decision`.
+$router->get( '/admin/ratificaciones',                          'Admin\RatificacionController@index');
+$router->get( '/admin/ratificaciones/motivos',                  'Admin\RatificacionController@motivos');
+$router->post('/admin/ratificaciones/motivos/crear',            'Admin\RatificacionController@crearMotivo');
+$router->post('/admin/ratificaciones/motivos/{id}/editar',      'Admin\RatificacionController@actualizarMotivo');
+$router->post('/admin/ratificaciones/motivos/{id}/retirar',     'Admin\RatificacionController@retirarMotivo');
+$router->post('/admin/ratificaciones/motivos/{id}/reactivar',   'Admin\RatificacionController@reactivarMotivo');
+$router->get( '/admin/ratificaciones/plantillas',               'Admin\RatificacionPlantillaController@index');
+$router->post('/admin/ratificaciones/plantillas/guardar',       'Admin\RatificacionPlantillaController@guardar');
+$router->post('/admin/ratificaciones/plantillas/duplicar',      'Admin\RatificacionPlantillaController@duplicar');
+$router->get( '/admin/ratificaciones/plantillas/imagen/{archivo}', 'Admin\RatificacionPlantillaController@imagen');
+$router->get( '/admin/ratificaciones/plantillas/{id}/vista-previa', 'Admin\RatificacionPlantillaController@vistaPrevia');
+$router->post('/admin/ratificaciones/seccion/{seccion_id}/emitir', 'Admin\RatificacionController@emitirSeccion');
+$router->get( '/admin/ratificaciones/emision/{id}/imprimir',    'Admin\RatificacionController@imprimir');
+$router->get( '/admin/ratificaciones/seccion/{seccion_id}/lote', 'Admin\RatificacionController@lote');
+$router->post('/admin/ratificaciones/{matricula_id}/decision',  'Admin\RatificacionController@guardarDecision');
+$router->post('/admin/ratificaciones/{matricula_id}/emitir',    'Admin\RatificacionController@emitir');
+$router->post('/admin/ratificaciones/{matricula_id}/anular',    'Admin\RatificacionController@anular');
+// Verificación PÚBLICA del QR del documento (sin login; solo autenticidad).
+$router->get( '/ratificacion/verificar/{token}',                'RatificacionVerificacionController@verificar');
+
 // ─── Admin — Asistencia (incidencias) ───────────────────────
 $router->get( '/admin/asistencia',            'Admin\AsistenciaController@index');
 // Asistencia por fechas (29/09/2026): literales ANTES de los patrones {id}.

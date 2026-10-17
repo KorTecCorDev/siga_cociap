@@ -68,6 +68,14 @@ return [
         ? '/home/u761410128/siga_uploads/siagie_tmp'
         : dirname(__DIR__) . '/storage/tmp/siagie',
 
+    // Imágenes de las plantillas de RATIFICACIÓN (migración 080). FUERA del repo
+    // en producción por el auto-deploy, como las firmas. Se detecta por el home
+    // base (como siagie_tmp_path): el controlador crea la carpeta al subir la
+    // primera. Los archivos NUNCA se borran: un documento emitido los usa.
+    'ratificacion_img_path' => is_dir('/home/u761410128')
+        ? '/home/u761410128/siga_uploads/ratificacion'
+        : dirname(__DIR__) . '/storage/ratificacion',
+
     // Log de errores/auditoria. DEBE vivir FUERA del repo: el auto-deploy de
     // Hostinger hace checkout limpio y borraria storage/logs/*.log en cada push,
     // perdiendo el historial. En el servidor (detecta el home de Hostinger) usa

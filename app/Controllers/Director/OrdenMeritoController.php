@@ -297,15 +297,18 @@ class OrdenMeritoController extends BaseController
                 $al['num_ad']           = $r !== null ? (int) $r['num_ad'] : null;
                 $al['num_b']            = $r !== null ? (int) $r['num_b']  : null;
                 $al['num_c']            = $r !== null ? (int) $r['num_c']  : null;
+                $al['num_alto']         = $r !== null ? (int) $r['num_alto'] : null;
+                $al['num_16']           = $r !== null ? (int) $r['num_16']   : null;
                 $al['puesto_grado']     = $r['puesto'] ?? null;
             }
             unset($al);
 
-            // Cuadro comparativo por competencia (numeral + literal) del grupo.
-            $res['comparativo'] = $this->desempateModel->getComparativoCompetencias(
-                array_map(static fn($a) => (int) $a['matricula_id'], $res['alumnos']),
-                $periodoId
-            );
+            // Cuadro comparativo por competencia (numeral + literal) del grupo y
+            // expediente completo (boleta, asistencia, conducta): lo MISMO que se
+            // vio al decidir, desde el mismo punto único (17/10/2026).
+            $ids = array_map(static fn($a) => (int) $a['matricula_id'], $res['alumnos']);
+            $res['comparativo'] = $this->desempateModel->getComparativoCompetencias($ids, $periodoId);
+            $res['expediente']  = $this->desempateModel->expediente($ids, $periodoId);
         }
         unset($res);
 
@@ -382,17 +385,16 @@ class OrdenMeritoController extends BaseController
 
     /**
      * GET /director/orden-merito/{periodo_id}/desempate/{grado_id}
-     * Formulario para resolver los empates irreducibles de un grado.
+     * Expediente de los empates irreducibles de un grado y formulario para
+     * resolverlos.
      *
-     * Resolver un empate es ESCRITURA: los directores NO entran (403). Habia
-     * aqui un segundo `requireRole` que SI los incluia, codigo MUERTO por ser
-     * mas permisivo que el de arriba; se retiro el 02/09/2026 porque al leerlo
-     * hacia creer lo contrario de lo que el metodo hace.
+     * Desde el 17/10/2026 los directores ENTRAN a ver el expediente en solo
+     * lectura (decisión del usuario): el formulario solo se pinta con
+     * `puedeEscribir`, y resolver sigue guardado en `guardarDesempate`, que es
+     * donde está el control de acceso de la escritura.
      */
     public function desempate(string $periodoId, string $gradoId): void
     {
-        $this->requireRole(self::ROLES_ESCRIBEN);
-
         $periodoId = (int) $periodoId;
         $gradoId   = (int) $gradoId;
 
@@ -417,20 +419,28 @@ class OrdenMeritoController extends BaseController
             );
         }
 
-        // Detectar los grupos pendientes a partir del ranking general del grado.
-        $estudiantes = $this->calcularRanking($gradoId, $periodoId);
-        $grupos = [];
-        foreach ($estudiantes as $est) {
-            if (!empty($est['empate_pendiente'])) {
-                $grupos[$est['empate_clave']][] = $est;
-            }
+        // Grupos pendientes EN VIVO (no snapshot-aware): los mismos que ven el
+        // guard del cierre y la card del Centro de Control. Ver
+        // OrdenMeritoModel::gruposEmpatePendientesLive.
+        $grupos = $this->ordenMeritoModel->gruposEmpatePendientesLive($gradoId, $periodoId);
+
+        $evidencia = [];
+        foreach ($grupos as $clave => $alumnos) {
+            $ids = array_map(static fn($a) => (int) $a['matricula_id'], $alumnos);
+            $evidencia[$clave] = [
+                'comparativo' => $this->desempateModel->getComparativoCompetencias($ids, $periodoId),
+                'expediente'  => $this->desempateModel->expediente($ids, $periodoId),
+            ];
         }
 
         $this->view('director/orden-merito-desempate', [
-            'titulo'  => 'Resolver empate — ' . $grado['nombre_display'],
-            'periodo' => $periodo,
-            'grado'   => $grado,
-            'grupos'  => $grupos,
+            'titulo'        => 'Resolver empate — ' . $grado['nombre_display'],
+            'periodo'       => $periodo,
+            'grado'         => $grado,
+            'grupos'        => $grupos,
+            'evidencia'     => $evidencia,
+            'criterios'     => DesempateMeritoModel::CRITERIOS,
+            'puedeEscribir' => has_role(self::ROLES_ESCRIBEN),
         ]);
     }
 
@@ -447,11 +457,27 @@ class OrdenMeritoController extends BaseController
         $gradoId   = (int) $gradoId;
         $destino   = url('director/orden-merito/' . $periodoId);
 
-        $motivo = trim((string) $this->input('motivo', ''));
-        $orden  = $this->input('orden', []); // [matricula_id => posicion]
+        $motivo    = trim((string) $this->input('motivo', ''));
+        $orden     = $this->input('orden', []); // [matricula_id => posicion]
+        $criterios = $this->input('criterio', []);
+        $volver    = url('director/orden-merito/' . $periodoId . '/desempate/' . $gradoId);
 
         if ($motivo === '' || !is_array($orden) || count($orden) < 2) {
             $this->redirectWithError($destino, 'Falta el motivo o el orden del desempate.');
+        }
+
+        // Criterios aplicados (migración 081): al menos uno y todos de la lista.
+        if (!is_array($criterios) || $criterios === []) {
+            $this->redirectWithError($volver, 'Marca al menos un criterio aplicado.');
+        }
+        $criterios = array_values(array_unique($criterios, SORT_REGULAR));
+        foreach ($criterios as $c) {
+            if (!is_string($c) || !isset(DesempateMeritoModel::CRITERIOS[$c])) {
+                $this->redirectWithError($volver, 'Revisa los criterios marcados.');
+            }
+        }
+        if (mb_strlen($motivo) > 500) {
+            $this->redirectWithError($volver, 'El motivo no puede superar los 500 caracteres.');
         }
 
         // Validar que las posiciones formen una permutación estricta 1..n (sin repetir).
@@ -476,10 +502,11 @@ class OrdenMeritoController extends BaseController
                 $gradoId,
                 $ordenMatriculas,
                 (int) ($usuario['id'] ?? 0),
-                $motivo
+                $motivo,
+                $criterios
             );
         } catch (\Exception $e) {
-            $this->redirectWithError($destino, 'No se pudo guardar la resolución del empate.');
+            $this->redirectWithError($volver, 'No se pudo guardar la resolución del empate.');
         }
 
         $this->redirectWithSuccess($destino, 'Empate resuelto y registrado.');
