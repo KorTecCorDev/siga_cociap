@@ -4,6 +4,35 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **17/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+## 🔜 RETOMAR AQUÍ (17/10/2026) — DESPLEGADO RATIFICACIONES + EXPEDIENTE; III APROBADO
+
+**🟢 DESPLEGADO el 17/10/2026: merge `bf885dd` en `main`** (`--no-ff`, 13 commits; sigue
+v1.0.5): ratificación de matrícula (080) y expediente del desempate (081). El usuario aplicó
+**080 y 081 en producción ANTES del merge** y las dio por correctas. **Adelanta por decisión
+explícita del usuario** la regla «ratificaciones no antes del 19/10».
+
+**III Bimestre — Hito A dado el 17/10/2026** («Bloquear y aprobar el bimestre», boletas en
+BORRADOR). Antes, la consulta de `registrosSinBloquear` en prod dio **0 filas**: asistencia y
+conducta (las dos etapas) bloqueadas en las 23 secciones.
+
+**REGLA OPERATIVA (decisión del usuario, 17/10/2026): no se da «Bloquear y aprobar el bimestre»
+sin la ASISTENCIA y la CONDUCTA bloqueadas en todas las secciones.** Un borrador debe tener
+todos los datos completos, aunque haya que corregirlos. El Hito A hoy NO lo comprueba: solo
+fuerza las competencias académicas y las transversales. Forzar la asistencia NO serviría (lo no
+confirmado sale con guion igual): se EXIGE, como en el cierre (F3). Consulta en
+`docs/runbooks/cierre-de-bimestre.md` § 0.2.
+
+Pendientes:
+1. [ ] Comprobar en el servidor que existe `~/siga_uploads/ratificacion/` con permisos de
+   escritura (requisito del módulo; sin ella falla la subida de imágenes de plantilla).
+2. [ ] Probar el expediente del desempate con un usuario de **Dirección** (sin botón ni modal;
+   POST → 403).
+3. [ ] Cerrar el III (a más tardar el 18/10) y abrir el IV el 19/10.
+4. [ ] **Código, para el IV (después de cerrar el III):** que `aprobarBimestre` EXIJA
+   asistencia y conducta bloqueadas reutilizando `AnioAcademicoModel::registrosSinBloquear`
+   (+ aviso en el Centro de Control). A decidir al implementarlo: conducta solo etapa 1 o
+   también la etapa 2 del tutor (el usuario se inclina por exigir la conducta completa).
+
 
 ## 🔜 RETOMAR AQUÍ (13/10/2026) — DESPLIEGUE CON EL III ACTIVO + 3 DÍAS DE PLAZO
 
@@ -42,7 +71,7 @@ Pasos, en orden:
 7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
    asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
 
-## 🆕 RATIFICACIÓN DE MATRÍCULA — CONSTRUIDO en `dev` (14-15/10/2026, migración 080), SIN DESPLEGAR
+## 🆕 RATIFICACIÓN DE MATRÍCULA — DESPLEGADO el 17/10/2026 (merge `bf885dd`, migración 080)
 
 Módulo nuevo: el admin/Secretaría registra la decisión de Dirección (ratificado / no
 ratificado con motivo) y el sistema emite el documento A4 con QR de autenticidad. El
@@ -112,8 +141,9 @@ Todo en `origin/dev`; `main` no lo tiene.
   compartan hoja con la última cláusula (recomendación, no obligatorio).
 - [ ] Pedir a Dirección los textos definitivos del contrato y del comunicado y el catálogo de
   motivos de 2026 (ruta crítica real).
-- [ ] **No desplegar antes de cerrar el III y abrir el IV (18-19/10).** Pasos: «Despliegue del
-  módulo» arriba (080 en prod ANTES del merge).
+- [x] Desplegado el 17/10/2026 (merge `bf885dd`), con la 080 aplicada en prod ANTES del merge.
+  Se adelantó al 19/10 previsto por decisión del usuario. Falta comprobar
+  `~/siga_uploads/ratificacion/` en el servidor (ver «RETOMAR AQUÍ (17/10/2026)»).
 
 **Datos en la BD de la OFICINA** (solo allí): los de prueba del 14/10 se borraron el 15/10 (se
 conservó la plantilla 13). El usuario creó el 15/10 nuevos datos de prueba: plantillas 65
@@ -121,7 +151,7 @@ conservó la plantilla 13). El usuario creó el 15/10 nuevos datos de prueba: pl
 (mat. 213), emisiones 52 y 53 vigentes. La 52 la anuló Claude por error a las 12:30 y se
 restauró por SQL con el visto bueno del usuario (mismo token). Borrarlos cuando ya no sirvan.
 
-## 🆕 EXPEDIENTE DEL DESEMPATE — CONSTRUIDO en `dev` (17/10/2026, migración 081), SIN DESPLEGAR
+## 🆕 EXPEDIENTE DEL DESEMPATE — DESPLEGADO el 17/10/2026 (merge `bf885dd`, migración 081)
 
 La pantalla «Resolver empate» pasa a ser un **expediente comparativo** del grupo: por qué
 empatan (los 5 conteos de la cascada), detalle por competencia, asistencia, conducta y boleta
@@ -137,9 +167,9 @@ Corrige además dos defectos (pantalla leía el snapshot; comparativo no cuadrab
   (criterios, re-resolver, limpieza de lo creado).
 - [ ] **Probar con un usuario de DIRECCIÓN**: entra al expediente sin formulario y el POST da 403.
   No se probó en el navegador (no hay sesión de director a mano).
-- [ ] **No llega al cierre del III** (18/10): aplica desde el IV. Despliegue junto con `dev`:
-  aplicar `081_desempates_criterios.sql` en prod **ANTES del merge** (sin la tabla, guardar un
-  desempate falla) y comprobar con `SHOW COLUMNS FROM desempates_merito_criterios` → 2 filas.
+- [x] Desplegado el 17/10/2026 (merge `bf885dd`), con la 081 aplicada en prod ANTES del merge
+  (sin la tabla, guardar un desempate falla). Ya rige para los empates que queden por
+  resolver antes de cerrar el III.
 
 ## (HISTÓRICO, reemplazado el 13/10/2026) RETOMAR AQUÍ (12/10/2026) — DESPLIEGUE DESPUÉS DEL III
 

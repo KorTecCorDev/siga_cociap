@@ -106,6 +106,32 @@ revierte, **no toca los bloqueos** — lo dice su propio comentario.
 SELECT id, nombre_display, estado, boletas_aprobadas_en FROM periodos WHERE id = 2;
 ```
 
+🔴 **REGLA OPERATIVA (decisión del usuario, 17/10/2026): NO dar el Hito A sin la ASISTENCIA y
+la CONDUCTA bloqueadas en TODAS las secciones.** Un borrador debe tener todos los datos
+completos. El Hito A no lo comprueba (fuerza académicas y transversales; asistencia y conducta
+no las toca, y forzarlas no serviría: lo no confirmado sale con guion igual). Hasta que el
+código lo exija (pendiente en `docs/ESTADO.md`), correr antes esta consulta — mismas reglas
+que `registrosSinBloquear`, el guard del cierre — y dar el Hito A **solo con 0 filas**:
+
+```sql
+SELECT CONCAT(n.nombre, ' ', g.nombre_display, ' ', s.nombre) AS seccion,
+       EXISTS (SELECT 1 FROM cierres_asistencia ca
+               WHERE ca.seccion_id = s.id AND ca.periodo_id = p.id AND ca.anulado_en IS NULL) AS asistencia,
+       EXISTS (SELECT 1 FROM cierres_conducta cc
+               WHERE cc.seccion_id = s.id AND cc.periodo_id = p.id AND cc.anulado_en IS NULL) AS conducta,
+       EXISTS (SELECT 1 FROM cierres_conducta cc
+               WHERE cc.seccion_id = s.id AND cc.periodo_id = p.id AND cc.anulado_en IS NULL
+                 AND cc.tutor_cerrado_en IS NOT NULL) AS conducta_tutor
+FROM periodos p
+INNER JOIN secciones s ON s.anio_id = p.anio_id
+INNER JOIN grados g    ON g.id = s.grado_id
+INNER JOIN niveles n   ON n.id = g.nivel_id
+WHERE p.estado = 'activo' AND p.numero = 3   -- número del bimestre
+HAVING asistencia = 0 OR conducta = 0 OR conducta_tutor = 0;
+```
+
+Primera aplicación: III de 2026, 17/10/2026 → 0 filas, Hito A dado.
+
 ⚠️ **Cómo distinguir un Hito A de un cierre real**, que es lo que confundió a la
 documentación: un cierre deja rastro en **cuatro** sitios a la vez —`estado='cerrado'`,
 fila en `orden_merito_snapshot`, `boletas_aprobadas_en` y, si se deshizo, una fila en

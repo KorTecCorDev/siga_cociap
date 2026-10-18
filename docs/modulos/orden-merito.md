@@ -110,7 +110,7 @@ en documento oficial inmutable por snapshot.
 - Limitación menor conocida: `getConteosGrado` (header del reporte) sigue en vivo —
   solo afecta el conteo del grado operativo de un retorno revertido, no los puestos.
 
-## Expediente del desempate (17/10/2026, migración 081) — en `dev`, sin desplegar
+## Expediente del desempate (17/10/2026, migración 081) — desplegado el 17/10/2026 (`bf885dd`)
 
 La pantalla `/director/orden-merito/{periodo}/desempate/{grado}` dejó de mostrar solo
 promedio y AD/B/C: es el **expediente comparativo** del grupo empatado, para decidir y

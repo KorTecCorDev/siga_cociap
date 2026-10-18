@@ -1,9 +1,8 @@
 # Ratificación de matrícula
 
-> **Estado (15/10/2026): CONSTRUIDO en `dev` (Fases 1 a 5) y probado en Chrome con admin y con
-> director. SIN DESPLEGAR.** No desplegar antes de cerrar el III y abrir el IV (18-19/10/2026).
-> La migración 080 solo está aplicada en la BD local de la oficina; los pasos de despliegue van
-> en `docs/ESTADO.md`. Lo construido se describe en **«Cómo funciona»**; la sección «Fases»
+> **Estado (17/10/2026): DESPLEGADO en producción** (merge `bf885dd`; Fases 1 a 5, probado en
+> Chrome con admin y con director). La migración 080 se aplicó en prod antes del merge. Se
+> adelantó al 19/10 previsto por decisión del usuario. Pendientes en `docs/ESTADO.md`. Lo construido se describe en **«Cómo funciona»**; la sección «Fases»
 > queda como bitácora de la construcción.
 
 
@@ -304,8 +303,7 @@ fila de la tabla (no se tocó). El usuario probó el 15/10 la descarga real del 
   `verif_direccion_superficies.php` (lista de cards de Dirección).
 - **Despliegue** (pasos en `docs/ESTADO.md`): aplicar la **080 en producción ANTES del merge**
   (la card aparece en el dashboard y, sin las tablas, la pantalla falla); crear
-  `~/siga_uploads/ratificacion/` con permisos de escritura; no desplegar antes de cerrar el III y
-  abrir el IV.
+  `~/siga_uploads/ratificacion/` con permisos de escritura. Desplegado el 17/10/2026.
 - **Verificación**: `php database/verificaciones/verif_ratificaciones.php` (transacción +
   ROLLBACK, sin DELETE; años temporales 2099/2100). Cubre universo, CHECK, decisiones con
   anulación confirmada, plantillas (validación, XSS, versiones, huella, duplicar), emisión
