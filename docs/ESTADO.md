@@ -18,6 +18,8 @@ Detalle y decisiones: `docs/modulos/boletas.md` § «Fechas de las incidencias d
   - token (sin fechas de un bimestre no publicado);
   - lote de vista previa (24 boletas, 12 con anexo);
   - PDF con el contenedor real del ZIP (hoja 1 con firmas, hoja 2 el anexo, marca entera).
+- [x] **Comprobado al 100 % por el usuario el 17/10/2026** (versión final: solo bimestres con
+  fechas y fichas con el color de su tipo).
 - [ ] Al desplegar: solo código. Las familias verán fechas en cuanto el III se publique.
 - ⚠️ Hallado al correr la batería: a la **BD LOCAL** le faltan los CHECK de asistencia
   (`chk_justificada_con_motivo`, `chk_principal_vigente`); `verif_asistencia_fechas`,
