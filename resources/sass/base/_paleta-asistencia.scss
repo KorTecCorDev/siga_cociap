@@ -1,0 +1,36 @@
+// ── Paleta de incidencias de asistencia (decisión del usuario, 30/09/2026) ───
+// PUNTO ÚNICO del color de F · FJ · T · TJ. Vivía en `pages/_asistencia.scss`;
+// el 17/10/2026 se trajo aquí, SIN CAMBIAR NINGÚN VALOR, para que la boleta
+// (`pages/_boleta-digital.scss`, que se importa ANTES que asistencia) pinte las
+// fichas de fechas con los mismos colores que la grilla. No copiar estos
+// valores a otro archivo: usar las variables o el mixin.
+//
+// Familias: ROJO = faltas, NARANJA = tardanzas, en tonos CORRIDOS (carmín y
+// terracota) para no confundirse con el rojo de C (#dc2626) ni con el ámbar de
+// B (#d97706). La injustificada va RELLENA (texto blanco); la justificada, en
+// CONTORNO claro del mismo tono: se distinguen por forma, no solo por matiz.
+// Lo aplican `.af-celda--{tipo}` (celda), `.af-tipo--{tipo}` (pastilla de
+// encabezados y leyendas) y `.bd-asis-fechas__fecha--{tipo}` (boleta).
+$af-f:        #be123c;   // falta — relleno carmín
+$af-fj-borde: #fb7185;   // falta justificada — contorno rosa
+$af-fj-fondo: #fff1f2;
+$af-fj-texto: #be123c;
+$af-t:        #c2410c;   // tardanza — relleno terracota
+$af-tj-borde: #fb923c;   // tardanza justificada — contorno durazno
+$af-tj-fondo: #fff7ed;
+$af-tj-texto: #9a3412;
+// LISTA DEL DÍA (30/09/2026, migración 070). «Asistió» en gris PIZARRA, nunca
+// verde: el verde es de AD y de «confirmado». «Sin tomar» con el ámbar de aviso
+// del sistema, solo en el borde. «No lectivo», gris apagado.
+$af-asistio:  $text-secondary;
+
+@mixin af-tipo-colores {
+    &--f  { border-color: $af-f;        background: $af-f;        color: $text-white; }
+    &--fj { border-color: $af-fj-borde; background: $af-fj-fondo; color: $af-fj-texto; }
+    &--t  { border-color: $af-t;        background: $af-t;        color: $text-white; }
+    &--tj { border-color: $af-tj-borde; background: $af-tj-fondo; color: $af-tj-texto; }
+    &--asistio   { border-color: $border-color; background: $bg-white; color: $af-asistio; }
+    &--sin-tomar { border-color: rgba($color-warning, .55); border-style: dashed; background: $bg-white; color: $color-warning; }
+    &--nl,
+    &--no-lectivo { border-color: $border-color; background: $bg-secondary; color: $text-muted; }
+}
