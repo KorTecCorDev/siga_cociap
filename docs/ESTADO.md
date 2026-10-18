@@ -23,10 +23,10 @@ confirmado sale con guion igual): se EXIGE, como en el cierre (F3). Consulta en
 `docs/runbooks/cierre-de-bimestre.md` § 0.2.
 
 Pendientes:
-1. [ ] Comprobar en el servidor que existe `~/siga_uploads/ratificacion/` con permisos de
-   escritura (requisito del módulo; sin ella falla la subida de imágenes de plantilla).
-2. [ ] Probar el expediente del desempate con un usuario de **Dirección** (sin botón ni modal;
-   POST → 403).
+1. [x] `~/siga_uploads/ratificacion/` con permisos de escritura en el servidor (requisito del
+   módulo). Confirmado por el usuario el 17/10/2026.
+2. [x] Expediente del desempate probado con **Dirección** (sin botón ni modal). Confirmado por
+   el usuario el 17/10/2026.
 3. [ ] Cerrar el III (a más tardar el 18/10) y abrir el IV el 19/10.
 4. [ ] **Código, para el IV (después de cerrar el III):** que `aprobarBimestre` EXIJA
    asistencia y conducta bloqueadas reutilizando `AnioAcademicoModel::registrosSinBloquear`
@@ -142,8 +142,8 @@ Todo en `origin/dev`; `main` no lo tiene.
 - [ ] Pedir a Dirección los textos definitivos del contrato y del comunicado y el catálogo de
   motivos de 2026 (ruta crítica real).
 - [x] Desplegado el 17/10/2026 (merge `bf885dd`), con la 080 aplicada en prod ANTES del merge.
-  Se adelantó al 19/10 previsto por decisión del usuario. Falta comprobar
-  `~/siga_uploads/ratificacion/` en el servidor (ver «RETOMAR AQUÍ (17/10/2026)»).
+  Se adelantó al 19/10 previsto por decisión del usuario. `~/siga_uploads/ratificacion/`
+  comprobada en el servidor (17/10/2026).
 
 **Datos en la BD de la OFICINA** (solo allí): los de prueba del 14/10 se borraron el 15/10 (se
 conservó la plantilla 13). El usuario creó el 15/10 nuevos datos de prueba: plantillas 65
@@ -165,8 +165,8 @@ Corrige además dos defectos (pantalla leía el snapshot; comparativo no cuadrab
 - [x] `verif_desempate_expediente.php` → 82 grupos, 0 fallos (local). Probado en Chrome con admin
   (pantalla, validación del cliente, acta en pantalla e impresa). El guardado se probó por CLI
   (criterios, re-resolver, limpieza de lo creado).
-- [ ] **Probar con un usuario de DIRECCIÓN**: entra al expediente sin formulario y el POST da 403.
-  No se probó en el navegador (no hay sesión de director a mano).
+- [x] **Probado con un usuario de DIRECCIÓN** en producción (17/10/2026, confirmado por el
+  usuario): entra al expediente sin formulario.
 - [x] Desplegado el 17/10/2026 (merge `bf885dd`), con la 081 aplicada en prod ANTES del merge
   (sin la tabla, guardar un desempate falla). Ya rige para los empates que queden por
   resolver antes de cerrar el III.
