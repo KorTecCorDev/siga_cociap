@@ -457,6 +457,51 @@ $vistaPrevia = $vistaPrevia ?? false;
                 </tbody>
             </table>
             </div>
+
+            <?php
+            // FECHAS de las incidencias (17/10/2026): por cada bimestre mostrado
+            // QUE SE REGISTRÓ POR FECHAS (desde el III de 2026), cuándo ocurrió cada
+            // una, agrupadas por el total en que CUENTAN (así cuadran con la tabla).
+            // Los registrados solo por totales (I y II, vía extraordinaria) no se
+            // listan: no tienen fechas que mostrar (decisión del usuario).
+            $bimsConFechas = array_values(array_filter(
+                $asistencia['bimestres'],
+                static fn(array $b): bool => empty($b['sin_registro']) && $b['fechas'] !== null
+            ));
+            // Color de cada ficha = el de su tipo en la grilla de asistencia.
+            $claseTipoFecha = [
+                'faltas'                 => 'f',
+                'faltas_justificadas'    => 'fj',
+                'tardanzas'              => 't',
+                'tardanzas_justificadas' => 'tj',
+            ];
+            ?>
+            <?php if ($bimsConFechas !== []): ?>
+            <div class="bd-asis-fechas">
+                <h3 class="bd-asis-fechas__titulo">Fechas de inasistencias y tardanzas</h3>
+                <?php foreach ($bimsConFechas as $bim): ?>
+                    <div class="bd-asis-fechas__bimestre">
+                        <span class="bd-asis-fechas__bim"><?= ($romanos[$bim['numero'] - 1] ?? $bim['numero']) ?> Bimestre</span>
+                        <?php if (!array_filter($bim['fechas'])): ?>
+                            <p class="bd-asis-fechas__nota">Sin inasistencias ni tardanzas.</p>
+                        <?php else: ?>
+                            <dl class="bd-asis-fechas__lista">
+                                <?php foreach ($camposAsis as $clave => $etiqueta):
+                                    if (empty($bim['fechas'][$clave])) { continue; }
+                                    $tramos     = $bim['fechas'][$clave];
+                                    $claseFecha = 'bd-asis-fechas__fecha bd-asis-fechas__fecha--' . $claseTipoFecha[$clave];
+                                ?>
+                                    <dt class="bd-asis-fechas__tipo"><?= e($etiqueta) ?> (<?= (int) $bim['datos'][$clave] ?>)</dt>
+                                    <dd class="bd-asis-fechas__fechas">
+                                        <?php require VIEW_PATH . '/boleta/_fechas-asistencia.php'; ?>
+                                    </dd>
+                                <?php endforeach; ?>
+                            </dl>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </section>
         <?php endif; ?>
     </main>

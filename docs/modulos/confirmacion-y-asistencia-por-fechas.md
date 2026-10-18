@@ -584,7 +584,7 @@ por el usuario (confirmaciones + backfill).
 | Motivos | **Catálogo con pantalla de gestión**: admin y RA editan, Dirección lee; un motivo usado se retira, no se borra. Iniciales: «Justificación escrita autorizada», «Justificación verbal» |
 | Motivo: cuándo | Al **confirmar** (el día se autoguarda sin motivo; Confirmar se niega si falta) |
 | Grilla | **Mensual día × estudiante**, como la planilla de papel, con los 4 totales del bimestre al final de cada fila |
-| Quién ve fechas | Registran: auxiliar, RA, admin. Ven: **Dirección**. **Familias → v1.1** (sin logins de padres) |
+| Quién ve fechas | Registran: auxiliar, RA, admin. Ven: **Dirección**. **Familias → v1.1** (sin logins de padres). **Actualizado el 17/10/2026:** la BOLETA muestra las fechas a todos, familias incluidas (sin motivo; anexo en el impreso). Ver `docs/modulos/boletas.md` § «Fechas de las incidencias de asistencia» |
 
 **Decisiones técnicas mías** (revisables en este plan):
 - **No se marcan días futuros** (máx. = hoy): nadie falta mañana.

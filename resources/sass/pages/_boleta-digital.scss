@@ -1273,6 +1273,100 @@ $bd-asis-border: #cbd5e1;
     }
 }
 
+// ── Fechas de las incidencias (17/10/2026) ───────────────────────
+// Debajo de la tabla de asistencia: por bimestre, cuándo ocurrió cada
+// incidencia, agrupadas por el total en que cuentan. Cada ficha lleva el COLOR
+// DE SU TIPO en la grilla de asistencia (pedido del usuario): mixin
+// `af-tipo-colores` de `base/_paleta-asistencia.scss`, sin copiar valores.
+.bd-asis-fechas {
+    margin-top: 14px;
+
+    &__titulo {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        color: #475569;
+        margin: 0 0 8px;
+    }
+
+    &__bimestre {
+        background: #fff;
+        border: 1px solid $bd-asis-border;
+        border-radius: 8px;
+        padding: 10px 12px;
+
+        & + & { margin-top: 8px; }
+    }
+
+    &__bim {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: $bd-asis-color;
+        margin-bottom: 6px;
+    }
+
+    &__nota {
+        margin: 0;
+        font-size: 13px;
+        color: $text-muted;
+        font-style: italic;
+    }
+
+    &__lista {
+        display: grid;
+        grid-template-columns: minmax(150px, max-content) 1fr;
+        gap: 6px 12px;
+        margin: 0;
+
+        @media (max-width: 480px) { grid-template-columns: 1fr; }
+    }
+
+    &__tipo {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    &__fechas {
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    &__fecha {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: $bd-asis-bg;
+        border: 1px solid $bd-asis-border;
+        font-size: 12px;
+        color: #1e293b;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+
+        @include af-tipo-colores;
+    }
+
+    @media print {
+        margin-top: 2mm;
+
+        .bd-asis-fechas__titulo { font-size: 6.5pt; margin-bottom: 1mm; }
+        .bd-asis-fechas__bimestre { padding: 1mm 1.5mm; border-radius: 0; border: 0.4pt solid #bbb; page-break-inside: avoid; }
+        .bd-asis-fechas__bim,
+        .bd-asis-fechas__tipo,
+        .bd-asis-fechas__nota { font-size: 6.5pt; }
+        .bd-asis-fechas__fecha {
+            font-size: 6pt;
+            padding: 0 1.5mm;
+            -webkit-print-color-adjust: exact;   // conserva el color del tipo
+            print-color-adjust: exact;
+        }
+    }
+}
+
 // ══════════════════════════════════════════════════════════════
 // @page — impresión A4 portrait
 // ══════════════════════════════════════════════════════════════

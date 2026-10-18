@@ -4,6 +4,29 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **17/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+## 🆕 FECHAS DE ASISTENCIA EN LA BOLETA — CONSTRUIDO en `dev` (17/10/2026), SIN DESPLEGAR
+
+La boleta (digital, imprimible y PDF, todos los estados y todas las vistas, familias
+incluidas) muestra **cuándo** ocurrió cada incidencia: agrupadas por el total en que
+CUENTAN, sin motivo, y en el impreso en un **anexo en hoja aparte**. Solo los bimestres
+registrados por fechas (desde el III); en la digital, fichas con el color de su tipo.
+**Sin migración.**
+Detalle y decisiones: `docs/modulos/boletas.md` § «Fechas de las incidencias de asistencia».
+- [x] `verif_boleta_fechas_asistencia.php` → OK (521 estudiantes, 210 FJ fuera del ancla).
+  Probado en Chrome como admin:
+  - digital e imprimible (4 tipos y un tramo de 42 días);
+  - token (sin fechas de un bimestre no publicado);
+  - lote de vista previa (24 boletas, 12 con anexo);
+  - PDF con el contenedor real del ZIP (hoja 1 con firmas, hoja 2 el anexo, marca entera).
+- [x] **Comprobado al 100 % por el usuario el 17/10/2026** (versión final: solo bimestres con
+  fechas y fichas con el color de su tipo).
+- [ ] Al desplegar: solo código. Las familias verán fechas en cuanto el III se publique.
+- ⚠️ Hallado al correr la batería: a la **BD LOCAL** le faltan los CHECK de asistencia
+  (`chk_justificada_con_motivo`, `chk_principal_vigente`); `verif_asistencia_fechas`,
+  `_jornadas`, `_presencias` y `_estadisticas` fallan por eso y por falta de escenario (III ya
+  bloqueado). No es de este cambio. La BD local se recargó hoy: ya había perdido la tabla
+  de la 081.
+
 ## 🔜 RETOMAR AQUÍ (17/10/2026) — DESPLEGADO RATIFICACIONES + EXPEDIENTE; III APROBADO
 
 **🟢 DESPLEGADO el 17/10/2026: merge `bf885dd` en `main`** (`--no-ff`, 13 commits; sigue
@@ -23,10 +46,10 @@ confirmado sale con guion igual): se EXIGE, como en el cierre (F3). Consulta en
 `docs/runbooks/cierre-de-bimestre.md` § 0.2.
 
 Pendientes:
-1. [ ] Comprobar en el servidor que existe `~/siga_uploads/ratificacion/` con permisos de
-   escritura (requisito del módulo; sin ella falla la subida de imágenes de plantilla).
-2. [ ] Probar el expediente del desempate con un usuario de **Dirección** (sin botón ni modal;
-   POST → 403).
+1. [x] `~/siga_uploads/ratificacion/` con permisos de escritura en el servidor (requisito del
+   módulo). Confirmado por el usuario el 17/10/2026.
+2. [x] Expediente del desempate probado con **Dirección** (sin botón ni modal). Confirmado por
+   el usuario el 17/10/2026.
 3. [ ] Cerrar el III (a más tardar el 18/10) y abrir el IV el 19/10.
 4. [ ] **Código, para el IV (después de cerrar el III):** que `aprobarBimestre` EXIJA
    asistencia y conducta bloqueadas reutilizando `AnioAcademicoModel::registrosSinBloquear`
@@ -142,8 +165,8 @@ Todo en `origin/dev`; `main` no lo tiene.
 - [ ] Pedir a Dirección los textos definitivos del contrato y del comunicado y el catálogo de
   motivos de 2026 (ruta crítica real).
 - [x] Desplegado el 17/10/2026 (merge `bf885dd`), con la 080 aplicada en prod ANTES del merge.
-  Se adelantó al 19/10 previsto por decisión del usuario. Falta comprobar
-  `~/siga_uploads/ratificacion/` en el servidor (ver «RETOMAR AQUÍ (17/10/2026)»).
+  Se adelantó al 19/10 previsto por decisión del usuario. `~/siga_uploads/ratificacion/`
+  comprobada en el servidor (17/10/2026).
 
 **Datos en la BD de la OFICINA** (solo allí): los de prueba del 14/10 se borraron el 15/10 (se
 conservó la plantilla 13). El usuario creó el 15/10 nuevos datos de prueba: plantillas 65
@@ -165,8 +188,8 @@ Corrige además dos defectos (pantalla leía el snapshot; comparativo no cuadrab
 - [x] `verif_desempate_expediente.php` → 82 grupos, 0 fallos (local). Probado en Chrome con admin
   (pantalla, validación del cliente, acta en pantalla e impresa). El guardado se probó por CLI
   (criterios, re-resolver, limpieza de lo creado).
-- [ ] **Probar con un usuario de DIRECCIÓN**: entra al expediente sin formulario y el POST da 403.
-  No se probó en el navegador (no hay sesión de director a mano).
+- [x] **Probado con un usuario de DIRECCIÓN** en producción (17/10/2026, confirmado por el
+  usuario): entra al expediente sin formulario.
 - [x] Desplegado el 17/10/2026 (merge `bf885dd`), con la 081 aplicada en prod ANTES del merge
   (sin la tabla, guardar un desempate falla). Ya rige para los empates que queden por
   resolver antes de cerrar el III.

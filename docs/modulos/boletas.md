@@ -1219,3 +1219,60 @@ decía «no existe», y la matrícula sí existe.
 - Verificador: `verif_boleta_sin_calificaciones.php` (solo lectura; compara la regla con un
   control escrito a mano en las 537 matrículas del año, las dos ramas).
 
+
+## Fechas de las incidencias de asistencia (17/10/2026) — en `dev`, sin desplegar
+
+Desde el III Bimestre la asistencia se registra POR FECHAS (migración 069), pero la boleta
+solo mostraba los 4 totales. Ahora muestra **cuándo** ocurrió cada incidencia, en la digital,
+el imprimible y el PDF, en todos sus estados. Sin migración.
+
+Decisiones del usuario (17/10/2026, no re-preguntar):
+1. **Todas las vistas**: gestión, docente, Dirección y **familias** (token/QR). Deroga, solo
+   para la boleta, el «familias → v1.1» del 29/09/2026.
+2. **Solo fechas, sin motivo** de la justificación.
+3. Impresión y PDF: **anexo en hoja aparte**, solo si hay alguna fecha. La hoja 1 (modelo
+   oficial, firmas) no cambia: en secundaria las firmas ya entran justo.
+4. **Solo los bimestres registrados POR FECHAS** (desde el III de 2026) de los que la boleta
+   muestra, con el umbral de cada estado. Los de solo totales (I y II de 2026, y la vía
+   extraordinaria) **no se listan**: ni en la digital ni en el anexo (ajuste del usuario del
+   mismo día; la primera versión los rotulaba «Registrado por totales»).
+5. **Fichas con el COLOR DE SU TIPO** en la grilla de asistencia (F carmín relleno, FJ rosa
+   en contorno, T terracota relleno, TJ durazno en contorno). Para no copiar valores, la
+   paleta `$af-*` y el mixin `af-tipo-colores` pasaron de `pages/_asistencia.scss` a
+   **`base/_paleta-asistencia.scss`** (mismos valores; la boleta se importa antes que
+   asistencia). El anexo impreso va en texto negro: se imprime en blanco y negro.
+
+🔴 **Las fechas se agrupan por el total en que CUENTAN, no por la marca del día.** Una FJ con
+motivo distinto del ancla cuenta como **falta**, y sale bajo «Faltas». Así cada categoría
+tiene tantos días como su total en la tabla. La regla no se copia: sale de
+`AsistenciaEstadisticaModel::tipoQueCuenta` (espejo de `sqlConteoContadores`).
+
+Implementación:
+- **Datos:** `AsistenciaModel::fechasParaBoleta($mid, $pid)`.
+  - Devuelve `null` si el bimestre es por totales.
+  - Si no, `[campo => tramos]`: los días lectivos seguidos se unen con `tramosDeFechas`.
+  - Solo lee incidencias confirmadas.
+- **`BoletaModel::armar()`** la pide **solo si el bimestre no está `sin_registro`**, con la
+  matrícula que lo cursó (retorno de grado). `sin_registro` ya encierra el umbral del estado,
+  la compuerta 044 y la visibilidad (confirmado + cierre): **ninguna fecha sale de un bimestre
+  que ese estado no muestra**. Claves nuevas, aditivas:
+  - `asistencia.bimestres[].fechas`;
+  - `asistencia.hay_fechas`.
+- **Vistas:**
+  - digital: bloque «Fechas de inasistencias y tardanzas» bajo la tabla;
+  - imprimible: `.boleta-anexo`, un `.boleta-doc` propio tras un `.boleta-salto-pagina`, con
+    su propia marca de agua de borrador;
+  - formato común en el parcial `boleta/_fechas-asistencia.php`: «10/09» o «17/08 al 25/09
+    (28 días)».
+- **PDF/ZIP** (`public/js/archivar-boletas.js`, sin fuente en `resources/js`):
+  `pagebreak.mode = ['css', 'avoid-all']` para respetar el salto. Comprobado generando el PDF
+  con el contenedor real de 297 mm: hoja 1 la boleta con firmas, hoja 2 el anexo.
+- ⚠️ **`.boleta-anexo { min-height: 150mm }`** existe por la marca de agua. Rotada mide ~135 mm
+  de alto y el PDF recorta al alto del anexo: con 120 mm salía cortada. Si cambia la marca,
+  recalcular.
+- Coste medido: `fechasParaBoleta` ≈ 1 ms por bimestre.
+- Verificador: **`verif_boleta_fechas_asistencia.php`** (solo lectura).
+  - Comprueba que los días de cada categoría suman el total de la boleta. Pasó en local con
+    521 estudiantes y 210 FJ fuera del ancla.
+  - Comprueba que los bimestres por totales no traen fechas, ni el umbral `'oficial'` las de
+    un bimestre que no muestra.

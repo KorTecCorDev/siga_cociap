@@ -313,36 +313,9 @@
 // siempre ESCRITO en la celda (F, FJ, T, TJ): el color solo refuerza.
 // ============================================================================
 
-// ── Paleta de incidencias (decisión del usuario, 30/09/2026) ─────────────────
-// Familias: ROJO = faltas, NARANJA = tardanzas, en tonos CORRIDOS (carmín y
-// terracota) para no confundirse con el rojo de C (#dc2626) ni con el ámbar de
-// B (#d97706). La injustificada va RELLENA (texto blanco); la justificada, en
-// CONTORNO claro del mismo tono: se distinguen por forma, no solo por matiz.
-// Punto único del color: `.af-celda--{tipo}` (celda) y `.af-tipo--{tipo}`
-// (pastilla de encabezados y leyendas). No copiar estos valores a otro archivo.
-$af-f:        #be123c;   // falta — relleno carmín
-$af-fj-borde: #fb7185;   // falta justificada — contorno rosa
-$af-fj-fondo: #fff1f2;
-$af-fj-texto: #be123c;
-$af-t:        #c2410c;   // tardanza — relleno terracota
-$af-tj-borde: #fb923c;   // tardanza justificada — contorno durazno
-$af-tj-fondo: #fff7ed;
-$af-tj-texto: #9a3412;
-// LISTA DEL DÍA (30/09/2026, migración 070). «Asistió» en gris PIZARRA, nunca
-// verde: el verde es de AD y de «confirmado». «Sin tomar» con el ámbar de aviso
-// del sistema, solo en el borde. «No lectivo», gris apagado.
-$af-asistio:  $text-secondary;
-
-@mixin af-tipo-colores {
-    &--f  { border-color: $af-f;        background: $af-f;        color: $text-white; }
-    &--fj { border-color: $af-fj-borde; background: $af-fj-fondo; color: $af-fj-texto; }
-    &--t  { border-color: $af-t;        background: $af-t;        color: $text-white; }
-    &--tj { border-color: $af-tj-borde; background: $af-tj-fondo; color: $af-tj-texto; }
-    &--asistio   { border-color: $border-color; background: $bg-white; color: $af-asistio; }
-    &--sin-tomar { border-color: rgba($color-warning, .55); border-style: dashed; background: $bg-white; color: $color-warning; }
-    &--nl,
-    &--no-lectivo { border-color: $border-color; background: $bg-secondary; color: $text-muted; }
-}
+// ── Paleta de incidencias ($af-*) y mixin `af-tipo-colores` ────────────────
+// Viven en `base/_paleta-asistencia.scss` desde el 17/10/2026 (PUNTO ÚNICO,
+// mismos valores): la boleta también los usa y se importa antes que esta página.
 
 // ICONO DE DOCUMENTO en la esquina superior derecha: la FJ/TJ con el MOTIVO
 // PRINCIPAL (08/10/2026, migración 076). PUNTO ÚNICO del dibujo: lo usan la

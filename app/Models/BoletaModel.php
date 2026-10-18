@@ -220,6 +220,7 @@ class BoletaModel extends BaseModel
         $asisBimestres = [];
         $asisTotal = ['faltas' => 0, 'faltas_justificadas' => 0, 'tardanzas' => 0, 'tardanzas_justificadas' => 0];
         $ceros = ['faltas' => 0, 'faltas_justificadas' => 0, 'tardanzas' => 0, 'tardanzas_justificadas' => 0];
+        $asisHayFechas = false;   // algún bimestre mostrado con al menos una fecha (anexo)
 
         foreach ($this->getPeriodosDelAnio($anioId) as $pa) {
             // SIN DATO que mostrar, por TRES motivos distintos que se pintan igual (guion):
@@ -252,14 +253,25 @@ class BoletaModel extends BaseModel
                 ? $ceros
                 : $this->asistenciaModel->getDelBimestreUnion($cursoPa, (int) $pa['id']);
 
+            // FECHAS de las incidencias (17/10/2026): solo de un bimestre que este
+            // umbral muestra (`$sinRegistro` ya lleva el estado, la compuerta 044 y
+            // la visibilidad), de la matricula que lo curso. null = por totales.
+            $fechas = $sinRegistro
+                ? null
+                : $this->asistenciaModel->fechasParaBoleta($cursoPa[0], (int) $pa['id']);
+
             $asisBimestres[] = [
                 'id'           => (int) $pa['id'],
                 'numero'       => (int) $pa['numero'],
                 'datos'        => $asisDatos,
                 'sin_registro' => $sinRegistro,
+                'fechas'       => $fechas,
             ];
             if (!$sinRegistro) {
                 foreach ($asisTotal as $k => $_) { $asisTotal[$k] += (int) $asisDatos[$k]; }
+            }
+            if ($fechas !== null && array_filter($fechas)) {
+                $asisHayFechas = true;
             }
         }
 
@@ -279,8 +291,9 @@ class BoletaModel extends BaseModel
             'areas'             => $areas,
             'conducta'          => $conducta,
             'asistencia'        => [
-                'bimestres' => $asisBimestres,
-                'total'     => $asisTotal,
+                'bimestres'  => $asisBimestres,
+                'total'      => $asisTotal,
+                'hay_fechas' => $asisHayFechas,
             ],
             'omisiones'   => $this->omisionModel->getPorMatriculaAnioUnion($fuentes, $anioId),
             'institucion' => config('institucion'),
