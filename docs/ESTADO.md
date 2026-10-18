@@ -4,7 +4,7 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **17/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
-## 🆕 FECHAS DE ASISTENCIA EN LA BOLETA — CONSTRUIDO en `dev` (17/10/2026), SIN DESPLEGAR
+## 🆕 FECHAS DE ASISTENCIA EN LA BOLETA — DESPLEGADO el 17/10/2026 (merge `8700acf`)
 
 La boleta (digital, imprimible y PDF, todos los estados y todas las vistas, familias
 incluidas) muestra **cuándo** ocurrió cada incidencia: agrupadas por el total en que
@@ -20,7 +20,8 @@ Detalle y decisiones: `docs/modulos/boletas.md` § «Fechas de las incidencias d
   - PDF con el contenedor real del ZIP (hoja 1 con firmas, hoja 2 el anexo, marca entera).
 - [x] **Comprobado al 100 % por el usuario el 17/10/2026** (versión final: solo bimestres con
   fechas y fichas con el color de su tipo).
-- [ ] Al desplegar: solo código. Las familias verán fechas en cuanto el III se publique.
+- [x] Desplegado el 17/10/2026 (merge `8700acf`, solo código, sin migración). Las familias
+  verán las fechas en cuanto se publique el III.
 - ⚠️ Hallado al correr la batería: a la **BD LOCAL** le faltan los CHECK de asistencia
   (`chk_justificada_con_motivo`, `chk_principal_vigente`); `verif_asistencia_fechas`,
   `_jornadas`, `_presencias` y `_estadisticas` fallan por eso y por falta de escenario (III ya

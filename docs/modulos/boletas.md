@@ -1220,7 +1220,7 @@ decía «no existe», y la matrícula sí existe.
   control escrito a mano en las 537 matrículas del año, las dos ramas).
 
 
-## Fechas de las incidencias de asistencia (17/10/2026) — en `dev`, sin desplegar
+## Fechas de las incidencias de asistencia (17/10/2026) — desplegado el 17/10/2026 (`8700acf`)
 
 Desde el III Bimestre la asistencia se registra POR FECHAS (migración 069), pero la boleta
 solo mostraba los 4 totales. Ahora muestra **cuándo** ocurrió cada incidencia, en la digital,
