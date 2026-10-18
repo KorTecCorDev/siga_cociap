@@ -4,6 +4,27 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **17/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+## 🆕 FECHAS DE ASISTENCIA EN LA BOLETA — CONSTRUIDO en `dev` (17/10/2026), SIN DESPLEGAR
+
+La boleta (digital, imprimible y PDF, todos los estados y todas las vistas, familias
+incluidas) muestra **cuándo** ocurrió cada incidencia: agrupadas por el total en que
+CUENTAN, sin motivo, y en el impreso en un **anexo en hoja aparte**. Solo los bimestres
+registrados por fechas (desde el III); en la digital, fichas con el color de su tipo.
+**Sin migración.**
+Detalle y decisiones: `docs/modulos/boletas.md` § «Fechas de las incidencias de asistencia».
+- [x] `verif_boleta_fechas_asistencia.php` → OK (521 estudiantes, 210 FJ fuera del ancla).
+  Probado en Chrome como admin:
+  - digital e imprimible (4 tipos y un tramo de 42 días);
+  - token (sin fechas de un bimestre no publicado);
+  - lote de vista previa (24 boletas, 12 con anexo);
+  - PDF con el contenedor real del ZIP (hoja 1 con firmas, hoja 2 el anexo, marca entera).
+- [ ] Al desplegar: solo código. Las familias verán fechas en cuanto el III se publique.
+- ⚠️ Hallado al correr la batería: a la **BD LOCAL** le faltan los CHECK de asistencia
+  (`chk_justificada_con_motivo`, `chk_principal_vigente`); `verif_asistencia_fechas`,
+  `_jornadas`, `_presencias` y `_estadisticas` fallan por eso y por falta de escenario (III ya
+  bloqueado). No es de este cambio. La BD local se recargó hoy: ya había perdido la tabla
+  de la 081.
+
 ## 🔜 RETOMAR AQUÍ (17/10/2026) — DESPLEGADO RATIFICACIONES + EXPEDIENTE; III APROBADO
 
 **🟢 DESPLEGADO el 17/10/2026: merge `bf885dd` en `main`** (`--no-ff`, 13 commits; sigue
