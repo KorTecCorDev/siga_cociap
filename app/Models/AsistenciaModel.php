@@ -749,6 +749,48 @@ class AsistenciaModel extends BaseModel
     }
 
     /**
+     * FECHAS de la asistencia de un bimestre para la BOLETA (17/10/2026), agrupadas
+     * por el contador en que CUENTAN: una FJ fuera del ancla sale en `faltas`, así
+     * cada categoría tiene tantos días como su total. La regla NO se repite aquí:
+     * `AsistenciaEstadisticaModel::tipoQueCuenta` (espejo de `sqlConteoContadores`).
+     * Los días lectivos seguidos se unen en tramos (`tramosDeFechas`). Sin motivo:
+     * la boleta dice cuándo, no por qué (decisión del usuario).
+     *
+     * Quien llama decide si el bimestre es VISIBLE (`BoletaModel::armar` solo lo
+     * pide sin `sin_registro`); aquí se leen solo las incidencias CONFIRMADAS.
+     *
+     * @return array<string, list<array{desde:string, hasta:string, dias:int}>>|null
+     *         [campo de CAMPOS => tramos]; null = bimestre registrado POR TOTALES
+     *         (antes de la asistencia por fechas, o vía extraordinaria): no hay fechas
+     */
+    public function fechasParaBoleta(int $matriculaId, int $periodoId): ?array
+    {
+        $periodo = $this->periodo($periodoId);
+        if ($periodo === null || (int) $periodo['asistencia_por_fechas'] !== 1) {
+            return null;
+        }
+        $extra = $this->queryOne("
+            SELECT extraordinaria FROM inasistencias
+            WHERE matricula_id = ? AND periodo_id = ?
+        ", [$matriculaId, $periodoId]);
+        if ($extra !== null && (int) $extra['extraordinaria'] === 1) {
+            return null;
+        }
+
+        $ancla    = (new AsistenciaMotivoModel())->anclaDelPeriodo($periodoId);
+        $porCampo = array_fill_keys(self::CAMPOS, []);
+        foreach ($this->incidenciasDe([$matriculaId], $periodoId, true)[$matriculaId] ?? [] as $fecha => $x) {
+            $porCampo[self::TIPO_CAMPO[AsistenciaEstadisticaModel::tipoQueCuenta($x, $ancla)]][] = (string) $fecha;
+        }
+
+        // Días lectivos del bimestre ENTERO (hoy = su último día), como la vista
+        // de justificaciones: unen en tramos las fechas seguidas.
+        $lectivos = self::diasMarcables($periodo, (string) $periodo['fecha_fin'],
+            (new AsistenciaJornadaModel())->noLectivos($periodo));
+        return array_map(static fn(array $fechas): array => self::tramosDeFechas($fechas, $lectivos), $porCampo);
+    }
+
+    /**
      * 🔴 PUNTO ÚNICO de la REGLA DE CONTEO de los 4 contadores (08/10/2026,
      * migración 076): las 4 expresiones, en el orden de CAMPOS, sobre
      * `asistencia_incidencias x`.
