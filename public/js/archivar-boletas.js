@@ -49,7 +49,7 @@
             setProgreso(i);
 
             try {
-                var blob = await html2pdf()
+                var pdf = await html2pdf()
                     .set({
                         margin:      [5, 5, 5, 5],
                         filename:    nombreArch + '.pdf',
@@ -59,7 +59,13 @@
                         pagebreak:   { mode: 'avoid-all' }
                     })
                     .from(item)
-                    .outputPdf('blob');
+                    .toPdf()
+                    .get('pdf');
+
+                // «Página X de Y» en el margen de 5mm (pdf-paginar.js). El PDF
+                // es de archivo: agrandar el margen cambiaría la escala.
+                paginarPdf(pdf, 295);
+                var blob = pdf.output('blob');
 
                 zip.folder(carpeta).file(nombreArch + '.pdf', blob);
             } catch (e) {

@@ -660,6 +660,7 @@ button.orden-chip {
 @page nomina-det-landscape {
     size: A4 landscape;
     margin: 8mm;
+    @include pie-paginacion;
 }
 
 .nomina-det {

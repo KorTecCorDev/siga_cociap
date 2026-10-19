@@ -224,6 +224,8 @@ class BoletaPublicaController extends BaseController
             'titulo'      => 'Vista previa — ' . $periodo['nombre_display'],
             'periodo'     => $periodo,
             'boletasData' => $boletasData,
+            // Lote: sin «Página X de Y» (contaría toda la impresión). Ver _boleta.scss.
+            'bodyClass'   => 'doc-lote',
         ]);
     }
 
@@ -280,6 +282,8 @@ class BoletaPublicaController extends BaseController
             'titulo'      => 'Boletas — ' . $periodo['nombre_display'],
             'periodo'     => $periodo,
             'boletasData' => $boletasData,
+            // Lote: sin «Página X de Y» (contaría toda la impresión). Ver _boleta.scss.
+            'bodyClass'   => 'doc-lote',
         ]);
     }
 
@@ -345,6 +349,8 @@ class BoletaPublicaController extends BaseController
             'periodo'        => $periodo,
             'boletasData'    => $boletasData,
             'seccionFiltro'  => $seccionId,
+            // Lote: sin «Página X de Y» (contaría toda la impresión). Ver _boleta.scss.
+            'bodyClass'      => 'doc-lote',
         ]);
     }
 
@@ -411,6 +417,8 @@ class BoletaPublicaController extends BaseController
             'boletasData'    => $boletasData,
             'seccionFiltro'  => $seccionId,
             'esBorrador'     => true,
+            // Lote: sin «Página X de Y» (contaría toda la impresión). Ver _boleta.scss.
+            'bodyClass'      => 'doc-lote',
         ]);
     }
 

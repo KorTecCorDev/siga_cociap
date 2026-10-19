@@ -28,6 +28,7 @@ $c-alt-bg: #f8f8f8;
 @page {
     size: A4 portrait;
     margin: 1cm;
+    @include pie-paginacion;
 }
 
 // ── Página de la BOLETA (05/08/2026) ─────────────────────────
@@ -41,6 +42,26 @@ $c-alt-bg: #f8f8f8;
 @page boleta {
     size: A4 portrait;
     margin: 8mm;
+    @include pie-paginacion;
+}
+
+// ── Página de los LOTES (18/10/2026) ─────────────────────────
+// Misma geometría que `boleta`, pero SIN numeración: en una impresión de
+// varios documentos (lote de boletas, vista previa, archivado, reporte de
+// mérito) el navegador cuenta TODA la impresión y la boleta del 7.º diría
+// «Página 7 de 30». Se activa con `bodyClass => 'doc-lote'` (controlador).
+// 🔴 El `content: none` es OBLIGATORIO: la @page sin nombre (con pie) se
+// aplica a TODAS las hojas y las páginas con nombre solo se suman encima;
+// sin anularlo, el lote heredaba el pie (medido el 18/10/2026).
+@page boleta-lote {
+    size: A4 portrait;
+    margin: 8mm;
+
+    @bottom-center { content: none; }
+}
+
+body.boleta-body.doc-lote {
+    page: boleta-lote;
 }
 
 // ── Página apaisada (documentos anchos) ──────────────────────
@@ -53,6 +74,7 @@ $c-alt-bg: #f8f8f8;
 @page paisaje {
     size: A4 landscape;
     margin: 1cm;
+    @include pie-paginacion;
 }
 
 body.boleta-body.doc-landscape {
