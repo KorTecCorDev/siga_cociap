@@ -49,20 +49,23 @@
             setProgreso(i);
 
             try {
-                var blob = await html2pdf()
+                var pdf = await html2pdf()
                     .set({
                         margin:      [5, 5, 5, 5],
                         filename:    nombreArch + '.pdf',
                         image:       { type: 'jpeg', quality: 0.95 },
                         html2canvas: { scale: 1.5, useCORS: true, logging: false },
                         jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                        // 'css' respeta el salto antes del ANEXO de asistencia
-                        // (.boleta-salto-pagina, 17/10/2026): la boleta con fechas
-                        // sale en 2 hojas; sin fechas, en 1 como siempre.
-                        pagebreak:   { mode: ['css', 'avoid-all'] }
+                        pagebreak:   { mode: 'avoid-all' }
                     })
                     .from(item)
-                    .outputPdf('blob');
+                    .toPdf()
+                    .get('pdf');
+
+                // «Página X de Y» en el margen de 5mm (pdf-paginar.js). El PDF
+                // es de archivo: agrandar el margen cambiaría la escala.
+                paginarPdf(pdf, 295);
+                var blob = pdf.output('blob');
 
                 zip.folder(carpeta).file(nombreArch + '.pdf', blob);
             } catch (e) {

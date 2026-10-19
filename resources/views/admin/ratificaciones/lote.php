@@ -47,4 +47,5 @@ $pintar = static function (array $doc): void {
 
 <script src="<?= url('js/jszip.min.js') ?>"></script>
 <script src="<?= url('js/html2pdf.bundle.min.js') ?>"></script>
+<script src="<?= url('js/pdf-paginar.js') ?>"></script>
 <script src="<?= url('js/ratificacion-lote.js') ?>"></script>

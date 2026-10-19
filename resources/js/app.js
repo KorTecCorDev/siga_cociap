@@ -91,6 +91,19 @@ document.addEventListener('submit', function(e) {
 //      (puntero + teclado + lectores de pantalla) hasta que carga.
 // Las descargas (attachment, que no navegan) solo muestran la barra
 // y la ocultan solas: nunca escalan al overlay ni bloquean.
+//
+// 🔴 NUNCA SE DESBLOQUEA POR TIEMPO (19/10/2026). Antes, a los 8 s se quitaba
+// el overlay aunque la carga siguiera: el formulario volvía a ser usable, se
+// podía ENVIAR DOS VECES (el token CSRF es de sesión) y luego la página
+// saltaba sola a la vista final. Ahora el overlay se va solo cuando:
+//   · la página se va (pagehide) o vuelve del historial (pageshow);
+//   · la navegación se ABORTA (Detener/Esc, red): `navigateerror` de la
+//     Navigation API, con un aviso; medido en Chrome el 19/10/2026;
+//   · sin Navigation API, el usuario pulsa «Volver a la página», que aparece
+//     a los 60 s (nunca un desbloqueo automático).
+// Lo que no navega en ESTA pestaña no debe bloquearla: descargas (marcarlas
+// con `data-descarga`, en el enlace, el formulario o el botón: una descarga
+// NO dispara `navigateerror`) y destinos en otra pestaña (target/formtarget).
 (function() {
     var loader = document.getElementById('appLoader');
     if (!loader) return;
@@ -98,10 +111,13 @@ document.addEventListener('submit', function(e) {
     var BAR_FILL       = 800;    // ms que tarda la barra en llenarse (coincide con
                                  // la transición width del SASS); al terminar escala
     var DESCARGA_HIDE  = 1200;   // ms hasta ocultar la barra tras iniciar una descarga
-    var SAFETY_TIMEOUT = 8000;   // ms de seguridad por si no se navega
+    var VOLVER_TRAS    = 60000;  // ms hasta ofrecer «Volver a la página» (sin Navigation API)
     var overlayTimer = null;
-    var safetyTimer  = null;
+    var safetyTimer  = null;     // solo descargas: oculta la barra
+    var volverTimer  = null;
     var navegando    = false;
+    var esDescarga   = false;    // true = solo barra (no hay navegación que esperar)
+    var conNavigationApi = !!window.navigation;
 
     // Bloquea/desbloquea todo lo que hay detrás del overlay: inert desactiva
     // clics, foco y selección de teclado y lo oculta a lectores de pantalla.
@@ -129,22 +145,80 @@ document.addEventListener('submit', function(e) {
     // soloBarra=true para descargas: barra corta, sin overlay ni bloqueo.
     function iniciar(soloBarra) {
         if (navegando) return;
-        navegando = true;
+        navegando  = true;
+        esDescarga = !!soloBarra;
         loader.classList.add('is-active');                     // barra inmediata
         if (soloBarra) {
             safetyTimer = setTimeout(detener, DESCARGA_HIDE);
             return;
         }
         overlayTimer = setTimeout(escalarOverlay, BAR_FILL);   // escala al terminar la barra
-        safetyTimer  = setTimeout(detener, SAFETY_TIMEOUT);    // anti-trabado
+        if (!conNavigationApi) {
+            volverTimer = setTimeout(ofrecerVolver, VOLVER_TRAS);
+        }
     }
 
     function detener() {
-        navegando = false;
+        navegando  = false;
+        esDescarga = false;
         clearTimeout(overlayTimer);
         clearTimeout(safetyTimer);
+        clearTimeout(volverTimer);
+        var volver = document.getElementById('appLoaderVolver');
+        if (volver && volver.parentNode) volver.parentNode.removeChild(volver);
         loader.classList.remove('is-active', 'is-overlay');
         bloquearFondo(false);
+    }
+
+    // ¿Hay una navegación REAL en curso en esta pestaña? (no una descarga)
+    function cargando() {
+        return navegando && !esDescarga;
+    }
+
+    // La carga se detuvo sin llegar a otra página: se desbloquea y se avisa,
+    // porque el servidor pudo haber guardado igual. Reutiliza el aviso flash.
+    function avisarCargaDetenida() {
+        var previo = document.getElementById('avisoCargaDetenida');
+        if (previo && previo.parentNode) previo.parentNode.removeChild(previo);
+
+        var aviso = document.createElement('div');
+        aviso.id = 'avisoCargaDetenida';
+        aviso.className = 'flash flash--warning';
+        aviso.setAttribute('role', 'alert');
+        aviso.textContent = 'La carga se detuvo. Antes de volver a enviar, revisa si los cambios se guardaron.';
+
+        var destino = document.querySelector('.app-main') || document.body;
+        destino.insertBefore(aviso, destino.firstChild);
+        aviso.scrollIntoView({ block: 'nearest' });
+    }
+
+    function cargaDetenida() {
+        detener();
+        avisarCargaDetenida();
+    }
+
+    // Sin Navigation API no se sabe si la carga se abortó: tras VOLVER_TRAS se
+    // ofrece un botón. El usuario decide; nunca se desbloquea solo.
+    function ofrecerVolver() {
+        if (!cargando() || document.getElementById('appLoaderVolver')) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'appLoaderVolver';
+        btn.className = 'btn btn--secondary';
+        btn.textContent = 'Volver a la página';
+        btn.addEventListener('click', function() {
+            if (window.stop) window.stop();
+            cargaDetenida();
+        });
+        loader.querySelector('.app-loader__overlay').appendChild(btn);
+        btn.focus();
+    }
+
+    // Navegación ABORTADA (Detener/Esc, corte de red): Chrome/Edge lo avisan.
+    if (conNavigationApi) {
+        window.navigation.addEventListener('navigateerror', function() {
+            if (cargando()) cargaDetenida();
+        });
     }
 
     var TOAST_VIDA = 7000;   // ms que el aviso "descarga lista" permanece visible
@@ -269,14 +343,35 @@ document.addEventListener('submit', function(e) {
             }, DESCARGA_HIDE);
             return;
         }
-        if (debeNavegar(a)) iniciar();
+        if (!debeNavegar(a)) return;
+        // Con una carga en curso, otro clic la abortaría (y con ella un POST
+        // que el servidor puede estar guardando): se ignora.
+        if (cargando()) { e.preventDefault(); return; }
+        iniciar();
     });
 
     document.addEventListener('submit', function(e) {
+        // CANDADO DE DOBLE ENVÍO: con una carga en curso no sale otro envío
+        // (doble clic en «Guardar»). Va antes de todo: también vale para los
+        // formularios marcados `data-no-loader`.
+        if (cargando()) { e.preventDefault(); return; }
         if (e.defaultPrevented) return;
         var form = e.target;
+        var boton = e.submitter || null;
         if (form.hasAttribute('data-no-loader')) return;
-        if ((form.getAttribute('target') || '_self') !== '_self') return;
+        // El destino lo decide el BOTÓN si trae `formtarget` (p. ej. PDF en otra
+        // pestaña); esta pestaña no navega y no debe quedar bloqueada.
+        var destino = (boton && boton.getAttribute('formtarget')) || form.getAttribute('target') || '_self';
+        if (destino !== '_self') return;
+        // Envío que termina en DESCARGA: solo barra, como los enlaces.
+        var marca = boton && boton.hasAttribute('data-descarga') ? boton
+                  : (form.hasAttribute('data-descarga') ? form : null);
+        if (marca) {
+            var nombre = marca.getAttribute('data-descarga');
+            iniciar(true);
+            setTimeout(function() { mostrarToastDescarga(nombre, null); }, DESCARGA_HIDE);
+            return;
+        }
         iniciar();
     });
 

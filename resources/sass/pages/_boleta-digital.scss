@@ -399,6 +399,20 @@ $bd-radius-card:     16px;
     gap: 12px;
 }
 
+// ── Cierre del documento: última sección + firma/sello + QR (18/10/2026) ──
+// Bloque INDIVISIBLE al imprimir: si no cabe, pasa entero a la hoja siguiente,
+// así la firma nunca queda sola en una hoja (pierde su carácter de documento:
+// debe ir inmediatamente debajo del contenido que autentica).
+// ⚠️ `break-before: avoid` en el pie NO basta: Chrome lo trata como
+// preferencia y la firma pasaba sola a la hoja 5 (medido el 18/10/2026).
+// En pantalla no cambia nada: es un bloque normal dentro de la columna flex.
+.bd-cierre {
+    @media print {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
+
 
 // ── Estado vacío ───────────────────────────────────────────────
 .bd-empty {
@@ -1374,6 +1388,7 @@ $bd-asis-border: #cbd5e1;
     @page {
         size: A4 portrait;
         margin: 1cm;
+        @include pie-paginacion;
     }
 
     .bd-area      { page-break-inside: avoid; }

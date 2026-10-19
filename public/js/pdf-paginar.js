@@ -1,0 +1,1 @@
+window.paginarPdf=function(e,t){for(var n=e.internal.getNumberOfPages(),a=e.internal.pageSize.getWidth(),i=1;i<=n;i++)e.setPage(i),e.setFont("helvetica","normal"),e.setFontSize(7),e.setTextColor(68,68,68),e.text("Página "+i+" de "+n,a/2,t,{align:"center"})};

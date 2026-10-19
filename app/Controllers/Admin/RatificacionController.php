@@ -211,6 +211,8 @@ class RatificacionController extends BaseController
             'nombreZip'  => mb_strtoupper(str_replace(' ', '_', (string) $seccion['nivel_nombre']))
                 . "_{$grado}_" . mb_strtoupper((string) $seccion['nombre'])
                 . '_RATIFICACION_' . (int) ($this->model->anio((int) $seccion['anio_id'])['anio'] ?? 0) . '.zip',
+            // Lote: sin «Página X de Y» (contaría toda la impresión). Ver _boleta.scss.
+            'bodyClass'  => 'doc-lote',
         ]);
     }
 

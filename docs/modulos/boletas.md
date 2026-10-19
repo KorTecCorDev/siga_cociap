@@ -624,7 +624,7 @@ lo único que cambia es si se respeta la publicación:
 |---|---|---|
 | `'oficial'` | familias EN LÍNEA: `verToken`, `verDigitalToken`, `/padre/notas` | **respeta** |
 | `'archivo'` | STAFF: salida masiva impresa/ZIP, boleta del trasladado | **ignora** |
-| `'borrador'` | docente y gestión | n/a (no mira publicación) |
+| `'borrador'` | docente y gestión | n/a en los DATOS; para el docente, el sello «oficial» sí la respeta (ver abajo, 19/10/2026) |
 | `'todos'` | vista previa de RA | n/a |
 
 **El porqué:** RA **imprime las boletas ANTES** de la reunión de entrega; con
@@ -669,8 +669,9 @@ operan — **validado en el método** (`guardPublicacion`), no ocultando el bot�
 Rutas POST con `validateCsrf()`: `/admin/control/{periodo_id}/{publicar,programar,despublicar}`.
 
 ### Procesos que NO cambian
-SIAGIE, orden de mérito y su snapshot, rectificaciones, retorno de grado, boleta del
-docente y de gestión: todos siguen mirando solo `cerrado`. Los trasladados **ignoran**
+SIAGIE, orden de mérito y su snapshot, rectificaciones, retorno de grado y boleta de
+gestión: todos siguen mirando solo `cerrado`. ~~Boleta del docente~~: **derogado el
+19/10/2026**, ver «La boleta del DOCENTE respeta la compuerta». Los trasladados **ignoran**
 la compuerta (boleta archivada administrativa; el alumno ya no tiene vínculo).
 
 ### Verificado end-to-end (19 checks + 8 de render)
@@ -1220,7 +1221,16 @@ decía «no existe», y la matrícula sí existe.
   control escrito a mano en las 537 matrículas del año, las dos ramas).
 
 
-## Fechas de las incidencias de asistencia (17/10/2026) — en `dev`, sin desplegar
+## Fechas de las incidencias de asistencia (17/10/2026) — desplegado el 17/10/2026 (`8700acf`)
+
+> 🔴 **18/10/2026 — la boleta IMPRESA vuelve a ser UNA sola hoja** (decisión del usuario; en
+> `dev`, sin desplegar). Las fechas son **solo de la boleta DIGITAL**. Se quitó el anexo del
+> imprimible: lo usaban el individual, el lote, la vista previa y el ZIP, todos por
+> `boleta/alumno.php`. También se quitó el SASS `.boleta-anexo` y se volvió a
+> `pagebreak: 'avoid-all'`. La digital no cambia, **tampoco al imprimirla con su botón**: el
+> bloque de fechas sale. El modelo tampoco cambia (`fechas` y `hay_fechas` siguen; el
+> verificador usa la segunda). **Derogados el punto 3 y lo del anexo, más abajo.** No
+> reintroducir una segunda hoja en el modelo oficial impreso.
 
 Desde el III Bimestre la asistencia se registra POR FECHAS (migración 069), pero la boleta
 solo mostraba los 4 totales. Ahora muestra **cuándo** ocurrió cada incidencia, en la digital,
@@ -1230,7 +1240,8 @@ Decisiones del usuario (17/10/2026, no re-preguntar):
 1. **Todas las vistas**: gestión, docente, Dirección y **familias** (token/QR). Deroga, solo
    para la boleta, el «familias → v1.1» del 29/09/2026.
 2. **Solo fechas, sin motivo** de la justificación.
-3. Impresión y PDF: **anexo en hoja aparte**, solo si hay alguna fecha. La hoja 1 (modelo
+3. ~~Impresión y PDF: **anexo en hoja aparte**, solo si hay alguna fecha.~~ **Derogado el
+   18/10/2026**: el impreso no lleva fechas. La hoja 1 (modelo
    oficial, firmas) no cambia: en secundaria las firmas ya entran justo.
 4. **Solo los bimestres registrados POR FECHAS** (desde el III de 2026) de los que la boleta
    muestra, con el umbral de cada estado. Los de solo totales (I y II de 2026, y la vía
@@ -1260,19 +1271,91 @@ Implementación:
   - `asistencia.hay_fechas`.
 - **Vistas:**
   - digital: bloque «Fechas de inasistencias y tardanzas» bajo la tabla;
-  - imprimible: `.boleta-anexo`, un `.boleta-doc` propio tras un `.boleta-salto-pagina`, con
-    su propia marca de agua de borrador;
-  - formato común en el parcial `boleta/_fechas-asistencia.php`: «10/09» o «17/08 al 25/09
-    (28 días)».
-- **PDF/ZIP** (`public/js/archivar-boletas.js`, sin fuente en `resources/js`):
-  `pagebreak.mode = ['css', 'avoid-all']` para respetar el salto. Comprobado generando el PDF
-  con el contenedor real de 297 mm: hoja 1 la boleta con firmas, hoja 2 el anexo.
-- ⚠️ **`.boleta-anexo { min-height: 150mm }`** existe por la marca de agua. Rotada mide ~135 mm
-  de alto y el PDF recorta al alto del anexo: con 120 mm salía cortada. Si cambia la marca,
-  recalcular.
+  - ~~imprimible: `.boleta-anexo`, un `.boleta-doc` propio tras un `.boleta-salto-pagina`~~
+    (quitado el 18/10/2026);
+  - formato en el parcial `boleta/_fechas-asistencia.php` (hoy solo lo usa la digital):
+    «10/09» o «17/08 al 25/09 (28 días)».
+- **PDF/ZIP** (`public/js/archivar-boletas.js`, sin fuente en `resources/js`): desde el
+  18/10/2026 vuelve a `pagebreak.mode = 'avoid-all'` (una hoja por boleta). Entre el 17 y el
+  18 usó `['css', 'avoid-all']` para la hoja 2 del anexo. El `min-height: 150mm` del anexo,
+  puesto para la marca de agua, se fue con él.
 - Coste medido: `fechasParaBoleta` ≈ 1 ms por bimestre.
 - Verificador: **`verif_boleta_fechas_asistencia.php`** (solo lectura).
   - Comprueba que los días de cada categoría suman el total de la boleta. Pasó en local con
     521 estudiantes y 210 FJ fuera del ancla.
   - Comprueba que los bimestres por totales no traen fechas, ni el umbral `'oficial'` las de
     un bimestre que no muestra.
+
+## Cierre del documento: la firma nunca va sola en una hoja (18/10/2026) — en `dev`, sin desplegar
+
+Regla del usuario para la boleta **digital** (`boleta/digital.php`, `/matriculas/{id}/boleta` y
+las demás entradas digitales) al imprimirla: **la firma/sello va siempre debajo de un contenido**
+y nunca queda sola en la última hoja, porque eso le quita el carácter de documento. Además, las
+secciones salen completas. La regla general y su base legal están en `docs/modulos/ui.md` §
+«Firma y sello: nunca solos en una hoja».
+
+Decisiones del usuario (18/10/2026, no re-preguntar):
+1. Lo que acompaña a la firma es **la última sección completa** (Asistencia con sus fechas; con
+   la estructura completa siempre existe). Si fuera más alta que una hoja, el navegador la parte
+   y la firma queda con su último trozo.
+2. **El QR va junto a la firma**: el bloque indivisible es Asistencia + firma/sello + QR.
+3. La firma va **pegada** al contenido. No se añade línea de cierre.
+
+Implementación:
+- `<div class="bd-cierre">` envuelve la Asistencia, el `<footer class="bd-footer">` y el QR.
+  El pie y el QR pasaron a estar **dentro de `<main>`** para poder envolverlos con la última
+  sección.
+- `.bd-cierre { break-inside: avoid }` (solo `@media print`). En pantalla no cambia nada:
+  posiciones y altos idénticos a 1280 y 390 px (medido).
+- ⚠️ **`break-before: avoid` en el pie NO funciona**: Chrome lo trata como preferencia y la
+  firma pasaba sola a la hoja siguiente. No reintentarlo.
+- Medición (Chrome headless): se imprimió a PDF la boleta real de 5.º de secundaria (29
+  competencias) y la de primaria (27), con un relleno de 0 a 270 mm antes del cierre.
+  - **Antes:** con 165-195 mm el QR quedaba separado; con 210-225 mm, la firma pasaba sola a
+    la hoja 5.
+  - **Después:** Asistencia, firma y QR siempre caen en la misma hoja. A partir de 192 mm
+    pasan juntos a la siguiente.
+- Cada hoja empieza en una sección (área, Conducta o Asistencia): `.bd-area` y `.bd-conducta`
+  ya tenían `break-inside: avoid`.
+
+## La boleta del DOCENTE respeta la compuerta (19/10/2026) — en `dev`, sin desplegar
+
+**Problema:** el docente veía la boleta de un bimestre cerrado como documento
+**OFICIAL** apenas se cerraba, antes de que el nivel se publicara. Tenía firma, sello y
+QR, y no llevaba marca de borrador. Se detectó con el III de 2026: se cerró el 17/10,
+con publicación programada para el 20/10 (primaria) y el 21/10 (secundaria).
+- Contradecía la regla del claustro: el mérito y el acompañamiento sí esperan la
+  publicación. En la misma fila de la nómina salía «Sin orden de mérito» junto a una
+  «Boleta» oficial.
+- Permitía entregar un documento firmado antes de la reunión oficial.
+- El QR impreso llevaba a la vista de familias, que aún mostraba el II.
+
+**Regla (decisión del usuario, no re-preguntar):**
+- El **docente** ve las notas del bimestre cerrado, pero **como BORRADOR** (marca de
+  agua, sin sello ni QR) **hasta que se publique al nivel del alumno**. Al publicarse
+  pasa sola a oficial. Lo programado se respeta a la hora exacta.
+- La **boleta de GESTIÓN** (`/matriculas/{id}/boleta`) **no cambia**: su personal imprime
+  antes de la reunión, igual que la salida masiva con `'archivo'`.
+
+**Implementación:**
+- `BoletaController::oficialParaDocente($res)`: `cerrado` **y** el periodo está en
+  `PublicacionBoletaModel::periodosPublicados(anio, nivel del alumno)`.
+  - La usan `verDigitalDocente` y `verImprimirDocente`.
+  - `resolverBoletaDocente` devuelve además `anio_id` y `nivel_id`.
+- Nómina del docente (`Docente\PanelController::nomina` + `docente/nomina.php`):
+  - cada alumno lleva `boleta_oficial`, que dice si el último cerrado ya se publicó a su
+    nivel;
+  - si no se publicó, el panel dice «Borrador · III Bimestre», igual que la boleta que
+    abre.
+  - Sigue siendo una variable distinta de `$publicados` (mérito): no se fusionan.
+- Los datos no cambian: el umbral sigue siendo `'borrador'`. Solo cambia si el documento
+  es oficial.
+- **Comprobado** contra la BD de producción, en tres momentos:
+
+  | Momento | III Primaria | III Secundaria |
+  |---|---|---|
+  | Hoy | borrador | borrador |
+  | 20/10 19:30 | oficial | borrador |
+  | 21/10 19:30 | oficial | oficial |
+
+  El I y el II siguen oficiales.

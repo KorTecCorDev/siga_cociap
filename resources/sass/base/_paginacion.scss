@@ -1,0 +1,27 @@
+// ============================================================
+// _paginacion.scss — «Página X de Y» al pie de todo documento impreso
+// (18/10/2026). Ver docs/modulos/ui.md § «Numeración de páginas al imprimir».
+//
+// Va en una CAJA DE MARGEN de @page (Chrome/Edge 131+): se dibuja en el
+// margen de la hoja, FUERA del área de contenido, así que no resta ni un
+// milímetro al documento. Sin soporte, simplemente no aparece.
+//
+// 🔴 Toda @page nueva lleva `@include pie-paginacion`, salvo `boleta-lote`:
+// en un lote el navegador cuenta TODA la impresión («7 de 30»). La @page sin
+// nombre ya lo lleva y se hereda en TODAS las hojas: una página que no deba
+// numerarse tiene que anularlo (`@bottom-center { content: none; }`).
+//
+// `vertical-align: top` y SIN padding: el texto queda pegado al borde del
+// contenido y lejos del borde físico (área no imprimible de la impresora,
+// ~4-5mm). Con `padding-top: 1mm` la línea base caía a 4,6mm del borde, al
+// límite (medido el 18/10/2026 con la boleta: las firmas no se mueven, 9,1mm).
+// ============================================================
+@mixin pie-paginacion {
+    @bottom-center {
+        content: "Página " counter(page) " de " counter(pages);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 7pt;
+        color: #444;
+        vertical-align: top;
+    }
+}

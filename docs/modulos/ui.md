@@ -1216,3 +1216,124 @@ totales, de las leyendas y de los totales por estudiante). No copiar los valores
 Hoy la paleta sale solo en la asistencia **por fechas** (grilla mensual y vista por estudiante).
 La tabla de números (`_tabla-incidencias.php`: I/II y consulta de Dirección) y el imprimible A4
 (blanco y negro) conservan su estilo establecido.
+
+## Numeración de páginas al imprimir: «Página X de Y» (18/10/2026) — en `dev`, sin desplegar
+
+Todo documento impreso lleva **«Página X de Y», centrado al pie** (Arial 7 pt, gris). Las
+decisiones son del usuario y no hay que volver a preguntarlas.
+
+**Técnica: caja de margen de `@page`** (`@bottom-center`, Chrome y Edge 131+).
+- El número se dibuja **en el margen de la hoja, fuera del área de contenido**, así que no
+  resta un milímetro a ningún documento.
+- Se midió el 18/10/2026 imprimiendo la boleta real a PDF (secundaria, 29 competencias): con
+  pie y sin él, las firmas quedan a **9,1 mm** del borde y la boleta sigue en **1 hoja**.
+- La línea base del número queda a 5,7 mm del borde con el margen de 8 mm, y a 7,5 mm con el
+  de 1 cm.
+- Si el navegador no soporta márgenes de página, simplemente no aparece el número.
+- Se descartó un pie con `position: fixed`, porque se encima al contenido y no sabe contar
+  páginas.
+
+**Piezas:**
+- **Mixin `pie-paginacion`** (`resources/sass/base/_paginacion.scss`), incluido en **las 6
+  `@page`**:
+  - en `_boleta.scss`: la general, `boleta` y `paisaje`;
+  - `nomina-det-landscape` (`_matriculas.scss`);
+  - `horario-landscape` (`_docente-panel.scss`);
+  - la de la boleta digital (`_boleta-digital.scss`).
+- **Lotes sin número.** En una impresión de varios documentos, el navegador cuenta TODA la
+  impresión: la boleta del 7.º diría «Página 7 de 30».
+  - Los lotes van a `@page boleta-lote`, con la misma geometría que `boleta`. El controlador
+    los activa con `'bodyClass' => 'doc-lote'`.
+  - Hoy son el lote de boletas, la vista previa del borrador, las 2 entradas de archivado, el
+    lote de ratificaciones y el **reporte de orden de mérito**. En el reporte, cada hoja es un
+    documento firmable; más adelante habrá reportes por sección.
+- **PDF de los ZIP**: html2pdf no pasa por `@page`. `resources/js/pdf-paginar.js`
+  (`paginarPdf(pdf, yMm)`) estampa el número con jsPDF sobre el PDF ya generado, **uno por
+  estudiante** («1 de N» de ese PDF):
+  - boletas en `y = 295` (margen de 5 mm; ese PDF es de archivo);
+  - ratificaciones en `y = 286` (margen de 15 mm).
+
+🔴 **Reglas:**
+- **Toda `@page` nueva lleva `@include pie-paginacion`.**
+- **Todo lote de documentos independientes lleva `doc-lote`.**
+- La `@page` sin nombre se aplica a TODAS las hojas, y las páginas con nombre solo se suman
+  encima. Por eso una página que no deba numerarse tiene que **anular** el pie
+  (`@bottom-center { content: none; }`). Sin eso, `boleta-lote` heredaba el pie: se comprobó
+  imprimiendo.
+- **En el diálogo de impresión, «Encabezados y pies de página» debe estar desactivado.** Si
+  está activo, Chrome pone su URL y su fecha donde hay espacio.
+
+## Firma y sello: nunca solos en una hoja (18/10/2026)
+
+**Regla del usuario para todo documento impreso con firma o sello:** la firma/sello **nunca
+empieza una hoja**. Siempre va inmediatamente debajo del contenido que autentica, y cada
+sección sale completa. Una firma sola en la última hoja no autentica nada.
+
+**Base:** no hay norma del MINEDU sobre el formato de la boleta. La regla toma principios
+peruanos aplicables por analogía:
+- **D. Leg. 1049, art. 32 (Notariado):** los instrumentos no tienen espacios en blanco, y la
+  SUNARP observó una escritura por un espacio entre el último párrafo y la firma. Es decir, la
+  firma va pegada al texto.
+- **TUO de la Ley 27444:** las actuaciones se folian. Eso ya lo cubre «Página X de Y» (sección
+  anterior).
+- Según una fuente, el TUO 27444 fue reemplazado por el D.S. 006-2026-JUS; no se verificó ese
+  texto.
+
+**Técnica:** un contenedor **indivisible** (`break-inside: avoid`, solo `@media print`) que
+envuelve **la última sección + la firma/sello (+ el QR, si hay)**. Si no cabe, pasa entero a la
+hoja siguiente.
+- ⚠️ **`break-before: avoid` en el pie NO sirve**: Chrome lo trata como preferencia. Se midió
+  que la firma pasaba sola igual.
+- Si la última sección es más alta que una hoja, el contenedor se parte por fuerza. En ese caso
+  hay que envolver solo su último bloque.
+- **Cómo medirlo:** imprimir a PDF con Chrome headless, insertando un relleno de alto variable
+  **antes** del contenedor (no dentro: así se vuelve más alto que una hoja y la prueba miente),
+  y comprobar en qué hoja cae cada texto.
+
+**Estado:**
+- **Fase 1 (hecha):** la boleta digital (`.bd-cierre`, ver `docs/modulos/boletas.md`).
+- **Fase 2 (pendiente):** el resto de documentos con firma; el inventario está en
+  `docs/ESTADO.md`.
+
+## Pantalla de espera: nunca se desbloquea por tiempo (19/10/2026) — en `dev`, sin desplegar
+
+`resources/js/app.js` (loader de transición). Al navegar aparece una barra superior, y a los
+0,8 s la pantalla de espera con el logo, que bloquea la vista (`inert`).
+
+**Problema:**
+- A los **8 s** (`SAFETY_TIMEOUT`) se quitaba el overlay **aunque la carga siguiera**. El
+  usuario volvía a ver el formulario, ya usable, y luego la página saltaba sola a la vista
+  final.
+- Peor aún, se podía **enviar dos veces**: el token CSRF es de sesión, no de un solo uso.
+  Hay tablas sin `UNIQUE` (`cargas_academicas`, `criterios`).
+
+**Regla (decisiones del usuario, no re-preguntar):**
+- **Nunca se desbloquea por tiempo.** Pasados los 8 s **no** se muestra ningún mensaje: el
+  overlay sigue igual.
+- **Carga abortada** (Detener/Esc, corte de red): se desbloquea **al instante** y aparece un
+  `flash flash--warning`: «La carga se detuvo. Antes de volver a enviar, revisa si los cambios
+  se guardaron.» La detecta el evento `navigateerror` de la Navigation API.
+- **Sin Navigation API:** a los **60 s** aparece el botón «Volver a la página». Lo pulsa el
+  usuario; nunca se desbloquea solo.
+- **Candado de doble envío:** con una carga en curso se ignora cualquier otro `submit` (incluso
+  de formularios `data-no-loader`) y cualquier clic en un enlace que navegue.
+
+🔴 **Lo que no navega en ESTA pestaña no debe bloquearla**, porque nadie lo desbloquearía:
+- **Descargas:** marcar con **`data-descarga`** el enlace, el formulario o el botón de envío
+  (el valor es el nombre que muestra el aviso; vacío = sin nombre). Así solo sale la barra y
+  el aviso «Descarga iniciada».
+  - **Una descarga NO dispara `navigateerror`.** Sin la marca, la pantalla de espera se queda
+    fija.
+  - Hoy son: los enlaces de Actas SIAGIE y el botón «Descargar Excel» de la planilla de
+    asistencia (formulario GET).
+- **Otra pestaña:** `target` del formulario o **`formtarget` del botón** (p. ej. «Ver PDF» de
+  la planilla). Antes solo se miraba el `target` del formulario.
+
+**Medido el 19/10/2026 en Chrome**, con el `app.js` compilado sobre un servidor de prueba:
+- **POST de 15 s:** el bloqueo sigue a 1, 9 y 11 s. El segundo envío se bloquea, y en el
+  servidor llegó **un solo POST**. Al abortar con `window.stop()`, se desbloquea al instante y
+  aparece el aviso.
+- **POST de 15 s sin abortar:** el bloqueo sigue hasta llegar directamente a la vista final.
+- **Sin Navigation API:** no hay botón a los 55 s. Aparece a los 61 s y, al pulsarlo, se
+  desbloquea con el aviso.
+- **En un envío que termina en descarga,** Chrome dispara `navigate` pero no `navigateerror`.

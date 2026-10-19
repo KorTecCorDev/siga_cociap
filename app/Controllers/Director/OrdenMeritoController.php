@@ -380,6 +380,9 @@ class OrdenMeritoController extends BaseController
             'institucion'   => config('institucion'),
             'directorEbr'   => $this->getDirectorEbr($periodo),
             'hayPendientes' => $hayPendientes,
+            // Cada hoja es un documento firmable: sin «Página X de Y» (contaría
+            // todo el reporte). Ver _boleta.scss.
+            'bodyClass'     => 'doc-lote',
         ]);
     }
 

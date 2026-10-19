@@ -111,7 +111,7 @@ class BoletaController extends BaseController
             // anual es del DOCUMENTO, no del umbral de datos.
             'estructuraCompleta' => true,
             'vistaPrevia' => $res['estado_matricula'] === 'desactivado'
-                          || $this->estadoBoletaDePeriodo($periodoId) !== 'oficial',
+                          || !$this->oficialParaDocente($res),
         ]);
     }
 
@@ -130,7 +130,7 @@ class BoletaController extends BaseController
             'datos'              => 'borrador',
             'estructuraCompleta' => true,   // ver verDigitalDocente
             'vistaPrevia' => $res['estado_matricula'] === 'desactivado'
-                          || $this->estadoBoletaDePeriodo($periodoId) !== 'oficial',
+                          || !$this->oficialParaDocente($res),
         ]);
     }
 
@@ -189,7 +189,7 @@ class BoletaController extends BaseController
      * Responde 403 si está fuera de alcance y el aviso de sinCalificaciones()
      * si no hay periodo publicable con notas.
      *
-     * @return array{periodo_id: int, estado_matricula: string}
+     * @return array{periodo_id: int, estado_matricula: string, anio_id: int, nivel_id: int}
      */
     private function resolverBoletaDocente(int $matriculaId): array
     {
@@ -201,7 +201,7 @@ class BoletaController extends BaseController
         // id en la URL. Las desactivadas SÍ pasan (siguen en la grilla): su boleta
         // se sirve siempre como BORRADOR.
         $mat = $this->calModel->queryOne("
-            SELECT m.id, m.anio_id, m.estado
+            SELECT m.id, m.anio_id, m.estado, g.nivel_id
             FROM matriculas m
             INNER JOIN secciones s ON s.id = m.seccion_id
             INNER JOIN grados g    ON g.id = s.grado_id
@@ -227,7 +227,33 @@ class BoletaController extends BaseController
             $this->sinCalificaciones();
         }
 
-        return ['periodo_id' => $periodoId, 'estado_matricula' => $mat['estado']];
+        return [
+            'periodo_id'       => $periodoId,
+            'estado_matricula' => $mat['estado'],
+            'anio_id'          => (int) $mat['anio_id'],
+            'nivel_id'         => (int) $mat['nivel_id'],
+        ];
+    }
+
+    /**
+     * ¿El DOCENTE ve la boleta de este periodo como documento OFICIAL? Solo si
+     * el bimestre está cerrado **y** ya se publicó al nivel del alumno
+     * (compuerta 044, 19/10/2026). Antes de publicarse, el docente ve las notas
+     * del bimestre cerrado como BORRADOR (marca de agua, sin sello ni QR): un
+     * documento firmado no debe existir antes de la entrega oficial. Deroga,
+     * para el docente, el «la boleta del docente mira solo cerrado» del
+     * 21/07/2026. La boleta de GESTIÓN no pasa por aquí: su personal imprime
+     * antes de la reunión (decisión del usuario).
+     *
+     * @param array{periodo_id:int, anio_id:int, nivel_id:int} $res
+     */
+    private function oficialParaDocente(array $res): bool
+    {
+        if ($this->estadoBoletaDePeriodo($res['periodo_id']) !== 'oficial') {
+            return false;
+        }
+        $publicados = $this->publicacionModel->periodosPublicados($res['anio_id'], $res['nivel_id']);
+        return isset($publicados[$res['periodo_id']]);
     }
 
     /**

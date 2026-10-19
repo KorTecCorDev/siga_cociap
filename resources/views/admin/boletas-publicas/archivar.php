@@ -89,4 +89,5 @@ unset($_bim);
 <script>var ARCHIVO_ZIP_NOMBRE = <?= json_encode($nombreZip) ?>;</script>
 <script src="<?= url('js/jszip.min.js') ?>"></script>
 <script src="<?= url('js/html2pdf.bundle.min.js') ?>"></script>
+<script src="<?= url('js/pdf-paginar.js') ?>"></script>
 <script src="<?= url('js/archivar-boletas.js') ?>"></script>

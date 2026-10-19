@@ -771,6 +771,7 @@ $nomina-tono-tutoria: darken($brand-accent, 18%);
 @page horario-landscape {
     size: A4 landscape;
     margin: 8mm;
+    @include pie-paginacion;
 }
 
 // Todo el documento se compacta para garantizar UNA sola hoja A4 horizontal.

@@ -1,10 +1,178 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **17/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **19/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
-## 🆕 FECHAS DE ASISTENCIA EN LA BOLETA — CONSTRUIDO en `dev` (17/10/2026), SIN DESPLEGAR
+## 🔜 RETOMAR AQUÍ (19/10/2026, madrugada) — DEPLOY PENDIENTE ANTES DEL 20/10 19:00
+
+**Situación:** todo lo de los días 18 y 19/10 está commiteado y pusheado a `dev`, y
+**NADA está en producción** (`main` = `8700acf`, del 17/10). Hay **11 commits** en `dev` que
+no están en `main`. Ninguno tiene migración: el deploy es solo código.
+
+### 🔴 1. Lo urgente: desplegar antes del martes 20/10 a las 19:00
+- **Por qué hay plazo:** a esa hora se publica el III de **primaria** y es la reunión de padres
+  (programado en `periodos_publicacion`; secundaria, **miércoles 21/10 a las 19:00**, también
+  con reunión a esa hora).
+  - Hasta el deploy, en prod los **docentes ven el III como boleta OFICIAL** (firma, sello,
+    QR) antes de publicarse. El fix es `71d7814`.
+- **Cómo:** el usuario dice «deploy» → merge `dev` → `main` con **`--no-ff`** + push (ver la
+  memoria `feedback_deploy_runbook`). **Preguntar antes de mergear.**
+- **Qué entra** (de más antiguo a más nuevo):
+
+  | Commit | Qué |
+  |---|---|
+  | `ade6968` | docs: registro del deploy de las fechas de asistencia |
+  | `7107450` + `49be78c` | Boleta impresa en UNA hoja: fuera el anexo de asistencia (solo en la digital) |
+  | `f2ef80c` + `d087640` | «Página X de Y» al pie de todo impreso; lotes sin número; PDF de ZIP numerados |
+  | `2fbdb3f` + `efaf53a` | La firma de la boleta digital nunca queda sola en una hoja (`.bd-cierre`) |
+  | `71d7814` + `316fad3` | El docente ve el bimestre cerrado como BORRADOR hasta su publicación |
+  | `a5b5ef8` + docs | La pantalla de espera nunca se desbloquea por tiempo; candado de doble envío |
+
+- **Después del deploy:**
+  - pasar a «desplegado» las **cabeceras** de los docs: en `ui.md`, numeración, firma y
+    pantalla de espera; en `boletas.md`, anexo, cierre y boleta del docente;
+  - pasar a «desplegado» las entradas de este archivo;
+  - registrar el merge en la sección Git.
+
+### 2. Pruebas pendientes (en la oficina, con la impresora y los datos reales)
+1. **Impresión real en la RICOH**, con «Encabezados y pies de página» **desactivado** en el
+   diálogo:
+   - «Página X de Y» centrado al pie;
+   - la boleta A4 en una hoja;
+   - el lote de boletas sin número;
+   - la boleta digital con la firma junto a la Asistencia.
+2. **ZIP de ratificaciones:** abrir 2 PDF y ver «Página 1 de N» en `y = 286` (no medido).
+3. **Planilla de asistencia** (`/documentos/planilla-asistencia`):
+   - «Ver PDF» abre otra pestaña y **esta no queda bloqueada**;
+   - «Descargar Excel» descarga y muestra el aviso «Descarga iniciada».
+4. **Un guardado normal** en cualquier formulario: la espera se va al llegar la página nueva.
+5. Al cumplirse cada hora de publicación (20/10 y 21/10 a las 19:00), ver que el docente ya ve
+   el III como oficial y el tutor ve el III en su Acompañamiento.
+
+### 3. Lo que sigue después del deploy
+- **Fase 2 de «firma nunca sola»:** aplicar `.bd-cierre`, o una utilidad común, a los demás
+  documentos con firma o sello, **uno por uno y midiendo cada uno**. El inventario está en la
+  entrada «LA FIRMA/SELLO NUNCA SOLA» de abajo. Método de medición: `docs/modulos/ui.md` §
+  «Firma y sello».
+- **Acompañamiento pedagógico:** no necesita cambios.
+  - El tutor ve el III solo cuando se publica su nivel, que coincide con la reunión de las
+    19:00.
+  - Dirección puede imprimir hoy el lote por tutor (`/admin/cuadros/acompanamiento/tutores`).
+  - Más adelante habrá **reportes de mérito por sección** (el reporte actual se trata como
+    lote).
+
+### 4. Datos del entorno local (no están en el código)
+- URL local: **`https://localhost/siga_cociap/public/...`**. Sin `public` da 404, y el
+  `.htaccess` fuerza HTTPS.
+- La **BD local se recargó el 18-19/10 desde producción**.
+- **El sello y la firma salen rotos en local:** no existe `storage/firmas/`. Copiar
+  `~/siga_uploads/firmas/` de prod para verlos; no altera los cortes de hoja.
+- `public/js/calificaciones.js` sale «M» **solo por autocrlf** (contenido idéntico). No
+  commitearlo.
+- Los scripts de medición (render a PDF, barrido de cortes, servidor lento del loader)
+  vivían en el scratchpad de la sesión y **no están en el repo**. El método está descrito en
+  `ui.md`.
+
+## 🆕 PANTALLA DE ESPERA: NUNCA SE DESBLOQUEA POR TIEMPO (19/10/2026, en `dev`, sin migración)
+
+A los 8 s el loader se quitaba aunque la carga siguiera. El formulario volvía a ser usable
+(con riesgo de **doble envío**: el CSRF es de sesión) y luego la página saltaba sola a la
+vista final. Ahora:
+- solo se desbloquea al navegar, al abortarse (`navigateerror`, con aviso) o con «Volver a
+  la página» a los 60 s si no hay Navigation API;
+- bloquea el doble envío;
+- respeta `formtarget` y el `data-descarga` de formularios y botones.
+
+Detalle: `docs/modulos/ui.md` § «Pantalla de espera».
+- [x] Medido en Chrome con el `app.js` compilado: POST de 15 s (bloqueo continuo, un solo
+  POST en el servidor, aborto con aviso), POST sin abortar y respaldo sin API a los 61 s.
+- [ ] Comprobar en la app: un guardado normal y la planilla de asistencia (Ver PDF y
+  Descargar Excel).
+
+## 🆕 BOLETA DEL DOCENTE: BORRADOR HASTA LA PUBLICACIÓN (19/10/2026, en `dev`, sin migración)
+
+El docente veía el III como documento **oficial** (firma, sello, QR) desde su cierre del
+17/10, antes de la publicación programada (primaria 20/10 19:00, secundaria 21/10 19:00).
+Ahora lo ve como **BORRADOR hasta que se publica al nivel del alumno**, y la nómina dice lo
+mismo. La boleta de gestión no cambia. Detalle: `docs/modulos/boletas.md` § «La boleta
+del DOCENTE respeta la compuerta».
+- [x] Regla comprobada contra la BD de producción en 3 momentos (hoy · 20/10 · 21/10).
+- [x] Comprobado en Chrome con la cuenta docente SOTELO ROQUE, SAARA (19/10, BD copia de prod):
+  - nómina: 269 filas «Borrador · III Bimestre»;
+  - boleta digital e imprimible de la matrícula 236: marca BORRADOR, sin sello ni QR, con las
+    notas del III;
+  - `/matriculas/236/boleta`: 403, correcto para un docente.
+- [ ] **Desplegar ANTES del 20/10 19:00** para que tenga efecto en esta publicación. Hasta
+  el deploy, los docentes de producción siguen viendo el III como oficial.
+
+## 🆕 LA FIRMA/SELLO NUNCA SOLA EN UNA HOJA (18/10/2026, en `dev`, sin migración)
+
+Regla del usuario: la firma/sello va siempre debajo de un contenido y las secciones salen
+completas. La base legal y la técnica están en `docs/modulos/ui.md` § «Firma y sello: nunca
+solos en una hoja».
+- [x] **Fase 1: boleta digital** (`.bd-cierre`: Asistencia + firma + QR indivisibles). Medido
+  imprimiendo a PDF con un relleno de 0 a 270 mm:
+  - **antes:** la firma pasaba sola a la hoja 5;
+  - **ahora:** el bloque siempre está junto;
+  - en pantalla, idéntico al píxel.
+
+  Detalle en `docs/modulos/boletas.md` § «Cierre del documento».
+- [ ] Comprobar en el navegador e impresora del colegio.
+- [ ] **Fase 2: los demás documentos con firma o sello**, uno por uno y midiendo cada uno.
+  - Bajo riesgo, porque son de una hoja por diseño:
+    - boleta A4 (`boleta/alumno.php`);
+    - horario;
+    - cada hoja del reporte de mérito.
+  - Largo variable. Ninguno ata hoy la firma al contenido:
+    - asistencia y conducta imprimibles (`.reporte-footer`, `_firmas-registro.php`);
+    - acta de desempates;
+    - cuadros estadísticos (sello);
+    - documento de ratificación (2 firmas);
+    - constancia de traslado (`.constancia-firma`);
+    - nómina de docentes y nómina detallada, resumen de matrículas (`__sello-bloque`);
+    - informe SIAGIE (`informe-siagie__firma`).
+
+## 🆕 «PÁGINA X DE Y» AL PIE DE TODO DOCUMENTO IMPRESO (18/10/2026, en `dev`, sin migración)
+
+Todo documento impreso lleva «Página X de Y» centrado al pie, en una caja de margen de
+`@page`: no toca el contenido. Los lotes van sin número (`doc-lote`):
+- lote de boletas;
+- vista previa del borrador;
+- archivado;
+- lote de ratificaciones;
+- reporte de mérito.
+
+Los PDF de los ZIP lo estampan con jsPDF, uno por estudiante. Detalle:
+`docs/modulos/ui.md` § «Numeración de páginas al imprimir».
+- [x] Medido en Chrome headless, imprimiendo a PDF:
+  - la boleta real (secundaria con 29 competencias y primaria con 27) sigue en **1 hoja**,
+    con «Página 1 de 1», y las firmas siguen a **9,1 mm** del borde, con pie y sin él;
+  - un documento largo da «1 de 4» … «4 de 4», y uno apaisado, «1 de 5» … «5 de 5»;
+  - el lote sale sin número;
+  - html2pdf con `paginarPdf` genera el PDF numerado.
+- [x] Hallado y corregido al medir: la `@page` sin nombre se hereda en todas las hojas, y
+  `boleta-lote` tiene que anular el pie de forma explícita.
+- [ ] Comprobar en el navegador del colegio, con «Encabezados y pies de página» desactivado:
+  - impresión real en la RICOH;
+  - el ZIP de ratificaciones (`y = 286`, no medido).
+- [ ] Desplegar.
+
+## 🆕 BOLETA IMPRESA = UNA SOLA HOJA: SIN ANEXO DE ASISTENCIA (18/10/2026, en `dev`, sin migración)
+
+Decisión del usuario: el modelo oficial impreso es **una hoja**, y las fechas de asistencia
+quedan **solo en la boleta digital**. Se quitó el anexo de `boleta/alumno.php`, lo que lo
+saca del individual, el lote, la vista previa y el ZIP. También se quitaron el SASS
+`.boleta-anexo` y el `pagebreak` del ZIP, que vuelve a `'avoid-all'`. Los tres archivos
+quedaron idénticos a como estaban antes de `ec9fd2b`. La digital y el modelo no cambian.
+Detalle: `docs/modulos/boletas.md` § «Fechas de las incidencias de asistencia».
+- [x] `php -l` OK · `verif_boleta_fechas_asistencia.php` → OK (521 estudiantes, 0 fallos).
+- [ ] Comprobar en el navegador: imprimible, lote y ZIP en 1 hoja; la digital sigue con
+  fechas.
+- [ ] Desplegar. ⚠️ **Hasta entonces, PROD imprime el anexo** (va desde `8700acf`): si se
+  imprimen boletas del III antes del deploy, salen en 2 hojas.
+
+## 🆕 FECHAS DE ASISTENCIA EN LA BOLETA — DESPLEGADO el 17/10/2026 (merge `8700acf`)
 
 La boleta (digital, imprimible y PDF, todos los estados y todas las vistas, familias
 incluidas) muestra **cuándo** ocurrió cada incidencia: agrupadas por el total en que
@@ -20,7 +188,8 @@ Detalle y decisiones: `docs/modulos/boletas.md` § «Fechas de las incidencias d
   - PDF con el contenedor real del ZIP (hoja 1 con firmas, hoja 2 el anexo, marca entera).
 - [x] **Comprobado al 100 % por el usuario el 17/10/2026** (versión final: solo bimestres con
   fechas y fichas con el color de su tipo).
-- [ ] Al desplegar: solo código. Las familias verán fechas en cuanto el III se publique.
+- [x] Desplegado el 17/10/2026 (merge `8700acf`, solo código, sin migración). Las familias
+  verán las fechas en cuanto se publique el III.
 - ⚠️ Hallado al correr la batería: a la **BD LOCAL** le faltan los CHECK de asistencia
   (`chk_justificada_con_motivo`, `chk_principal_vigente`); `verif_asistencia_fechas`,
   `_jornadas`, `_presencias` y `_estadisticas` fallan por eso y por falta de escenario (III ya

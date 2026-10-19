@@ -53,7 +53,7 @@
             setProgreso(i);
 
             try {
-                var blob = await html2pdf()
+                var pdf = await html2pdf()
                     .set({
                         // Márgenes en CADA hoja (no en el ítem: solo darían la 1.ª y la última).
                         margin:      [15, 17.5, 15, 17.5],
@@ -65,7 +65,12 @@
                         pagebreak:   { mode: ['avoid-all', 'css', 'legacy'] }
                     })
                     .from(item)
-                    .outputPdf('blob');
+                    .toPdf()
+                    .get('pdf');
+
+                // «Página X de Y» dentro del margen inferior de 15mm (pdf-paginar.js).
+                paginarPdf(pdf, 286);
+                var blob = pdf.output('blob');
 
                 zip.file(nombre + '.pdf', blob);
             } catch (e) {
