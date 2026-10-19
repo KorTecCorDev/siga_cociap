@@ -4,6 +4,36 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **19/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+## 🔜 RETOMAR AQUÍ (19/10/2026, noche: laptop → escritorio de casa) — GESTOR DEL MÉRITO DESPLEGADO
+
+**Situación:** el gestor del orden de mérito con impresión filtrada está **en producción**
+(merge `ebb376c`, sin migraciones; entrada «GESTOR DEL ORDEN DE MÉRITO» de abajo). `dev` va
+por delante de `main` **solo con commits de docs**, que suben en el próximo deploy.
+
+### Al llegar al escritorio de casa
+1. `git pull` en `dev`. **No hay migraciones nuevas**: la BD local no necesita nada para esto.
+2. Comprobar que el hook pre-push esté activo: `git config core.hooksPath` debe responder
+   `.githooks`. Si sale vacío, ejecutar `git config core.hooksPath .githooks` (en la laptop
+   **no estaba activado** y el push del 19/10 salió sin verificación; se corrió a mano: OK).
+3. Recompilar con `gulp build` antes de mirar nada impreso en local.
+
+### Pendiente
+- [ ] **Probar en producción con sesión**: el gestor y los dos imprimibles, con admin y
+  con un director (no debe ver «Resolver empate»), y la ruta vieja
+  `/director/ranking-seccion/{p}` (debe redirigir al gestor).
+- [ ] **Prueba de control** de «la firma nunca sola» en el reporte de mérito (con
+  `.merito-cierre` desactivado DEBE fallar). La tanda positiva ya pasó. Hacerla **liviana**:
+  ver la advertencia de carga en `docs/modulos/ui.md` § «Firma y sello» (la del 19/10
+  recalentó la laptop y obligó a reiniciarla).
+- [ ] **Fase 2 de «firma nunca sola»**: seguir con el resto del inventario (entrada «LA
+  FIRMA/SELLO NUNCA SOLA» de abajo), uno por uno.
+
+### Solo en la laptop (no viaja)
+- `stash@{0}` «rediseno merito 19/10»: respaldo ya innecesario (todo está en `ba0e40b`).
+- 12 íconos SVG sin seguimiento en `public/assets/icons/` (del 01/10, sin uso en el código).
+- `gulp` reescribe `public/js/*.js` con otros finales de línea: salen «M» con contenido
+  idéntico. Descartar con `git checkout -- public/js`, nunca commitearlos.
+
 ## 🔜 RETOMAR AQUÍ (19/10/2026) — DESPLEGADO; QUEDAN LAS PRUEBAS EN LA OFICINA
 
 **Situación:** todo lo de los días 18 y 19/10 está **DESPLEGADO** el 19/10/2026 (merge
