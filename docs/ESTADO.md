@@ -71,6 +71,40 @@ falta. Producción sirve el `app.js` y el `app.css` nuevos (comprobado con curl)
   vivían en el scratchpad de la sesión y **no están en el repo**. El método está descrito en
   `ui.md`.
 
+## 🆕 500 EN `/admin/cuadros` + VERIFICADOR DE INTEGRIDAD Y HOOK PRE-PUSH (19/10/2026, en `dev`, sin migración)
+
+**El error:** el tablero (pantalla y A4) daba 500 en producción al abrirse el IV Bimestre.
+- Las dos vistas incluían `admin/cuadros/acompanamiento/_sin-casos.php`, que nunca existió:
+  el parcial está en `riesgo/`. El 24/09 se renombró la **URL**, no la carpeta (`c7c004e`).
+- El `require` está en la rama «hay situación final pero nadie en riesgo». Hasta el IV
+  siempre hubo casos, así que nunca se ejecutó. `admin`/RA abren el tablero en el bimestre
+  activo; Dirección, en el último cerrado.
+- Fix: `riesgo/` en `cuadros/index.php` y `cuadros/imprimir.php`. Acompañamiento no tenía el
+  error.
+
+**Prevención (alternativa «A», aprobada por el usuario):**
+- `database/verificaciones/verif_integridad_rutas.php` comprueba:
+  - las rutas literales de `require`/`include` (204);
+  - las vistas y layouts por nombre (185);
+  - que cada ruta apunte a un método público existente (290);
+  - `php -l` (394 archivos).
+- Tarda unos 4 s. Probado reintroduciendo el bug y una ruta a un método inexistente.
+- Lo corre `.githooks/pre-push`. **Activarlo una vez por clon:**
+  `git config core.hooksPath .githooks`. Hecho en el setup; **falta la laptop**.
+- `verif_direccion_superficies.php` da 7 FAIL **idénticos con y sin el fix**, así que no
+  son regresión. Seis vienen del IV recién abierto (sin gráfico de evolución, «sin casos»
+  con 0 evaluados) y uno de `ROLES_MATRICULAN`. Ese verificador **no detectó** este 500.
+
+**Pendientes (después de la publicación del III, 21/10/2026), por orden:**
+- [ ] **B.** Helper `partial('ruta', [...])` en lugar de los `require VIEW_PATH . '...'`:
+  error explícito y variables declaradas. Hacerlo **por módulo y verificando cada uno**,
+  porque hoy los parciales leen variables de la vista padre de forma implícita.
+- [ ] **C.** PHPStan y pruebas de humo HTTP por rol. Requieren Composer, así que encajan
+  con la migración a Laravel.
+- [ ] **D.** CI en GitHub Actions con el verificador. Avisa, pero no frena el auto-deploy
+  de Hostinger.
+- [ ] Poner al día `verif_direccion_superficies.php` con un bimestre recién abierto.
+
 ## 🆕 PANTALLA DE ESPERA: NUNCA SE DESBLOQUEA POR TIEMPO (19/10/2026, DESPLEGADO el 19/10/2026 (merge `65ca112`), sin migración)
 
 A los 8 s el loader se quitaba aunque la carga siguiera. El formulario volvía a ser usable

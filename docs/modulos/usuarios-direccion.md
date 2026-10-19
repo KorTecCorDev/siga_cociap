@@ -1385,7 +1385,9 @@ lote por tutor heredaba el aviso del grado. Guarda: `verif_riesgo_situacion_bd.p
 (24/09/2026). El aviso de cobertura vivía en `_resumen.php`, que con cero casos no se pinta,
 así que en B3 (23 evaluados, los 23 a medio calificar, 500 sin una sola nota) las cinco
 vistas daban la buena noticia sin aviso. **Punto único del texto de «nadie en riesgo»:
-`riesgo/_sin-casos.php`** —banda de `/admin/cuadros` y su A4, `/admin/cuadros/riesgo` y su
+`riesgo/_sin-casos.php`** (⚠️ la carpeta de vistas sigue siendo `riesgo/` aunque la URL sea
+`/acompanamiento`: las dos vistas del tablero lo incluían como `acompanamiento/_sin-casos.php`
+y dieron 500 al abrirse el IV, 19/10/2026; lo barre `verif_integridad_rutas.php`) —banda de `/admin/cuadros` y su A4, `/admin/cuadros/riesgo` y su
 A4, y `_seccion.php` (lote y panel del tutor)—: con cobertura parcial o estudiantes sin datos
 dice «Por ahora ninguno de los N … queda en riesgo, pero la proyección es parcial» con las
 cifras. La card del tutor muestra «Proyección parcial» en vez de «Todos serían promovidos».

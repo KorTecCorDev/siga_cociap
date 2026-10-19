@@ -111,6 +111,10 @@ se rastrean en `docs/ESTADO.md`.
   confirmar/fijar en hPanel si se recrea el hosting.
 - **Impresora objetivo del colegio:** RICOH MP4054 PCL6 — probar la boleta A4 ahí
   ante cualquier cambio de layout de impresión.
+- **Hook `pre-push` (19/10/2026):** `.githooks/pre-push` corre
+  `database/verificaciones/verif_integridad_rutas.php` (parciales, vistas, rutas y `php -l`)
+  y cancela el push si algo falla. Git no versiona la activación, así que se hace **una vez
+  por clon**: `git config core.hooksPath .githooks`. Sin ella, el push sale sin verificar.
 
 ## Migraciones: reglas para que importen en phpMyAdmin (08/10/2026)
 
