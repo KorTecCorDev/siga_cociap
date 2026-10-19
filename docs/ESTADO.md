@@ -4,6 +4,18 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **18/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+## 🆕 BOLETA DEL DOCENTE: BORRADOR HASTA LA PUBLICACIÓN (19/10/2026, en `dev`, sin migración)
+
+El docente veía el III como documento **oficial** (firma, sello, QR) desde su cierre del
+17/10, antes de la publicación programada (primaria 20/10 19:00, secundaria 21/10 19:00).
+Ahora lo ve como **BORRADOR hasta que se publica al nivel del alumno**, y la nómina dice lo
+mismo. La boleta de gestión no cambia. Detalle: `docs/modulos/boletas.md` § «La boleta
+del DOCENTE respeta la compuerta».
+- [x] Regla comprobada contra la BD de producción en 3 momentos (hoy · 20/10 · 21/10).
+- [ ] Comprobar con una cuenta docente: nómina, boleta digital e imprimible del III.
+- [ ] **Desplegar ANTES del 20/10 19:00** para que tenga efecto en esta publicación. Hasta
+  el deploy, los docentes de producción siguen viendo el III como oficial.
+
 ## 🆕 LA FIRMA/SELLO NUNCA SOLA EN UNA HOJA (18/10/2026, en `dev`, sin migración)
 
 Regla del usuario: la firma/sello va siempre debajo de un contenido y las secciones salen

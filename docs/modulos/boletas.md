@@ -624,7 +624,7 @@ lo único que cambia es si se respeta la publicación:
 |---|---|---|
 | `'oficial'` | familias EN LÍNEA: `verToken`, `verDigitalToken`, `/padre/notas` | **respeta** |
 | `'archivo'` | STAFF: salida masiva impresa/ZIP, boleta del trasladado | **ignora** |
-| `'borrador'` | docente y gestión | n/a (no mira publicación) |
+| `'borrador'` | docente y gestión | n/a en los DATOS; para el docente, el sello «oficial» sí la respeta (ver abajo, 19/10/2026) |
 | `'todos'` | vista previa de RA | n/a |
 
 **El porqué:** RA **imprime las boletas ANTES** de la reunión de entrega; con
@@ -669,8 +669,9 @@ operan — **validado en el método** (`guardPublicacion`), no ocultando el bot�
 Rutas POST con `validateCsrf()`: `/admin/control/{periodo_id}/{publicar,programar,despublicar}`.
 
 ### Procesos que NO cambian
-SIAGIE, orden de mérito y su snapshot, rectificaciones, retorno de grado, boleta del
-docente y de gestión: todos siguen mirando solo `cerrado`. Los trasladados **ignoran**
+SIAGIE, orden de mérito y su snapshot, rectificaciones, retorno de grado y boleta de
+gestión: todos siguen mirando solo `cerrado`. ~~Boleta del docente~~: **derogado el
+19/10/2026**, ver «La boleta del DOCENTE respeta la compuerta». Los trasladados **ignoran**
 la compuerta (boleta archivada administrativa; el alumno ya no tiene vínculo).
 
 ### Verificado end-to-end (19 checks + 8 de render)
@@ -1316,3 +1317,45 @@ Implementación:
     pasan juntos a la siguiente.
 - Cada hoja empieza en una sección (área, Conducta o Asistencia): `.bd-area` y `.bd-conducta`
   ya tenían `break-inside: avoid`.
+
+## La boleta del DOCENTE respeta la compuerta (19/10/2026) — en `dev`, sin desplegar
+
+**Problema:** el docente veía la boleta de un bimestre cerrado como documento
+**OFICIAL** apenas se cerraba, antes de que el nivel se publicara. Tenía firma, sello y
+QR, y no llevaba marca de borrador. Se detectó con el III de 2026: se cerró el 17/10,
+con publicación programada para el 20/10 (primaria) y el 21/10 (secundaria).
+- Contradecía la regla del claustro: el mérito y el acompañamiento sí esperan la
+  publicación. En la misma fila de la nómina salía «Sin orden de mérito» junto a una
+  «Boleta» oficial.
+- Permitía entregar un documento firmado antes de la reunión oficial.
+- El QR impreso llevaba a la vista de familias, que aún mostraba el II.
+
+**Regla (decisión del usuario, no re-preguntar):**
+- El **docente** ve las notas del bimestre cerrado, pero **como BORRADOR** (marca de
+  agua, sin sello ni QR) **hasta que se publique al nivel del alumno**. Al publicarse
+  pasa sola a oficial. Lo programado se respeta a la hora exacta.
+- La **boleta de GESTIÓN** (`/matriculas/{id}/boleta`) **no cambia**: su personal imprime
+  antes de la reunión, igual que la salida masiva con `'archivo'`.
+
+**Implementación:**
+- `BoletaController::oficialParaDocente($res)`: `cerrado` **y** el periodo está en
+  `PublicacionBoletaModel::periodosPublicados(anio, nivel del alumno)`.
+  - La usan `verDigitalDocente` y `verImprimirDocente`.
+  - `resolverBoletaDocente` devuelve además `anio_id` y `nivel_id`.
+- Nómina del docente (`Docente\PanelController::nomina` + `docente/nomina.php`):
+  - cada alumno lleva `boleta_oficial`, que dice si el último cerrado ya se publicó a su
+    nivel;
+  - si no se publicó, el panel dice «Borrador · III Bimestre», igual que la boleta que
+    abre.
+  - Sigue siendo una variable distinta de `$publicados` (mérito): no se fusionan.
+- Los datos no cambian: el umbral sigue siendo `'borrador'`. Solo cambia si el documento
+  es oficial.
+- **Comprobado** contra la BD de producción, en tres momentos:
+
+  | Momento | III Primaria | III Secundaria |
+  |---|---|---|
+  | Hoy | borrador | borrador |
+  | 20/10 19:30 | oficial | borrador |
+  | 21/10 19:30 | oficial | oficial |
+
+  El I y el II siguen oficiales.

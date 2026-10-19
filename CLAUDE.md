@@ -217,7 +217,10 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   acto separado, por NIVEL y con fecha/hora (`periodos_publicacion`, migración 044).
   Punto único: `PublicacionBoletaModel`. El umbral `'oficial'` de `BoletaModel::armar()`
   respeta la compuerta (acceso en línea de familias); `'archivo'` la ignora a propósito
-  (documento impreso por staff: salida masiva y trasladado). **TODAS las vistas de
+  (documento impreso por staff: salida masiva y trasladado). **El DOCENTE ve el
+  bimestre cerrado como BORRADOR hasta que se publica a su nivel**
+  (`BoletaController::oficialParaDocente`, 19/10/2026); la boleta de gestión no
+  espera la publicación. **TODAS las vistas de
   boleta se arman con `estructuraCompleta = true`** (9 entradas, desde el 04/08/2026):
   **siempre las 4 columnas de bimestre**, aunque estén vacías (formato oficial); el
   guard de datos es el que respeta la compuerta — abrir columnas NO filtra notas.
