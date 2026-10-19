@@ -415,6 +415,15 @@ $vistaPrevia = $vistaPrevia ?? false;
         </section>
         <?php endif; ?>
 
+        <?php
+        // CIERRE DEL DOCUMENTO (18/10/2026): la ÚLTIMA SECCIÓN (Asistencia, que con
+        // la estructura completa siempre está), la FIRMA/SELLO y el QR forman un
+        // bloque que no se parte al imprimir (`.bd-cierre`, break-inside: avoid).
+        // Si no cabe, pasa ENTERO a la hoja siguiente: la firma nunca empieza una
+        // hoja sola, siempre debajo del contenido que autentica. Por eso el pie y el
+        // QR viven DENTRO de <main>. Ver docs/modulos/boletas.md § «Cierre».
+        ?>
+        <div class="bd-cierre">
         <?php if (!empty($asistencia['bimestres'])):
             $asisTotal = $asistencia['total'];
             $camposAsis = [
@@ -504,7 +513,6 @@ $vistaPrevia = $vistaPrevia ?? false;
             <?php endif; ?>
         </section>
         <?php endif; ?>
-    </main>
 
 
     <!-- ── FOOTER — FIRMAS ──────────────────────────────────── -->
@@ -547,5 +555,7 @@ $vistaPrevia = $vistaPrevia ?? false;
         </div>
     </section>
     <?php endif; ?>
+        </div><!-- /.bd-cierre -->
+    </main>
 
 </article>
