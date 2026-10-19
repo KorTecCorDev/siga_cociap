@@ -21,6 +21,11 @@
 //   ⚠️ Si el colegio crece por encima de 55 alumnos en un grado, lo que se
 //      toca es la altura de fila (`.promedio-val` / line-height), no el
 //      espacio de firma: ver `.merito-doc` al final del archivo.
+//
+//   19/10/2026 — letra de 6.5 a 7.5pt (sección: 9pt) con la banda de título
+//   fusionada en la cabecera. MEDIDO sobre B1/B2: 4° sec (53) cabe en una hoja
+//   con ~24mm de holgura (unas 6 filas más: el tope real pasa a ~59); solo
+//   1° sec (71-72) sigue en dos hojas. A 8pt, 2°, 4° y 5° de sec se parten.
 // ============================================================
 
 // ── Colores de medalla ────────────────────────────────────────
@@ -103,11 +108,14 @@ $c-beca:   #1a5c1a;
 
 // ── Tabla principal — ranking general ────────────────────────
 // El <thead> se repite solo en la 2ª hoja cuando un grado desborda (1° sec.).
+// Estilo del Acompañamiento pedagógico (19/10/2026): solo reglas horizontales,
+// encabezado gris claro con línea negra, y CEBRA SUAVE (decisión del usuario:
+// en tablas de 40-70 filas guía el ojo de un lado a otro de la fila).
 .tabla-merito {
     width: 100%;
     border-collapse: collapse;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 6.5pt;
+    font-size: 7.5pt;
     table-layout: fixed;
     margin-bottom: 2mm;
 
@@ -118,15 +126,15 @@ $c-beca:   #1a5c1a;
     .tm-promedio   { width: 19mm; }
 
     thead th {
-        background: #efefef;
+        background: #f2f2f2;
         font-weight: bold;
-        font-size: 5.5pt;
+        font-size: 6.5pt;
         text-transform: uppercase;
         letter-spacing: 0.2pt;
-        color: #333;
-        padding: 0.6mm 1mm;
-        border: 0.4pt solid #999;
-        border-bottom: 1.2pt solid #000;
+        color: #444;
+        padding: 0.7mm 1.2mm;
+        border: 0;
+        border-bottom: 0.8pt solid #000;
         text-align: center;
         vertical-align: middle;
 
@@ -134,20 +142,27 @@ $c-beca:   #1a5c1a;
     }
 
     // ⚠️ La altura de la fila NO la fija este font-size, sino el mayor de sus
-    // hijos: `.promedio-val` (7pt) y `.medalla` (7pt). Bajar el promedio de
-    // 7.5 a 7pt y el interlineado de 1.15 a 1.1 llevó la fila de 4.32mm a
-    // 3.95mm MEDIDOS, y eso es lo que metió los grados de 52-55 alumnos en
-    // una sola hoja. Tocar aquí el tamaño de esos dos hijos cambia cuántos
-    // alumnos entran por hoja.
+    // hijos: `.promedio-val` y `.medalla`. Con la letra en 7.5pt (19/10/2026,
+    // antes 6.5) la fila solo cabe porque la banda `.reporte-titulo` se fusionó
+    // con la cabecera: así entran 4° sec (53) y 2° sec (52) en una hoja, MEDIDO.
+    // A 8pt, 2°, 4° y 5° de secundaria ya se parten. Tocar aquí el tamaño, el
+    // padding o el interlineado cambia cuántos alumnos entran por hoja.
     tbody td {
-        padding: 0.45mm 1mm;
-        border: 0.3pt solid #ddd;
+        padding: 0.4mm 1.2mm;
+        border: 0;
+        border-bottom: 0.3pt solid #ccc;
         vertical-align: middle;
         background: #fff;
-        line-height: 1.1;
+        line-height: 1.08;
     }
 
-    tbody tr:nth-child(even) td { background: #f8f8f8; }
+    tbody tr:nth-child(even) td { background: #f7f7f7; }
+
+    // Toda fila reserva el filete del top-3 (transparente si no lo es). Con
+    // `border-collapse` el borde izquierdo más grueso de la tabla le resta
+    // ancho a sus columnas: sin esto, el cuerpo (con top-3) y la cola del
+    // cierre (sin top-3) daban la columna del nombre 1.5px distinta (medido).
+    tbody td:first-child { border-left: 2.5pt solid transparent; }
 
     // Ninguna fila se parte entre dos hojas.
     tbody tr { break-inside: avoid; page-break-inside: avoid; }
@@ -176,7 +191,7 @@ $c-beca:   #1a5c1a;
 .medalla {
     font-family: Arial, Helvetica, sans-serif;
     font-weight: bold;
-    font-size: 7pt;
+    font-size: 7.5pt;
     display: inline-block;
 
     &--1 { color: $c-oro; }
@@ -186,45 +201,43 @@ $c-beca:   #1a5c1a;
 }
 
 // ── Promedio numérico ─────────────────────────────────────────
-// 7pt (antes 7.5): es el elemento más alto de la fila y por tanto quien manda
-// en cuántos alumnos entran por hoja. Sigue por encima del 6.5pt del resto de
-// la tabla, que es lo que lo destaca.
+// Es, con `.medalla`, el elemento más alto de la fila y por tanto quien manda
+// en cuántos alumnos entran por hoja: va al MISMO tamaño que la tabla (7.5pt) y
+// lo destaca la negrita, no un punto más.
 .promedio-val {
     font-family: Arial, Helvetica, sans-serif;
     font-weight: bold;
-    font-size: 7pt;
+    font-size: 7.5pt;
 }
 
 // ── Distintivos de distinción ────────────────────────────────
 // Van JUNTO AL NOMBRE, no en columna propia: solo aplican a 3 de las 37-72
 // filas del grado, así que como columna dejaban 44mm en blanco en el 95% de la
-// tabla. Al ser más bajos que la línea de texto (5pt frente a 6.5pt) no hacen
-// crecer la fila.
-.distincion-beca {
-    display: inline-block;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 5pt;
-    font-weight: bold;
-    color: $c-beca;
-    border: 0.5pt solid $c-beca;
-    border-radius: 1mm;
-    padding: 0.2mm 1.5mm;
-    margin-left: 1.5mm;
-    vertical-align: middle;
-    letter-spacing: 0.2pt;
-    white-space: nowrap;
-}
-
+// tabla. Estilo de las marcas del Acompañamiento (mayúsculas, borde fino,
+// negrita). Son más bajos que la línea de texto (5.5pt frente a 7.5pt), así que
+// no hacen crecer la fila.
+.distincion-beca,
 .distincion-grado {
     display: inline-block;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 5pt;
-    border: 0.4pt solid #bbb;
-    border-radius: 1mm;
-    padding: 0.2mm 1.5mm;
+    font-size: 5.5pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.3pt;
+    border-radius: 0.6mm;
+    padding: 0 1.2mm;
     margin-left: 1.5mm;
     vertical-align: middle;
     white-space: nowrap;
+}
+
+.distincion-beca {
+    color: $c-beca;
+    border: 0.6pt solid $c-beca;
+}
+
+.distincion-grado {
+    border: 0.6pt solid #bbb;
     color: #555;
 
     &--2 { color: $c-plata;  border-color: $c-plata; }
@@ -331,4 +344,81 @@ $c-beca:   #1a5c1a;
     // mano sobre la línea, y devuelve 3mm de tabla.
     .reporte-footer__espacio-firma { height: 15mm; }
     .reporte-footer__firma-img     { max-height: 14mm; }
+
+    // Nombre y cargo más legibles (19/10/2026; el compartido es 5.5/6pt). Solo
+    // la letra: el espacio de firma y la distribución en 3 columnas no cambian.
+    .reporte-footer__nombre { font-size: 7pt; }
+    .reporte-footer__cargo  { font-size: 6.5pt; }
+
+    // Cabecera (19/10/2026): la del Acompañamiento pedagógico
+    // (`.cuadros-print__head`, pensada en px para su informe) llevada a la
+    // escala del acta. Mismo alto que la `.boleta-header` anterior —logo de
+    // 11mm, 4 líneas—: cada mm que crezca es una fila menos por hoja, y el
+    // tope de 55 va al límite (ver cabecera de este archivo).
+    .cuadros-print__head {
+        gap: 3mm;
+        margin-bottom: 1.2mm;
+        padding-bottom: 1mm;
+        border-bottom-width: 1.5pt;
+    }
+
+    .cuadros-print__logo { width: 11mm; }
+
+    .cuadros-print__titulo {
+        line-height: 1.2;
+
+        h1 { font-size: 10pt; }
+        p  { margin: 0; font-size: 7.5pt; }
+
+        // Dentro de __titulo para ganarle en especificidad al `p` de arriba.
+        .cuadros-print__sub { font-size: 6.5pt; color: #333; }
+    }
+
+    // El título de la hoja FUSIONA la antigua banda `.reporte-titulo`: una sola
+    // línea, un solo estilo y tamaño (decisión del usuario, 19/10/2026).
+    .cuadros-print__titulo .merito-doc__titulo {
+        margin: 0.3mm 0;
+        font-size: 9pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.3pt;
+        color: #000;
+    }
+}
+
+// ── Cierre: la firma NUNCA empieza una hoja (19/10/2026) ─────
+// Regla del usuario (docs/modulos/ui.md § «Firma y sello»): las firmas van
+// PEGADAS a la tabla y nunca solas en una hoja. Las últimas filas de la tabla
+// y el bloque de firmas forman `.merito-cierre`, indivisible: si no caben,
+// pasan JUNTOS a la hoja siguiente. Solo al imprimir, como `.bd-cierre`.
+// La tabla se pinta en dos trozos (cuerpo + cola) con el mismo <colgroup>;
+// en pantalla y en papel se leen como una sola.
+.merito-cierre {
+    @media print {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
+
+// El cuerpo sigue en el cierre: sin margen entre los dos trozos.
+.tabla-merito--continua { margin-bottom: 0; }
+
+// La cola arranca en una fila PAR del total: invierte la cebra para que siga
+// alternando sin saltos.
+.tabla-merito--paridad-impar {
+    tbody tr:nth-child(odd) td  { background: #f7f7f7; }
+    tbody tr:nth-child(even) td { background: #fff; }
+}
+
+// Hoja de SECCIÓN (19/10/2026): 18-27 filas en una hoja que admite 55, así que
+// su tabla va más grande que la del grado (9pt frente a 7.5). MEDIDO: las 23
+// secciones caben en una hoja incluso a 10pt.
+.merito-doc--seccion .tabla-merito {
+    font-size: 9pt;
+
+    thead th { font-size: 7pt; }
+    tbody td { padding: 0.8mm 1.4mm; line-height: 1.2; }
+
+    .medalla,
+    .promedio-val { font-size: 9pt; }
 }

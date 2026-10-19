@@ -9,13 +9,32 @@
  *
  * Las hojas van agrupadas por grado: mérito del grado y a continuación sus secciones.
  *
- * @var array      $periodo       { id, anio, nombre_display, numero }
+ * Desde el 19/10/2026 se imprime LO FILTRADO en el gestor: el controlador ya
+ * trae solo los grados tocados y, en `por_seccion`, solo las secciones
+ * elegidas; `$hojasGrado` / `$hojasSeccion` dicen qué hojas salen. La cabecera
+ * es la del Acompañamiento pedagógico (`_cabecera-merito.php`); la estructura
+ * firmable (MODELO OFICIAL, docs/modulos/orden-merito.md §373) no cambia.
+ *
+ * LA FIRMA NUNCA EMPIEZA UNA HOJA (regla del usuario, docs/modulos/ui.md §
+ * «Firma y sello»; Fase 2 aplicada aquí el 19/10/2026): las firmas van pegadas
+ * a la tabla y las ÚLTIMAS `$filasCierre` filas viajan con ellas en
+ * `.merito-cierre`, un bloque indivisible. Si no caben, pasan juntas a la hoja
+ * siguiente. Por eso cada tabla se pinta en dos trozos: el cuerpo y la cola.
+ *
+ * @var array      $periodo       { id, anio, nombre_display, numero, estado }
  * @var array      $ranking       [grado_id => { grado, conteos, general[], por_seccion{sec => []}, tutores }]
+ * @var bool       $hojasGrado    imprimir la hoja de mérito de cada grado
+ * @var bool       $hojasSeccion  imprimir una hoja por cada sección
  * @var string     $institucion
  * @var array|null $directorEbr   { nombre_completo, sexo, firma_path }
  * @var bool       $hayPendientes
  */
-$hoy = (new DateTime())->format('d/m/Y');
+$hojasGrado   = $hojasGrado   ?? true;
+$hojasSeccion = $hojasSeccion ?? true;
+$impreso      = (new DateTime())->format('d/m/Y H:i');
+
+// Filas que acompañan a las firmas en el bloque indivisible del cierre.
+$filasCierre = 3;
 
 $cargoDirector = match($directorEbr['sexo'] ?? null) {
     'F'     => 'Directora E.B.R.',
@@ -34,6 +53,116 @@ $cargoTutor = static fn(?array $tutor): string => match($tutor['sexo'] ?? null) 
     'M'     => 'Tutor de Aula',
     'F'     => 'Tutora de Aula',
     default => 'Tutor(a) de Aula',
+};
+
+/**
+ * Pinta una tabla de mérito (o un trozo de ella).
+ *   $conSeccion  hoja del GRADO: columna Secc. y distintivos de puesto.
+ *   $conThead    solo el primer trozo lleva encabezado (se repite al partir hoja).
+ *   $mod         clases extra: `--continua` (sigue en el cierre) y
+ *                `--paridad-impar` (la cola arranca en fila par: la cebra sigue).
+ * Las columnas se fijan con <colgroup> para que los dos trozos midan igual.
+ */
+$tabla = static function (array $filas, bool $conSeccion, bool $conThead, string $mod = ''): void {
+    ?>
+    <table class="tabla-merito <?= $mod ?>">
+        <colgroup>
+            <col class="tm-puesto">
+            <col>
+            <?php if ($conSeccion): ?><col class="tm-seccion"><?php endif; ?>
+            <col class="tm-comp">
+            <col class="tm-total">
+            <col class="tm-promedio">
+        </colgroup>
+        <?php if ($conThead): ?>
+            <thead>
+                <tr>
+                    <th class="tm-puesto">Puesto</th>
+                    <th class="tm-nombre">Apellidos y Nombres</th>
+                    <?php if ($conSeccion): ?><th class="tm-seccion">Secc.</th><?php endif; ?>
+                    <th class="tm-comp">Comp.</th>
+                    <th class="tm-total">Total</th>
+                    <th class="tm-promedio">Promedio</th>
+                </tr>
+            </thead>
+        <?php endif; ?>
+        <tbody>
+            <?php foreach ($filas as $est): ?>
+                <?php $pos = $est['puesto']; ?>
+                <tr class="<?= $pos <= 3 ? 'fila-merito--' . $pos : '' ?>">
+                    <td>
+                        <span class="medalla medalla--<?= $pos <= 3 ? $pos : 'n' ?>">
+                            <?= $pos ?>°
+                        </span>
+                    </td>
+                    <td class="tm-nombre">
+                        <?= e($est['apellido_paterno'] . ' ' . $est['apellido_materno'] . ', ' . $est['nombres']) ?>
+                        <?php if ($conSeccion): ?>
+                            <?php if ($est['media_beca']): ?>
+                                <span class="distincion-beca">Media Beca &mdash; 1° Puesto del Grado</span>
+                            <?php elseif ($pos === 2): ?>
+                                <span class="distincion-grado distincion-grado--2">2° Puesto del Grado</span>
+                            <?php elseif ($pos === 3): ?>
+                                <span class="distincion-grado distincion-grado--3">3° Puesto del Grado</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </td>
+                    <?php if ($conSeccion): ?><td><?= e($est['seccion_nombre']) ?></td><?php endif; ?>
+                    <td class="tm-comp"><?= (int) $est['num_competencias'] ?></td>
+                    <td class="tm-total"><?= (int) $est['total_notas'] ?></td>
+                    <td>
+                        <span class="promedio-val"><?= number_format((float) $est['promedio_general'], 2) ?></span>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php
+};
+
+/** Bloque de firmas de una hoja. */
+$firmas = static function (array $lista): void {
+    ?>
+    <footer class="reporte-footer">
+        <?php foreach ($lista as $firma): ?>
+            <div class="reporte-footer__bloque">
+                <div class="reporte-footer__espacio-firma">
+                    <?php if (!empty($firma['firma_path'])): ?>
+                        <img src="<?= url($firma['firma_path']) ?>"
+                             alt=""
+                             aria-hidden="true"
+                             class="reporte-footer__firma-img">
+                    <?php endif; ?>
+                </div>
+                <div class="reporte-footer__linea"></div>
+                <?php if (!empty($firma['nombre'])): ?>
+                    <div class="reporte-footer__nombre"><?= e($firma['nombre']) ?></div>
+                <?php endif; ?>
+                <div class="reporte-footer__cargo"><?= e($firma['cargo']) ?></div>
+            </div>
+        <?php endforeach; ?>
+    </footer>
+    <?php
+};
+
+/**
+ * Tabla completa + firmas: el cuerpo suelto y la cola (últimas $filasCierre
+ * filas) en el bloque indivisible junto a las firmas.
+ */
+$tablaConCierre = static function (array $filas, bool $conSeccion, array $listaFirmas) use ($tabla, $firmas, $filasCierre): void {
+    $cuerpo = array_slice($filas, 0, max(0, count($filas) - $filasCierre));
+    $cola   = array_slice($filas, count($cuerpo));
+    if ($cuerpo !== []) {
+        $tabla($cuerpo, $conSeccion, true, 'tabla-merito--continua');
+    }
+    ?>
+    <div class="merito-cierre">
+        <?php if ($cola !== []) {
+            $tabla($cola, $conSeccion, $cuerpo === [], count($cuerpo) % 2 === 1 ? 'tabla-merito--paridad-impar' : '');
+        } ?>
+        <?php $firmas($listaFirmas); ?>
+    </div>
+    <?php
 };
 
 // El salto va ANTES de cada hoja menos la primera: un salto al final del
@@ -56,6 +185,9 @@ $primeraHoja = true;
     $codModular     = ($grado['nivel_codigo'] ?? '') === 'sec' ? '1310044 - 0' : '1719525 - 0';
     $totalGeneral   = count($data['general']);
     $infoConteos    = $conteos['num_areas'] . ' área' . ($conteos['num_areas'] !== 1 ? 's' : '') . ' a promediar';
+    // «4° — Secundaria — II Bimestre 2026»: la parte común del título de cada hoja.
+    $tituloGrado    = ($grado['nombre_display'] ?? '') . ' — ' . ($grado['nivel_nombre'] ?? '')
+                    . ' — ' . ($periodo['nombre_display'] ?? '') . ' ' . ($periodo['anio'] ?? '');
 
     // Hoja del grado: firma el Director EBR y todos los tutores del grado.
     $firmasGrado = [$firmaDirector];
@@ -70,112 +202,29 @@ $primeraHoja = true;
     <!-- ══════════════════════════════════════════════════════════
          HOJA: Orden de Mérito del grado
     ═══════════════════════════════════════════════════════════ -->
+    <?php if ($hojasGrado): ?>
     <?php if (!$primeraHoja): ?><div class="boleta-salto-pagina"></div><?php endif; $primeraHoja = false; ?>
     <div class="reporte-pagina merito-doc">
 
-        <header class="boleta-header">
-            <div class="boleta-header__logo-wrap">
-                <img src="<?= url('assets/img/logo_cociap.png') ?>"
-                     alt="COCIAP" class="boleta-header__logo">
-            </div>
-            <div class="boleta-header__centro">
-                <div class="boleta-header__ugel">MINEDU &middot; DRE Áncash &middot; UGEL Huaraz</div>
-                <div class="boleta-header__colegio"><?= e($institucion ?? '') ?></div>
-                <div class="boleta-header__modular">Cód. Modular: <?= $codModular ?></div>
-                <div class="boleta-header__titulo">Reporte de Orden de Mérito &mdash; <?= e($periodo['anio'] ?? '') ?></div>
-            </div>
-            <div class="boleta-header__fecha-wrap">
-                <div class="boleta-header__fecha-label">Impresión</div>
-                <div class="boleta-header__fecha"><?= $hoy ?></div>
-            </div>
-        </header>
-
-        <div class="reporte-titulo">
-            <div class="reporte-titulo__grupo">
-                <span class="reporte-titulo__principal">Orden de Mérito</span>
-                <span class="reporte-titulo__sub">
-                    &mdash; <?= e($grado['nombre_display'] ?? '') ?> &mdash; <?= e($grado['nivel_nombre'] ?? '') ?> &mdash; <?= e($periodo['nombre_display'] ?? '') ?>
-                </span>
-            </div>
-            <div class="reporte-titulo__meta">
-                <span class="reporte-titulo__info"><?= e($infoConteos) ?></span>
-                <span class="reporte-titulo__badge"><?= $totalGeneral ?> estudiante<?= $totalGeneral !== 1 ? 's' : '' ?></span>
-            </div>
-        </div>
+        <?php
+        $tituloHoja = 'Orden de mérito — ' . $tituloGrado;
+        $metaHoja   = $infoConteos . ' · ' . $totalGeneral . ' estudiante' . ($totalGeneral !== 1 ? 's' : '');
+        require VIEW_PATH . '/director/_cabecera-merito.php';
+        ?>
 
         <?php if (empty($data['general'])): ?>
             <p class="reporte-vacio">Sin calificaciones registradas en este grado para el periodo seleccionado.</p>
-        <?php else: ?>
-
-            <table class="tabla-merito">
-                <thead>
-                    <tr>
-                        <th class="tm-puesto">Puesto</th>
-                        <th class="tm-nombre">Apellidos y Nombres</th>
-                        <th class="tm-seccion">Secc.</th>
-                        <th class="tm-comp">Comp.</th>
-                        <th class="tm-total">Total</th>
-                        <th class="tm-promedio">Promedio</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($data['general'] as $est): ?>
-                        <?php $pos = $est['puesto']; ?>
-                        <tr class="<?= $pos <= 3 ? 'fila-merito--' . $pos : '' ?>">
-                            <td>
-                                <span class="medalla medalla--<?= $pos <= 3 ? $pos : 'n' ?>">
-                                    <?= $pos ?>°
-                                </span>
-                            </td>
-                            <td class="tm-nombre">
-                                <?= e($est['apellido_paterno'] . ' ' . $est['apellido_materno'] . ', ' . $est['nombres']) ?>
-                                <?php if ($est['media_beca']): ?>
-                                    <span class="distincion-beca">Media Beca &mdash; 1° Puesto del Grado</span>
-                                <?php elseif ($pos === 2): ?>
-                                    <span class="distincion-grado distincion-grado--2">2° Puesto del Grado</span>
-                                <?php elseif ($pos === 3): ?>
-                                    <span class="distincion-grado distincion-grado--3">3° Puesto del Grado</span>
-                                <?php endif; ?>
-                            </td>
-                            <td><?= e($est['seccion_nombre']) ?></td>
-                            <td class="tm-comp"><?= (int) $est['num_competencias'] ?></td>
-                            <td class="tm-total"><?= (int) $est['total_notas'] ?></td>
-                            <td>
-                                <span class="promedio-val"><?= number_format((float) $est['promedio_general'], 2) ?></span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-
         <?php endif; ?>
 
-        <footer class="reporte-footer">
-            <?php foreach ($firmasGrado as $firma): ?>
-                <div class="reporte-footer__bloque">
-                    <div class="reporte-footer__espacio-firma">
-                        <?php if (!empty($firma['firma_path'])): ?>
-                            <img src="<?= url($firma['firma_path']) ?>"
-                                 alt=""
-                                 aria-hidden="true"
-                                 class="reporte-footer__firma-img">
-                        <?php endif; ?>
-                    </div>
-                    <div class="reporte-footer__linea"></div>
-                    <?php if (!empty($firma['nombre'])): ?>
-                        <div class="reporte-footer__nombre"><?= e($firma['nombre']) ?></div>
-                    <?php endif; ?>
-                    <div class="reporte-footer__cargo"><?= e($firma['cargo']) ?></div>
-                </div>
-            <?php endforeach; ?>
-        </footer>
+        <?php $tablaConCierre($data['general'], true, $firmasGrado); ?>
 
     </div>
+    <?php endif; ?>
 
     <!-- ══════════════════════════════════════════════════════════
          HOJAS: Ranking por sección — UNA HOJA POR SECCIÓN
     ═══════════════════════════════════════════════════════════ -->
-    <?php foreach ($data['por_seccion'] as $secNombre => $estudiantes): ?>
+    <?php foreach ($hojasSeccion ? $data['por_seccion'] : [] as $secNombre => $estudiantes): ?>
         <?php
         $tutor        = $tutores[$secNombre] ?? null;
         $totalSeccion = count($estudiantes);
@@ -188,90 +237,18 @@ $primeraHoja = true;
         ];
         ?>
 
-        <div class="boleta-salto-pagina"></div>
-        <div class="reporte-pagina merito-doc">
+        <?php if (!$primeraHoja): ?><div class="boleta-salto-pagina"></div><?php endif; $primeraHoja = false; ?>
+        <?php // `--seccion`: 18-27 filas, así que su tabla lleva letra más grande
+              // que la del grado (decisión del usuario, 19/10/2026). ?>
+        <div class="reporte-pagina merito-doc merito-doc--seccion">
 
-            <header class="boleta-header">
-                <div class="boleta-header__logo-wrap">
-                    <img src="<?= url('assets/img/logo_cociap.png') ?>"
-                         alt="COCIAP" class="boleta-header__logo">
-                </div>
-                <div class="boleta-header__centro">
-                    <div class="boleta-header__ugel">MINEDU &middot; DRE Áncash &middot; UGEL Huaraz</div>
-                    <div class="boleta-header__colegio"><?= e($institucion ?? '') ?></div>
-                    <div class="boleta-header__modular">Cód. Modular: <?= $codModular ?></div>
-                    <div class="boleta-header__titulo">Orden de Mérito por Sección &mdash; <?= e($periodo['nombre_display'] ?? '') ?> &mdash; <?= e($periodo['anio'] ?? '') ?></div>
-                </div>
-                <div class="boleta-header__fecha-wrap">
-                    <div class="boleta-header__fecha-label">Impresión</div>
-                    <div class="boleta-header__fecha"><?= $hoy ?></div>
-                </div>
-            </header>
+            <?php
+            $tituloHoja = 'Ranking — Sección ' . $secNombre . ' — ' . $tituloGrado;
+            $metaHoja   = $infoConteos . ' · ' . $totalSeccion . ' estudiante' . ($totalSeccion !== 1 ? 's' : '');
+            require VIEW_PATH . '/director/_cabecera-merito.php';
+            ?>
 
-            <div class="reporte-titulo">
-                <div class="reporte-titulo__grupo">
-                    <span class="reporte-titulo__principal">Ranking &mdash; Sección <?= e($secNombre) ?></span>
-                    <span class="reporte-titulo__sub">
-                        &mdash; <?= e($grado['nombre_display'] ?? '') ?> &mdash; <?= e($grado['nivel_nombre'] ?? '') ?> &mdash; <?= e($periodo['nombre_display'] ?? '') ?>
-                    </span>
-                </div>
-                <div class="reporte-titulo__meta">
-                    <span class="reporte-titulo__info"><?= e($infoConteos) ?></span>
-                    <span class="reporte-titulo__badge"><?= $totalSeccion ?> estudiante<?= $totalSeccion !== 1 ? 's' : '' ?></span>
-                </div>
-            </div>
-
-            <table class="tabla-merito">
-                <thead>
-                    <tr>
-                        <th class="tm-puesto">Puesto</th>
-                        <th class="tm-nombre">Apellidos y Nombres</th>
-                        <th class="tm-comp">Comp.</th>
-                        <th class="tm-total">Total</th>
-                        <th class="tm-promedio">Promedio</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($estudiantes as $est): ?>
-                        <?php $pos = $est['puesto']; ?>
-                        <tr class="<?= $pos <= 3 ? 'fila-merito--' . $pos : '' ?>">
-                            <td>
-                                <span class="medalla medalla--<?= $pos <= 3 ? $pos : 'n' ?>">
-                                    <?= $pos ?>°
-                                </span>
-                            </td>
-                            <td class="tm-nombre">
-                                <?= e($est['apellido_paterno'] . ' ' . $est['apellido_materno'] . ', ' . $est['nombres']) ?>
-                            </td>
-                            <td class="tm-comp"><?= (int) $est['num_competencias'] ?></td>
-                            <td class="tm-total"><?= (int) $est['total_notas'] ?></td>
-                            <td>
-                                <span class="promedio-val"><?= number_format((float) $est['promedio_general'], 2) ?></span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-
-            <footer class="reporte-footer">
-                <?php foreach ($firmasSeccion as $firma): ?>
-                    <div class="reporte-footer__bloque">
-                        <div class="reporte-footer__espacio-firma">
-                            <?php if (!empty($firma['firma_path'])): ?>
-                                <img src="<?= url($firma['firma_path']) ?>"
-                                     alt=""
-                                     aria-hidden="true"
-                                     class="reporte-footer__firma-img">
-                            <?php endif; ?>
-                        </div>
-                        <div class="reporte-footer__linea"></div>
-                        <?php if (!empty($firma['nombre'])): ?>
-                            <div class="reporte-footer__nombre"><?= e($firma['nombre']) ?></div>
-                        <?php endif; ?>
-                        <div class="reporte-footer__cargo"><?= e($firma['cargo']) ?></div>
-                    </div>
-                <?php endforeach; ?>
-            </footer>
+            <?php $tablaConCierre($estudiantes, false, $firmasSeccion); ?>
 
         </div>
     <?php endforeach; ?>

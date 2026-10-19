@@ -1289,11 +1289,15 @@ hoja siguiente.
 - **Cómo medirlo:** imprimir a PDF con Chrome headless, insertando un relleno de alto variable
   **antes** del contenedor (no dentro: así se vuelve más alto que una hoja y la prueba miente),
   y comprobar en qué hoja cae cada texto.
+- ⚠️ **Cuidado con la carga** (19/10/2026): cada alto es un Chrome headless. Una tanda de
+  ~430 arranques seguidos, sin `timeout` por arranque, recalentó la laptop hasta obligar a
+  reiniciarla. Usar **pocos altos** (unos 10, repartidos en la hoja), `timeout` en cada
+  `subprocess.run` y documentos chicos, nunca el legajo completo dentro del bucle.
 
 **Estado:**
 - **Fase 1 (hecha):** la boleta digital (`.bd-cierre`, ver `docs/modulos/boletas.md`).
-- **Fase 2 (pendiente):** el resto de documentos con firma; el inventario está en
-  `docs/ESTADO.md`.
+- **Fase 2 (en curso):** hecho el reporte de mérito (`.merito-cierre`, en `dev`, ver
+  `docs/modulos/orden-merito.md`); el resto del inventario está en `docs/ESTADO.md`.
 
 ## Pantalla de espera: nunca se desbloquea por tiempo (19/10/2026) — desplegado el 19/10/2026 (`65ca112`)
 
