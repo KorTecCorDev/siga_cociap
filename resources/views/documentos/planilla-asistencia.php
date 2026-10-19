@@ -89,7 +89,7 @@ $nivelActual = null;
                     <button type="submit" name="formato" value="pdf" formtarget="_blank" class="btn btn--primary">
                         Ver PDF
                     </button>
-                    <button type="submit" name="formato" value="xlsx" class="btn btn--secondary" id="btnExcel">
+                    <button type="submit" name="formato" value="xlsx" class="btn btn--secondary" id="btnExcel" data-descarga="">
                         Descargar Excel
                     </button>
                 </div>
