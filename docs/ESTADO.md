@@ -6043,8 +6043,8 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
   `--no-ff` de `dev`, 5 commits, 10 archivos): fix del 500 de `/admin/cuadros` (pantalla y A4),
   `verif_integridad_rutas.php` y hook `pre-push`. **Sin migraciones.** Verificado antes: el hook
   en verde en los dos push, árbol de `main` idéntico a `dev`, `main` sin código propio, sin
-  archivos sensibles. Después: `/login` 200 y `/admin/cuadros` 302 (sin sesión). **Falta que el
-  usuario abra el tablero con sesión en el IV**.
+  archivos sensibles. Después: `/login` 200 y `/admin/cuadros` 302 (sin sesión). **El usuario
+  comprobó el tablero con sesión en prod: carga bien.**
 - 🟢 **19/10/2026 — DEPLOY, sigue v1.0.5.** `main` pasó de `8700acf` a `65ca112` (merge
   `--no-ff` de `dev`, 11 commits, 30 archivos):
   - boleta impresa en una hoja (sin anexo de asistencia);
