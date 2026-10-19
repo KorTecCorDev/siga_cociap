@@ -56,10 +56,7 @@
                         image:       { type: 'jpeg', quality: 0.95 },
                         html2canvas: { scale: 1.5, useCORS: true, logging: false },
                         jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                        // 'css' respeta el salto antes del ANEXO de asistencia
-                        // (.boleta-salto-pagina, 17/10/2026): la boleta con fechas
-                        // sale en 2 hojas; sin fechas, en 1 como siempre.
-                        pagebreak:   { mode: ['css', 'avoid-all'] }
+                        pagebreak:   { mode: 'avoid-all' }
                     })
                     .from(item)
                     .outputPdf('blob');
