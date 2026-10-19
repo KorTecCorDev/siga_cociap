@@ -1296,7 +1296,8 @@ hoja siguiente.
 
 **Estado:**
 - **Fase 1 (hecha):** la boleta digital (`.bd-cierre`, ver `docs/modulos/boletas.md`).
-- **Fase 2 (en curso):** hecho el reporte de mérito (`.merito-cierre`, en `dev`, ver
+- **Fase 2 (en curso):** hecho el reporte de mérito (`.merito-cierre`, desplegado el
+  19/10/2026 en `ebb376c`, ver
   `docs/modulos/orden-merito.md`); el resto del inventario está en `docs/ESTADO.md`.
 
 ## Pantalla de espera: nunca se desbloquea por tiempo (19/10/2026) — desplegado el 19/10/2026 (`65ca112`)

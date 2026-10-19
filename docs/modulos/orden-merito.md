@@ -7,6 +7,9 @@
 > **Rediseño 2 (aprobado 25/07/2026, SIN implementar): ver
 > `orden-merito-rediseno.md`.** Este archivo describe el estado ACTUAL; se irá
 > actualizando a medida que cada fase del rediseño entre en producción.
+>
+> **Gestor con impresión filtrada (§ «Impresión filtrada y cabecera nueva»): DESPLEGADO
+> el 19/10/2026** (merge `ebb376c`, sin migración).
 
 ## Orden de mérito — snapshot al cerrar (17/06/2026)
 

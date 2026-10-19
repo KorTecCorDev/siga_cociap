@@ -153,7 +153,7 @@ solos en una hoja».
   - Bajo riesgo, porque son de una hoja por diseño:
     - boleta A4 (`boleta/alumno.php`);
     - horario;
-    - ~~cada hoja del reporte de mérito~~ — hecho en `dev` el 19/10 (`.merito-cierre`).
+    - ~~cada hoja del reporte de mérito~~ — desplegado el 19/10 (`.merito-cierre`, `ebb376c`).
   - Largo variable. Ninguno ata hoy la firma al contenido:
     - asistencia y conducta imprimibles (`.reporte-footer`, `_firmas-registro.php`);
     - acta de desempates;
@@ -293,7 +293,7 @@ Pasos, en orden:
 7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
    asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
 
-## 🆕 GESTOR DEL ORDEN DE MÉRITO (19/10/2026, en `dev`, sin migración), SIN DESPLEGAR
+## 🆕 GESTOR DEL ORDEN DE MÉRITO (19/10/2026, sin migración) — DESPLEGADO el 19/10/2026 (merge `ebb376c`)
 
 `/director/orden-merito/{p}` pasa a ser un gestor como el del Acompañamiento: chips de
 sección, mérito por grado + ranking por sección en una pantalla, e impresión de lo
@@ -311,7 +311,7 @@ mismo alto). Detalle en `docs/modulos/orden-merito.md` § Visibilidad y § Impre
 - [x] Firma nunca sola (Fase 2 para este reporte): `.merito-cierre` = últimas 3 filas +
   firmas, indivisible. 0 fallas en 71 altos × 3 documentos.
   - [ ] Falta la prueba de control (con el bloque desactivado debe fallar).
-- [ ] Desplegar con el resto de `dev`.
+- [x] Desplegado el 19/10/2026 (merge `ebb376c`); prueba con sesión en prod pendiente (ver § Git).
 
 ## 🆕 RATIFICACIÓN DE MATRÍCULA — DESPLEGADO el 17/10/2026 (merge `bf885dd`, migración 080)
 
@@ -6059,6 +6059,16 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **19/10/2026 (3.º) — DEPLOY, sigue v1.0.5.** `main` pasó de `ba70357` a `ebb376c` (merge
+  `--no-ff` de `dev`, 3 commits, 11 archivos): gestor del orden de mérito con impresión
+  filtrada (`ba0e40b`) y 2 commits de docs. **Sin migraciones.** Verificado antes:
+  `verif_integridad_rutas.php` TODO OK, ya en `main` y a mano (⚠️ el hook pre-push **no
+  estaba activado** en esta laptop: falta `git config core.hooksPath .githooks`), merge sin
+  conflictos, árbol de `main` idéntico a `dev`, ningún archivo sensible. Después: prod
+  sirve el `app.css` nuevo (`.merito-cierre`, 1.er intento), `/login` 200 y
+  `/director/ranking-seccion/2` 302 a login (sin sesión).
+  - [ ] Probar con sesión en prod: el gestor y los dos imprimibles, con admin y con un
+    director (no debe ver «Resolver empate»).
 - 🟢 **19/10/2026 (2.º) — DEPLOY, sigue v1.0.5.** `main` pasó de `65ca112` a `ba70357` (merge
   `--no-ff` de `dev`, 5 commits, 10 archivos): fix del 500 de `/admin/cuadros` (pantalla y A4),
   `verif_integridad_rutas.php` y hook `pre-push`. **Sin migraciones.** Verificado antes: el hook
