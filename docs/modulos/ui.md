@@ -1216,3 +1216,49 @@ totales, de las leyendas y de los totales por estudiante). No copiar los valores
 Hoy la paleta sale solo en la asistencia **por fechas** (grilla mensual y vista por estudiante).
 La tabla de números (`_tabla-incidencias.php`: I/II y consulta de Dirección) y el imprimible A4
 (blanco y negro) conservan su estilo establecido.
+
+## Numeración de páginas al imprimir: «Página X de Y» (18/10/2026) — en `dev`, sin desplegar
+
+Todo documento impreso lleva **«Página X de Y», centrado al pie** (Arial 7 pt, gris). Las
+decisiones son del usuario y no hay que volver a preguntarlas.
+
+**Técnica: caja de margen de `@page`** (`@bottom-center`, Chrome y Edge 131+).
+- El número se dibuja **en el margen de la hoja, fuera del área de contenido**, así que no
+  resta un milímetro a ningún documento.
+- Se midió el 18/10/2026 imprimiendo la boleta real a PDF (secundaria, 29 competencias): con
+  pie y sin él, las firmas quedan a **9,1 mm** del borde y la boleta sigue en **1 hoja**.
+- La línea base del número queda a 5,7 mm del borde con el margen de 8 mm, y a 7,5 mm con el
+  de 1 cm.
+- Si el navegador no soporta márgenes de página, simplemente no aparece el número.
+- Se descartó un pie con `position: fixed`, porque se encima al contenido y no sabe contar
+  páginas.
+
+**Piezas:**
+- **Mixin `pie-paginacion`** (`resources/sass/base/_paginacion.scss`), incluido en **las 6
+  `@page`**:
+  - en `_boleta.scss`: la general, `boleta` y `paisaje`;
+  - `nomina-det-landscape` (`_matriculas.scss`);
+  - `horario-landscape` (`_docente-panel.scss`);
+  - la de la boleta digital (`_boleta-digital.scss`).
+- **Lotes sin número.** En una impresión de varios documentos, el navegador cuenta TODA la
+  impresión: la boleta del 7.º diría «Página 7 de 30».
+  - Los lotes van a `@page boleta-lote`, con la misma geometría que `boleta`. El controlador
+    los activa con `'bodyClass' => 'doc-lote'`.
+  - Hoy son el lote de boletas, la vista previa del borrador, las 2 entradas de archivado, el
+    lote de ratificaciones y el **reporte de orden de mérito**. En el reporte, cada hoja es un
+    documento firmable; más adelante habrá reportes por sección.
+- **PDF de los ZIP**: html2pdf no pasa por `@page`. `resources/js/pdf-paginar.js`
+  (`paginarPdf(pdf, yMm)`) estampa el número con jsPDF sobre el PDF ya generado, **uno por
+  estudiante** («1 de N» de ese PDF):
+  - boletas en `y = 295` (margen de 5 mm; ese PDF es de archivo);
+  - ratificaciones en `y = 286` (margen de 15 mm).
+
+🔴 **Reglas:**
+- **Toda `@page` nueva lleva `@include pie-paginacion`.**
+- **Todo lote de documentos independientes lleva `doc-lote`.**
+- La `@page` sin nombre se aplica a TODAS las hojas, y las páginas con nombre solo se suman
+  encima. Por eso una página que no deba numerarse tiene que **anular** el pie
+  (`@bottom-center { content: none; }`). Sin eso, `boleta-lote` heredaba el pie: se comprobó
+  imprimiendo.
+- **En el diálogo de impresión, «Encabezados y pies de página» debe estar desactivado.** Si
+  está activo, Chrome pone su URL y su fecha donde hay espacio.

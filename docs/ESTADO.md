@@ -4,6 +4,31 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **18/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+## 🆕 «PÁGINA X DE Y» AL PIE DE TODO DOCUMENTO IMPRESO (18/10/2026, en `dev`, sin migración)
+
+Todo documento impreso lleva «Página X de Y» centrado al pie, en una caja de margen de
+`@page`: no toca el contenido. Los lotes van sin número (`doc-lote`):
+- lote de boletas;
+- vista previa del borrador;
+- archivado;
+- lote de ratificaciones;
+- reporte de mérito.
+
+Los PDF de los ZIP lo estampan con jsPDF, uno por estudiante. Detalle:
+`docs/modulos/ui.md` § «Numeración de páginas al imprimir».
+- [x] Medido en Chrome headless, imprimiendo a PDF:
+  - la boleta real (secundaria con 29 competencias y primaria con 27) sigue en **1 hoja**,
+    con «Página 1 de 1», y las firmas siguen a **9,1 mm** del borde, con pie y sin él;
+  - un documento largo da «1 de 4» … «4 de 4», y uno apaisado, «1 de 5» … «5 de 5»;
+  - el lote sale sin número;
+  - html2pdf con `paginarPdf` genera el PDF numerado.
+- [x] Hallado y corregido al medir: la `@page` sin nombre se hereda en todas las hojas, y
+  `boleta-lote` tiene que anular el pie de forma explícita.
+- [ ] Comprobar en el navegador del colegio, con «Encabezados y pies de página» desactivado:
+  - impresión real en la RICOH;
+  - el ZIP de ratificaciones (`y = 286`, no medido).
+- [ ] Desplegar.
+
 ## 🆕 BOLETA IMPRESA = UNA SOLA HOJA: SIN ANEXO DE ASISTENCIA (18/10/2026, en `dev`, sin migración)
 
 Decisión del usuario: el modelo oficial impreso es **una hoja**, y las fechas de asistencia

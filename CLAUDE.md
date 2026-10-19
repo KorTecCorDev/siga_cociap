@@ -446,6 +446,10 @@ Versión de una línea; el porqué completo está en el doc del módulo.
 - **PDO preparado siempre**; `cargas_academicas` y `criterios` NO tienen UNIQUE KEY →
   proteger duplicados con `WHERE NOT EXISTS`.
 - **NUNCA CSS inline en PHP** — todo en SASS bajo `resources/sass/` + `gulp build`.
+- **«Página X de Y» al imprimir = caja de margen de `@page`** (18/10/2026): mixin
+  `pie-paginacion` (`base/_paginacion.scss`) en TODA `@page`; no toca el contenido. Los lotes
+  (`bodyClass => doc-lote`) van sin número, y los PDF de ZIP lo estampan con `paginarPdf()`.
+  Ver `docs/modulos/ui.md`.
 - **Secciones de contenido variable: «datos a la vista, acción aparte»** (21/09/2026).
   Con datos, card abierta con sus acciones en la cabecera; sin datos, no se pinta y
   queda solo su botón. NUNCA datos detrás de un `<details>` cerrado (tampoco se
