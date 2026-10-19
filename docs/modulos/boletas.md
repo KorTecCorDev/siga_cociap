@@ -1222,6 +1222,15 @@ decía «no existe», y la matrícula sí existe.
 
 ## Fechas de las incidencias de asistencia (17/10/2026) — desplegado el 17/10/2026 (`8700acf`)
 
+> 🔴 **18/10/2026 — la boleta IMPRESA vuelve a ser UNA sola hoja** (decisión del usuario; en
+> `dev`, sin desplegar). Las fechas son **solo de la boleta DIGITAL**. Se quitó el anexo del
+> imprimible: lo usaban el individual, el lote, la vista previa y el ZIP, todos por
+> `boleta/alumno.php`. También se quitó el SASS `.boleta-anexo` y se volvió a
+> `pagebreak: 'avoid-all'`. La digital no cambia, **tampoco al imprimirla con su botón**: el
+> bloque de fechas sale. El modelo tampoco cambia (`fechas` y `hay_fechas` siguen; el
+> verificador usa la segunda). **Derogados el punto 3 y lo del anexo, más abajo.** No
+> reintroducir una segunda hoja en el modelo oficial impreso.
+
 Desde el III Bimestre la asistencia se registra POR FECHAS (migración 069), pero la boleta
 solo mostraba los 4 totales. Ahora muestra **cuándo** ocurrió cada incidencia, en la digital,
 el imprimible y el PDF, en todos sus estados. Sin migración.
@@ -1230,7 +1239,8 @@ Decisiones del usuario (17/10/2026, no re-preguntar):
 1. **Todas las vistas**: gestión, docente, Dirección y **familias** (token/QR). Deroga, solo
    para la boleta, el «familias → v1.1» del 29/09/2026.
 2. **Solo fechas, sin motivo** de la justificación.
-3. Impresión y PDF: **anexo en hoja aparte**, solo si hay alguna fecha. La hoja 1 (modelo
+3. ~~Impresión y PDF: **anexo en hoja aparte**, solo si hay alguna fecha.~~ **Derogado el
+   18/10/2026**: el impreso no lleva fechas. La hoja 1 (modelo
    oficial, firmas) no cambia: en secundaria las firmas ya entran justo.
 4. **Solo los bimestres registrados POR FECHAS** (desde el III de 2026) de los que la boleta
    muestra, con el umbral de cada estado. Los de solo totales (I y II de 2026, y la vía
@@ -1260,16 +1270,14 @@ Implementación:
   - `asistencia.hay_fechas`.
 - **Vistas:**
   - digital: bloque «Fechas de inasistencias y tardanzas» bajo la tabla;
-  - imprimible: `.boleta-anexo`, un `.boleta-doc` propio tras un `.boleta-salto-pagina`, con
-    su propia marca de agua de borrador;
-  - formato común en el parcial `boleta/_fechas-asistencia.php`: «10/09» o «17/08 al 25/09
-    (28 días)».
-- **PDF/ZIP** (`public/js/archivar-boletas.js`, sin fuente en `resources/js`):
-  `pagebreak.mode = ['css', 'avoid-all']` para respetar el salto. Comprobado generando el PDF
-  con el contenedor real de 297 mm: hoja 1 la boleta con firmas, hoja 2 el anexo.
-- ⚠️ **`.boleta-anexo { min-height: 150mm }`** existe por la marca de agua. Rotada mide ~135 mm
-  de alto y el PDF recorta al alto del anexo: con 120 mm salía cortada. Si cambia la marca,
-  recalcular.
+  - ~~imprimible: `.boleta-anexo`, un `.boleta-doc` propio tras un `.boleta-salto-pagina`~~
+    (quitado el 18/10/2026);
+  - formato en el parcial `boleta/_fechas-asistencia.php` (hoy solo lo usa la digital):
+    «10/09» o «17/08 al 25/09 (28 días)».
+- **PDF/ZIP** (`public/js/archivar-boletas.js`, sin fuente en `resources/js`): desde el
+  18/10/2026 vuelve a `pagebreak.mode = 'avoid-all'` (una hoja por boleta). Entre el 17 y el
+  18 usó `['css', 'avoid-all']` para la hoja 2 del anexo. El `min-height: 150mm` del anexo,
+  puesto para la marca de agua, se fue con él.
 - Coste medido: `fechasParaBoleta` ≈ 1 ms por bimestre.
 - Verificador: **`verif_boleta_fechas_asistencia.php`** (solo lectura).
   - Comprueba que los días de cada categoría suman el total de la boleta. Pasó en local con

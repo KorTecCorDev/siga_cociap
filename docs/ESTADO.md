@@ -1,8 +1,22 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **17/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **18/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
+
+## 🆕 BOLETA IMPRESA = UNA SOLA HOJA: SIN ANEXO DE ASISTENCIA (18/10/2026, en `dev`, sin migración)
+
+Decisión del usuario: el modelo oficial impreso es **una hoja**, y las fechas de asistencia
+quedan **solo en la boleta digital**. Se quitó el anexo de `boleta/alumno.php`, lo que lo
+saca del individual, el lote, la vista previa y el ZIP. También se quitaron el SASS
+`.boleta-anexo` y el `pagebreak` del ZIP, que vuelve a `'avoid-all'`. Los tres archivos
+quedaron idénticos a como estaban antes de `ec9fd2b`. La digital y el modelo no cambian.
+Detalle: `docs/modulos/boletas.md` § «Fechas de las incidencias de asistencia».
+- [x] `php -l` OK · `verif_boleta_fechas_asistencia.php` → OK (521 estudiantes, 0 fallos).
+- [ ] Comprobar en el navegador: imprimible, lote y ZIP en 1 hoja; la digital sigue con
+  fechas.
+- [ ] Desplegar. ⚠️ **Hasta entonces, PROD imprime el anexo** (va desde `8700acf`): si se
+  imprimen boletas del III antes del deploy, salen en 2 hojas.
 
 ## 🆕 FECHAS DE ASISTENCIA EN LA BOLETA — DESPLEGADO el 17/10/2026 (merge `8700acf`)
 
