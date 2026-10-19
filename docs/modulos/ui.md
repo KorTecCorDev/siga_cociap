@@ -1294,3 +1294,46 @@ hoja siguiente.
 - **Fase 1 (hecha):** la boleta digital (`.bd-cierre`, ver `docs/modulos/boletas.md`).
 - **Fase 2 (pendiente):** el resto de documentos con firma; el inventario está en
   `docs/ESTADO.md`.
+
+## Pantalla de espera: nunca se desbloquea por tiempo (19/10/2026) — en `dev`, sin desplegar
+
+`resources/js/app.js` (loader de transición). Al navegar aparece una barra superior, y a los
+0,8 s la pantalla de espera con el logo, que bloquea la vista (`inert`).
+
+**Problema:**
+- A los **8 s** (`SAFETY_TIMEOUT`) se quitaba el overlay **aunque la carga siguiera**. El
+  usuario volvía a ver el formulario, ya usable, y luego la página saltaba sola a la vista
+  final.
+- Peor aún, se podía **enviar dos veces**: el token CSRF es de sesión, no de un solo uso.
+  Hay tablas sin `UNIQUE` (`cargas_academicas`, `criterios`).
+
+**Regla (decisiones del usuario, no re-preguntar):**
+- **Nunca se desbloquea por tiempo.** Pasados los 8 s **no** se muestra ningún mensaje: el
+  overlay sigue igual.
+- **Carga abortada** (Detener/Esc, corte de red): se desbloquea **al instante** y aparece un
+  `flash flash--warning`: «La carga se detuvo. Antes de volver a enviar, revisa si los cambios
+  se guardaron.» La detecta el evento `navigateerror` de la Navigation API.
+- **Sin Navigation API:** a los **60 s** aparece el botón «Volver a la página». Lo pulsa el
+  usuario; nunca se desbloquea solo.
+- **Candado de doble envío:** con una carga en curso se ignora cualquier otro `submit` (incluso
+  de formularios `data-no-loader`) y cualquier clic en un enlace que navegue.
+
+🔴 **Lo que no navega en ESTA pestaña no debe bloquearla**, porque nadie lo desbloquearía:
+- **Descargas:** marcar con **`data-descarga`** el enlace, el formulario o el botón de envío
+  (el valor es el nombre que muestra el aviso; vacío = sin nombre). Así solo sale la barra y
+  el aviso «Descarga iniciada».
+  - **Una descarga NO dispara `navigateerror`.** Sin la marca, la pantalla de espera se queda
+    fija.
+  - Hoy son: los enlaces de Actas SIAGIE y el botón «Descargar Excel» de la planilla de
+    asistencia (formulario GET).
+- **Otra pestaña:** `target` del formulario o **`formtarget` del botón** (p. ej. «Ver PDF» de
+  la planilla). Antes solo se miraba el `target` del formulario.
+
+**Medido el 19/10/2026 en Chrome**, con el `app.js` compilado sobre un servidor de prueba:
+- **POST de 15 s:** el bloqueo sigue a 1, 9 y 11 s. El segundo envío se bloquea, y en el
+  servidor llegó **un solo POST**. Al abortar con `window.stop()`, se desbloquea al instante y
+  aparece el aviso.
+- **POST de 15 s sin abortar:** el bloqueo sigue hasta llegar directamente a la vista final.
+- **Sin Navigation API:** no hay botón a los 55 s. Aparece a los 61 s y, al pulsarlo, se
+  desbloquea con el aviso.
+- **En un envío que termina en descarga,** Chrome dispara `navigate` pero no `navigateerror`.

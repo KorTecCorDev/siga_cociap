@@ -457,6 +457,11 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   (`break-inside: avoid`) junto con la ÚLTIMA sección del documento (y el QR si hay).
   `break-before: avoid` NO basta en Chrome. Hecho en la boleta digital (`.bd-cierre`); el resto
   de documentos firmados, en `docs/ESTADO.md`. Ver `docs/modulos/ui.md`.
+- **La pantalla de espera NUNCA se desbloquea por tiempo** (19/10/2026, `app.js`): solo al
+  navegar, al abortarse (`navigateerror`) o con «Volver a la página» a los 60 s sin Navigation
+  API. Bloquea el doble envío. **Todo enlace/formulario/botón que DESCARGA lleva
+  `data-descarga`** (una descarga no dispara `navigateerror`: sin la marca la espera queda
+  fija). Ver `docs/modulos/ui.md`.
 - **Secciones de contenido variable: «datos a la vista, acción aparte»** (21/09/2026).
   Con datos, card abierta con sus acciones en la cabecera; sin datos, no se pinta y
   queda solo su botón. NUNCA datos detrás de un `<details>` cerrado (tampoco se
