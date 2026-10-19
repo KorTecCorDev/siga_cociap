@@ -1262,3 +1262,35 @@ decisiones son del usuario y no hay que volver a preguntarlas.
   imprimiendo.
 - **En el diálogo de impresión, «Encabezados y pies de página» debe estar desactivado.** Si
   está activo, Chrome pone su URL y su fecha donde hay espacio.
+
+## Firma y sello: nunca solos en una hoja (18/10/2026)
+
+**Regla del usuario para todo documento impreso con firma o sello:** la firma/sello **nunca
+empieza una hoja**. Siempre va inmediatamente debajo del contenido que autentica, y cada
+sección sale completa. Una firma sola en la última hoja no autentica nada.
+
+**Base:** no hay norma del MINEDU sobre el formato de la boleta. La regla toma principios
+peruanos aplicables por analogía:
+- **D. Leg. 1049, art. 32 (Notariado):** los instrumentos no tienen espacios en blanco, y la
+  SUNARP observó una escritura por un espacio entre el último párrafo y la firma. Es decir, la
+  firma va pegada al texto.
+- **TUO de la Ley 27444:** las actuaciones se folian. Eso ya lo cubre «Página X de Y» (sección
+  anterior).
+- Según una fuente, el TUO 27444 fue reemplazado por el D.S. 006-2026-JUS; no se verificó ese
+  texto.
+
+**Técnica:** un contenedor **indivisible** (`break-inside: avoid`, solo `@media print`) que
+envuelve **la última sección + la firma/sello (+ el QR, si hay)**. Si no cabe, pasa entero a la
+hoja siguiente.
+- ⚠️ **`break-before: avoid` en el pie NO sirve**: Chrome lo trata como preferencia. Se midió
+  que la firma pasaba sola igual.
+- Si la última sección es más alta que una hoja, el contenedor se parte por fuerza. En ese caso
+  hay que envolver solo su último bloque.
+- **Cómo medirlo:** imprimir a PDF con Chrome headless, insertando un relleno de alto variable
+  **antes** del contenedor (no dentro: así se vuelve más alto que una hoja y la prueba miente),
+  y comprobar en qué hoja cae cada texto.
+
+**Estado:**
+- **Fase 1 (hecha):** la boleta digital (`.bd-cierre`, ver `docs/modulos/boletas.md`).
+- **Fase 2 (pendiente):** el resto de documentos con firma; el inventario está en
+  `docs/ESTADO.md`.

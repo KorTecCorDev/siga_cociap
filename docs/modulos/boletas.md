@@ -1284,3 +1284,35 @@ Implementación:
     521 estudiantes y 210 FJ fuera del ancla.
   - Comprueba que los bimestres por totales no traen fechas, ni el umbral `'oficial'` las de
     un bimestre que no muestra.
+
+## Cierre del documento: la firma nunca va sola en una hoja (18/10/2026) — en `dev`, sin desplegar
+
+Regla del usuario para la boleta **digital** (`boleta/digital.php`, `/matriculas/{id}/boleta` y
+las demás entradas digitales) al imprimirla: **la firma/sello va siempre debajo de un contenido**
+y nunca queda sola en la última hoja, porque eso le quita el carácter de documento. Además, las
+secciones salen completas. La regla general y su base legal están en `docs/modulos/ui.md` §
+«Firma y sello: nunca solos en una hoja».
+
+Decisiones del usuario (18/10/2026, no re-preguntar):
+1. Lo que acompaña a la firma es **la última sección completa** (Asistencia con sus fechas; con
+   la estructura completa siempre existe). Si fuera más alta que una hoja, el navegador la parte
+   y la firma queda con su último trozo.
+2. **El QR va junto a la firma**: el bloque indivisible es Asistencia + firma/sello + QR.
+3. La firma va **pegada** al contenido. No se añade línea de cierre.
+
+Implementación:
+- `<div class="bd-cierre">` envuelve la Asistencia, el `<footer class="bd-footer">` y el QR.
+  El pie y el QR pasaron a estar **dentro de `<main>`** para poder envolverlos con la última
+  sección.
+- `.bd-cierre { break-inside: avoid }` (solo `@media print`). En pantalla no cambia nada:
+  posiciones y altos idénticos a 1280 y 390 px (medido).
+- ⚠️ **`break-before: avoid` en el pie NO funciona**: Chrome lo trata como preferencia y la
+  firma pasaba sola a la hoja siguiente. No reintentarlo.
+- Medición (Chrome headless): se imprimió a PDF la boleta real de 5.º de secundaria (29
+  competencias) y la de primaria (27), con un relleno de 0 a 270 mm antes del cierre.
+  - **Antes:** con 165-195 mm el QR quedaba separado; con 210-225 mm, la firma pasaba sola a
+    la hoja 5.
+  - **Después:** Asistencia, firma y QR siempre caen en la misma hoja. A partir de 192 mm
+    pasan juntos a la siguiente.
+- Cada hoja empieza en una sección (área, Conducta o Asistencia): `.bd-area` y `.bd-conducta`
+  ya tenían `break-inside: avoid`.

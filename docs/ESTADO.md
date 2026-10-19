@@ -4,6 +4,33 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **18/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
+## 🆕 LA FIRMA/SELLO NUNCA SOLA EN UNA HOJA (18/10/2026, en `dev`, sin migración)
+
+Regla del usuario: la firma/sello va siempre debajo de un contenido y las secciones salen
+completas. La base legal y la técnica están en `docs/modulos/ui.md` § «Firma y sello: nunca
+solos en una hoja».
+- [x] **Fase 1: boleta digital** (`.bd-cierre`: Asistencia + firma + QR indivisibles). Medido
+  imprimiendo a PDF con un relleno de 0 a 270 mm:
+  - **antes:** la firma pasaba sola a la hoja 5;
+  - **ahora:** el bloque siempre está junto;
+  - en pantalla, idéntico al píxel.
+
+  Detalle en `docs/modulos/boletas.md` § «Cierre del documento».
+- [ ] Comprobar en el navegador e impresora del colegio.
+- [ ] **Fase 2: los demás documentos con firma o sello**, uno por uno y midiendo cada uno.
+  - Bajo riesgo, porque son de una hoja por diseño:
+    - boleta A4 (`boleta/alumno.php`);
+    - horario;
+    - cada hoja del reporte de mérito.
+  - Largo variable. Ninguno ata hoy la firma al contenido:
+    - asistencia y conducta imprimibles (`.reporte-footer`, `_firmas-registro.php`);
+    - acta de desempates;
+    - cuadros estadísticos (sello);
+    - documento de ratificación (2 firmas);
+    - constancia de traslado (`.constancia-firma`);
+    - nómina de docentes y nómina detallada, resumen de matrículas (`__sello-bloque`);
+    - informe SIAGIE (`informe-siagie__firma`).
+
 ## 🆕 «PÁGINA X DE Y» AL PIE DE TODO DOCUMENTO IMPRESO (18/10/2026, en `dev`, sin migración)
 
 Todo documento impreso lleva «Página X de Y» centrado al pie, en una caja de margen de

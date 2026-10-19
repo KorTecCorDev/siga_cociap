@@ -450,6 +450,10 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   `pie-paginacion` (`base/_paginacion.scss`) en TODA `@page`; no toca el contenido. Los lotes
   (`bodyClass => doc-lote`) van sin número, y los PDF de ZIP lo estampan con `paginarPdf()`.
   Ver `docs/modulos/ui.md`.
+- **La firma/sello NUNCA empieza una hoja** (18/10/2026): va en un contenedor indivisible
+  (`break-inside: avoid`) junto con la ÚLTIMA sección del documento (y el QR si hay).
+  `break-before: avoid` NO basta en Chrome. Hecho en la boleta digital (`.bd-cierre`); el resto
+  de documentos firmados, en `docs/ESTADO.md`. Ver `docs/modulos/ui.md`.
 - **Secciones de contenido variable: «datos a la vista, acción aparte»** (21/09/2026).
   Con datos, card abierta con sus acciones en la cabecera; sin datos, no se pinta y
   queda solo su botón. NUNCA datos detrás de un `<details>` cerrado (tampoco se
