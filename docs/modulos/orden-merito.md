@@ -359,7 +359,25 @@ Cerrar el bimestre oficializa (congela) el mérito, pero no lo muestra a nadie f
 dirección.
 
 - **Director:** `/director/orden-merito`, siempre (no depende de la compuerta).
-- **Staff — ranking por SECCIÓN: `/director/ranking-seccion[/{periodo}]` (10/08/2026).**
+- **GESTOR único del staff (19/10/2026): `/director/orden-merito/{periodo}?secciones[]`.**
+  Mismo patrón que el Acompañamiento pedagógico (`docs/modulos/usuarios-direccion.md`):
+  `<select>` de bimestre que conserva la selección, chips de SECCIÓN agrupados
+  nivel → grado (con nº de estudiantes y el tutor del bimestre en `title`), atajos por
+  grado y «Solo {nivel}», «Aplicar» por GET (funciona sin JS). Sin marcar = todas.
+  - Reúne en una sola pantalla el **mérito del GRADO** (siempre completo: elegir una
+    sección no recorta el puesto de nadie, solo decide qué grados se ven) y el
+    **ranking de las SECCIONES elegidas**. `/director/ranking-seccion[/{p}]` **redirige**
+    aquí (`redirigirRutaRenombrada`); la card del dashboard se conserva.
+  - Punto único de armado: `OrdenMeritoController::componerMerito()` — sirve a la
+    pantalla y al acta, así lo filtrado es lo que se imprime. Las casillas salen de las
+    secciones **con ranking** en el periodo, no del catálogo del año. `?secciones[]` se
+    valida igual que en el Acompañamiento (escalar, arreglo anidado o id ajeno se
+    descartan) y el texto del alcance lo da `riesgo_alcance()`.
+  - Los botones «Imprimir mérito por grado» e «Imprimir por sección» llevan la
+    selección al acta (ver § El reporte imprimible).
+- **Staff — ranking por SECCIÓN: `/director/ranking-seccion[/{periodo}]` (10/08/2026;
+  desde el 19/10/2026 solo redirige al gestor de arriba; lo que sigue es su historia y
+  sigue valiendo para el criterio de compuerta).**
   Mismos 4 roles que el módulo (admin, RA, director general, director EBR) porque comparte
   el `requireRole` de `Director\OrdenMeritoController`. **NO aplica la compuerta 044**, a
   diferencia del flujo del docente: el staff lo necesita ANTES de publicar, que es cuando
@@ -483,6 +501,48 @@ mide 278.1mm de los 281mm útiles. Si un grado pasa de ahí, la tabla continúa 
 segunda hoja (degradación limpia, no rotura). Para recuperar filas se toca la ALTURA DE
 FILA, que la fijan `.promedio-val` y `.medalla` —no el `font-size` de la celda—, nunca el
 espacio de firma.
+
+### Impresión filtrada y cabecera nueva (19/10/2026)
+
+Decisión del usuario: **se conserva el acta** (las 4 decisiones del 🔒 no cambian) y solo
+se adopta el lenguaje visual del Acompañamiento pedagógico + se imprime lo filtrado.
+- `imprimir` acepta `?secciones[]` y `?tipo=grado|seccion`:
+  `grado` → solo las hojas de mérito de los grados tocados (firman Director EBR + todos
+  sus tutores); `seccion` → una hoja por sección elegida (Director EBR + su tutor); sin
+  `tipo` → el legajo (grado y sus secciones). **Sin ningún parámetro sale el legajo
+  completo de siempre** (medido en B2: 34 hojas, 35 páginas, idéntico a HEAD).
+- El aviso «Documento NO oficializable» mira solo lo que se imprime.
+- **Cabecera:** `director/_cabecera-merito.php`, con `.cuadros-print__head` (la del
+  Acompañamiento) escalada a mm bajo `.merito-doc`. Conserva MINEDU · DRE · UGEL y el
+  Cód. Modular. **Fusiona la antigua banda `.reporte-titulo`** (decisión del usuario):
+  el título de la hoja va en UNA línea con un solo estilo y tamaño (9pt, negrita,
+  mayúsculas) — «ORDEN DE MÉRITO — 4° — SECUNDARIA — II BIMESTRE 2026» o «RANKING —
+  SECCIÓN A — 4° — …» — y la línea de datos lleva áreas a promediar, estudiantes, estado
+  del bimestre y fecha y hora de impresión. `.reporte-titulo` sigue en el CSS: la usan
+  asistencia, conducta y el acta de desempates.
+- **Estilo de tabla del Acompañamiento** (decisiones del usuario, 19/10/2026): solo reglas
+  horizontales, encabezado gris claro con línea negra, **cebra suave** (se conserva para
+  guiar la lectura de filas largas). Distinciones como marcas: mayúsculas, borde fino,
+  negrita, con su color.
+- **Letra diferenciada:** hoja de grado de 6.5 → **7.5pt**; hoja de SECCIÓN a **9pt**
+  (`.merito-doc--seccion`; tiene 18-27 filas y medido cabe incluso a 10pt). Nombre y cargo
+  de las firmas a 7 / 6.5pt sin tocar el espacio de 15mm ni la distribución.
+- **Medido** (B1, B2 y B3 en curso): el legajo sigue en 35 páginas en B1/B2 (32 en B3);
+  todos los grados caben en una hoja salvo 1° sec, como antes. 4° sec (53) queda con
+  **~24mm de holgura**: el tope real pasa de 55 a ~59 por hoja. A 8pt, 2°, 4° y 5° de
+  secundaria se parten — no subir la letra del grado sin volver a medir.
+- **La firma NUNCA empieza una hoja** (regla de `docs/modulos/ui.md` § «Firma y sello»;
+  decisión del usuario del 19/10/2026, que **descartó** el anclaje al fondo con
+  `margin-top: auto` y `min-height` probado ese mismo día). Las firmas van **pegadas a la
+  tabla**: la vista pinta la tabla en dos trozos con el mismo `<colgroup>` —el cuerpo y una
+  cola con las **últimas `$filasCierre` (3) filas**— y la cola + las firmas forman
+  `.merito-cierre`, indivisible al imprimir (como `.bd-cierre`). Si no caben, pasan JUNTAS a
+  la hoja siguiente. La cebra sigue la paridad real de la fila (`--paridad-impar`) y toda
+  fila reserva el filete del top-3 (transparente), así los dos trozos miden igual al décimo
+  de píxel. **Sin pie institucional** (decisión del usuario, 19/10/2026).
+  Medido: 0 hojas con la firma sola en 71 altos de relleno × 3 documentos (sección 4.° A,
+  grado 4.° sec, grado 1.° sec). La prueba de control (con el bloque desactivado, debe
+  fallar) quedó sin correr.
 
 **Dos cosas que conviene no volver a descubrir a mano:**
 - **`.reporte-footer` es COMPARTIDO** con `admin/asistencia/imprimir`,

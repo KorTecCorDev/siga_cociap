@@ -1546,6 +1546,34 @@
     }
 }
 
+// ── Gestor del orden de mérito (staff, 19/10/2026) ───────────
+// Dentro de la card de cada grado: el mérito del GRADO y, debajo, el ranking
+// de sus secciones elegidas. El rótulo separa los dos conceptos.
+.merito-gestor__h3 {
+    margin: $spacing-md $spacing-lg $spacing-sm;
+    font-size: $font-size-sm;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: $text-secondary;
+
+    .card__body > & { margin: 0 0 $spacing-sm; }
+}
+
+.merito-gestor__nota {
+    margin-left: $spacing-xs;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: $text-muted;
+}
+
+.merito-alcance {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+}
+
 .input-orden {
     width: 56px;
     padding: 6px 8px;

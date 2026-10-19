@@ -71,7 +71,7 @@ falta. Producción sirve el `app.js` y el `app.css` nuevos (comprobado con curl)
   vivían en el scratchpad de la sesión y **no están en el repo**. El método está descrito en
   `ui.md`.
 
-## 🆕 500 EN `/admin/cuadros` + VERIFICADOR DE INTEGRIDAD Y HOOK PRE-PUSH (19/10/2026, en `dev`, sin migración)
+## 🆕 500 EN `/admin/cuadros` + VERIFICADOR DE INTEGRIDAD Y HOOK PRE-PUSH (19/10/2026, DESPLEGADO el 19/10/2026 (merge `ba70357`), sin migración)
 
 **El error:** el tablero (pantalla y A4) daba 500 en producción al abrirse el IV Bimestre.
 - Las dos vistas incluían `admin/cuadros/acompanamiento/_sin-casos.php`, que nunca existió:
@@ -153,7 +153,7 @@ solos en una hoja».
   - Bajo riesgo, porque son de una hoja por diseño:
     - boleta A4 (`boleta/alumno.php`);
     - horario;
-    - cada hoja del reporte de mérito.
+    - ~~cada hoja del reporte de mérito~~ — hecho en `dev` el 19/10 (`.merito-cierre`).
   - Largo variable. Ninguno ata hoy la firma al contenido:
     - asistencia y conducta imprimibles (`.reporte-footer`, `_firmas-registro.php`);
     - acta de desempates;
@@ -292,6 +292,26 @@ Pasos, en orden:
    (la F3 ya exige conducta y asistencia completas); abrir el IV el lunes 19/10.
 7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
    asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
+
+## 🆕 GESTOR DEL ORDEN DE MÉRITO (19/10/2026, en `dev`, sin migración), SIN DESPLEGAR
+
+`/director/orden-merito/{p}` pasa a ser un gestor como el del Acompañamiento: chips de
+sección, mérito por grado + ranking por sección en una pantalla, e impresión de lo
+filtrado («por grado» o «por sección»). `/director/ranking-seccion` redirige allí. El acta
+conserva su estructura firmable 🔒; solo cambia la cabecera (la del Acompañamiento, con el
+mismo alto). Detalle en `docs/modulos/orden-merito.md` § Visibilidad y § Impresión filtrada.
+- Comprobado: `php -l`, `gulp build`, render en CLI con admin y `director_ebr`/`director_general`
+  (sin «Resolver empate»), filtros válidos e inválidos, y PDF del legajo completo de B2 =
+  35 páginas, igual que HEAD. `verif_ranking_seccion_staff`, `verif_banners_aviso` y
+  `verif_universo_merito` en OK (`verif_direccion_superficies` falla en ROLES_MATRICULAN,
+  que ya fallaba en HEAD).
+- [x] Probado en el navegador con sesión de **admin** (19/10): elegir secciones, Aplicar,
+  cambiar de bimestre (conserva la selección) y los dos botones de impresión.
+  Falta con sesión de director, y la ruta vieja `/director/ranking-seccion`.
+- [x] Firma nunca sola (Fase 2 para este reporte): `.merito-cierre` = últimas 3 filas +
+  firmas, indivisible. 0 fallas en 71 altos × 3 documentos.
+  - [ ] Falta la prueba de control (con el bloque desactivado debe fallar).
+- [ ] Desplegar con el resto de `dev`.
 
 ## 🆕 RATIFICACIÓN DE MATRÍCULA — DESPLEGADO el 17/10/2026 (merge `bf885dd`, migración 080)
 
@@ -6039,6 +6059,12 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **19/10/2026 (2.º) — DEPLOY, sigue v1.0.5.** `main` pasó de `65ca112` a `ba70357` (merge
+  `--no-ff` de `dev`, 5 commits, 10 archivos): fix del 500 de `/admin/cuadros` (pantalla y A4),
+  `verif_integridad_rutas.php` y hook `pre-push`. **Sin migraciones.** Verificado antes: el hook
+  en verde en los dos push, árbol de `main` idéntico a `dev`, `main` sin código propio, sin
+  archivos sensibles. Después: `/login` 200 y `/admin/cuadros` 302 (sin sesión). **El usuario
+  comprobó el tablero con sesión en prod: carga bien.**
 - 🟢 **19/10/2026 — DEPLOY, sigue v1.0.5.** `main` pasó de `8700acf` a `65ca112` (merge
   `--no-ff` de `dev`, 11 commits, 30 archivos):
   - boleta impresa en una hoja (sin anexo de asistencia);

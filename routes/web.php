@@ -454,11 +454,9 @@ $router->get('/director/orden-merito/{periodo_id}/desempates/imprimir', 'Directo
 $router->get('/director/orden-merito/{periodo_id}/desempates',          'Director\OrdenMeritoController@desempates');
 $router->get('/director/orden-merito/{periodo_id}',             'Director\OrdenMeritoController@porPeriodo');
 
-// Ranking por SECCION para el staff (admin/RA/directores). Flujo hermano del de
-// arriba y hay que no confundirlos: el de GRADO define la media beca, este es
-// interno de cada seccion. A diferencia de /docente/ranking-seccion, este NO
-// aplica la compuerta de publicacion: el staff lo necesita antes de publicar.
-// Literal antes que el patron {periodo_id}, como en el bloque anterior.
+// Ranking por SECCION del staff: desde el 19/10/2026 vive en el gestor de
+// /director/orden-merito/{periodo_id} (con ?secciones[]). Estas rutas solo
+// REDIRIGEN alli, conservando el periodo y la query string.
 $router->get('/director/ranking-seccion',                'Director\OrdenMeritoController@seccionIndex');
 $router->get('/director/ranking-seccion/{periodo_id}',   'Director\OrdenMeritoController@seccionPorPeriodo');
 
