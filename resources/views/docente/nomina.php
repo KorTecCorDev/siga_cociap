@@ -17,8 +17,9 @@
  */
 
 // Que boleta puede ver el docente: BORRADOR si RA aprobo el bimestre activo
-// (Hito A); si no, la OFICIAL del ultimo bimestre cerrado. Si no hay ninguna,
-// no se muestra el panel de boleta.
+// (Hito A); si no, la del ultimo bimestre cerrado: OFICIAL si ya se publico a
+// su nivel, BORRADOR si aun no (por fila, `boleta_oficial`). Si no hay
+// ninguna, no se muestra el panel de boleta.
 $boletaBorrador   = ($estadoBoleta ?? 'registro') === 'borrador';
 $hayBoletaVisible = $boletaBorrador || !empty($bimestreCerrado);
 $boletaEtiqueta   = $boletaBorrador
@@ -85,9 +86,12 @@ $boletaEtiqueta   = $boletaBorrador
         };
         // Desactivado: su boleta se sirve SIEMPRE como borrador (sin QR ni
         // firma), aunque el bimestre esté cerrado — el panel lo refleja por fila.
+        // Cerrado pero AUN NO PUBLICADO a su nivel (compuerta 044, 19/10/2026):
+        // tambien borrador, igual que la boleta que abre el enlace.
         $esDesactivado = ($a['estado'] === 'desactivado');
-        $claseBorrador = ($boletaBorrador || $esDesactivado);
-        $etiquetaFila  = $esDesactivado
+        $sinPublicar   = !$boletaBorrador && empty($a['boleta_oficial']);
+        $claseBorrador = ($boletaBorrador || $esDesactivado || $sinPublicar);
+        $etiquetaFila  = ($esDesactivado || $sinPublicar)
             ? 'Borrador · ' . ($boletaBorrador ? ($bimestreActivo ?? '') : ($bimestreCerrado ?? ''))
             : $boletaEtiqueta;
         ?>

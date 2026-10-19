@@ -361,10 +361,11 @@ class PanelController extends BaseController
         // dos salian de una sola variable `$bimestre` (el ultimo cerrado), y al
         // cambiar la fuente del MERITO se rompio en silencio la de la BOLETA:
         //   · $publicados    → MERITO. Bajo la compuerta 044, y POR NIVEL.
-        //   · $ultimoCerrado → BOLETA oficial que el docente puede abrir. NO
-        //     pasa por la 044 a proposito: su regla es `boleta_estado_bimestre`
-        //     (umbral 'borrador'/'archivo'), porque son las notas que el propio
-        //     docente registra, no un ranking comparativo.
+        //   · $ultimoCerrado → BOLETA que el docente puede abrir: las notas del
+        //     ultimo cerrado se ven siempre (umbral 'borrador'), pero como
+        //     OFICIAL solo si ese bimestre ya se publico al nivel del alumno
+        //     (`boleta_oficial`, 19/10/2026; antes, BORRADOR). Mismo criterio que
+        //     `BoletaController::oficialParaDocente`.
         // No volver a fusionarlas: reglas distintas, vigencias distintas.
         $estModel   = new EstudianteModel();
         $anio       = $estModel->anioActivo();
@@ -402,8 +403,18 @@ class PanelController extends BaseController
             $puestos[$pid] = $ordenModel->puestosPorGrado(array_keys($set), $pid);
         }
 
+        // ¿El ultimo cerrado ya se publico a cada nivel? Un set por nivel.
+        $publicacionModel = new PublicacionBoletaModel();
+        $cerradoPublicado = [];
+
         foreach ($alumnos as &$a) {
             $nid = (int) ($a['nivel_id'] ?? 0);
+            if ($ultimoCerrado && !isset($cerradoPublicado[$nid])) {
+                $cerradoPublicado[$nid] = isset(
+                    $publicacionModel->periodosPublicados($anioId, $nid)[(int) $ultimoCerrado['id']]
+                );
+            }
+            $a['boleta_oficial'] = $cerradoPublicado[$nid] ?? false;
             $pid = isset($publicados[$nid]) ? (int) $publicados[$nid]['id'] : null;
             // `merito_visible` distingue "su nivel aun no se publico" de "esta
             // publicado pero el alumno no tiene puesto": son mensajes distintos.
