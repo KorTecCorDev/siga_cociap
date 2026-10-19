@@ -1217,7 +1217,7 @@ Hoy la paleta sale solo en la asistencia **por fechas** (grilla mensual y vista 
 La tabla de números (`_tabla-incidencias.php`: I/II y consulta de Dirección) y el imprimible A4
 (blanco y negro) conservan su estilo establecido.
 
-## Numeración de páginas al imprimir: «Página X de Y» (18/10/2026) — en `dev`, sin desplegar
+## Numeración de páginas al imprimir: «Página X de Y» (18/10/2026) — desplegado el 19/10/2026 (`65ca112`)
 
 Todo documento impreso lleva **«Página X de Y», centrado al pie** (Arial 7 pt, gris). Las
 decisiones son del usuario y no hay que volver a preguntarlas.
@@ -1263,7 +1263,7 @@ decisiones son del usuario y no hay que volver a preguntarlas.
 - **En el diálogo de impresión, «Encabezados y pies de página» debe estar desactivado.** Si
   está activo, Chrome pone su URL y su fecha donde hay espacio.
 
-## Firma y sello: nunca solos en una hoja (18/10/2026)
+## Firma y sello: nunca solos en una hoja (18/10/2026) — Fase 1 desplegado el 19/10/2026 (`65ca112`); Fase 2 pendiente
 
 **Regla del usuario para todo documento impreso con firma o sello:** la firma/sello **nunca
 empieza una hoja**. Siempre va inmediatamente debajo del contenido que autentica, y cada
@@ -1295,7 +1295,7 @@ hoja siguiente.
 - **Fase 2 (pendiente):** el resto de documentos con firma; el inventario está en
   `docs/ESTADO.md`.
 
-## Pantalla de espera: nunca se desbloquea por tiempo (19/10/2026) — en `dev`, sin desplegar
+## Pantalla de espera: nunca se desbloquea por tiempo (19/10/2026) — desplegado el 19/10/2026 (`65ca112`)
 
 `resources/js/app.js` (loader de transición). Al navegar aparece una barra superior, y a los
 0,8 s la pantalla de espera con el logo, que bloquea la vista (`inert`).
