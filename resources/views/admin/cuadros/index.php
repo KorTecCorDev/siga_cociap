@@ -302,7 +302,7 @@ $hayRiesgo = (bool) array_filter(
                     docentes aprueben y bloqueen sus notas no se puede saber quién está en riesgo.
                 <?php else: ?>
                     <?php $res = riesgo_resumen($bloques['situacion']); $sinCasosAlcance = ''; ?>
-                    <?php require VIEW_PATH . '/admin/cuadros/acompanamiento/_sin-casos.php'; ?>
+                    <?php require VIEW_PATH . '/admin/cuadros/riesgo/_sin-casos.php'; ?>
                 <?php endif; ?>
             </p>
         </div>

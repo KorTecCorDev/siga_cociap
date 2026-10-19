@@ -1223,8 +1223,8 @@ decía «no existe», y la matrícula sí existe.
 
 ## Fechas de las incidencias de asistencia (17/10/2026) — desplegado el 17/10/2026 (`8700acf`)
 
-> 🔴 **18/10/2026 — la boleta IMPRESA vuelve a ser UNA sola hoja** (decisión del usuario; en
-> `dev`, sin desplegar). Las fechas son **solo de la boleta DIGITAL**. Se quitó el anexo del
+> 🔴 **18/10/2026 — la boleta IMPRESA vuelve a ser UNA sola hoja** (decisión del usuario;
+> desplegado el 19/10/2026 (`65ca112`)). Las fechas son **solo de la boleta DIGITAL**. Se quitó el anexo del
 > imprimible: lo usaban el individual, el lote, la vista previa y el ZIP, todos por
 > `boleta/alumno.php`. También se quitó el SASS `.boleta-anexo` y se volvió a
 > `pagebreak: 'avoid-all'`. La digital no cambia, **tampoco al imprimirla con su botón**: el
@@ -1286,7 +1286,7 @@ Implementación:
   - Comprueba que los bimestres por totales no traen fechas, ni el umbral `'oficial'` las de
     un bimestre que no muestra.
 
-## Cierre del documento: la firma nunca va sola en una hoja (18/10/2026) — en `dev`, sin desplegar
+## Cierre del documento: la firma nunca va sola en una hoja (18/10/2026) — desplegado el 19/10/2026 (`65ca112`)
 
 Regla del usuario para la boleta **digital** (`boleta/digital.php`, `/matriculas/{id}/boleta` y
 las demás entradas digitales) al imprimirla: **la firma/sello va siempre debajo de un contenido**
@@ -1318,7 +1318,7 @@ Implementación:
 - Cada hoja empieza en una sección (área, Conducta o Asistencia): `.bd-area` y `.bd-conducta`
   ya tenían `break-inside: avoid`.
 
-## La boleta del DOCENTE respeta la compuerta (19/10/2026) — en `dev`, sin desplegar
+## La boleta del DOCENTE respeta la compuerta (19/10/2026) — desplegado el 19/10/2026 (`65ca112`)
 
 **Problema:** el docente veía la boleta de un bimestre cerrado como documento
 **OFICIAL** apenas se cerraba, antes de que el nivel se publicara. Tenía firma, sello y

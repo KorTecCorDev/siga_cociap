@@ -4,21 +4,21 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **19/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
-## 🔜 RETOMAR AQUÍ (19/10/2026, madrugada) — DEPLOY PENDIENTE ANTES DEL 20/10 19:00
+## 🔜 RETOMAR AQUÍ (19/10/2026) — DESPLEGADO; QUEDAN LAS PRUEBAS EN LA OFICINA
 
-**Situación:** todo lo de los días 18 y 19/10 está commiteado y pusheado a `dev`, y
-**NADA está en producción** (`main` = `8700acf`, del 17/10). Hay **11 commits** en `dev` que
-no están en `main`. Ninguno tiene migración: el deploy es solo código.
+**Situación:** todo lo de los días 18 y 19/10 está **DESPLEGADO** el 19/10/2026 (merge
+`65ca112`, `--no-ff`, 11 commits, sin migraciones). Antes del 20/10 a las 19:00, como hacía
+falta. Producción sirve el `app.js` y el `app.css` nuevos (comprobado con curl).
 
-### 🔴 1. Lo urgente: desplegar antes del martes 20/10 a las 19:00
-- **Por qué hay plazo:** a esa hora se publica el III de **primaria** y es la reunión de padres
+### ✅ 1. Deploy (HECHO el 19/10/2026, merge `65ca112`)
+- **Por qué había plazo:** el 20/10 a las 19:00 se publica el III de **primaria** y es la reunión de padres
   (programado en `periodos_publicacion`; secundaria, **miércoles 21/10 a las 19:00**, también
   con reunión a esa hora).
-  - Hasta el deploy, en prod los **docentes ven el III como boleta OFICIAL** (firma, sello,
-    QR) antes de publicarse. El fix es `71d7814`.
-- **Cómo:** el usuario dice «deploy» → merge `dev` → `main` con **`--no-ff`** + push (ver la
-  memoria `feedback_deploy_runbook`). **Preguntar antes de mergear.**
-- **Qué entra** (de más antiguo a más nuevo):
+  - Antes del deploy, en prod los **docentes veían el III como boleta OFICIAL** (firma,
+    sello, QR) antes de publicarse. Lo corrige `71d7814`.
+- Verificado antes del merge: `php -l` limpio, sin archivos sensibles ni migraciones, `main`
+  sin código propio y compilados al día.
+- **Qué entró** (de más antiguo a más nuevo):
 
   | Commit | Qué |
   |---|---|
@@ -27,13 +27,10 @@ no están en `main`. Ninguno tiene migración: el deploy es solo código.
   | `f2ef80c` + `d087640` | «Página X de Y» al pie de todo impreso; lotes sin número; PDF de ZIP numerados |
   | `2fbdb3f` + `efaf53a` | La firma de la boleta digital nunca queda sola en una hoja (`.bd-cierre`) |
   | `71d7814` + `316fad3` | El docente ve el bimestre cerrado como BORRADOR hasta su publicación |
-  | `a5b5ef8` + docs | La pantalla de espera nunca se desbloquea por tiempo; candado de doble envío |
+  | `a5b5ef8` + `1df43e5` | La pantalla de espera nunca se desbloquea por tiempo; candado de doble envío |
 
-- **Después del deploy:**
-  - pasar a «desplegado» las **cabeceras** de los docs: en `ui.md`, numeración, firma y
-    pantalla de espera; en `boletas.md`, anexo, cierre y boleta del docente;
-  - pasar a «desplegado» las entradas de este archivo;
-  - registrar el merge en la sección Git.
+- **Después del deploy (hecho):** cabeceras de `ui.md` y `boletas.md`, entradas de este
+  archivo y sección Git, todo marcado como «desplegado».
 
 ### 2. Pruebas pendientes (en la oficina, con la impresora y los datos reales)
 1. **Impresión real en la RICOH**, con «Encabezados y pies de página» **desactivado** en el
@@ -74,7 +71,41 @@ no están en `main`. Ninguno tiene migración: el deploy es solo código.
   vivían en el scratchpad de la sesión y **no están en el repo**. El método está descrito en
   `ui.md`.
 
-## 🆕 PANTALLA DE ESPERA: NUNCA SE DESBLOQUEA POR TIEMPO (19/10/2026, en `dev`, sin migración)
+## 🆕 500 EN `/admin/cuadros` + VERIFICADOR DE INTEGRIDAD Y HOOK PRE-PUSH (19/10/2026, en `dev`, sin migración)
+
+**El error:** el tablero (pantalla y A4) daba 500 en producción al abrirse el IV Bimestre.
+- Las dos vistas incluían `admin/cuadros/acompanamiento/_sin-casos.php`, que nunca existió:
+  el parcial está en `riesgo/`. El 24/09 se renombró la **URL**, no la carpeta (`c7c004e`).
+- El `require` está en la rama «hay situación final pero nadie en riesgo». Hasta el IV
+  siempre hubo casos, así que nunca se ejecutó. `admin`/RA abren el tablero en el bimestre
+  activo; Dirección, en el último cerrado.
+- Fix: `riesgo/` en `cuadros/index.php` y `cuadros/imprimir.php`. Acompañamiento no tenía el
+  error.
+
+**Prevención (alternativa «A», aprobada por el usuario):**
+- `database/verificaciones/verif_integridad_rutas.php` comprueba:
+  - las rutas literales de `require`/`include` (204);
+  - las vistas y layouts por nombre (185);
+  - que cada ruta apunte a un método público existente (290);
+  - `php -l` (394 archivos).
+- Tarda unos 4 s. Probado reintroduciendo el bug y una ruta a un método inexistente.
+- Lo corre `.githooks/pre-push`. **Activarlo una vez por clon:**
+  `git config core.hooksPath .githooks`. Hecho en el setup; **falta la laptop**.
+- `verif_direccion_superficies.php` da 7 FAIL **idénticos con y sin el fix**, así que no
+  son regresión. Seis vienen del IV recién abierto (sin gráfico de evolución, «sin casos»
+  con 0 evaluados) y uno de `ROLES_MATRICULAN`. Ese verificador **no detectó** este 500.
+
+**Pendientes (después de la publicación del III, 21/10/2026), por orden:**
+- [ ] **B.** Helper `partial('ruta', [...])` en lugar de los `require VIEW_PATH . '...'`:
+  error explícito y variables declaradas. Hacerlo **por módulo y verificando cada uno**,
+  porque hoy los parciales leen variables de la vista padre de forma implícita.
+- [ ] **C.** PHPStan y pruebas de humo HTTP por rol. Requieren Composer, así que encajan
+  con la migración a Laravel.
+- [ ] **D.** CI en GitHub Actions con el verificador. Avisa, pero no frena el auto-deploy
+  de Hostinger.
+- [ ] Poner al día `verif_direccion_superficies.php` con un bimestre recién abierto.
+
+## 🆕 PANTALLA DE ESPERA: NUNCA SE DESBLOQUEA POR TIEMPO (19/10/2026, DESPLEGADO el 19/10/2026 (merge `65ca112`), sin migración)
 
 A los 8 s el loader se quitaba aunque la carga siguiera. El formulario volvía a ser usable
 (con riesgo de **doble envío**: el CSRF es de sesión) y luego la página saltaba sola a la
@@ -90,7 +121,7 @@ Detalle: `docs/modulos/ui.md` § «Pantalla de espera».
 - [ ] Comprobar en la app: un guardado normal y la planilla de asistencia (Ver PDF y
   Descargar Excel).
 
-## 🆕 BOLETA DEL DOCENTE: BORRADOR HASTA LA PUBLICACIÓN (19/10/2026, en `dev`, sin migración)
+## 🆕 BOLETA DEL DOCENTE: BORRADOR HASTA LA PUBLICACIÓN (19/10/2026, DESPLEGADO el 19/10/2026 (merge `65ca112`), sin migración)
 
 El docente veía el III como documento **oficial** (firma, sello, QR) desde su cierre del
 17/10, antes de la publicación programada (primaria 20/10 19:00, secundaria 21/10 19:00).
@@ -103,10 +134,9 @@ del DOCENTE respeta la compuerta».
   - boleta digital e imprimible de la matrícula 236: marca BORRADOR, sin sello ni QR, con las
     notas del III;
   - `/matriculas/236/boleta`: 403, correcto para un docente.
-- [ ] **Desplegar ANTES del 20/10 19:00** para que tenga efecto en esta publicación. Hasta
-  el deploy, los docentes de producción siguen viendo el III como oficial.
+- [x] Desplegado el 19/10/2026 (merge `65ca112`), antes de la publicación del 20/10 a las 19:00.
 
-## 🆕 LA FIRMA/SELLO NUNCA SOLA EN UNA HOJA (18/10/2026, en `dev`, sin migración)
+## 🆕 LA FIRMA/SELLO NUNCA SOLA EN UNA HOJA (18/10/2026, Fase 1 DESPLEGADO el 19/10/2026 (merge `65ca112`), sin migración)
 
 Regla del usuario: la firma/sello va siempre debajo de un contenido y las secciones salen
 completas. La base legal y la técnica están en `docs/modulos/ui.md` § «Firma y sello: nunca
@@ -133,7 +163,7 @@ solos en una hoja».
     - nómina de docentes y nómina detallada, resumen de matrículas (`__sello-bloque`);
     - informe SIAGIE (`informe-siagie__firma`).
 
-## 🆕 «PÁGINA X DE Y» AL PIE DE TODO DOCUMENTO IMPRESO (18/10/2026, en `dev`, sin migración)
+## 🆕 «PÁGINA X DE Y» AL PIE DE TODO DOCUMENTO IMPRESO (18/10/2026, DESPLEGADO el 19/10/2026 (merge `65ca112`), sin migración)
 
 Todo documento impreso lleva «Página X de Y» centrado al pie, en una caja de margen de
 `@page`: no toca el contenido. Los lotes van sin número (`doc-lote`):
@@ -156,9 +186,9 @@ Los PDF de los ZIP lo estampan con jsPDF, uno por estudiante. Detalle:
 - [ ] Comprobar en el navegador del colegio, con «Encabezados y pies de página» desactivado:
   - impresión real en la RICOH;
   - el ZIP de ratificaciones (`y = 286`, no medido).
-- [ ] Desplegar.
+- [x] Desplegado el 19/10/2026 (merge `65ca112`).
 
-## 🆕 BOLETA IMPRESA = UNA SOLA HOJA: SIN ANEXO DE ASISTENCIA (18/10/2026, en `dev`, sin migración)
+## 🆕 BOLETA IMPRESA = UNA SOLA HOJA: SIN ANEXO DE ASISTENCIA (18/10/2026, DESPLEGADO el 19/10/2026 (merge `65ca112`), sin migración)
 
 Decisión del usuario: el modelo oficial impreso es **una hoja**, y las fechas de asistencia
 quedan **solo en la boleta digital**. Se quitó el anexo de `boleta/alumno.php`, lo que lo
@@ -169,8 +199,8 @@ Detalle: `docs/modulos/boletas.md` § «Fechas de las incidencias de asistencia�
 - [x] `php -l` OK · `verif_boleta_fechas_asistencia.php` → OK (521 estudiantes, 0 fallos).
 - [ ] Comprobar en el navegador: imprimible, lote y ZIP en 1 hoja; la digital sigue con
   fechas.
-- [ ] Desplegar. ⚠️ **Hasta entonces, PROD imprime el anexo** (va desde `8700acf`): si se
-  imprimen boletas del III antes del deploy, salen en 2 hojas.
+- [x] Desplegado el 19/10/2026 (merge `65ca112`). Entre el 17 y el 19/10, producción imprimió
+  el anexo en una 2.ª hoja.
 
 ## 🆕 FECHAS DE ASISTENCIA EN LA BOLETA — DESPLEGADO el 17/10/2026 (merge `8700acf`)
 
@@ -6009,6 +6039,18 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **19/10/2026 — DEPLOY, sigue v1.0.5.** `main` pasó de `8700acf` a `65ca112` (merge
+  `--no-ff` de `dev`, 11 commits, 30 archivos):
+  - boleta impresa en una hoja (sin anexo de asistencia);
+  - «Página X de Y» al pie de todo impreso;
+  - firma de la boleta digital nunca sola;
+  - boleta del docente = borrador hasta publicar;
+  - pantalla de espera sin desbloqueo por tiempo.
+
+  **Sin migraciones.** Verificado antes: `php -l` limpio, sin `.sql`/`.xlsx`/`.env`, `main`
+  sin código propio, compilados al día. Después: producción sirve el `app.js` y el `app.css`
+  nuevos (curl, 2.º intento) y `/login` da 200. Hecho antes de la publicación del III de
+  primaria (20/10 a las 19:00).
 - 🟢 **08/10/2026 — DEPLOY, sigue v1.0.5.** `main` pasó de `29dc6d4` a `3d58934` (merge
   `--no-ff` de `dev` en `f2e661f`, 37 commits, 81 archivos): cambio de sección (fases 1 a 5),
   FJ solo con el motivo ancla, avance en % del panel del auxiliar y verificador del tramo del

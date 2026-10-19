@@ -258,6 +258,22 @@ grado concretos del I Bimestre (541 retirado, 220/666 pendientes, 692/190 retorn
   lista). Excluye por diseño la carga de Tutoría/Ética y la carga transversal del modelo
   viejo (migración 019), que no llevan TIC/GAMA.
 
+- **`verif_integridad_rutas.php`** — **SOLO LECTURA, sin BD** (19/10/2026). Lo corre el
+  hook `pre-push` (`.githooks/pre-push`) en cada push; si falla, el push no sale.
+  - Comprueba cuatro cosas:
+    - que exista todo `require`/`include` con ruta literal (`VIEW_PATH`, `ROOT_PATH`,
+      `APP_PATH`, `CORE_PATH`, `CONFIG_PATH` o `__DIR__` + `'...'`);
+    - que exista toda vista o layout pedido por nombre literal;
+    - que cada ruta de `routes/web.php` apunte a un método **público** que existe;
+    - `php -l` de todo el PHP del repo.
+  - Ignora los comentarios. Avisa como `[INFO]` las rutas armadas con variables, que no
+    puede comprobar.
+  - Nació del 500 de `/admin/cuadros` del 19/10/2026: un `require` a
+    `admin/cuadros/acompanamiento/_sin-casos.php`, carpeta que nunca existió (es `riesgo/`).
+    Estaba en una rama que solo corre cuando nadie está en riesgo, y vivió 3 semanas sin
+    ejecutarse.
+  - **Activar el hook una vez por clon** (laptop y setup): `git config core.hooksPath .githooks`.
+
 Requisitos: haber aplicado la migración `046_orden_merito_inmutable.sql` en local y
 tener B1 (periodo 1) con sus filas de `periodos_publicacion` (backfill de la 044).
 
