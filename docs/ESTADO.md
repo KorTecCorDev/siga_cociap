@@ -30,13 +30,38 @@ Detalle y decisiones: `docs/modulos/calificaciones.md` § Registro auxiliar.
 ⚠️ Los dos `.xlsm` del colegio están en `public/` sin versionar y sus hojas ocultas tienen las
 listas de estudiantes: **no subirlos** (el auto-deploy publica todo lo versionado).
 
-**Pendiente:**
-- [ ] Prueba en navegador **con sesión de DOCENTE**: selección, «Imprimir seleccionadas»,
-  «Imprimir todas», ventana nueva y «✕ Cerrar», y que la pantalla de espera no quede fija.
-- [ ] Prueba en navegador **con sesión de Dirección o RA**: la fila de `/consulta-notas/1/seccion/4`
-  y el botón de una carga (área entera), en ventana nueva; en el III Bimestre no deben verse.
-  Y que un usuario docente que abra la URL reciba 403.
-- [ ] Revisar a ojo una hoja impresa real (colores AD·A·B·C, chip `Cr` a 5 pt y legibilidad).
+**Pendiente ANTES del deploy** (commit `61256c5`; todo lo medido se hizo llamando a los
+controladores sin login, así que **la ruta nueva aún no pasó por el router ni por HTTP**):
+- [ ] **Admin** (BD local): en `/consulta-notas/1/seccion/4`, la fila «Registro auxiliar de
+  calificaciones» abre en pestaña nueva; «✕ Cerrar» la cierra; la pantalla de espera no queda
+  fija en la pestaña de origen. «Imprimir» abre el diálogo y «Guardar como PDF» funciona.
+- [ ] **Admin:** en `/consulta-notas/1/carga/120` (Comunicación — Gramática), el botón
+  «Registro auxiliar del área» imprime Comunicación ENTERA (sus 3 cargas).
+- [ ] **Admin:** en el III Bimestre (activo), `/consulta-notas/3/seccion/4` y una carga NO
+  muestran la fila ni el botón, y la URL directa da 404.
+- [ ] **Dirección** (`director_ebr` o `director_general`) y **RA**: las mismas entradas.
+- [ ] **Docente:** la URL de consulta responde 403 por HTTP.
+- [ ] **Docente:** su registro (pendiente desde la mañana): selección, «Imprimir
+  seleccionadas» / «Imprimir todas», ventana nueva, «✕ Cerrar» y que la espera no quede fija.
+- [ ] **Docente con 2 cargas del área** (p. ej. Aritmética + Álgebra de 6.º A, II Bimestre): fila
+  de grupos C21 · C22 sobre sus CT y C23/C24 en blanco «Otra carga».
+- [ ] **Revisión a ojo en papel o PDF del navegador:** colores AD·A·B·C; chip `Cr` a 5 pt;
+  que no se vea línea entre numeral y literal del logro CD; **firmas en 2 filas** (4 o más,
+  p. ej. Comunicación de 5.º B de secundaria); fila «Docentes» larga en secundaria.
+- [ ] **Decidir:** en secundaria, «Todas las áreas» incluye **Tutoría (TOE)** (lleva Ética) y
+  los talleres. ¿Es lo esperado?
+
+**Sin datos reales para probarlo** (lógica cubierta solo por pruebas de la función o por lectura):
+- una parte con SOLO Resumen y transversales (tope teórico; no hay área tan ancha);
+- la columna «Sin carga» (no hay subárea del plan sin carga en ninguna sección);
+- extraordinarias reservadas a Dirección visibles en el modo área;
+- rótulo por docente de dos cargas sin subárea en la misma área (0 casos).
+
+**En producción, tras el deploy** (los ids difieren de la BD local):
+- [ ] que exista UN solo usuario activo `director_general` (si no, la firma sale solo con el
+  cargo) y un Director EBR vigente;
+- [ ] tiempo de carga de una sección completa de secundaria (local: 2 s, 612 KB);
+- [ ] los `.xlsm` NO deben estar en el servidor.
 - [ ] Desplegar (preguntar antes de mergear `dev` → `main`).
 
 ## 🔜 RETOMAR AQUÍ (19/10/2026, noche: laptop → escritorio de casa) — GESTOR DEL MÉRITO DESPLEGADO
