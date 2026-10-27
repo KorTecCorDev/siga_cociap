@@ -1247,6 +1247,11 @@ decisiones son del usuario y no hay que volver a preguntarlas.
   - Hoy son el lote de boletas, la vista previa del borrador, las 2 entradas de archivado, el
     lote de ratificaciones y el **reporte de orden de mérito**. En el reporte, cada hoja es un
     documento firmable; más adelante habrá reportes por sección.
+  - ⚠️ **El registro auxiliar de calificaciones (27/10/2026) NO es un lote** aunque junte
+    varias cargas: es UN documento del docente, con numeración continua. Usa `doc-landscape`
+    (`@page paisaje`, con pie) y cada área (sección + área) abre hoja nueva. Ver
+    `docs/modulos/calificaciones.md` § Registro auxiliar (incluye por qué Chrome deja de
+    repetir un `<thead>` demasiado alto).
 - **PDF de los ZIP**: html2pdf no pasa por `@page`. `resources/js/pdf-paginar.js`
   (`paginarPdf(pdf, yMm)`) estampa el número con jsPDF sobre el PDF ya generado, **uno por
   estudiante** («1 de N» de ese PDF):

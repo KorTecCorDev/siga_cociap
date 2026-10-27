@@ -1300,6 +1300,104 @@ cualquier registro directo (el tooltip se volvió neutro: decía «I Bimestre»)
 `ConductaModel::getRegistroLegado` **excluye** las extraordinarias: si no, el banner del tutor del
 I Bimestre diría «registradas por RA, hoy».
 
+## Registro auxiliar de calificaciones — documento del docente (27/10/2026)
+
+> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pendiente la prueba en
+> navegador con una sesión de DOCENTE (ver `docs/ESTADO.md`).
+
+El docente imprime, proyecta o guarda en PDF («Guardar como PDF» del navegador) el registro
+de sus cargas de un bimestre. Entrada: botón **«Registro auxiliar»** en `/docente/mis-cargas`,
+que lleva a `GET /docente/registro-auxiliar` (bimestre + una card por carga), y de ahí
+«Imprimir seleccionadas» / «Imprimir todas mis cargas» abren en ventana nueva
+`GET /docente/registro-auxiliar/imprimir` (layout `print`, A4 horizontal).
+
+**Formato = el del colegio.** Reproduce los libros que el colegio usaba
+(`REG_AUX_PRIMARIA_2026.xlsm` / `REG_AUX_SECUNDARIA_2026.xlsm`): la hoja **REG-NUM** (matriz
+del área) y la hoja **CD** (conclusiones descriptivas). Del Excel **no** se reproduce lo que el
+sistema no guarda: la «Evaluación diagnóstica», las «Unidades» y el «Cuadro de competencias,
+capacidades y desempeños» (no hay capacidades ni desempeños en la BD).
+
+### Decisiones del usuario (no re-preguntar)
+- **Solo lo OFICIAL**: competencias **bloqueadas** del bimestre, como el historial.
+- **UNA HOJA POR SECCIÓN + ÁREA**, con TODAS las competencias del plan del área en su orden.
+  Las de las cargas elegidas llevan sus notas; **las de otra carga (de otro docente o no
+  elegida) van EN BLANCO**: nunca se lee una nota de una carga que no esté en la hoja.
+- **Selección: una card por carga** (un área de Mi aula, una card con todas sus cargas). Al
+  imprimir, las cargas elegidas de la misma área y sección se juntan en una hoja; una carga
+  propia no elegida sale en blanco como cualquier otra.
+- **Conclusiones** en hoja aparte por área (modelo CD), después de la matriz.
+- **Firmas**: Docente, **Dirección EBR** (el titular vigente, `DirectorEbrModel::getVigenteEnFecha`)
+  y **Dirección General** (el único usuario activo con ese rol,
+  `UsuarioModel::nombreUnicoActivoPorRolCodigo`); sin usuario, solo el cargo. Sin imagen de
+  firma: es un documento de trabajo del docente.
+- **Un documento con numeración continua** (`@page paisaje`, «Página X de Y»; NO `doc-lote`).
+
+### De dónde salen los datos
+`CalificacionController::hojaRegistroAuxiliar()` arma cada hoja:
+- **Plan del área**: competencias directas y por subárea, en el orden de
+  `SiagieExportModel::competenciasDeArea` (aquí con `subarea_id`, para saber de qué carga es
+  cada una: misma regla que `getCargas`, por subárea o, en un área-curso, por área).
+- **Notas**: `bloquesBloqueadosDeCarga()` de cada carga elegida, **el mismo armado que el
+  historial** (roster de `getResumenCompetencia`, el del resumen del docente: retornos,
+  cambios de sección y reingresos salen igual que en pantalla). Cada competencia del plan es
+  `propia` (bloqueada con criterios), `noeval` («No evaluada»), `pendiente` (de una carga
+  elegida, aún sin aprobar) u `otra` (en blanco).
+- **Transversales**: las de cada carga elegida, en COMP-TRA; con varias cargas en la hoja,
+  rotuladas con su subárea (cada carga tiene su propio registro de TIC/GAMA).
+- **Estadísticas** del pie: `stats_competencia()` (punto único). ⚠️ «Aprobados» sigue la regla
+  del sistema (`nota_es_aprobatoria`: primaria AD+A), **no** la del Excel, que contaba ≥ 11
+  en los dos niveles.
+- Las claves pedidas (`c{carga}` / `a{sec}-{área}`) **solo sobreviven si coinciden con las
+  entradas del usuario en sesión** — ajenas se descartan y, si no queda ninguna, 404. Un
+  `periodo_id` fuera del año activo cae al bimestre activo.
+
+Medido el 27/10/2026 (BD local, II Bimestre): las notas de la matriz (criterios, logro y
+literal) coinciden con el historial en 3 casos —una subárea de un área de 4 competencias, un
+área de Mi aula y una carga con exonerados—: 133 filas, 0 diferencias. Las 778 celdas «en
+blanco» de esos documentos no traen ningún dato.
+
+### Pantalla de selección: cards seleccionables
+- Cada entrada es **la card de Mis cargas** (`.carga-item`), agrupada por grado y sección,
+  como `<label>` con la **casilla visible**. La marcada: borde `$brand-mid` y fondo
+  `$card-cargas-bg`. Atajo «Marcar todas / Desmarcar todas» por grupo (`registro-auxiliar.js`).
+- ⚠️ **El estado de la card es una COPIA** de las reglas de `docente/mis-cargas.php`
+  (`$avanceCarga`, `$estadoBadge`, `$transBadge` y la card de área), calculada en
+  `entradasRegistro()`. Si cambian allí, cambiar aquí. Medido: las cards de 4 docentes en 3
+  bimestres dicen lo mismo que en Mis cargas.
+
+### Presentación (`docente/_registro-auxiliar-{cabecera,matriz,cd}.php`)
+- **Cabecera**: lema del año (`anios_academicos.lema_oficial`), título por nivel, nivel,
+  grado, sección, área, sub-área(s), bimestre y docente.
+- **Leyenda**, en bloques apilados a todo el ancho: competencias del área (código → nombre,
+  en dos columnas de texto, con «Otra carga» / «Aún no aprobada» / «No evaluada»); la
+  **tabla de criterios** (una fila por competencia propia, una columna por criterio
+  `Cr1…CrN` = los rótulos de la matriz, ancho fijo: el número o el largo de los criterios no
+  la desacomoda); escala y omisiones (AI/AJ/AR/NA). Antes los criterios iban como texto
+  corrido en media rejilla y descuadraban el bloque (27/10/2026).
+- **Matriz**: N° · estudiante · por competencia, `Cr1…CrN` + **Logro** (`.nota-numeral`) o una
+  columna en blanco · **Resumen** (`.nota-literal`) · **Comp. transv.**
+- **Pie** (indivisible): estadísticas (proceso de logro y niveles de logro por competencia) a
+  la izquierda; identificación del área, lugar y fecha (`fecha_es`) y las tres firmas
+  (`.reporte-footer`, compartido) a la derecha.
+- **CD**: por estudiante, logro (número y literal) y conclusión de cada competencia propia;
+  de las transversales, solo el logro (su conclusión es del tutor). Después, las
+  extraordinarias de RA (`consulta-notas/_extraordinarias-carga.php`).
+
+### 🔴 Reglas de corte (medidas imprimiendo a PDF)
+- Los rótulos de la matriz van en un `<thead>` **bajo** (solo códigos y `Cr1…CrN`; los nombres
+  van en la leyenda): **Chrome NO repite un `<thead>` que ocupe ~¼ de la hoja** — medido con
+  la versión anterior, que ponía los nombres de 10 criterios en la cabecera.
+- La **primera fila del `<thead>` identifica el área** (área · grado y sección · nivel ·
+  bimestre): toda hoja de continuación dice de qué área es. El pie también la lleva.
+- Cada `<tr>` es indivisible; el pie (estadísticas + firmas) también: la firma nunca empieza
+  una hoja sola.
+- Pie en **dos columnas**: apilado medía ~50 mm y se iba solo a otra hoja. Medido con 12 áreas
+  de 18 a 24 estudiantes: sin la tabla de criterios, en 10 cabía en la hoja de la matriz;
+  **con la tabla (a 5,5 pt), en 7**. En el resto pasa entero a la hoja siguiente, identificado.
+  Es el costo aceptado de una tabla de criterios legible.
+- Nombres a 58 mm: con 46 la mitad partía en dos líneas y la fila doblaba su alto.
+- ⚠️ El área más ancha medida (Comunicación de 1.º A: 9 + 6 + 5 criterios) cabe en el ancho.
+
 ## Fixes importantes aplicados (sesión 2)
 - `periodos.nombre_display` es la columna correcta (no `nombre`). Si ves
   `Unknown column 'p.nombre'` en queries de periodos, verificar esto.

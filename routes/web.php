@@ -378,6 +378,9 @@ $router->get( '/docente/ranking-seccion/{periodo_id}',  'Docente\OrdenMeritoCont
 
 // ─── Calificaciones ──────────────────────────────────────────
 $router->get( '/docente/mis-cargas',                        'Docente\CalificacionController@misCargas');
+// Registro auxiliar de calificaciones (27/10/2026): selección + documento A4.
+$router->get( '/docente/registro-auxiliar/imprimir',        'Docente\CalificacionController@registroAuxiliarImprimir');
+$router->get( '/docente/registro-auxiliar',                 'Docente\CalificacionController@registroAuxiliar');
 // Vista de AREA (solo secciones unidocente): una pantalla por area con TODAS
 // las subarea-cargas del area + transversales. La literal "area" distingue del
 // patron base {carga_id}; las literales/largas van ANTES por orden de lectura.

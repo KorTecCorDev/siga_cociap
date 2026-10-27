@@ -1,0 +1,38 @@
+<?php
+/**
+ * Cabecera de una hoja del registro auxiliar (matriz y conclusiones), con los
+ * datos del modelo del colegio: nivel, grado, sección, área, sub-área, docente
+ * y bimestre. El lema del año sale de `anios_academicos.lema_oficial`.
+ *
+ * @var array  $hoja
+ * @var array  $periodo
+ * @var string $docente
+ * @var string $tituloHoja  «REGISTRO AUXILIAR DE …»
+ * @var string $notaHoja    texto a la derecha («Notas vigesimales de 00 a 20»)
+ */
+$m = $hoja['meta'];
+?>
+<header class="ra-cab">
+    <?php if (!empty($periodo['lema_oficial'])): ?>
+        <p class="ra-cab__lema"><?= e($periodo['lema_oficial']) ?></p>
+    <?php endif; ?>
+    <div class="ra-cab__fila">
+        <img class="ra-cab__logo" src="<?= url('assets/img/logo_cociap.png') ?>" alt="COCIAP">
+        <div class="ra-cab__titulo">
+            <h1><?= e($tituloHoja) ?> &middot; <?= e(mb_strtoupper($m['nivel_nombre'])) ?> <?= e((string) $periodo['anio']) ?></h1>
+            <p><?= e(config('institucion')) ?></p>
+        </div>
+        <p class="ra-cab__nota"><?= e($notaHoja) ?></p>
+    </div>
+    <dl class="ra-cab__datos">
+        <div><dt>Nivel</dt><dd><?= e($m['nivel_nombre']) ?></dd></div>
+        <div><dt>Grado</dt><dd><?= e($m['grado_nombre']) ?></dd></div>
+        <div><dt>Sección</dt><dd><?= e($m['seccion_nombre']) ?></dd></div>
+        <div><dt><?= $m['area_tipo'] === 'taller' ? 'Taller' : 'Área curricular' ?></dt><dd><?= e($hoja['area_nombre']) ?></dd></div>
+        <?php if ($hoja['subareas'] !== []): ?>
+            <div><dt>Sub-área</dt><dd><?= e(implode(', ', $hoja['subareas'])) ?></dd></div>
+        <?php endif; ?>
+        <div><dt>Bimestre</dt><dd><?= e($periodo['nombre_display']) ?></dd></div>
+        <div><dt>Docente</dt><dd><?= e($docente) ?></dd></div>
+    </dl>
+</header>
