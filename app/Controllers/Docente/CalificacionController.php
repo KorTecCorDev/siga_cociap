@@ -7,12 +7,11 @@ use App\Models\AnioAcademicoModel;
 use App\Models\CalificacionModel;
 use App\Models\CambioSeccionModel;
 use App\Models\CriterioModel;
-use App\Models\DirectorEbrModel;
 use App\Models\ExoneracionModel;
 use App\Models\OmisionCriterioModel;
 use App\Models\RectificacionModel;
+use App\Models\RegistroAuxiliarModel;
 use App\Models\RetornoGradoModel;
-use App\Models\UsuarioModel;
 use Core\Session;
 use Core\View;
 
@@ -210,12 +209,8 @@ class CalificacionController extends BaseController
             $this->notFound();
         }
         $periodoId = (int) $periodo['id'];
-        $periodo   = $this->calModel->queryOne("
-            SELECT p.*, a.anio, a.lema_oficial
-            FROM periodos p
-            INNER JOIN anios_academicos a ON a.id = p.anio_id
-            WHERE p.id = ?
-        ", [$periodoId]);
+        $registro  = new RegistroAuxiliarModel();
+        $periodo   = $registro->periodo($periodoId);
 
         $user     = Session::user();
         $entradas = $this->entradasRegistro($this->getCargas((int) $user['id'], $periodoId));
@@ -244,182 +239,28 @@ class CalificacionController extends BaseController
             }
         }
 
-        $hojas = [];
-        foreach ($porHoja as $h) {
-            $hojas[] = $this->hojaRegistroAuxiliar($h['meta'], $h['cargas'], $periodo);
-        }
-
         $docente = trim(($user['apellido_paterno'] ?? '') . ' ' . ($user['apellido_materno'] ?? ''))
                  . ', ' . ($user['nombres'] ?? '');
-        $ebr = (new DirectorEbrModel())->getVigenteEnFecha((int) $periodo['anio_id']);
+        // Firmas (decisión del usuario, 27/10/2026): Docente, Director EBR y
+        // Director General, con el nombre del usuario registrado o solo el cargo.
+        $firmas = $registro->firmas([$docente], (int) $periodo['anio_id']);
+
+        $hojas = [];
+        foreach ($porHoja as $h) {
+            $hoja = $registro->hoja($h['meta'], $h['cargas'], $periodo, Session::hasRole('docente'));
+            $hoja['docentes'] = [['nombre' => $docente, 'detalle' => null]];
+            $hoja['firmas']   = $firmas;
+            $hojas[] = $hoja;
+        }
 
         View::setLayout('print');
-        $this->view('docente/registro-auxiliar-imprimir', [
+        $this->view('shared/registro-auxiliar/documento', [
             'titulo'    => 'Registro auxiliar de calificaciones',
             'bodyClass' => 'doc-landscape',
+            'modo'      => 'docente',
             'periodo'   => $periodo,
-            'docente'   => $docente,
             'hojas'     => $hojas,
-            // Firmas (decisión del usuario, 27/10/2026): Docente, Director EBR y
-            // Director General, con el nombre del usuario registrado o solo el cargo.
-            'firmas'    => [
-                ['nombre' => $docente, 'cargo' => 'Docente'],
-                ['nombre' => $ebr['nombre_completo'] ?? null, 'cargo' => 'Dirección EBR'],
-                ['nombre' => (new UsuarioModel())->nombreUnicoActivoPorRolCodigo('director_general'), 'cargo' => 'Dirección General'],
-            ],
         ]);
-    }
-
-    /**
-     * Arma UNA hoja del registro auxiliar: el área completa de una sección, con
-     * las competencias del plan en su orden. Cada competencia es una «columna»:
-     *   - `propia`    : bloqueada con criterios en una carga ELEGIDA → sus notas;
-     *   - `noeval`    : bloqueada sin criterios en una carga elegida («No evaluada»);
-     *   - `pendiente` : de una carga elegida, aún sin aprobar (solo lo oficial);
-     *   - `otra`      : de otra carga (de otro docente o no elegida) → EN BLANCO.
-     * Nunca se lee una nota de una carga que no esté en `$cargas`.
-     * Las transversales van aparte (COMP-TRA), una por carga elegida.
-     */
-    private function hojaRegistroAuxiliar(array $meta, array $cargas, array $periodo): array
-    {
-        $periodoId = (int) $periodo['id'];
-        $areaId    = (int) $cargas[0]['area_id'];
-
-        // Plan del área (directas y vía subáreas), mismo orden que el acta SIAGIE
-        // (`SiagieExportModel::competenciasDeArea`); aquí hace falta además la
-        // subárea para saber de qué carga es cada competencia.
-        $plan = $this->calModel->query("
-            SELECT c.id, c.codigo_minedu, c.nombre_completo, c.subarea_id, c.area_id
-            FROM competencias c
-            LEFT JOIN subareas s ON s.id = c.subarea_id
-            WHERE COALESCE(c.area_id, s.area_id) = ?
-            ORDER BY c.orden, c.id
-        ", [$areaId]);
-
-        $columnas      = [];
-        $transversales = [];
-        $roster        = null;
-        $ids           = [];
-        $hayVariasTr   = false;
-        $conTr         = 0;
-
-        $bloquesPorCarga = [];
-        foreach ($cargas as $c) {
-            $cid  = (int) $c['id'];
-            $ids[] = $cid;
-            $exo  = array_map('intval', $this->exoModel->getActivasParaCarga($cid, (int) $periodo['anio_id'], $periodoId));
-            $bloquesPorCarga[$cid] = ['carga' => $c, 'exo' => $exo, 'bloques' => $this->bloquesBloqueadosDeCarga($cid, $periodoId)];
-            foreach ($bloquesPorCarga[$cid]['bloques'] as $b) {
-                if (!empty($b['competencia']['es_transversal'])) {
-                    $conTr++;
-                    break;
-                }
-            }
-        }
-        $hayVariasTr = $conTr > 1;
-
-        // ¿De qué carga elegida es cada competencia del plan? Misma regla que
-        // `getCargas` (total_competencias): por subárea o, en un área-curso, por área.
-        $duenaDe = static function (array $comp) use ($cargas): ?int {
-            foreach ($cargas as $c) {
-                if (!empty($c['subarea_id'])) {
-                    if ((int) $comp['subarea_id'] === (int) $c['subarea_id']) {
-                        return (int) $c['id'];
-                    }
-                } elseif ($comp['area_id'] !== null && (int) $comp['area_id'] === (int) $c['area_id']) {
-                    return (int) $c['id'];
-                }
-            }
-            return null;
-        };
-
-        // Bloqueadas por carga e id de competencia.
-        $bloqueadas = [];
-        foreach ($bloquesPorCarga as $cid => $bc) {
-            foreach ($bc['bloques'] as $b) {
-                $comp = $b['competencia'];
-                if (!empty($comp['es_transversal'])) {
-                    $transversales[] = [
-                        'competencia' => $comp,
-                        'subarea'     => $hayVariasTr ? ($bc['carga']['subarea_nombre'] ?? $bc['carga']['nombre_display']) : null,
-                        'alumnos'     => $this->indexarPorMatricula($b['alumnos']),
-                        'evaluada'    => !empty($b['criterios']),
-                        'exo'         => $bc['exo'],
-                    ];
-                    $roster ??= $b['alumnos'];
-                    continue;
-                }
-                $bloqueadas[$cid . '-' . (int) $comp['id']] = $b;
-            }
-        }
-
-        $enPlan = [];
-        foreach ($plan as $comp) {
-            $enPlan[(int) $comp['id']] = true;
-            $cid = $duenaDe($comp);
-            $col = [
-                'id'     => (int) $comp['id'],
-                'codigo' => $comp['codigo_minedu'],
-                'nombre' => $comp['nombre_completo'],
-                'tipo'   => 'otra',
-            ];
-            if ($cid !== null) {
-                $b = $bloqueadas[$cid . '-' . (int) $comp['id']] ?? null;
-                if ($b === null) {
-                    $col['tipo'] = 'pendiente';
-                } elseif (empty($b['criterios'])) {
-                    $col['tipo'] = 'noeval';
-                } else {
-                    $col['tipo']      = 'propia';
-                    $col['criterios'] = criterios_ordinarios($b['criterios']);
-                    $col['alumnos']   = $this->indexarPorMatricula($b['alumnos']);
-                    $col['lista']     = $b['alumnos'];
-                    $col['exo']       = $bloquesPorCarga[$cid]['exo'];
-                    $roster ??= $b['alumnos'];
-                }
-            }
-            $columnas[] = $col;
-        }
-        // Defensa: una bloqueada propia que no esté en el plan del área no se pierde.
-        foreach ($bloqueadas as $clave => $b) {
-            if (!isset($enPlan[(int) $b['competencia']['id']]) && !empty($b['criterios'])) {
-                $cid = (int) explode('-', $clave)[0];
-                $roster ??= $b['alumnos'];
-                $columnas[] = [
-                    'id' => (int) $b['competencia']['id'], 'codigo' => $b['competencia']['codigo_minedu'],
-                    'nombre' => $b['competencia']['nombre_completo'], 'tipo' => 'propia',
-                    'criterios' => criterios_ordinarios($b['criterios']),
-                    'alumnos' => $this->indexarPorMatricula($b['alumnos']), 'lista' => $b['alumnos'],
-                    'exo' => $bloquesPorCarga[$cid]['exo'],
-                ];
-            }
-        }
-
-        $subareas = array_values(array_filter(array_map(
-            static fn(array $c): ?string => $c['subarea_nombre'] ?? null,
-            $cargas
-        )));
-
-        return [
-            'meta'            => $meta,
-            'area_nombre'     => $meta['area_nombre'],
-            'subareas'        => $meta['es_aula'] ? [] : $subareas,
-            'columnas'        => $columnas,
-            'transversales'   => $transversales,
-            'roster'          => $roster ?? [],
-            'extraordinarias' => (new RectificacionModel())
-                ->getExtraordinariasDeCargas($ids, $periodoId, Session::hasRole('docente')),
-        ];
-    }
-
-    /** Filas de alumnos indexadas por matricula_id. */
-    private function indexarPorMatricula(array $alumnos): array
-    {
-        $out = [];
-        foreach ($alumnos as $a) {
-            $out[(int) $a['matricula_id']] = $a;
-        }
-        return $out;
     }
 
     /** Bimestres del año activo que el docente puede consultar (activo + cerrados), como Mis cargas. */
@@ -633,55 +474,12 @@ class CalificacionController extends BaseController
      * Bloques read-only {competencia, criterios, alumnos} de las competencias
      * OFICIALES (bloqueadas) de una carga en un periodo. Compartido por el
      * histórico de carga (historial) y el histórico de área (historialArea).
+     * Delegado: la consulta vive en RegistroAuxiliarModel, que la comparte con
+     * el registro auxiliar.
      */
     private function bloquesBloqueadosDeCarga(int $cargaId, int $periodoId): array
     {
-        $bloqueadas = $this->calModel->query("
-            SELECT comp.id,
-                   comp.nombre_completo,
-                   comp.codigo_minedu,
-                   (a.tipo = 'transversal') AS es_transversal
-            FROM bloqueos_competencia bc
-            INNER JOIN competencias comp ON comp.id = bc.competencia_id
-            LEFT  JOIN areas a ON a.id = comp.area_id
-            WHERE bc.carga_id   = ?
-              AND bc.periodo_id = ?
-            ORDER BY comp.orden, comp.id
-        ", [$cargaId, $periodoId]);
-
-        $bloques = [];
-        foreach ($bloqueadas as $b) {
-            $competenciaId = (int) $b['id'];
-            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId);
-
-            $omisionesPorCriterio = [];
-            foreach ($resumen['criterios'] as $cr) {
-                $omisionesPorCriterio[(int) $cr['id']] =
-                    $this->omisionModel->getPorCriterio((int) $cr['id']);
-            }
-            foreach ($resumen['alumnos'] as &$al) {
-                $al['omisiones_criterios'] = [];
-                $mid = (int) $al['matricula_id'];
-                foreach ($omisionesPorCriterio as $critId => $porMat) {
-                    if (isset($porMat[$mid])) {
-                        $al['omisiones_criterios'][$critId] = $porMat[$mid];
-                    }
-                }
-            }
-            unset($al);
-
-            $bloques[] = [
-                'competencia' => [
-                    'id'              => $competenciaId,
-                    'nombre_completo' => $b['nombre_completo'],
-                    'codigo_minedu'   => $b['codigo_minedu'],
-                    'es_transversal'  => $b['es_transversal'],
-                ],
-                'criterios'       => $resumen['criterios'],
-                'alumnos'         => $resumen['alumnos'],
-            ];
-        }
-        return $bloques;
+        return (new RegistroAuxiliarModel())->bloquesBloqueadosDeCarga($cargaId, $periodoId);
     }
 
     /**

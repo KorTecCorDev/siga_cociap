@@ -4,34 +4,39 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **19/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
-## 🆕 REGISTRO AUXILIAR DE CALIFICACIONES DEL DOCENTE (27/10/2026, en `dev`, sin migración)
+## 🆕 REGISTRO AUXILIAR DE CALIFICACIONES: DOCENTE + ÁREA COMPLETA (27/10/2026, en `dev`, sin migración)
 
 Documento A4 horizontal en el **formato del colegio** (`REG_AUX_*_2026.xlsm`): una hoja por
-sección + área con la matriz REG-NUM (competencias del área; las de otra carga en blanco),
-estadísticas, firmas (Docente, Dirección EBR, Dirección General) y la hoja CD de conclusiones.
-Solo competencias **oficiales** (bloqueadas). Entrada: botón «Registro auxiliar» en
-`/docente/mis-cargas`. Detalle y decisiones: `docs/modulos/calificaciones.md` § Registro auxiliar.
+sección + área con la matriz REG-NUM, estadísticas, firmas y la hoja CD de conclusiones. Solo
+competencias **oficiales** (bloqueadas). Dos entradas, un armado (`RegistroAuxiliarModel`):
+- **Docente:** botón «Registro auxiliar» en `/docente/mis-cargas` (las competencias de otra
+  carga, en blanco).
+- **Área completa** (Dirección, RA y admin, **solo bimestres cerrados**): fila en «Registros
+  de la sección» de `/consulta-notas/{p}/seccion/{s}` y botón en la página de cada carga.
+  Firma cada docente del área.
+
+Las áreas anchas se parten por competencias enteras («Parte X de Y»). `Cr1…CrN` van en chip.
+Detalle y decisiones: `docs/modulos/calificaciones.md` § Registro auxiliar.
 
 **Hecho y medido (BD local):**
-- notas de la matriz idénticas al historial (133 filas en 3 casos) y celdas en blanco sin datos;
-- claves ajenas descartadas (404 si no queda ninguna);
-- 2 documentos impresos a PDF con Chrome headless (12 áreas): ninguna fila partida, cada hoja
-  identificada y con «Página X de Y», el pie con firmas nunca solo.
+- historial e historial de área **idénticos byte a byte** tras mudar el armado al Model (4 casos);
+  procedencia, solo prueba de humo (renderiza sin errores);
+- notas del registro idénticas al historial: docente 133 filas, área completa 148 filas, 0 diferencias;
+- 1.410 celdas en blanco del registro del docente sin ningún dato;
+- ninguna tabla ni celda desborda la hoja (Chrome headless, 277 mm) y caben los 120 chips;
+- 2 áreas impresas a PDF: ninguna fila partida, «Parte X de Y», firmas solo tras la última parte;
+- un bimestre abierto o una sección sin cargas dan 404.
 
 ⚠️ Los dos `.xlsm` del colegio están en `public/` sin versionar y sus hojas ocultas tienen las
 listas de estudiantes: **no subirlos** (el auto-deploy publica todo lo versionado).
 
-**🔜 SIGUIENTE (turno tarde del 27/10/2026): plan aprobado, sin implementar** →
-`docs/planes/registro-auxiliar-area-completa.md`. Cubre la **matriz partida** por competencias
-enteras («Parte X de Y»), porque un área completa llega a 36 criterios (373 mm contra 277 mm
-útiles), y el **registro del área completa** para Dirección, RA y admin desde
-`/consulta-notas`, con la firma de cada docente. Incluye el estado de partida, las decisiones
-cerradas, las trampas medidas y el código de las herramientas de prueba.
-
 **Pendiente:**
 - [ ] Prueba en navegador **con sesión de DOCENTE**: selección, «Imprimir seleccionadas»,
   «Imprimir todas», ventana nueva y «✕ Cerrar», y que la pantalla de espera no quede fija.
-- [ ] Revisar a ojo una hoja impresa real (colores AD·A·B·C y legibilidad de la conclusión).
+- [ ] Prueba en navegador **con sesión de Dirección o RA**: la fila de `/consulta-notas/1/seccion/4`
+  y el botón de una carga (área entera), en ventana nueva; en el III Bimestre no deben verse.
+  Y que un usuario docente que abra la URL reciba 403.
+- [ ] Revisar a ojo una hoja impresa real (colores AD·A·B·C, chip `Cr` a 5 pt y legibilidad).
 - [ ] Desplegar (preguntar antes de mergear `dev` → `main`).
 
 ## 🔜 RETOMAR AQUÍ (19/10/2026, noche: laptop → escritorio de casa) — GESTOR DEL MÉRITO DESPLEGADO

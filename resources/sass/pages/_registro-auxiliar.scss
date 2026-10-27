@@ -129,6 +129,27 @@
 // Cada área, en hoja nueva (salvo la primera); sus conclusiones, también.
 .ra-hoja + .ra-hoja { break-before: page; }
 .ra-cd              { break-before: page; }
+// Partes de un área ancha (matriz o CD): cada una en hoja nueva. El reparto
+// lo calcula `RegistroAuxiliarModel::partesMatriz` con los anchos de `.ra-m__c-*`.
+.ra-parte + .ra-parte { break-before: page; }
+
+// Código de criterio (Cr1…CrN), en la tabla de criterios y en la matriz.
+// Mismo formato redondeado que `.competencia-card__codigo`, pero neutro y solo
+// con contorno: se distingue del código de competencia y no depende de que se
+// impriman los fondos. Métrica de papel: «Cr10» cabe en la columna de criterio
+// más angosta (5 mm, `RegistroAuxiliarModel::ANCHO_CRITERIO_MM`).
+.ra-cr {
+    display: inline-block;
+    padding: 0 .15mm;
+    border: .5px solid $text-muted;
+    border-radius: 20px;
+    color: $text-secondary;
+    font-size: 5pt;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -.03em;
+    white-space: nowrap;
+}
 
 // ── Cabecera de la hoja ──
 .ra-cab {
@@ -332,6 +353,13 @@
         color: $text-secondary;
     }
 
+    &__parte { color: #111; font-weight: 700; }
+
+    // Rótulo de criterio con su chip: casi sin relleno lateral, para que «Cr10»
+    // quepa en la columna más angosta (5 mm) sin ensancharla (medido el 27/10/2026:
+    // con el relleno general de .5 mm no cabía ningún chip). (0,2,1) como los grupos.
+    thead .ra-m__cr { padding-left: .1mm; padding-right: .1mm; }
+
     // (0,2,1): gana al `thead th` de arriba (0,1,2) sin `!important`.
     thead .ra-m__grupo {
         background: #e5e9f0;
@@ -352,13 +380,6 @@
 
     &__res,
     &__tr { white-space: nowrap; }
-
-    &__sub {
-        display: block;
-        font-size: 5pt;
-        font-weight: 400;
-        white-space: normal;
-    }
 
     &__muted { color: $text-secondary; }
 
@@ -408,6 +429,10 @@
     .ra-firmas .reporte-footer__bloque { flex: 1 1 0; min-width: 0; }
     .ra-firmas .reporte-footer__linea  { width: auto; max-width: 50mm; }
 
+    // Área completa con varios docentes (más de 3 firmas): filas de 3.
+    .ra-firmas--varias { flex-wrap: wrap; row-gap: 1mm; }
+    .ra-firmas--varias .reporte-footer__bloque { flex: 0 0 calc((100% - 8mm) / 3); }
+
     .reporte-footer__nombre { font-size: 7pt; }
     .reporte-footer__cargo  { font-size: 6.5pt; }
     .reporte-footer__espacio-firma { height: 11mm; }
@@ -436,9 +461,16 @@
 // ── Conclusiones descriptivas ──
 .ra-cd {
     &__c-nombre { width: 58mm; }
-    &__c-logro  { width: 14mm; }
+    // Logro en DOS columnas, numeral | literal, cada uno centrado en la suya
+    // (27/10/2026). Suman los 14 mm de `RegistroAuxiliarModel::ANCHO_CD_LOGRO_MM`.
+    &__c-num { width: 7mm; }
+    &__c-lit { width: 7mm; }
 
     &__logro { white-space: nowrap; }
+
+    // Sin línea entre numeral y literal: `hidden` gana al borde colapsado del
+    // vecino. (0,2,0): gana a `.ra-m td` (0,1,1) sin `!important`.
+    &__tabla &__num { border-right-style: hidden; }
 
     &__texto {
         font-size: 6.5pt;

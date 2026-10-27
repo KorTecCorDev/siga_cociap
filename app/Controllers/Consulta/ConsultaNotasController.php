@@ -11,6 +11,7 @@ use App\Models\ExoneracionModel;
 use App\Models\TransversalModel;
 use App\Models\ConductaModel;
 use App\Models\ControlOperativoModel;
+use App\Models\RegistroAuxiliarModel;
 use Core\View;
 
 /**
@@ -330,6 +331,83 @@ class ConsultaNotasController extends BaseController
             'cargas'             => $cargas,
             'tieneTransversales' => $tieneTransversales,
             'tieneConducta'      => $tieneConducta,
+        ]);
+    }
+
+    /**
+     * GET /consulta-notas/{periodo_id}/seccion/{seccion_id}/registro-auxiliar[?area_id=]
+     * REGISTRO AUXILIAR DEL ÁREA COMPLETA (27/10/2026): el mismo documento A4
+     * horizontal del docente, pero con TODAS las cargas y docentes de cada área.
+     * Sin `area_id`, todas las áreas de la sección (cada una en hoja nueva).
+     * Solo bimestres CERRADOS (decisión del usuario): en uno abierto, 404 —la
+     * URL queda en marcadores, no basta con ocultar el enlace—. Solo lo oficial
+     * (bloqueado), sin esperar la publicación: es un documento interno.
+     * Reglas: docs/modulos/calificaciones.md § Registro auxiliar.
+     */
+    public function registroAuxiliar(string $periodoId, string $seccionId): void
+    {
+        $registro = new RegistroAuxiliarModel();
+        $periodo  = $registro->periodo((int) $periodoId);
+        if (!$periodo || $periodo['estado'] !== 'cerrado') {
+            $this->notFound();
+        }
+
+        $cargas = $registro->cargasDeSeccion((int) $seccionId, (int) $periodo['id']);
+        $areaId = (int) ($this->query('area_id') ?? 0);
+        if ($areaId > 0) {
+            $cargas = array_values(array_filter($cargas, static fn(array $c): bool => (int) $c['area_id'] === $areaId));
+        }
+        if ($cargas === []) {
+            $this->notFound();
+        }
+
+        $porArea = [];
+        foreach ($cargas as $c) {
+            $porArea[(int) $c['area_id']][] = $c;
+        }
+
+        $hojas = [];
+        foreach ($porArea as $grupo) {
+            $c0   = $grupo[0];
+            $meta = [
+                'area_nombre'    => $c0['area_nombre'],
+                'area_tipo'      => $c0['area_tipo'],
+                'grado_nombre'   => $c0['grado_nombre'],
+                'seccion_nombre' => $c0['seccion_nombre'],
+                'nivel_nombre'   => $c0['nivel_nombre'],
+                'nivel_codigo'   => $c0['nivel_codigo'],
+                'es_aula'        => !empty($c0['es_aula']),
+            ];
+            $hoja = $registro->hoja($meta, $grupo, $periodo, false);
+
+            // Docentes del área, en el orden de sus cargas. Con más de uno, cada
+            // nombre lleva sus subáreas para saber quién registró qué.
+            $porDocente = [];
+            foreach ($grupo as $c) {
+                $porDocente[(int) $c['docente_id']]['nombre'] = $c['docente'];
+                if (!empty($c['subarea_nombre'])) {
+                    $porDocente[(int) $c['docente_id']]['subareas'][] = $c['subarea_nombre'];
+                }
+            }
+            $hoja['docentes'] = [];
+            foreach ($porDocente as $d) {
+                $hoja['docentes'][] = [
+                    'nombre'  => $d['nombre'],
+                    'detalle' => count($porDocente) > 1 && !empty($d['subareas']) ? implode(', ', $d['subareas']) : null,
+                ];
+            }
+            // Firmas: cada docente del área + Dirección EBR + Dirección General.
+            $hoja['firmas'] = $registro->firmas(array_column($hoja['docentes'], 'nombre'), (int) $periodo['anio_id']);
+            $hojas[] = $hoja;
+        }
+
+        View::setLayout('print');
+        $this->view('shared/registro-auxiliar/documento', [
+            'titulo'    => 'Registro auxiliar de calificaciones',
+            'bodyClass' => 'doc-landscape',
+            'modo'      => 'area',
+            'periodo'   => $periodo,
+            'hojas'     => $hojas,
         ]);
     }
 
@@ -743,6 +821,13 @@ class ConsultaNotasController extends BaseController
             'area_nombre'    => $primera['area_nombre'],
             'subarea_nombre' => $primera['subarea_nombre'],
             'docente'        => $this->nombreDocente($primera),
+            // Para el botón «Registro auxiliar del área» (imprime el área entera).
+            'area_id'        => (int) ($this->calModel->queryOne("
+                SELECT COALESCE(ca.area_id, sa.area_id) AS area_id
+                FROM cargas_academicas ca
+                LEFT JOIN subareas sa ON sa.id = ca.subarea_id
+                WHERE ca.id = ?
+            ", [$cargaId])['area_id'] ?? 0),
         ];
 
         $exonerados   = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);

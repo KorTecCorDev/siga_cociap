@@ -76,6 +76,20 @@
                     <span class="consulta-carga__meta">Ver &rarr;</span>
                 </a>
             </li>
+            <?php // Documento A4 de TODAS las áreas, con todas sus cargas y docentes.
+                  // Solo en un bimestre cerrado: en otro, la ruta responde 404. ?>
+            <?php if ($periodo['estado'] === 'cerrado'): ?>
+                <li>
+                    <a class="consulta-carga" target="_blank"
+                       href="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $seccion['seccion_id'] . '/registro-auxiliar') ?>">
+                        <span>
+                            <span class="consulta-carga__area">Registro auxiliar de calificaciones</span>
+                            <span class="consulta-carga__docente">Todas las áreas · A4 horizontal</span>
+                        </span>
+                        <span class="consulta-carga__meta">Imprimir &nearr;</span>
+                    </a>
+                </li>
+            <?php endif; ?>
         </ul>
     </section>
 <?php endif; ?>

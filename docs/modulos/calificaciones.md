@@ -1300,10 +1300,13 @@ cualquier registro directo (el tooltip se volvió neutro: decía «I Bimestre»)
 `ConductaModel::getRegistroLegado` **excluye** las extraordinarias: si no, el banner del tutor del
 I Bimestre diría «registradas por RA, hoy».
 
-## Registro auxiliar de calificaciones — documento del docente (27/10/2026)
+## Registro auxiliar de calificaciones — del docente y del área completa (27/10/2026)
 
-> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pendiente la prueba en
-> navegador con una sesión de DOCENTE (ver `docs/ESTADO.md`).
+> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pendientes las pruebas en
+> navegador con sesión de DOCENTE y de Dirección/RA (ver `docs/ESTADO.md`).
+> Dos documentos, un solo armado (`RegistroAuxiliarModel`) y una sola vista
+> (`shared/registro-auxiliar/`): el del **docente** (abajo) y el del **área completa**
+> (§ «Registro del área completa»). Las áreas anchas se reparten en **partes** (§ «Partes»).
 
 El docente imprime, proyecta o guarda en PDF («Guardar como PDF» del navegador) el registro
 de sus cargas de un bimestre. Entrada: botón **«Registro auxiliar»** en `/docente/mis-cargas`,
@@ -1333,7 +1336,12 @@ capacidades y desempeños» (no hay capacidades ni desempeños en la BD).
 - **Un documento con numeración continua** (`@page paisaje`, «Página X de Y»; NO `doc-lote`).
 
 ### De dónde salen los datos
-`CalificacionController::hojaRegistroAuxiliar()` arma cada hoja:
+`RegistroAuxiliarModel::hoja($meta, $cargas, $periodo, $paraDocente)` arma cada hoja (lo
+usan los dos controladores; `$paraDocente` oculta las extraordinarias reservadas a Dirección,
+y el Model no lee la sesión). `bloquesBloqueadosDeCarga()` también vive ahí: el método del
+mismo nombre de `Docente\CalificacionController` es un delegado de una línea, así que
+`historial` e `historialArea` no cambiaron (medido byte a byte, 4 casos; `procedencia`,
+que usa el mismo delegado, con prueba de humo).
 - **Plan del área**: competencias directas y por subárea, en el orden de
   `SiagieExportModel::competenciasDeArea` (aquí con `subarea_id`, para saber de qué carga es
   cada una: misma regla que `getCargas`, por subárea o, en un área-curso, por área).
@@ -1342,8 +1350,13 @@ capacidades y desempeños» (no hay capacidades ni desempeños en la BD).
   cambios de sección y reingresos salen igual que en pantalla). Cada competencia del plan es
   `propia` (bloqueada con criterios), `noeval` («No evaluada»), `pendiente` (de una carga
   elegida, aún sin aprobar) u `otra` (en blanco).
-- **Transversales**: las de cada carga elegida, en COMP-TRA; con varias cargas en la hoja,
-  rotuladas con su subárea (cada carga tiene su propio registro de TIC/GAMA).
+- **Transversales**: las de cada carga elegida, en COMP-TRA (cada carga tiene su propio
+  registro de TIC/GAMA). Con varias cargas en la hoja, la cabecera (matriz y CD) lleva **una
+  fila de grupo por carga con el código de la competencia de su subárea** (C21, C22…) sobre
+  sus CT1/CT2, **sin el nombre del curso** (decisión del usuario, 27/10/2026; las 23 subáreas
+  tienen exactamente una competencia). Punto único: `RegistroAuxiliarModel::gruposTransversales`.
+  Con una sola carga, esa fila no se pinta. La leyenda sí nombra la carga: su subárea; sin
+  subárea, el **docente** (área completa) o el nombre de la carga (registro del docente).
 - **Estadísticas** del pie: `stats_competencia()` (punto único). ⚠️ «Aprobados» sigue la regla
   del sistema (`nota_es_aprobatoria`: primaria AD+A), **no** la del Excel, que contaba ≥ 11
   en los dos niveles.
@@ -1365,7 +1378,7 @@ blanco» de esos documentos no traen ningún dato.
   `entradasRegistro()`. Si cambian allí, cambiar aquí. Medido: las cards de 4 docentes en 3
   bimestres dicen lo mismo que en Mis cargas.
 
-### Presentación (`docente/_registro-auxiliar-{cabecera,matriz,cd}.php`)
+### Presentación (`shared/registro-auxiliar/{documento,_cabecera,_matriz,_cd}.php`)
 - **Cabecera**: lema del año (`anios_academicos.lema_oficial`), título por nivel, nivel,
   grado, sección, área, sub-área(s), bimestre y docente.
 - **Leyenda**, en bloques apilados a todo el ancho: competencias del área (código → nombre,
@@ -1379,7 +1392,9 @@ blanco» de esos documentos no traen ningún dato.
 - **Pie** (indivisible): estadísticas (proceso de logro y niveles de logro por competencia) a
   la izquierda; identificación del área, lugar y fecha (`fecha_es`) y las tres firmas
   (`.reporte-footer`, compartido) a la derecha.
-- **CD**: por estudiante, logro (número y literal) y conclusión de cada competencia propia;
+- **CD**: por estudiante, logro y conclusión de cada competencia propia. El logro ocupa **dos
+  columnas** (numeral | literal, 7 + 7 mm), cada valor centrado en la suya y **sin línea entre
+  ellas** (`border-right-style: hidden`); EXO y «—» abarcan las dos;
   de las transversales, solo el logro (su conclusión es del tutor). Después, las
   extraordinarias de RA (`consulta-notas/_extraordinarias-carga.php`).
 
@@ -1397,6 +1412,62 @@ blanco» de esos documentos no traen ningún dato.
   Es el costo aceptado de una tabla de criterios legible.
 - Nombres a 58 mm: con 46 la mitad partía en dos líneas y la fila doblaba su alto.
 - ⚠️ El área más ancha medida (Comunicación de 1.º A: 9 + 6 + 5 criterios) cabe en el ancho.
+
+### Partes: áreas que no caben en el ancho de la hoja
+Un área completa llega a **36 criterios** (Matemática de 2.º B de primaria, I Bimestre: 4
+competencias y 4 cargas); el tope teórico es 5 × 10 = 50. Con N° y nombres (63 mm), 36 × 5 +
+4 × 8 (logros) + 4 × 6,5 (resumen) + 8 × 9 (transversales) suman **373 mm**, y la hoja A4
+horizontal útil mide **277 mm**. Por eso (decisión del usuario):
+- **Mismo diseño, partido por competencias ENTERAS** (nunca se corta una):
+  `RegistroAuxiliarModel::partesMatriz()`, reparto goloso con un presupuesto en mm. Cada
+  parte es una tabla en hoja nueva (`.ra-parte + .ra-parte`), repite N° y nombres y dice
+  **«Parte X de Y»** en su fila de identificación. Si el área cabe, una sola tabla, sin rótulo.
+- La leyenda va una vez, arriba. **Resumen y transversales, en la última parte**; si no caben
+  con sus competencias, van en una parte propia. El pie (estadísticas y firmas), tras ella.
+- **Hoja CD**: `partesConclusiones()`, como máximo **3 competencias por parte**, con conclusión
+  de al menos **45 mm** (con 55, un área de 3 competencias y 2 transversales que hoy se
+  imprime entera se habría partido); las transversales, en la última.
+- 🔴 **Las medidas son constantes del Model que REFLEJAN el SASS** (`ANCHO_*_MM` ↔
+  `.ra-m__c-*`, `.ra-cd__c-logro` y `@page paisaje`). Si cambia una en el SASS, cambiarla en
+  el Model, o el reparto deja tablas que desbordan. Las `<col>` de criterio no tienen ancho
+  fijo: 5 mm es el **mínimo** legible que reserva el presupuesto.
+- Efecto en el registro del DOCENTE: la matriz no cambió en ningún caso medido (5 documentos,
+  0 diferencias); solo la hoja CD de un área de 4 competencias pasa a 2 partes.
+
+### Chip del código de criterio (`.ra-cr`)
+`Cr1…CrN` va en un chip **neutro con contorno** (decisión del usuario): el formato redondeado
+de `.competencia-card__codigo`, pero sin fondo y en gris (`$text-muted`/`$text-secondary`), en
+la tabla de criterios y en la matriz. Para caber en la columna más angosta (**5,04 mm**, parte 1
+de 2.º B) sin ensancharla: chip a 5 pt con 0,15 mm de relleno, y la celda (`.ra-m__cr`) con
+0,1 mm de relleno lateral. Medido en Chrome headless: con el relleno general de 0,5 mm **no
+cabía ningún chip**; ajustado, caben los 120 de la sección. El margen es fino: subir la letra o
+el relleno obliga a volver a medir.
+
+### Registro del área completa (Dirección, RA y admin)
+- **Ruta:** `GET /consulta-notas/{periodo}/seccion/{seccion}/registro-auxiliar[?area_id=]`
+  (`ConsultaNotasController::registroAuxiliar`, hereda el `requireRole` del constructor).
+  Sin `area_id`, todas las áreas de la sección, cada una en hoja nueva; con él, una.
+- **Solo bimestres CERRADOS** (decisión del usuario): en otro, 404, y las entradas no se pintan.
+  Muestra lo bloqueado **sin esperar la publicación** (compuerta 044): es un documento interno.
+  El registro del DOCENTE no tiene esta restricción (bimestre activo + cerrados).
+- **Cargas:** `RegistroAuxiliarModel::cargasDeSeccion()` —activas del año del periodo, los
+  filtros de `getCargas()` (sin la carga transversal antigua; Tutoría/Ética solo con
+  competencias), en el orden de «Áreas y cargas»—, agrupadas por área.
+- **Cabecera:** «Docentes: Apellidos, Nombres (Aritmética, Álgebra) · …» cuando hay más de uno.
+- **Firmas:** cada docente del área + Dirección EBR + Dirección General
+  (`RegistroAuxiliarModel::firmas`); con más de 3, filas de 3 (`.ra-firmas--varias`).
+- Una columna `otra` dice **«Sin carga»** (competencia del plan sin carga en la sección).
+- Extraordinarias **con** las reservadas a Dirección (`$paraDocente = false`).
+- **Entradas:** una fila «Registro auxiliar de calificaciones» en «Registros de la sección»
+  (`consulta-notas/seccion.php`) y el botón «Registro auxiliar del área» en el `.page-header`
+  de `consulta-notas/carga.php`, que imprime **el área entera** (todas sus cargas). Ambas en
+  ventana nueva. La lista «Áreas y cargas» no lleva enlace: lista cargas, no áreas, y cada fila
+  ya es un `<a>` entero.
+- Medido (BD local): las notas coinciden con el historial de cada carga en Matemática de 2.º B
+  (I Bimestre, 36 criterios, 1 docente) y de 6.º A (II Bimestre, 30 criterios, 2 docentes):
+  **148 filas, 0 diferencias**, conclusiones incluidas. Impreso a PDF: 4 hojas cada uno,
+  ninguna fila partida, «Parte X de Y» en cada continuación, firmas solo tras la última parte
+  y «Página X de Y» continua. Ninguna tabla ni celda desborda en la sección completa (19 tablas).
 
 ## Fixes importantes aplicados (sesión 2)
 - `periodos.nombre_display` es la columna correcta (no `nombre`). Si ves

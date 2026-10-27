@@ -14,10 +14,14 @@
  * pie (estadísticas + lugar y fecha + firmas) es UN bloque indivisible: la firma
  * nunca empieza una hoja sola.
  *
- * @var array  $hoja
+ * PARTES (27/10/2026): si el área no cabe en el ancho de la hoja, la matriz se
+ * reparte en varias tablas por competencias ENTERAS (`partesMatriz`), cada una en
+ * hoja nueva, repitiendo N° y nombres y diciendo «Parte X de Y». La leyenda va
+ * una vez (arriba); Resumen y transversales, en la última parte, y el pie, tras ella.
+ *
+ * @var array  $hoja           con `firmas` [{nombre|null, cargo}]
  * @var array  $periodo
- * @var string $docente
- * @var array  $firmas
+ * @var string $modo           'docente' | 'area'
  * @var array  $omisionSiglas
  */
 $columnas  = $hoja['columnas'];
@@ -36,7 +40,9 @@ foreach ($transv as &$t) {
 unset($t);
 $codigo    = static fn(array $c, int $i): string => (string) ($c['codigo'] ?: 'Comp. ' . ($i + 1));
 $marcas    = [
-    'otra'      => 'Otra carga',
+    // En el área completa entran todas las cargas: una columna `otra` es una
+    // competencia del plan sin carga en la sección.
+    'otra'      => $modo === 'area' ? 'Sin carga' : 'Otra carga',
     'pendiente' => 'Aún no aprobada',
     'noeval'    => 'No evaluada',
 ];
@@ -47,13 +53,12 @@ $identificacion = $hoja['area_nombre']
     . ($hoja['subareas'] !== [] ? ' (' . implode(', ', $hoja['subareas']) . ')' : '')
     . ' · ' . trim($mh['grado_nombre'] . ' ' . $mh['seccion_nombre']) . ' de ' . $mh['nivel_nombre']
     . ' · ' . $periodo['nombre_display'] . ' ' . $periodo['anio'];
-$totalColumnas = 2 + count($columnas) + count($transv);
-foreach ($columnas as $c) {
-    $totalColumnas += $c['tipo'] === 'propia' ? count($c['criterios']) + 1 : 1;
-}
+$partes  = \App\Models\RegistroAuxiliarModel::partesMatriz($columnas, count($transv));
+$nPartes = count($partes);
+$firmas  = $hoja['firmas'];
 $tituloHoja = 'Registro auxiliar de evaluación de aprendizajes';
 $notaHoja   = 'Notas vigesimales de 00 a 20';
-require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
+require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
 ?>
 
 <div class="ra-leyenda">
@@ -92,7 +97,7 @@ require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
                 <thead>
                     <tr>
                         <th scope="col">Comp.</th>
-                        <?php for ($n = 1; $n <= $maxCr; $n++): ?><th scope="col">Cr<?= $n ?></th><?php endfor; ?>
+                        <?php for ($n = 1; $n <= $maxCr; $n++): ?><th scope="col"><span class="ra-cr">Cr<?= $n ?></span></th><?php endfor; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -130,11 +135,24 @@ require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
         Esta área aún no tiene competencias aprobadas en el <?= e($periodo['nombre_display']) ?>.
     </p>
 <?php else: ?>
-    <table class="ra-m">
+    <?php foreach ($partes as $k => $parte):
+        // Columnas de ESTA parte (con su índice en el área, que da el código
+        // «Comp. N» cuando falta el MINEDU); Resumen y transversales, solo en la última.
+        $colsParte = [];
+        foreach ($parte['columnas'] as $i) {
+            $colsParte[$i] = $columnas[$i];
+        }
+        $resParte = $parte['final'] ? $columnas : [];
+        $trParte  = $parte['final'] ? $transv : [];
+        $totalColumnas = 2 + count($resParte) + count($trParte);
+        foreach ($colsParte as $c) {
+            $totalColumnas += $c['tipo'] === 'propia' ? count($c['criterios']) + 1 : 1;
+        } ?>
+    <table class="ra-m ra-parte">
         <colgroup>
             <col class="ra-m__c-num">
             <col class="ra-m__c-nombre">
-            <?php foreach ($columnas as $c): ?>
+            <?php foreach ($colsParte as $c): ?>
                 <?php if ($c['tipo'] === 'propia'): ?>
                     <?php foreach ($c['criterios'] as $cr): ?><col><?php endforeach; ?>
                     <col class="ra-m__c-logro">
@@ -142,43 +160,57 @@ require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
                     <col class="ra-m__c-vacia">
                 <?php endif; ?>
             <?php endforeach; ?>
-            <?php foreach ($columnas as $c): ?><col class="ra-m__c-res"><?php endforeach; ?>
-            <?php foreach ($transv as $t): ?><col class="ra-m__c-tr"><?php endforeach; ?>
+            <?php foreach ($resParte as $c): ?><col class="ra-m__c-res"><?php endforeach; ?>
+            <?php foreach ($trParte as $t): ?><col class="ra-m__c-tr"><?php endforeach; ?>
         </colgroup>
         <thead>
             <tr class="ra-m__id">
-                <th colspan="<?= $totalColumnas ?>">Registro auxiliar &middot; <?= e($identificacion) ?></th>
+                <th colspan="<?= $totalColumnas ?>">Registro auxiliar &middot; <?= e($identificacion) ?><?php if ($nPartes > 1): ?> &middot; <span class="ra-m__parte">Parte <?= $k + 1 ?> de <?= $nPartes ?></span><?php endif; ?></th>
             </tr>
+            <?php // Transversales de varias cargas: una fila más, con el código de
+                  // la competencia de cada carga sobre sus CT (sin el nombre del
+                  // curso). Las demás celdas de grupo bajan una fila para cubrirla.
+                  $trGrupos = \App\Models\RegistroAuxiliarModel::gruposTransversales($trParte);
+                  $filasGrupo = $trGrupos !== [] ? 2 : 1; ?>
             <tr class="ra-m__grupos">
-                <th rowspan="2" scope="col">N°</th>
-                <th rowspan="2" scope="col" class="ra-m__izq">Apellidos y nombres</th>
-                <?php foreach ($columnas as $i => $c): ?>
-                    <th scope="colgroup" colspan="<?= $c['tipo'] === 'propia' ? count($c['criterios']) + 1 : 1 ?>"
+                <th rowspan="<?= $filasGrupo + 1 ?>" scope="col">N°</th>
+                <th rowspan="<?= $filasGrupo + 1 ?>" scope="col" class="ra-m__izq">Apellidos y nombres</th>
+                <?php foreach ($colsParte as $i => $c): ?>
+                    <th scope="colgroup" rowspan="<?= $filasGrupo ?>" colspan="<?= $c['tipo'] === 'propia' ? count($c['criterios']) + 1 : 1 ?>"
                         class="ra-m__grupo<?= $c['tipo'] !== 'propia' ? ' ra-m__grupo--vacio' : '' ?>">
                         <?= e($codigo($c, $i)) ?>
                     </th>
                 <?php endforeach; ?>
-                <th scope="colgroup" colspan="<?= count($columnas) ?>" class="ra-m__grupo ra-m__grupo--res">Resumen</th>
-                <?php if ($transv !== []): ?>
-                    <th scope="colgroup" colspan="<?= count($transv) ?>" class="ra-m__grupo ra-m__grupo--tr">Comp. transv.</th>
+                <?php if ($resParte !== []): ?>
+                    <th scope="colgroup" rowspan="<?= $filasGrupo ?>" colspan="<?= count($resParte) ?>" class="ra-m__grupo ra-m__grupo--res">Resumen</th>
+                <?php endif; ?>
+                <?php if ($trParte !== []): ?>
+                    <th scope="colgroup" colspan="<?= count($trParte) ?>" class="ra-m__grupo ra-m__grupo--tr">Comp. transv.</th>
                 <?php endif; ?>
             </tr>
+            <?php if ($trGrupos !== []): ?>
+                <tr class="ra-m__subgrupos">
+                    <?php foreach ($trGrupos as $g): ?>
+                        <th scope="colgroup" colspan="<?= $g['span'] ?>" class="ra-m__grupo ra-m__grupo--tr"><?= e($g['grupo']) ?></th>
+                    <?php endforeach; ?>
+                </tr>
+            <?php endif; ?>
             <tr class="ra-m__cols">
-                <?php foreach ($columnas as $c): ?>
+                <?php foreach ($colsParte as $c): ?>
                     <?php if ($c['tipo'] === 'propia'): ?>
                         <?php foreach ($c['criterios'] as $n => $cr): ?>
-                            <th scope="col" title="<?= e($cr['nombre']) ?>">Cr<?= $n + 1 ?></th>
+                            <th scope="col" class="ra-m__cr" title="<?= e($cr['nombre']) ?>"><span class="ra-cr">Cr<?= $n + 1 ?></span></th>
                         <?php endforeach; ?>
                         <th scope="col" class="ra-m__logro">Logro</th>
                     <?php else: ?>
                         <th scope="col" class="ra-m__vacia"></th>
                     <?php endif; ?>
                 <?php endforeach; ?>
-                <?php foreach ($columnas as $i => $c): ?>
+                <?php foreach ($resParte as $i => $c): ?>
                     <th scope="col" class="ra-m__res"><?= e($codigo($c, $i)) ?></th>
                 <?php endforeach; ?>
-                <?php foreach ($transv as $t): ?>
-                    <th scope="col" class="ra-m__tr"><?= e((string) $t['competencia']['codigo_minedu']) ?><?php if ($t['subarea'] !== null): ?><span class="ra-m__sub"><?= e($t['subarea']) ?></span><?php endif; ?></th>
+                <?php foreach ($trParte as $t): ?>
+                    <th scope="col" class="ra-m__tr"><?= e((string) $t['competencia']['codigo_minedu']) ?></th>
                 <?php endforeach; ?>
             </tr>
         </thead>
@@ -189,7 +221,7 @@ require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
 <tr>
 <td class="ra-m__num"><?= $i + 1 ?></td>
 <td class="ra-m__izq"><?= e($al['apellido_paterno'] . ' ' . $al['apellido_materno'] . ', ' . $al['nombres']) ?></td>
-<?php foreach ($columnas as $c): ?>
+<?php foreach ($colsParte as $c): ?>
 <?php if ($c['tipo'] !== 'propia'): ?>
 <td class="ra-m__vacia"></td>
 <?php continue; endif;
@@ -202,7 +234,7 @@ require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
 <?php endforeach; ?>
 <td class="ra-m__logro"><?php if ($exo): ?><span class="exo-badge">EXO</span><?php elseif ($a !== null && $a['promedio'] !== null): ?><span class="nota-numeral nota-numeral--<?= e(strtolower((string) $a['literal'])) ?>"><?= fmt_nota((int) $a['promedio']) ?></span><?php else: ?>—<?php endif; ?></td>
 <?php endforeach; ?>
-<?php foreach ($columnas as $c): ?>
+<?php foreach ($resParte as $c): ?>
 <?php if ($c['tipo'] !== 'propia'): ?>
 <td class="ra-m__res ra-m__vacia"></td>
 <?php continue; endif;
@@ -210,7 +242,7 @@ require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
     $exo = isset($c['exoSet'][$mid]); ?>
 <td class="ra-m__res"><?php if ($exo): ?><span class="exo-badge">EXO</span><?php elseif ($a !== null && $a['literal'] !== null): ?><span class="nota-literal nota-literal--<?= e(strtolower((string) $a['literal'])) ?>"><?= e($a['literal']) ?></span><?php else: ?>—<?php endif; ?></td>
 <?php endforeach; ?>
-<?php foreach ($transv as $t):
+<?php foreach ($trParte as $t):
     $a   = $t['alumnos'][$mid] ?? null;
     $exo = isset($t['exoSet'][$mid]); ?>
 <td class="ra-m__tr"><?php if (!$t['evaluada']): ?><?php elseif ($exo): ?><span class="exo-badge">EXO</span><?php elseif ($a !== null && $a['literal'] !== null): ?><span class="nota-literal nota-literal--<?= e(strtolower((string) $a['literal'])) ?>"><?= e($a['literal']) ?></span><?php else: ?>—<?php endif; ?></td>
@@ -219,6 +251,7 @@ require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
 <?php endforeach; ?>
         </tbody>
     </table>
+    <?php endforeach; ?>
 
     <?php // Pie indivisible: estadísticas + lugar y fecha + firmas (la firma nunca sola). ?>
     <div class="ra-cierre">
@@ -273,7 +306,8 @@ require VIEW_PATH . '/docente/_registro-auxiliar-cabecera.php';
             <?= e(config('institucion_datos')['lugar'] ?? 'Huaraz') ?>, <?= e(fecha_es(date('Y-m-d'))) ?>
         </p>
 
-        <footer class="reporte-footer ra-firmas">
+        <?php // Más de 3 firmas (área completa con varios docentes): filas de 3. ?>
+        <footer class="reporte-footer ra-firmas<?= count($firmas) > 3 ? ' ra-firmas--varias' : '' ?>">
             <?php foreach ($firmas as $f): ?>
                 <div class="reporte-footer__bloque">
                     <div class="reporte-footer__espacio-firma"></div>

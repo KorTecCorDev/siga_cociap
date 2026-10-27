@@ -330,6 +330,7 @@ $router->get('/consulta-notas/criterios',                         'Consulta\Cons
 // Las dos de nivel SECCION van ANTES que la de 4 segmentos: mas especificas
 // primero, el router ancla por orden de registro.
 $router->get('/consulta-notas/{periodo_id}/seccion/{seccion_id}/transversales', 'Consulta\ConsultaNotasController@transversales');
+$router->get('/consulta-notas/{periodo_id}/seccion/{seccion_id}/registro-auxiliar', 'Consulta\ConsultaNotasController@registroAuxiliar');
 // La grilla Si/No va ANTES que /conducta: mas segmentos, y el router ancla por
 // orden de registro. Reusa la vista del tutor (ver conductaCriterios).
 $router->get('/consulta-notas/{periodo_id}/seccion/{seccion_id}/conducta/criterios', 'Consulta\ConsultaNotasController@conductaCriterios');

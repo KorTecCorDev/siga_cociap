@@ -4,7 +4,7 @@
  * una carga. Reutiliza el mismo lenguaje visual del resumen del docente vía el
  * parcial _tabla.php; aqui NO hay inputs ni botones (solo lo oficial).
  * @var array $periodo
- * @var array $carga         [id, grado_nombre, seccion_nombre, nivel_nombre, nivel_codigo, area_nombre, subarea_nombre, docente]
+ * @var array $carga         [id, grado_nombre, seccion_nombre, nivel_nombre, nivel_codigo, area_nombre, subarea_nombre, docente, area_id]
  * @var array $competencias  [{competencia, criterios, alumnos, bloqueado_en}]
  * @var array $exonerados    matricula_ids exonerados de la carga
  * @var array $extraordinariasCarga  extraordinarias de RA de la carga (sección final)
@@ -18,6 +18,12 @@ $nivelCodigo = $carga['nivel_codigo'];
 <div class="page-header">
     <a href="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $carga['seccion_id']) ?>"
        class="btn btn--secondary btn--sm">← Áreas</a>
+    <?php // El área ENTERA (todas sus cargas), no solo esta carga. Solo en un
+          // bimestre cerrado: en otro, la ruta responde 404. ?>
+    <?php if ($periodo['estado'] === 'cerrado' && $carga['area_id'] > 0): ?>
+        <a href="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $carga['seccion_id'] . '/registro-auxiliar?area_id=' . (int) $carga['area_id']) ?>"
+           class="btn btn--secondary btn--sm" target="_blank">Registro auxiliar del área</a>
+    <?php endif; ?>
     <div>
         <h1 class="page-title"><?= e($area) ?></h1>
         <p class="page-subtitle">

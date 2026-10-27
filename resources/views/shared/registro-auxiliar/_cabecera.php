@@ -4,13 +4,19 @@
  * datos del modelo del colegio: nivel, grado, sección, área, sub-área, docente
  * y bimestre. El lema del año sale de `anios_academicos.lema_oficial`.
  *
- * @var array  $hoja
+ * En el registro del área completa, la fila «Docentes» nombra a cada docente
+ * con sus subáreas («Apellidos, Nombres (Aritmética, Álgebra) · …»).
+ *
+ * @var array  $hoja        con `docentes` [{nombre, detalle|null}]
  * @var array  $periodo
- * @var string $docente
  * @var string $tituloHoja  «REGISTRO AUXILIAR DE …»
  * @var string $notaHoja    texto a la derecha («Notas vigesimales de 00 a 20»)
  */
 $m = $hoja['meta'];
+$docentesCab = implode(' · ', array_map(
+    static fn(array $d): string => $d['nombre'] . ($d['detalle'] !== null ? ' (' . $d['detalle'] . ')' : ''),
+    $hoja['docentes']
+));
 ?>
 <header class="ra-cab">
     <?php if (!empty($periodo['lema_oficial'])): ?>
@@ -33,6 +39,6 @@ $m = $hoja['meta'];
             <div><dt>Sub-área</dt><dd><?= e(implode(', ', $hoja['subareas'])) ?></dd></div>
         <?php endif; ?>
         <div><dt>Bimestre</dt><dd><?= e($periodo['nombre_display']) ?></dd></div>
-        <div><dt>Docente</dt><dd><?= e($docente) ?></dd></div>
+        <div><dt><?= count($hoja['docentes']) > 1 ? 'Docentes' : 'Docente' ?></dt><dd><?= e($docentesCab) ?></dd></div>
     </dl>
 </header>

@@ -13,10 +13,17 @@
  * UN documento con numeración continua (`@page paisaje`; NO doc-lote).
  * Solo lo OFICIAL: competencias bloqueadas. Reglas: docs/modulos/calificaciones.md.
  *
+ * Lo usan dos módulos (27/10/2026): el registro del DOCENTE
+ * (`$modo = 'docente'`, solo sus cargas) y el del ÁREA COMPLETA de
+ * /consulta-notas (`$modo = 'area'`, todas las cargas y docentes).
+ * Si el área no cabe en el ancho de la hoja, la matriz y las conclusiones
+ * se reparten en PARTES por competencias enteras
+ * (`RegistroAuxiliarModel::partesMatriz` / `partesConclusiones`).
+ *
+ * @var string $modo     'docente' | 'area'
  * @var array  $periodo  con anio y lema_oficial
- * @var string $docente
- * @var array  $hojas    CalificacionController::hojaRegistroAuxiliar()
- * @var array  $firmas   [{nombre|null, cargo}]
+ * @var array  $hojas    RegistroAuxiliarModel::hoja() + `docentes`
+ *                       [{nombre, detalle|null}] y `firmas` [{nombre|null, cargo}]
  */
 $omisionSiglas = [
     'ausencia_injustificada' => 'AI',
@@ -26,11 +33,11 @@ $omisionSiglas = [
 ];
 
 // Cada parcial en su propio ámbito: no ven ni pisan las variables del bucle.
-$pintarMatriz = static function (array $hoja, array $periodo, string $docente, array $firmas, array $omisionSiglas): void {
-    require VIEW_PATH . '/docente/_registro-auxiliar-matriz.php';
+$pintarMatriz = static function (array $hoja, array $periodo, string $modo, array $omisionSiglas): void {
+    require VIEW_PATH . '/shared/registro-auxiliar/_matriz.php';
 };
-$pintarConclusiones = static function (array $hoja, array $periodo, string $docente): void {
-    require VIEW_PATH . '/docente/_registro-auxiliar-cd.php';
+$pintarConclusiones = static function (array $hoja, array $periodo): void {
+    require VIEW_PATH . '/shared/registro-auxiliar/_cd.php';
 };
 $pintarExtraordinarias = static function (array $extraordinariasCarga): void {
     require VIEW_PATH . '/consulta-notas/_extraordinarias-carga.php';
@@ -39,8 +46,8 @@ $pintarExtraordinarias = static function (array $extraordinariasCarga): void {
 <div class="ra-print">
     <?php foreach ($hojas as $hoja): ?>
         <section class="ra-hoja">
-            <?php $pintarMatriz($hoja, $periodo, $docente, $firmas, $omisionSiglas); ?>
-            <?php $pintarConclusiones($hoja, $periodo, $docente); ?>
+            <?php $pintarMatriz($hoja, $periodo, $modo, $omisionSiglas); ?>
+            <?php $pintarConclusiones($hoja, $periodo); ?>
             <?php $pintarExtraordinarias($hoja['extraordinarias']); ?>
         </section>
     <?php endforeach; ?>
