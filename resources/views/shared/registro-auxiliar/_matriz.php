@@ -123,12 +123,37 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
         // (Cr1…CrN = los mismos rótulos de la matriz). Como tabla de ancho fijo no
         // se desacomoda con el número ni el largo de los criterios. Las
         // transversales con criterios, al final (28/10/2026).
-        $maxCr = max(array_map(static fn(array $c): int => count($c['criterios']), array_merge($propias, $trConCriterios))); ?>
+        // Filas: [códigos (chips), curso (texto), criterios]. Los criterios
+        // AGRUPADOS por curso (GAMA en EPT y Arte de 5.º) son los mismos en todas
+        // sus competencias: van UNA vez, una fila por curso.
+        $filasCrit = [];
+        $gruposEnLeyenda = false;
+        foreach ($propias as $c) {
+            if (!empty($c['grupos'])) {
+                if (!$gruposEnLeyenda) {
+                    $gruposEnLeyenda = true;
+                    foreach ($c['grupos'] as $g) {
+                        $filasCrit[] = ['codigos' => [], 'curso' => $g['nombre'], 'criterios' => $g['criterios']];
+                    }
+                }
+                continue;
+            }
+            $filasCrit[] = ['codigos' => [(string) $c['codigo']], 'curso' => null, 'criterios' => $c['criterios']];
+        }
+        foreach ($trConCriterios as $t) {
+            $filasCrit[] = [
+                'codigos'   => array_values(array_filter([$t['grupo'] !== null ? (string) $t['grupo'] : null, (string) $t['competencia']['codigo_minedu']])),
+                'curso'     => null,
+                'criterios' => $t['criterios'],
+            ];
+        }
+        $maxCr = max(array_map(static fn(array $f): int => count($f['criterios']), $filasCrit)); ?>
         <div class="ra-leyenda__bloque ra-leyenda__bloque--ancho">
             <p class="ra-leyenda__tit">Criterios de evaluación</p>
             <table class="ra-crit">
                 <colgroup>
-                    <col class="ra-crit__c-comp">
+                    <?php // Con filas por curso, la primera columna lleva su nombre: más ancha. ?>
+                    <col class="<?= $gruposEnLeyenda ? 'ra-crit__c-curso' : 'ra-crit__c-comp' ?>">
                     <?php for ($n = 0; $n < $maxCr; $n++): ?><col><?php endfor; ?>
                 </colgroup>
                 <thead>
@@ -138,24 +163,12 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($propias as $c): ?>
+                    <?php foreach ($filasCrit as $f): ?>
                         <tr>
-                            <th scope="row"><span class="competencia-card__codigo"><?= e((string) $c['codigo']) ?></span></th>
+                            <th scope="row"><?php foreach ($f['codigos'] as $k => $cod): ?><?= $k > 0 ? ' ' : '' ?><span class="competencia-card__codigo"><?= e($cod) ?></span><?php endforeach; ?><?= $f['curso'] !== null ? e($f['curso']) : '' ?></th>
                             <?php for ($n = 0; $n < $maxCr; $n++): ?>
-                                <?php if (isset($c['criterios'][$n])): ?>
-                                    <td><?= e($c['criterios'][$n]['nombre']) ?></td>
-                                <?php else: ?>
-                                    <td class="ra-crit__vacia"></td>
-                                <?php endif; ?>
-                            <?php endfor; ?>
-                        </tr>
-                    <?php endforeach; ?>
-                    <?php foreach ($trConCriterios as $t): ?>
-                        <tr>
-                            <th scope="row"><?php if ($t['grupo'] !== null): ?><span class="competencia-card__codigo"><?= e((string) $t['grupo']) ?></span> <?php endif; ?><span class="competencia-card__codigo"><?= e((string) $t['competencia']['codigo_minedu']) ?></span></th>
-                            <?php for ($n = 0; $n < $maxCr; $n++): ?>
-                                <?php if (isset($t['criterios'][$n])): ?>
-                                    <td><?= e($t['criterios'][$n]['nombre']) ?></td>
+                                <?php if (isset($f['criterios'][$n])): ?>
+                                    <td><?= e($f['criterios'][$n]['nombre']) ?></td>
                                 <?php else: ?>
                                     <td class="ra-crit__vacia"></td>
                                 <?php endif; ?>
@@ -233,12 +246,17 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
                   // cada CT sobre sus criterios. Las demás celdas de grupo bajan
                   // las filas que haga falta para cubrirlas.
                   $trGrupos   = \App\Models\RegistroAuxiliarModel::gruposTransversales($trParte);
-                  $filasGrupo = $trParte === [] ? 1 : 2 + ($trGrupos !== [] ? 1 : 0); ?>
+                  // Criterios AGRUPADOS por curso (GAMA replicada en EPT y Arte de 5.º,
+                  // 28/10/2026): una fila más con el curso sobre sus criterios. Esas
+                  // hojas no llevan transversales propias; si una parte las tuviera,
+                  // los grupos no se pintan (la fila no encajaría con las de las CT).
+                  $hayGruposCr = $trParte === [] && array_filter($colsParte, static fn(array $c): bool => !empty($c['grupos'])) !== [];
+                  $filasGrupo  = $trParte === [] ? ($hayGruposCr ? 2 : 1) : 2 + ($trGrupos !== [] ? 1 : 0); ?>
             <tr class="ra-m__grupos">
                 <th rowspan="<?= $filasGrupo + 1 ?>" scope="col">N°</th>
                 <th rowspan="<?= $filasGrupo + 1 ?>" scope="col" class="ra-m__izq">Apellidos y nombres</th>
                 <?php foreach ($colsParte as $i => $c): ?>
-                    <th scope="colgroup" rowspan="<?= $filasGrupo ?>" colspan="<?= $c['tipo'] === 'propia' ? count($c['criterios']) + 2 : 1 ?>"
+                    <th scope="colgroup" rowspan="<?= $hayGruposCr && !empty($c['grupos']) ? 1 : $filasGrupo ?>" colspan="<?= $c['tipo'] === 'propia' ? count($c['criterios']) + 2 : 1 ?>"
                         class="ra-m__grupo<?= $c['tipo'] !== 'propia' ? ' ra-m__grupo--vacio' : '' ?>">
                         <?= e($codigo($c, $i)) ?>
                     </th>
@@ -250,6 +268,18 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
                     <th scope="colgroup" colspan="<?= $trColumnas ?>" class="ra-m__grupo ra-m__grupo--tr">Comp. transv.</th>
                 <?php endif; ?>
             </tr>
+            <?php if ($hayGruposCr): ?>
+                <tr class="ra-m__subgrupos">
+                    <?php foreach ($colsParte as $c): ?>
+                        <?php if (!empty($c['grupos'])): ?>
+                            <?php foreach ($c['grupos'] as $g): ?>
+                                <th scope="colgroup" colspan="<?= count($g['criterios']) ?>" class="ra-m__grupo ra-m__grupo--cr"><?= e($g['nombre']) ?></th>
+                            <?php endforeach; ?>
+                            <th scope="colgroup" colspan="2" class="ra-m__grupo ra-m__grupo--vacio"></th>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </tr>
+            <?php endif; ?>
             <?php if ($trGrupos !== []):
                 // El span de cada grupo cuenta CT; aquí hacen falta sus columnas.
                 $j = 0; ?>
@@ -273,8 +303,11 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
             <tr class="ra-m__cols">
                 <?php foreach ($colsParte as $c): ?>
                     <?php if ($c['tipo'] === 'propia'): ?>
-                        <?php foreach ($c['criterios'] as $n => $cr): ?>
-                            <th scope="col" class="ra-m__cr" title="<?= e($cr['nombre']) ?>"><span class="ra-cr">Cr<?= $n + 1 ?></span></th>
+                        <?php // Agrupados por curso: Cr1…CrN dentro de cada curso, como su leyenda. ?>
+                        <?php foreach (!empty($c['grupos']) ? array_column($c['grupos'], 'criterios') : [$c['criterios']] as $crs): ?>
+                            <?php foreach ($crs as $n => $cr): ?>
+                                <th scope="col" class="ra-m__cr" title="<?= e($cr['nombre']) ?>"><span class="ra-cr">Cr<?= $n + 1 ?></span></th>
+                            <?php endforeach; ?>
                         <?php endforeach; ?>
                         <th scope="colgroup" colspan="2" class="ra-m__logro">Logro</th>
                     <?php else: ?>
@@ -309,7 +342,12 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
 <?php continue; endif;
     $a   = $c['alumnos'][$mid] ?? null;
     $exo = isset($c['exoSet'][$mid]); ?>
-<?php $celdasCriterios($c['criterios'], $a, $exo); ?>
+<?php if (!empty($c['grupos'])) {
+    // Agrupados por curso: cada carga con SUS exonerados.
+    foreach ($c['grupos'] as $g) { $celdasCriterios($g['criterios'], $a, in_array($mid, $g['exo'], true)); }
+} else {
+    $celdasCriterios($c['criterios'], $a, $exo);
+} ?>
 <?php $par($a, $exo, 'ra-m__logro'); ?>
 <?php endforeach; ?>
 <?php foreach ($resParte as $c): ?>

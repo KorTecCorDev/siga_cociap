@@ -134,6 +134,10 @@ captura no cambian: allí se evalúa en la operativa, como siempre.
 - **Extraordinarias de RA** sobre la operativa: su logro sale (pantallas y anexo), pero no su
   detalle en la sección «Extraordinarias» del registro (que lista las de las cargas oficiales).
 - **Omisiones**: van con los criterios. Si toda una competencia fue omisión, no hay logro y sale «—».
+- **Retorno en secundaria** (decisión del usuario, 28/10/2026; 0 casos): en su anexo, la carga de
+  tutoría sale como **Educación Religiosa** (C51 y C52 replicadas, nunca Ética), como su hoja. Las
+  hojas de **EPT y Arte de 5.º** (GAMA replicada) no tienen carga de origen: su fila del tramo va
+  vacía y **sin anexo**.
 
 ## Las dos exclusiones, que son INVERSAS entre sí
 

@@ -507,9 +507,13 @@ class SituacionFinalModel extends BaseModel
      * identifican de forma única, la equivalencia NO se aplica y el estudiante
      * se calcula sin ella. El llenador hace lo mismo con la hoja.
      *
+     * Pública desde el 28/10/2026: el REGISTRO AUXILIAR la usa para presentar
+     * Ética como Educación Religiosa y GAMA en EPT y Arte de 5.º
+     * (`RegistroAuxiliarModel`). Una sola resolución de la regla para los tres.
+     *
      * @return array<int, array{grados:?array, transversal:bool, fuente:array, destino:array}>
      */
-    private function equivalenciasActa(int $nivelId, string $nivelCodigo): array
+    public function equivalenciasActa(int $nivelId, string $nivelCodigo): array
     {
         if (isset($this->actaResuelta[$nivelId])) {
             return $this->actaResuelta[$nivelId];

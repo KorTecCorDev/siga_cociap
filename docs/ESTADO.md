@@ -61,8 +61,16 @@ controladores sin login):
   que no se vea línea entre numeral y literal (Logro, Resumen, transversales y CD) y que ningún
   número se parta; la hoja de transversales de la sección; **firmas en 2 filas** (4 o más,
   p. ej. Comunicación de 5.º B de secundaria); fila «Docentes» larga en secundaria.
-- [ ] **Decidir:** en secundaria, «Todas las áreas» incluye **Tutoría (TOE)** (lleva Ética) y
-  los talleres. ¿Es lo esperado?
+- [x] **Decidido (28/10/2026): el registro sigue el acta SIAGIE.** Tutoría/Ética sale como
+  **Educación Religiosa** (C51 y C52 replicadas, nunca Ética); en 5.º, **GAMA en EPT y Arte**
+  (todos sus criterios por curso, logro del tutor); los talleres se quedan sin marca. Detalle en
+  `docs/modulos/calificaciones.md` § «El registro sigue el acta SIAGIE». Medido con
+  `verif_registro_acta.php`: 33 hojas de Ed. Religiosa y 1.644 filas iguales al control; 12 hojas
+  de réplica de GAMA y 444 logros iguales al promedio del control. PDF de 5.º B revisado.
+- [ ] **Admin, navegador:** registro «Todas las áreas» de **5.º B** (sección 23) del II impreso:
+  «Educación Religiosa» (sin Tutoría), «Arte y Cultura» y «Educación para el Trabajo» con la
+  tutora; ninguna mención a Ética.
+- [ ] **Docente tutor de secundaria:** su tarjeta dice «Educación Religiosa» y su documento igual.
 
 ### Roster de LECTURA + criterios de las transversales (28/10/2026, en `dev`, sin migración)
 Las vistas de SOLO LECTURA de un bimestre listan a quien lo **CURSÓ**: los trasladados y

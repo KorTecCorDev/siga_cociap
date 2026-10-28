@@ -311,6 +311,12 @@ con nóminas reales (S1A, S5B; primaria 4°A). Puntos propios:
 
 ## Excepciones de hoja (27/07/2026)
 
+> **Tercer lector (28/10/2026): el REGISTRO AUXILIAR.** Las mismas equivalencias, resueltas por
+> `SituacionFinalModel::equivalenciasActa()` (pública desde ese día), hacen que el registro
+> presente Ética como **Educación Religiosa** (C51 y C52 replicadas, nunca la competencia de
+> Ética) y, en 5.º, GAMA en **EPT y Arte y Cultura**. Ver `docs/modulos/calificaciones.md`
+> § «El registro sigue el acta SIAGIE». Al tocar una regla, revisar también el registro.
+
 Casos donde el área que el SIAGIE espera en una hoja **no es la que evalúa esa
 competencia en SIGA**. Se aplican DESPUÉS de resolver la hoja y ANTES del mapeo por
 leyenda: el texto acertaría el área "oficial" —que no tiene cargas— y dejaría el acta

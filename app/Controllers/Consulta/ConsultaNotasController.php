@@ -405,6 +405,19 @@ class ConsultaNotasController extends BaseController
             $hojas[] = $hoja;
         }
 
+        // Acta SIAGIE (28/10/2026): con TODAS las áreas, las hojas de las áreas que
+        // el acta llena con una transversal (5.º: GAMA → EPT y Arte y Cultura). No
+        // tienen carga: figura y firma el tutor del bimestre.
+        if ($areaId === 0) {
+            foreach ($registro->hojasReplicaTransversal($cargas, $periodo) as $hoja) {
+                $hoja['firmas'] = $registro->firmas(array_column($hoja['docentes'], 'nombre'), (int) $periodo['anio_id']);
+                $hojas[] = $hoja;
+            }
+        }
+        // Orden del plan de áreas: Ética va donde le toca a Educación Religiosa, y
+        // EPT y Arte de 5.º en su lugar (usort es estable: el resto no se mueve).
+        usort($hojas, static fn(array $a, array $b): int => $a['area_orden'] <=> $b['area_orden']);
+
         // Hoja de transversales de la SECCIÓN (27/10/2026): siempre con la sección
         // completa; con un área, solo si se pidió (`transversales=1`).
         $incluirTr = $areaId === 0 || (string) ($this->query('transversales') ?? '') === '1';

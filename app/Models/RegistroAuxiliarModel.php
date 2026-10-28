@@ -24,6 +24,12 @@ class RegistroAuxiliarModel extends BaseModel
     public const ANCHO_FIJO_MM = 63;
     /** Mínimo legible de una columna de criterio (sus `<col>` no llevan ancho fijo). */
     public const ANCHO_CRITERIO_MM = 5;
+    /**
+     * Criterio AGRUPADO por curso (GAMA replicada en EPT y Arte de 5.º,
+     * 28/10/2026): sobre él va el nombre del curso (`.ra-m__grupo--cr`), que en
+     * 5 mm se partía letra por letra. Con 9 mm cada competencia va en su parte.
+     */
+    public const ANCHO_CRITERIO_GRUPO_MM = 9;
     // Logro, Resumen y transversales van como PAR numeral | literal (27/10/2026,
     // los dos niveles): `.ra-m__c-pnum` + `.ra-m__c-plit`.
     public const ANCHO_NUMERAL_MM = 5;
@@ -161,17 +167,7 @@ class RegistroAuxiliarModel extends BaseModel
     {
         $periodoId = (int) $periodo['id'];
         $areaId    = (int) $cargas[0]['area_id'];
-
-        // Plan del área (directas y vía subáreas), mismo orden que el acta SIAGIE
-        // (`SiagieExportModel::competenciasDeArea`); aquí hace falta además la
-        // subárea para saber de qué carga es cada competencia.
-        $plan = $this->query("
-            SELECT c.id, c.codigo_minedu, c.nombre_completo, c.subarea_id, c.area_id
-            FROM competencias c
-            LEFT JOIN subareas s ON s.id = c.subarea_id
-            WHERE COALESCE(c.area_id, s.area_id) = ?
-            ORDER BY c.orden, c.id
-        ", [$areaId]);
+        $plan      = $this->planDeArea($areaId);
 
         $columnas      = [];
         $transversales = [];
@@ -311,9 +307,10 @@ class RegistroAuxiliarModel extends BaseModel
             $cargas
         )));
 
-        return [
+        $hoja = [
             'meta'            => $meta,
             'area_nombre'     => $meta['area_nombre'],
+            'area_orden'      => (int) ($this->areaInfo($areaId)['orden'] ?? 0),
             'subareas'        => $meta['es_aula'] ? [] : $subareas,
             'columnas'        => $columnas,
             'transversales'   => $transversales,
@@ -321,6 +318,286 @@ class RegistroAuxiliarModel extends BaseModel
             'extraordinarias' => (new RectificacionModel())
                 ->getExtraordinariasDeCargas($ids, $periodoId, $paraDocente),
             'anexo_retorno'   => $this->anexoRetorno($roster ?? [], $cargas, $periodoId, (int) $periodo['anio_id']),
+        ];
+
+        // Acta SIAGIE: si el área es FUENTE de una equivalencia no transversal
+        // (Ética → Educación Religiosa), la hoja es la del área DESTINO.
+        $eq = $this->equivalenciaDeArea((int) $cargas[0]['seccion_id'], $areaId);
+        return $eq !== null ? $this->comoAreaDestino($hoja, $eq) : $hoja;
+    }
+
+    // ── Equivalencias del ACTA SIAGIE en el registro (28/10/2026) ─────────────
+    // Decisiones del usuario: el registro sigue las reglas del acta. Ética y
+    // Valores (área de tutoría, secundaria) se presenta como EDUCACIÓN RELIGIOSA,
+    // su nota replicada en C51 y C52, y JAMÁS con su propia competencia; en 5.º,
+    // GAMA (CT4) se replica en TODAS las competencias de EPT y de Arte y Cultura.
+    // La regla sale de `SituacionFinalModel::equivalenciasActa()`, que resuelve
+    // EQUIVALENCIAS_ACTA_SIAGIE igual que el llenador (degradación segura).
+
+    /** Plan de un área (directas y vía subáreas), en el orden del acta SIAGIE. */
+    private function planDeArea(int $areaId): array
+    {
+        return $this->query("
+            SELECT c.id, c.codigo_minedu, c.nombre_completo, c.subarea_id, c.area_id
+            FROM competencias c
+            LEFT JOIN subareas s ON s.id = c.subarea_id
+            WHERE COALESCE(c.area_id, s.area_id) = ?
+            ORDER BY c.orden, c.id
+        ", [$areaId]);
+    }
+
+    /** Nombre, tipo y orden de un área. */
+    private function areaInfo(int $areaId): ?array
+    {
+        return $this->queryOne("SELECT id, nombre, tipo, orden FROM areas WHERE id = ?", [$areaId]);
+    }
+
+    /**
+     * Equivalencias del acta que rigen en el grado de la sección.
+     *
+     * @return list<array{grados:?array, transversal:bool, fuente:array, destino:array}>
+     */
+    private function equivalenciasDeSeccion(int $seccionId): array
+    {
+        $s = $this->queryOne("
+            SELECT g.numero, n.id AS nivel_id, n.codigo AS nivel_codigo
+            FROM secciones s
+            INNER JOIN grados g  ON g.id = s.grado_id
+            INNER JOIN niveles n ON n.id = g.nivel_id
+            WHERE s.id = ?
+        ", [$seccionId]);
+        if ($s === null) {
+            return [];
+        }
+        $grado = (int) $s['numero'];
+        return array_values(array_filter(
+            (new SituacionFinalModel())->equivalenciasActa((int) $s['nivel_id'], (string) $s['nivel_codigo']),
+            static fn(array $eq): bool => $eq['grados'] === null || in_array($grado, $eq['grados'], true)
+        ));
+    }
+
+    /** La equivalencia NO transversal cuya fuente es esta área (Ética), o null. */
+    private function equivalenciaDeArea(int $seccionId, int $areaId): ?array
+    {
+        foreach ($this->equivalenciasDeSeccion($seccionId) as $eq) {
+            if (!$eq['transversal'] && (int) $eq['fuente']['area_id'] === $areaId) {
+                return $eq;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Nombre con que el registro rotula un área de la sección: el del área
+     * DESTINO si es fuente del acta (Tutoría → «Educación Religiosa»), o null.
+     * Para la tarjeta de la pantalla de selección del docente.
+     */
+    public function nombreEnRegistro(int $seccionId, int $areaId): ?string
+    {
+        $eq = $this->equivalenciaDeArea($seccionId, $areaId);
+        return $eq !== null ? (string) $eq['destino']['area'] : null;
+    }
+
+    /**
+     * La hoja del área FUENTE presentada como la del área DESTINO: cabecera y
+     * orden del destino, y la columna de la competencia fuente REEMPLAZADA por
+     * una columna por cada competencia del destino con sus mismos criterios,
+     * notas, logro, conclusión y exonerados. La competencia fuente no queda en
+     * ninguna parte del documento (tampoco en el anexo del retorno).
+     */
+    private function comoAreaDestino(array $hoja, array $eq): array
+    {
+        $destino = $this->areaInfo((int) $eq['destino']['area_id']);
+        $plan    = $this->planDeArea((int) $eq['destino']['area_id']);
+        if ($destino === null || $plan === []) {
+            return $hoja;
+        }
+        $fuenteId = (int) $eq['fuente']['competencia_id'];
+        $replicar = static function (array $fuente, array $comp, array $campos): array {
+            foreach ($campos as $de => $a) {
+                $fuente[$de] = $comp[$a];
+            }
+            return $fuente;
+        };
+
+        $columnas = [];
+        foreach ($hoja['columnas'] as $col) {
+            if ((int) $col['id'] !== $fuenteId) {
+                $columnas[] = $col;
+                continue;
+            }
+            foreach ($plan as $comp) {
+                $columnas[] = $replicar($col, $comp, ['id' => 'id', 'codigo' => 'codigo_minedu', 'nombre' => 'nombre_completo']);
+            }
+        }
+        $hoja['columnas'] = $columnas;
+
+        foreach ($hoja['anexo_retorno'] as &$est) {
+            foreach ($est['cargas'] as &$g) {
+                $comps = [];
+                foreach ($g['competencias'] as $c) {
+                    if ((int) $c['id'] !== $fuenteId) {
+                        $comps[] = $c;
+                        continue;
+                    }
+                    $g['nombre'] = (string) $destino['nombre'];
+                    foreach ($plan as $comp) {
+                        $comps[] = $replicar($c, $comp, ['id' => 'id', 'codigo' => 'codigo_minedu', 'nombre' => 'nombre_completo']);
+                    }
+                }
+                $g['competencias'] = $comps;
+            }
+            unset($g);
+        }
+        unset($est);
+
+        $hoja['meta']['area_nombre'] = (string) $destino['nombre'];
+        $hoja['meta']['area_tipo']   = (string) $destino['tipo'];
+        $hoja['area_nombre']         = (string) $destino['nombre'];
+        $hoja['area_orden']          = (int) $destino['orden'];
+        $hoja['subareas']            = [];
+        return $hoja;
+    }
+
+    /**
+     * HOJAS de las áreas DESTINO de una equivalencia TRANSVERSAL del acta (5.º:
+     * GAMA → EPT y Arte y Cultura), que no tienen carga en la sección. Solo en
+     * el registro del ÁREA COMPLETA. Por cada competencia del destino:
+     *   - criterios: TODOS los de la fuente (GAMA) en cada carga de la sección
+     *     que la tiene bloqueada, agrupados por carga (`grupos`, con el nombre
+     *     del curso), con sus notas, omisiones y exonerados de esa carga;
+     *   - logro: el promedio que CONGELÓ EL TUTOR (el de la boleta y el acta);
+     *   - conclusión: la de GAMA del tutor (decisión del usuario: siempre).
+     * Sin cierre vigente del tutor, las competencias quedan «Aún no aprobada».
+     * Docente y firma: el tutor DEL BIMESTRE (`TutorPeriodoModel`).
+     *
+     * @param  array $cargas  `cargasDeSeccion()` (todas las de la sección)
+     * @return list<array>    hojas como las de hoja(), con `docentes`
+     */
+    public function hojasReplicaTransversal(array $cargas, array $periodo): array
+    {
+        if ($cargas === []) {
+            return [];
+        }
+        $seccionId = (int) $cargas[0]['seccion_id'];
+        $periodoId = (int) $periodo['id'];
+        $hojas     = [];
+        foreach ($this->equivalenciasDeSeccion($seccionId) as $eq) {
+            if (!$eq['transversal']) {
+                continue;
+            }
+            $destino = $this->areaInfo((int) $eq['destino']['area_id']);
+            $plan    = $this->planDeArea((int) $eq['destino']['area_id']);
+            if ($destino === null || $plan === []) {
+                continue;
+            }
+            $hojas[] = $this->hojaReplicaTransversal($cargas, $periodo, (int) $eq['fuente']['competencia_id'], $destino, $plan, $seccionId, $periodoId);
+        }
+        return $hojas;
+    }
+
+    private function hojaReplicaTransversal(array $cargas, array $periodo, int $fuenteId, array $destino, array $plan, int $seccionId, int $periodoId): array
+    {
+        // Criterios de la fuente por carga, y las filas con TODAS sus notas. Las
+        // cargas: TODAS las de la sección con la fuente BLOQUEADA en el bimestre,
+        // activas o no (en el I Bimestre 2026, GAMA vive en la carga transversal
+        // del modelo antiguo, desactivada por la migración 027: el promedio del
+        // tutor la cuenta, así que el registro también).
+        $grupos = [];
+        $filas  = [];
+        foreach ($this->query("
+            SELECT ca.id, comp.id AS comp_id, comp.nombre_completo, comp.codigo_minedu,
+                   (ac.tipo = 'transversal') AS es_transversal
+            FROM cargas_academicas ca
+            INNER JOIN bloqueos_competencia bc
+                    ON bc.carga_id = ca.id AND bc.competencia_id = ? AND bc.periodo_id = ?
+            INNER JOIN competencias comp ON comp.id = bc.competencia_id
+            LEFT  JOIN areas ac    ON ac.id = comp.area_id
+            LEFT  JOIN subareas sa ON sa.id = ca.subarea_id
+            LEFT  JOIN areas a     ON a.id  = COALESCE(ca.area_id, sa.area_id)
+            WHERE ca.seccion_id = ?
+            ORDER BY a.orden, sa.orden, ca.id
+        ", [$fuenteId, $periodoId, $seccionId]) as $c) {
+            $cid = (int) $c['id'];
+            $b   = $this->bloqueDeCompetencia($cid, [
+                'id' => $c['comp_id'], 'nombre_completo' => $c['nombre_completo'],
+                'codigo_minedu' => $c['codigo_minedu'], 'es_transversal' => $c['es_transversal'],
+            ], $periodoId);
+            $criterios = criterios_ordinarios($b['criterios']);
+            if ($criterios === []) {
+                continue;
+            }
+            $grupos[] = [
+                'nombre'    => $this->rotuloCarga($cid)['nombre'],
+                'criterios' => $criterios,
+                'exo'       => array_map('intval', $this->exoModel->getActivasParaCarga($cid, (int) $periodo['anio_id'], $periodoId)),
+            ];
+            foreach ($b['alumnos'] as $a) {
+                $mid = (int) $a['matricula_id'];
+                if (!isset($filas[$mid])) {
+                    $filas[$mid] = $a;
+                    continue;
+                }
+                $filas[$mid]['notas_criterios']     = $filas[$mid]['notas_criterios'] + $a['notas_criterios'];
+                $filas[$mid]['omisiones_criterios'] = $filas[$mid]['omisiones_criterios'] + $a['omisiones_criterios'];
+            }
+        }
+
+        // Logro y conclusión: los que congeló el tutor (lectura: por la fila).
+        $trans  = new TransversalModel();
+        $cierre = $trans->getCierreVigente($seccionId, $periodoId);
+        $prom   = $cierre !== null ? $trans->getPromediosSeccion($seccionId, $periodoId, true) : [];
+        $concl  = $cierre !== null ? $trans->getConclusionesSeccion($seccionId, $periodoId, true) : [];
+        foreach ($filas as $mid => &$f) {
+            $nota = $prom[$mid][$fuenteId] ?? null;
+            $f['promedio']               = $nota;
+            $f['literal']                = $nota !== null ? nota_a_literal((int) $nota) : null;
+            $f['conclusion_descriptiva'] = $concl[$mid][$fuenteId] ?? null;
+        }
+        unset($f);
+        // Retorno de grado: en el documento, la fila del tramo va vacía.
+        $lista = self::vaciarTramo(array_values($filas));
+
+        $tipo = $grupos === [] ? 'noeval' : ($cierre === null ? 'pendiente' : 'propia');
+        $columnas = [];
+        foreach ($plan as $comp) {
+            $col = [
+                'id'     => (int) $comp['id'],
+                'codigo' => $comp['codigo_minedu'],
+                'nombre' => $comp['nombre_completo'],
+                'tipo'   => $tipo,
+            ];
+            if ($tipo === 'propia') {
+                $col['criterios'] = array_merge(...array_column($grupos, 'criterios'));
+                $col['grupos']    = $grupos;
+                $col['alumnos']   = $this->indexarPorMatricula($lista);
+                $col['lista']     = $lista;
+                $col['exo']       = [];
+            }
+            $columnas[] = $col;
+        }
+
+        $c0    = $cargas[0];
+        $tutor = (new TutorPeriodoModel())->tutorDe($seccionId, $periodoId)['nombre'] ?? null;
+        return [
+            'meta' => [
+                'area_nombre'    => (string) $destino['nombre'],
+                'area_tipo'      => (string) $destino['tipo'],
+                'grado_nombre'   => $c0['grado_nombre'],
+                'seccion_nombre' => $c0['seccion_nombre'],
+                'nivel_nombre'   => $c0['nivel_nombre'],
+                'nivel_codigo'   => $c0['nivel_codigo'],
+                'es_aula'        => false,
+            ],
+            'area_nombre'     => (string) $destino['nombre'],
+            'area_orden'      => (int) $destino['orden'],
+            'subareas'        => [],
+            'columnas'        => $columnas,
+            'transversales'   => [],
+            'roster'          => $grupos !== [] ? $lista : [],
+            'extraordinarias' => [],
+            'anexo_retorno'   => [],
+            'docentes'        => $tutor !== null ? [['nombre' => $tutor, 'detalle' => null]] : [],
         ];
     }
 
@@ -436,6 +713,7 @@ class RegistroAuxiliarModel extends BaseModel
                 }
             }
             $out[] = [
+                'id'             => (int) $b['id'],
                 'codigo'         => (string) $b['codigo_minedu'],
                 'nombre'         => (string) $b['nombre_completo'],
                 'es_transversal' => (bool) $b['es_transversal'],
@@ -544,39 +822,49 @@ class RegistroAuxiliarModel extends BaseModel
 
         $bloques = [];
         foreach ($bloqueadas as $b) {
-            $competenciaId = (int) $b['id'];
-            // Roster de LECTURA: sus usuarios (registro, historial de carga y de
-            // área, procedencia) son de solo lectura.
-            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId, false, true);
-
-            $omisionesPorCriterio = [];
-            foreach ($resumen['criterios'] as $cr) {
-                $omisionesPorCriterio[(int) $cr['id']] =
-                    $this->omisionModel->getPorCriterio((int) $cr['id']);
-            }
-            foreach ($resumen['alumnos'] as &$al) {
-                $al['omisiones_criterios'] = [];
-                $mid = (int) $al['matricula_id'];
-                foreach ($omisionesPorCriterio as $critId => $porMat) {
-                    if (isset($porMat[$mid])) {
-                        $al['omisiones_criterios'][$critId] = $porMat[$mid];
-                    }
-                }
-            }
-            unset($al);
-
-            $bloques[] = [
-                'competencia' => [
-                    'id'              => $competenciaId,
-                    'nombre_completo' => $b['nombre_completo'],
-                    'codigo_minedu'   => $b['codigo_minedu'],
-                    'es_transversal'  => $b['es_transversal'],
-                ],
-                'criterios'       => $resumen['criterios'],
-                'alumnos'         => $resumen['alumnos'],
-            ];
+            $bloques[] = $this->bloqueDeCompetencia($cargaId, $b, $periodoId);
         }
         return $bloques;
+    }
+
+    /**
+     * Un bloque read-only {competencia, criterios, alumnos} de una competencia
+     * bloqueada de una carga: el roster de LECTURA (sus usuarios son de solo
+     * lectura) con las omisiones de cada criterio.
+     *
+     * @param array $b fila de `competenciasBloqueadas()`
+     */
+    private function bloqueDeCompetencia(int $cargaId, array $b, int $periodoId): array
+    {
+        $competenciaId = (int) $b['id'];
+        $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId, false, true);
+
+        $omisionesPorCriterio = [];
+        foreach ($resumen['criterios'] as $cr) {
+            $omisionesPorCriterio[(int) $cr['id']] =
+                $this->omisionModel->getPorCriterio((int) $cr['id']);
+        }
+        foreach ($resumen['alumnos'] as &$al) {
+            $al['omisiones_criterios'] = [];
+            $mid = (int) $al['matricula_id'];
+            foreach ($omisionesPorCriterio as $critId => $porMat) {
+                if (isset($porMat[$mid])) {
+                    $al['omisiones_criterios'][$critId] = $porMat[$mid];
+                }
+            }
+        }
+        unset($al);
+
+        return [
+            'competencia' => [
+                'id'              => $competenciaId,
+                'nombre_completo' => $b['nombre_completo'],
+                'codigo_minedu'   => $b['codigo_minedu'],
+                'es_transversal'  => $b['es_transversal'],
+            ],
+            'criterios'       => $resumen['criterios'],
+            'alumnos'         => $resumen['alumnos'],
+        ];
     }
 
     /**
@@ -596,7 +884,8 @@ class RegistroAuxiliarModel extends BaseModel
         $bloques = [];
         foreach ($columnas as $i => $c) {
             $anchos[]  = $c['tipo'] === 'propia'
-                ? count($c['criterios']) * self::ANCHO_CRITERIO_MM + self::ANCHO_LOGRO_MM
+                ? count($c['criterios']) * (!empty($c['grupos']) ? self::ANCHO_CRITERIO_GRUPO_MM : self::ANCHO_CRITERIO_MM)
+                  + self::ANCHO_LOGRO_MM
                 : self::ANCHO_VACIA_MM;
             $bloques[] = ['c', [$i]];
         }

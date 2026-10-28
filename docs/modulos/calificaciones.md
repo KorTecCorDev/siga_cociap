@@ -1552,6 +1552,34 @@ fila es la OFICIAL».
   situación del estudiante». Un nombre largo con chip ocupa dos renglones (aceptado).
 - Verificador: `database/verificaciones/verif_roster_lectura.php` (solo lectura, 9 secciones).
 
+### El registro sigue el acta SIAGIE (28/10/2026)
+> **Estado: implementado en `dev`, sin desplegar.** Sin migración.
+
+Decisión del usuario: el registro auxiliar cumple las reglas del acta
+(`EQUIVALENCIAS_ACTA_SIAGIE`, resueltas por `SituacionFinalModel::equivalenciasActa()`, la misma
+resolución que usan el llenador y la situación final).
+
+- **Ética y Valores → EDUCACIÓN RELIGIOSA** (toda secundaria; registro del área completa y del
+  docente tutor). La hoja de la carga de tutoría se presenta como la del área destino
+  (`RegistroAuxiliarModel::comoAreaDestino`): cabecera «Educación Religiosa», orden del plan de
+  esa área, y **C51 y C52** con los criterios, las notas, el logro, la conclusión y los
+  exonerados de Ética **replicados**. **JAMÁS sale Ética con su competencia**: ni en la hoja, ni en
+  la leyenda, ni en el anexo del retorno. La tarjeta del tutor también se llama «Educación
+  Religiosa» (`nombreEnRegistro`). Las pantallas de consulta no cambian.
+- **5.º: GAMA → EPT y Arte y Cultura** (solo el registro del área completa, porque no tienen
+  carga). Hojas nuevas (`hojasReplicaTransversal`): en **todas** sus competencias, **todos** los
+  criterios de GAMA de cada carga que la tiene bloqueada, **agrupados por curso** (fila con el
+  nombre del curso; Cr1…CrN por curso; leyenda por curso), el **logro que congeló el tutor** y la
+  **conclusión de GAMA del tutor** (no la de réplica del acta: decisión del usuario). Docente y
+  firma: el **tutor del bimestre** (`TutorPeriodoModel`). Sin cierre vigente, «Aún no aprobada».
+  Las cargas fuente son **todas** las de la sección con GAMA bloqueada, activas o no: en el I
+  Bimestre 2026 vive en la carga transversal del modelo antiguo (desactivada por la 027).
+  Un criterio agrupado cuenta 9 mm en el reparto (`ANCHO_CRITERIO_GRUPO_MM`): cada competencia
+  va en su parte y el curso se lee entero.
+- **Talleres:** se quedan, sin marca (no tienen hoja en el SIAGIE; sí en el modelo del colegio).
+- Orden de las hojas en «Todas las áreas»: el del plan de áreas (`area_orden`).
+- Protegido por `database/verificaciones/verif_registro_acta.php` (controles a mano en SQL).
+
 ### Transversales con sus criterios en la matriz (28/10/2026)
 - Cada CT evaluada lleva sus **`Cr1…CrN` con notas numerales** (EXO y omisiones como las propias)
   y luego su **Logro** en par; una CT «No evaluada» sigue como el par en blanco. Sus criterios

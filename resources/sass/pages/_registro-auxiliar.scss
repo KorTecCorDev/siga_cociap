@@ -310,6 +310,9 @@
     font-size: 5.5pt;
 
     &__c-comp { width: 11mm; }
+    // Filas por curso (criterios de GAMA en EPT y Arte de 5.º): el nombre del
+    // curso, sin partirse letra a letra.
+    &__c-curso { width: 34mm; }
 
     th, td {
         border: 1px solid #bbb;
@@ -416,6 +419,14 @@
         &--vacio { background: #f3f4f6; color: $text-secondary; }
         &--res,
         &--tr    { background: #eef2f7; }
+        // Curso sobre sus criterios (GAMA replicada en EPT y Arte de 5.º,
+        // 28/10/2026): pocas columnas para nombres largos, así que se parte.
+        &--cr {
+            font-size: 5pt;
+            font-weight: 600;
+            line-height: 1.05;
+            overflow-wrap: anywhere;
+        }
     }
 
     &__izq { text-align: left !important; }

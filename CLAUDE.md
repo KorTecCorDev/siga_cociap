@@ -337,7 +337,8 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   en secundaria. Deroga la regla del 04/08 que la sacaba de 5.º —aquella listaba «Ética y
   Valores» y «Educación Religiosa» como áreas distintas, siendo la misma—.
   El **vínculo Ética↔Ed. Religiosa vive en 3 sitios y ninguno es un dato estructural**:
-  `EQUIVALENCIAS_ACTA_SIAGIE` (hoja `035-EREL`, que leen el acta **y la situación final**),
+  `EQUIVALENCIAS_ACTA_SIAGIE` (hoja `035-EREL`, que leen el acta, la situación final **y el
+  registro auxiliar**: Ética sale como Educación Religiosa y JAMÁS con su competencia),
   excepción del mérito y `alias_boleta` del área; al tocar uno, revisar los otros dos. Se identifica por `nombre_boleta`
   (`AREA_ETICA_NOMBRE_BOLETA`), **NUNCA por id** (difiere entre entornos; el id 57 es GAMA
   y el código C57 es Ética). ⚠️ El área *Ed. Religiosa* de secundaria debe seguir **sin

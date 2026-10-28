@@ -365,6 +365,15 @@ class CalificacionController extends BaseController
                     'horas'          => count($parte) > 1 ? null : (int) $parte[0]['horas_semanales'],
                     'cargas'         => $parte,
                 ];
+                // Acta SIAGIE (28/10/2026): un área FUENTE de una equivalencia sale
+                // con el nombre del área destino (Tutoría → «Educación Religiosa»),
+                // como su hoja del registro (RegistroAuxiliarModel::comoAreaDestino).
+                $destino = ($registro ??= new RegistroAuxiliarModel())
+                    ->nombreEnRegistro((int) $primera['seccion_id'], (int) $primera['area_id']);
+                if ($destino !== null) {
+                    $entrada['nombre']      = $destino;
+                    $entrada['area_nombre'] = $destino;
+                }
                 if ($esAula) {
                     $aula[] = $entrada;
                 } else {
