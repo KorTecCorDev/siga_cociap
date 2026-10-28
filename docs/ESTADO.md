@@ -30,8 +30,14 @@ Detalle y decisiones: `docs/modulos/calificaciones.md` § Registro auxiliar.
 ⚠️ Los dos `.xlsm` del colegio están en `public/` sin versionar y sus hojas ocultas tienen las
 listas de estudiantes: **no subirlos** (el auto-deploy publica todo lo versionado).
 
+**Preparación del deploy (28/10/2026, `ae2690f`):** las 3 rutas del registro y las pantallas
+tocadas ya pasan por el **router y HTTP**: sin sesión responden 302 a `/login` (ni 404 ni 500).
+`verif_integridad_rutas.php` TODO OK (293 rutas, 188 vistas, 406 archivos). Hook `pre-push`
+**activado en la laptop** (`core.hooksPath = .githooks`). Sin migraciones: `main..dev` no trae
+ningún `.sql`. Falta lo que exige sesión de cada rol:
+
 **Pendiente ANTES del deploy** (commit `61256c5`; todo lo medido se hizo llamando a los
-controladores sin login, así que **la ruta nueva aún no pasó por el router ni por HTTP**):
+controladores sin login):
 - [ ] **Admin** (BD local): en `/consulta-notas/1/seccion/4`, el botón azul «Registro auxiliar
   de calificaciones» de la CABECERA (con su ícono) abre en pestaña nueva y el documento termina
   con la hoja «Competencias transversales de la sección»; «✕ Cerrar» la cierra; la pantalla de
