@@ -67,8 +67,15 @@ $criteriosVisibles = criterios_ordinarios($criterios ?? []);
                     ?>
                     <tr class="<?= $esExonerado ? 'fila-exonerado' : '' ?>">
                         <td class="col-num"><?= $i + 1 ?></td>
-                        <td class="col-nombre"><?= e($alumno['apellido_paterno'] . ' ' . $alumno['apellido_materno'] . ', ' . $alumno['nombres']) ?></td>
+                        <td class="col-nombre"><?= e($alumno['apellido_paterno'] . ' ' . $alumno['apellido_materno'] . ', ' . $alumno['nombres']) ?>
+                            <?php $sitChips = $alumno['situaciones'] ?? []; require VIEW_PATH . '/shared/_situacion-chips.php'; ?></td>
 
+                        <?php // Retorno de grado (28/10/2026): la oficial, en su tramo, trae el
+                              // logro de otra carga; sus criterios no son estos. Una celda. ?>
+                        <?php if (!empty($alumno['cursado_en']) && $criteriosVisibles !== []): ?>
+                            <td class="col-criterio col-criterio--cursado text-center" colspan="<?= count($criteriosVisibles) ?>"
+                                title="Logro obtenido en <?= e($alumno['cursado_en']) ?>"><?= e($alumno['cursado_en']) ?></td>
+                        <?php else: ?>
                         <?php foreach ($criteriosVisibles as $criterio): ?>
                             <td class="col-criterio text-center">
                                 <?php if ($esExonerado): ?>
@@ -88,6 +95,7 @@ $criteriosVisibles = criterios_ordinarios($criterios ?? []);
                                 <?php endif; ?>
                             </td>
                         <?php endforeach; ?>
+                        <?php endif; ?>
 
                         <td class="col-numeral col-resultado col-resultado--inicio text-center">
                             <?php if ($esExonerado): ?>

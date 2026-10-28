@@ -20,12 +20,6 @@ $labelEstado = fn(string $e): string => match($e) {
     'desactivado' => 'Desactivado',
     default       => ucfirst($e),
 };
-$labelTipo = fn(string $t): string => match($t) {
-    'continuador' => 'Continuador',
-    'nuevo'       => 'Nuevo',
-    'trasladado'  => 'Trasladado',
-    default       => ucfirst($t),
-};
 
 // Filtros activos (sin paginación ni orden) reutilizados al paginar y al ordenar.
 $baseFiltros = array_filter([
@@ -230,16 +224,14 @@ $thOrden = function (string $key, string $label, string $thClass = '') use ($ord
                         <?php if (!empty($m['nivel_nombre'])): ?><span class="text-muted">· <?= e($m['nivel_nombre']) ?></span><?php endif; ?>
                     </td>
                     <td>
-                        <span class="matricula-badge matricula-badge--<?= e($m['tipo']) ?>"><?= $labelTipo($m['tipo']) ?></span>
-                        <?php if ($esOficialRetorno): ?>
-                        <span class="matricula-badge matricula-badge--oficial" title="Matrícula oficial de SIAGIE: la boleta usa este grado/sección.">Oficial</span>
-                        <?php elseif ($esOperativaRetorno): ?>
-                        <?php if ($retornoActivo): ?>
-                        <span class="matricula-badge matricula-badge--operativa" title="Matrícula operativa de un retorno: el estudiante cursa aquí. Solo informativa.">Operativa</span>
-                        <?php else: ?>
-                        <span class="matricula-badge matricula-badge--operativa" title="Matrícula operativa de un retorno ya revertido: conserva los bimestres que cursó aquí. No es una baja. Solo informativa.">Operativa · revertido</span>
-                        <?php endif; ?>
-                        <?php endif; ?>
+                        <?php // Tipo y rol de retorno: chips de situación (SITUACIONES_ESTUDIANTE).
+                        $sitChips = [['clave' => $m['tipo']]];
+                        if ($esOficialRetorno) {
+                            $sitChips[] = ['clave' => 'oficial'];
+                        } elseif ($esOperativaRetorno) {
+                            $sitChips[] = ['clave' => $retornoActivo ? 'operativa' : 'operativa_revertida'];
+                        }
+                        require VIEW_PATH . '/shared/_situacion-chips.php'; ?>
                     </td>
                     <td class="text-center">
                         <span class="matricula-badge matricula-badge--<?= e($m['estado']) ?>"><?= $labelEstado($m['estado']) ?></span>

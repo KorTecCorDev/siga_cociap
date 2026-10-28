@@ -201,6 +201,13 @@
         white-space: nowrap;
     }
 
+    // Retorno de grado (28/10/2026): criterios de la oficial en su tramo,
+    // fundidos en una celda con la sección donde cursó (consulta-notas/_tabla.php).
+    .col-criterio--cursado {
+        color: $text-secondary;
+        font-style: italic;
+    }
+
     .col-numeral {
         min-width: 80px;
         text-align: center;

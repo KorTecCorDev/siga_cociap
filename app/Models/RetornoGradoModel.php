@@ -36,6 +36,12 @@ namespace App\Models;
  *  | ¿Con qué matrícula se documenta?         | identidad()             | matricula_documento()   (helpers.php)  |
  *  | ¿Qué matrículas componen al estudiante?  | fuentes()               | sqlFuentes()                           |
  *
+ * ⚠️ EXCEPCIÓN de las vistas de SOLO LECTURA de notas (28/10/2026):
+ * `sqlRosterLecturaDelPeriodo()` lista SIEMPRE la oficial y NUNCA la operativa,
+ * también en el tramo, y los datos del tramo se leen de la operativa por la
+ * fila oficial (`oficialesEnTramo()`, `sqlDatosDelPeriodo()`). Ver su docblock.
+ * No toca ninguna de las cuatro preguntas.
+ *
  * `roster_evaluacion()` y `matricula_documento()` se quedan en helpers.php con su
  * texto intacto (sus verificadores comparan el literal), pero forman parte de
  * esta familia: HOY es el caso particular de «el bimestre en curso».
@@ -216,6 +222,53 @@ class RetornoGradoModel extends BaseModel
         return null;
     }
 
+    /**
+     * VISTAS DE LECTURA (28/10/2026): de las matrículas dadas, las OFICIALES cuyo
+     * tramo cubre el periodo, con la operativa donde CURSARON ese bimestre y su
+     * sección («1° B»). Su fila sale en la sección oficial
+     * (sqlRosterLecturaDelPeriodo) y sus datos del bimestre se leen de la
+     * operativa: es matriculaDelPeriodo() en lote, con la sección para rotular.
+     *
+     * @param  int[] $matriculaIds
+     * @return array<int, array{operativa: int, seccion_id: int, seccion: string}>
+     */
+    public function oficialesEnTramo(array $matriculaIds, int $periodoId): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $matriculaIds))));
+        if ($ids === []) {
+            return [];
+        }
+        $numero = $this->numeroPeriodo($periodoId);
+        $in     = implode(',', array_fill(0, count($ids), '?'));
+        $out    = [];
+        foreach ($this->query("
+            SELECT r.matricula_oficial_id, r.matricula_operativa_id, r.estado,
+                   pd.numero AS desde, ph.numero AS hasta,
+                   mo.seccion_id, CONCAT(g.nombre_display, ' ', s.nombre) AS seccion
+            FROM retornos_grado r
+            INNER JOIN periodos   pd ON pd.id = r.periodo_desde_id
+            LEFT  JOIN periodos   ph ON ph.id = r.periodo_hasta_id
+            INNER JOIN matriculas mo ON mo.id = r.matricula_operativa_id
+            INNER JOIN secciones  s  ON s.id  = mo.seccion_id
+            INNER JOIN grados     g  ON g.id  = s.grado_id
+            WHERE r.matricula_oficial_id IN ({$in})
+        ", $ids) as $r) {
+            $vinculo = [
+                'estado' => (string) $r['estado'],
+                'desde'  => (int) $r['desde'],
+                'hasta'  => $r['hasta'] !== null ? (int) $r['hasta'] : null,
+            ];
+            if (self::cubre($vinculo, $numero)) {
+                $out[(int) $r['matricula_oficial_id']] = [
+                    'operativa'  => (int) $r['matricula_operativa_id'],
+                    'seccion_id' => (int) $r['seccion_id'],
+                    'seccion'    => (string) $r['seccion'],
+                ];
+            }
+        }
+        return $out;
+    }
+
     /** Número (1..4) de un periodo, memorizado. */
     public function numeroPeriodo(int $periodoId): int
     {
@@ -335,6 +388,86 @@ class RetornoGradoModel extends BaseModel
     public static function sqlRosterDelPeriodo(string $m, string $colPeriodo): string
     {
         return matriculas_vigentes($m) . "\n              " . self::sqlCursoElPeriodo($m, $colPeriodo);
+    }
+
+    /**
+     * ROSTER DE LECTURA DE UN BIMESTRE — PUNTO ÚNICO (28/10/2026): quién CURSÓ
+     * el periodo `$colPeriodo` en la sección `$seccion`, para las vistas y
+     * documentos de SOLO LECTURA (registro auxiliar, historial del docente,
+     * /consulta-notas). Nunca el `tipo` ni el `estado` de HOY.
+     *
+     * Difiere de `sqlRosterDelPeriodo()` en tres cosas, a propósito:
+     *  · un TRASLADADO o RETIRADO entra si tiene un DATO OFICIAL de ese periodo
+     *    (decisión del usuario: «por el dato, siempre que esté bloqueado y
+     *    aprobado»): una calificación de una competencia BLOQUEADA de una carga
+     *    de la sección, conducta confirmada o del cierre, o asistencia
+     *    confirmada. El ancla es la misma para todas las vistas: el estudiante
+     *    aparece igual en todas las pestañas del bimestre. Sin dato, no entra;
+     *  · RETORNO DE GRADO (decisión del usuario, 28/10/2026: «solo es válida su
+     *    matrícula real, nunca la operativa»): la OPERATIVA no sale nunca, ni
+     *    activa ni revertida, y la OFICIAL sale SIEMPRE en su sección, también
+     *    en los bimestres de su tramo, con el chip «Retorno de grado»
+     *    (SituacionEstudianteModel) y los datos de ese bimestre LEÍDOS de la
+     *    operativa (oficialesEnTramo / sqlDatosDelPeriodo): nada se copia ni se
+     *    mueve, solo cambia la fila por la que se leen. Por competencia: logro
+     *    y conclusión; los criterios son de otra carga y no se trasladan.
+     *    Boleta, mérito, SIAGIE, situación final y grillas no cambian;
+     *  · no filtra por `estado` (como `roster_evaluacion()`): el desactivado
+     *    por deuda se evalúa y se ve.
+     *
+     * ⚠️ NO usarlo en grillas de captura ni en validaciones (bloqueo, cierre):
+     * allí manda `roster_evaluacion()` / `sqlRosterDelPeriodo()`, y meter a un
+     * trasladado exigiría su conclusión antes de bloquear.
+     *
+     * `$colPeriodo` y `$seccion`: columnas de la consulta o ids literales;
+     * nunca entrada de usuario.
+     */
+    public static function sqlRosterLecturaDelPeriodo(string $m, string $colPeriodo, int|string $seccion): string
+    {
+        return "AND ({$m}.tipo NOT IN ('trasladado', 'retirado')
+                   OR EXISTS (SELECT 1 FROM calificaciones rlc
+                              INNER JOIN cargas_academicas rlca ON rlca.id = rlc.carga_id
+                              INNER JOIN bloqueos_competencia rlb
+                                      ON rlb.carga_id       = rlc.carga_id
+                                     AND rlb.competencia_id = rlc.competencia_id
+                                     AND rlb.periodo_id     = rlc.periodo_id
+                              WHERE rlc.matricula_id = {$m}.id
+                                AND rlc.periodo_id   = {$colPeriodo}
+                                AND rlca.seccion_id  = {$seccion})
+                   OR EXISTS (SELECT 1 FROM conducta_confirmaciones rlcc
+                              WHERE rlcc.matricula_id = {$m}.id AND rlcc.periodo_id = {$colPeriodo})
+                   OR EXISTS (SELECT 1 FROM calificaciones_conducta rlcd
+                              WHERE rlcd.matricula_id = {$m}.id AND rlcd.periodo_id = {$colPeriodo}
+                                AND (rlcd.literal IS NOT NULL OR rlcd.nota_tutor IS NOT NULL))
+                   OR EXISTS (SELECT 1 FROM inasistencias rli
+                              WHERE rli.matricula_id = {$m}.id AND rli.periodo_id = {$colPeriodo}
+                                AND " . AsistenciaModel::sqlConfirmada('rli') . "))
+              AND {$m}.id NOT IN (SELECT rlo.matricula_operativa_id FROM retornos_grado rlo)";
+    }
+
+    /**
+     * Expresión: la matrícula de la que se LEEN los datos del periodo
+     * `$colPeriodo` para la fila de `$m` en una vista de LECTURA (28/10/2026):
+     * si `$m` es la OFICIAL de un retorno cuyo tramo cubre ese periodo, su
+     * OPERATIVA (ahí viven sus datos: Regla A); si no, `$m` mismo. Gemelo SQL de
+     * oficialesEnTramo() / matriculaDelPeriodo(), visto desde la fila oficial
+     * que lista sqlRosterLecturaDelPeriodo. Nunca da NULL.
+     *
+     * Solo para las uniones a datos POR MATRÍCULA (conducta, asistencia,
+     * promedios transversales); las calificaciones por competencia se buscan
+     * además en la carga EQUIVALENTE (CalificacionModel::getResumenCompetencia).
+     */
+    public static function sqlDatosDelPeriodo(string $m, string $colPeriodo): string
+    {
+        $cubre = self::sqlCubre('rgdp_r', 'rgdp_d', 'rgdp_h', 'rgdp_x');
+        return "COALESCE((SELECT rgdp_r.matricula_operativa_id
+                            FROM retornos_grado rgdp_r
+                            INNER JOIN periodos rgdp_d ON rgdp_d.id = rgdp_r.periodo_desde_id
+                            LEFT  JOIN periodos rgdp_h ON rgdp_h.id = rgdp_r.periodo_hasta_id
+                            INNER JOIN periodos rgdp_x ON rgdp_x.id = {$colPeriodo}
+                           WHERE rgdp_r.matricula_oficial_id = {$m}.id
+                             AND {$cubre}
+                           LIMIT 1), {$m}.id)";
     }
 
     /**

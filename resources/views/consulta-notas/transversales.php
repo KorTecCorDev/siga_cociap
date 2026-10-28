@@ -69,7 +69,8 @@ $nivel = $seccion['nivel_codigo'] === 'prim' ? 'primaria' : 'secundaria';
                     <?php $matId = (int) $alumno['matricula_id']; ?>
                     <tr>
                         <td class="col-num"><?= $i + 1 ?></td>
-                        <td class="col-nombre"><?= e($alumno['nombre_completo']) ?></td>
+                        <td class="col-nombre"><?= e($alumno['nombre_completo']) ?>
+                            <?php $sitChips = $alumno['situaciones'] ?? []; require VIEW_PATH . '/shared/_situacion-chips.php'; ?></td>
 
                         <?php foreach ($competencias as $comp): ?>
                             <?php

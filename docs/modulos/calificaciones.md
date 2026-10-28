@@ -1504,11 +1504,73 @@ cards, sin fijar; antes iban al final), y la sección y la carga de `/consulta-n
     carga y 94 del tutor (`conclusiones_transversales`), por eso sale de la sección.
   - Medido: coincide con la pantalla de transversales en 2.º B (I), 6.º A (II) y 5.º B de
     secundaria (II): 58 estudiantes, 0 diferencias, conclusiones incluidas.
-- Medido (BD local): las notas coinciden con el historial de cada carga en Matemática de 2.º B
+- Medido (BD local, antes del roster de lectura del 28/10): las notas coinciden con el historial de cada carga en Matemática de 2.º B
   (I Bimestre, 36 criterios, 1 docente) y de 6.º A (II Bimestre, 30 criterios, 2 docentes):
   **148 filas, 0 diferencias**, conclusiones incluidas. Impreso a PDF: 4 hojas cada uno,
   ninguna fila partida, «Parte X de Y» en cada continuación, firmas solo tras la última parte
   y «Página X de Y» continua. Ninguna tabla ni celda desborda en la sección completa (19 tablas).
+
+### Roster de lectura: quien CURSÓ el bimestre (28/10/2026)
+> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pruebas pendientes en
+> `docs/ESTADO.md`.
+
+**Problema.** El registro, el historial del docente y `/consulta-notas` listaban un bimestre con
+el `tipo` y el `estado` de **HOY** (`matriculas_vigentes()` + `estado IN ('aprobada','pendiente')`
+en `getResumenCompetencia`). Un trasladado o retirado desaparecía de los bimestres que **sí**
+cursó, con sus notas oficiales: 15 matrículas y 19 pares matrícula-bimestre en la BD local (p. ej.
+la 204, trasladada en el III, con notas de I y II).
+
+**Regla (decisión del usuario):** un trasladado/retirado cursó un bimestre **por el DATO, siempre
+que esté bloqueado y aprobado**: una calificación de una competencia **bloqueada** de una carga
+de la sección, conducta **confirmada** (o `calificaciones_conducta` del cierre) o asistencia
+**confirmada** de ese periodo. La misma ancla para todas las vistas: aparece igual en todas las
+pestañas del bimestre. Sin dato oficial, no entra. Sin filtro de `estado` (el desactivado por deuda
+se evalúa). El cambio de sección no cambia (`sqlEnSeccionDelPeriodo`).
+
+**Retorno de grado (decisión del usuario, 28/10/2026: «solo es válida su matrícula real»).** En
+estas vistas la **operativa no sale nunca** y la **oficial sale siempre** en su sección. En los
+bimestres de su tramo, su fila **lee los datos de la operativa** en las pantallas. En el
+**registro auxiliar impreso** su fila va vacía y todo va a un **ANEXO** por área (cada criterio
+de la operativa con su nota, logro y conclusión), tras la hoja de conclusiones descriptivas.
+Detalle, escenarios y límites en `docs/modulos/retorno-grado.md` § «Vistas de solo lectura: la
+fila es la OFICIAL».
+- **PUNTO ÚNICO:** `RetornoGradoModel::sqlRosterLecturaDelPeriodo($m, $periodo, $seccion)`.
+- **Flag `$lectura = false`** (último parámetro) en `CalificacionModel::getResumenCompetencia`,
+  `ConductaModel::getEstudiantesParaTutor` / `getEstudiantesParaRegistro`,
+  `AsistenciaModel::getEstudiantesConIncidencias` y `TransversalModel::getPromediosSeccion`.
+  Lo pasan **solo** `RegistroAuxiliarModel::bloquesBloqueadosDeCarga` (registro, historial de
+  carga y de área, procedencia) y `ConsultaNotasController` (carga, transversales, conducta,
+  criterios de conducta, asistencia y la hoja de transversales del registro). Sin el flag, las
+  5 consultas devuelven lo mismo que antes, byte a byte (medido contra `HEAD`).
+- 🔴 **NUNCA en grillas de captura ni en validaciones** (omisiones, bloqueo, cierre): meter a un
+  trasladado exigiría su conclusión antes de bloquear. Allí siguen `roster_evaluacion()` /
+  `sqlRosterDelPeriodo()`.
+- **Chips junto al nombre** (Trasladado, Retirado, Retorno de grado, «Viene de 4° B», «Pasó a
+  4° A»): cada fila de lectura trae `situaciones` de `SituacionEstudianteModel::anotar()`, que
+  llaman los propios métodos con `$lectura`; se pintan con `shared/_situacion-chips.php`
+  (`$sitImpreso = true` en el registro). Catálogo y reglas: `docs/modulos/ui.md` § «Chips de
+  situación del estudiante». Un nombre largo con chip ocupa dos renglones (aceptado).
+- Verificador: `database/verificaciones/verif_roster_lectura.php` (solo lectura, 9 secciones).
+
+### Transversales con sus criterios en la matriz (28/10/2026)
+- Cada CT evaluada lleva sus **`Cr1…CrN` con notas numerales** (EXO y omisiones como las propias)
+  y luego su **Logro** en par; una CT «No evaluada» sigue como el par en blanco. Sus criterios
+  van en la tabla «Criterios de evaluación» de la leyenda, tras las propias (con varias cargas,
+  precedidos del código de su grupo). Celdas: un solo closure, `$celdasCriterios` (`_matriz.php`).
+- Cabecera: «Comp. transv.» → (con varias cargas) código del grupo → **código de cada CT** sobre
+  sus criterios → `Cr` + Logro. Las demás celdas de grupo bajan las filas necesarias.
+- **Partes** (decisión del usuario): las transversales de **cada carga son un bloque** del
+  reparto (`partesMatriz($columnas, $transversales)`, `anchoTransversal()`), tras las
+  competencias; el **Resumen** va en la última parte, **antes** de las CT de esa parte (el orden
+  de siempre: competencias · Resumen · CT). Una carga puede quedar en una parte anterior.
+- La hoja CD no cambia: de las CT, solo el logro (su conclusión es del tutor).
+- **Leyenda «Competencias del área» sin redundancia** (decisión del usuario): cada CT sale
+  **una sola vez** con su descripción, y a continuación las cargas que la evalúan como chips con
+  el código de la cabecera y la subárea («C30 Historia»). Si una carga no la evaluó, el chip dice
+  «No evaluada: C32 Economía». Antes salía una línea por carga y CT: en Ciencias Sociales de
+  5.º B, la CT3 y la CT4 se repetían 3 veces. El agrupado se hace **solo en la vista**
+  (`$ctLeyenda`, `_matriz.php`). La matriz y la tabla de criterios siguen siendo por carga,
+  porque ahí los criterios y las notas de cada carga sí son distintos.
 
 ## Fixes importantes aplicados (sesión 2)
 - `periodos.nombre_display` es la columna correcta (no `nombre`). Si ves

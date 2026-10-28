@@ -433,6 +433,15 @@ siempre con `EXO`; ya no distingue si había notas.
   `NOT IN ('trasladado','retirado')`): `Docente\CalificacionController::getAlumnosSeccion`,
   `ConductaModel` (×5), `CalificacionModel` (resumen/validación de bloqueo),
   `TransversalModel`, `Docente\TutoriaController`.
+- **Vistas de SOLO LECTURA de un bimestre (28/10/2026):** la exclusión es de las grillas de HOY.
+  El registro auxiliar, el historial del docente y `/consulta-notas` listan al trasladado o
+  retirado en los bimestres donde tiene un dato oficial, con chip
+  (`RetornoGradoModel::sqlRosterLecturaDelPeriodo`). Ver `docs/modulos/calificaciones.md`
+  § «Roster de lectura».
+- **Chips de tipo y de rol de retorno** (`/matriculas`, lista y ficha): desde el 28/10/2026 salen
+  del catálogo `SITUACIONES_ESTUDIANTE` (`shared/_situacion-chips.php`), sin cambio visual. El
+  gráfico de `/matriculas/resumen` pinta trasladado y retirado con el color de su chip. Ver
+  `docs/modulos/ui.md` § «Chips de situación del estudiante».
 - **NO se tocan** los usos de `trasladado` en boleta (`BoletaController`): un retirado
   es `desactivado` no-trasladado → cae en **BORRADOR forzado** (sin QR/firma), NO en
   el trato OFICIAL del trasladado. Tampoco la nómina de *ver* boletas del docente

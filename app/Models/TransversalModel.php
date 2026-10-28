@@ -154,9 +154,18 @@ class TransversalModel extends BaseModel
     /**
      * Promedios transversales agregados de TODA una sección en un periodo:
      * [matricula_id => [competencia_id => nota]]. Excluye traslados de salida.
+     *
+     * $lectura (28/10/2026, solo /consulta-notas): sin esa exclusión. Aquí solo
+     * llegan notas BLOQUEADAS de la sección, que ya son el dato oficial que ancla
+     * al trasladado o retirado en el bimestre (`sqlRosterLecturaDelPeriodo`).
+     * Y por la FILA de la sección: la oficial de un retorno, en su tramo, trae
+     * los promedios de su operativa (`sqlDatosDelPeriodo`).
      */
-    public function getPromediosSeccion(int $seccionId, int $periodoId): array
+    public function getPromediosSeccion(int $seccionId, int $periodoId, bool $lectura = false): array
     {
+        if ($lectura) {
+            return $this->promediosSeccionLectura($seccionId, $periodoId);
+        }
         $filas = $this->query("
             SELECT cal.matricula_id,
                    cal.competencia_id,
@@ -183,11 +192,66 @@ class TransversalModel extends BaseModel
         return $out;
     }
 
+    /**
+     * getPromediosSeccion() de LECTURA: [fila => [competencia_id => nota]], con la
+     * fila = matrícula de la sección en el bimestre y los datos de la matrícula
+     * que lo CURSÓ (`f.datos`: la operativa de un retorno en su tramo; si no, la
+     * misma). La tabla derivada resuelve fila → datos UNA vez y la unión a
+     * `calificaciones` va por índice.
+     */
+    private function promediosSeccionLectura(int $seccionId, int $periodoId): array
+    {
+        $filas = $this->query("
+            SELECT f.fila AS matricula_id,
+                   cal.competencia_id,
+                   ROUND(AVG(cal.nota_numerica)) AS promedio
+            FROM (SELECT m.id AS fila,
+                         " . RetornoGradoModel::sqlDatosDelPeriodo('m', (string) $periodoId) . " AS datos
+                  FROM matriculas m
+                  -- Quien CURSÓ el bimestre en la sección (cambio de sección, 07/10/2026).
+                  WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . ") f
+            INNER JOIN calificaciones cal ON cal.matricula_id = f.datos AND cal.periodo_id = ?
+            INNER JOIN bloqueos_competencia bc
+                ON  bc.carga_id       = cal.carga_id
+                AND bc.competencia_id = cal.competencia_id
+                AND bc.periodo_id     = cal.periodo_id
+            INNER JOIN competencias comp ON comp.id = cal.competencia_id
+            INNER JOIN areas a           ON a.id = comp.area_id AND a.tipo = 'transversal'
+            GROUP BY f.fila, cal.competencia_id
+        ", [$periodoId]);
+
+        $out = [];
+        foreach ($filas as $f) {
+            $out[(int) $f['matricula_id']][(int) $f['competencia_id']] = (int) $f['promedio'];
+        }
+        return $out;
+    }
+
     // ── Conclusiones ─────────────────────────────────────────────
 
-    /** [matricula_id => [competencia_id => conclusion]] de una sección. */
-    public function getConclusionesSeccion(int $seccionId, int $periodoId): array
+    /**
+     * [matricula_id => [competencia_id => conclusion]] de una sección.
+     *
+     * $lectura (28/10/2026, solo /consulta-notas): por la FILA de la sección; la
+     * oficial de un retorno, en su tramo, trae las conclusiones de su operativa
+     * (`sqlDatosDelPeriodo`). Sin él, la consulta de siempre.
+     */
+    public function getConclusionesSeccion(int $seccionId, int $periodoId, bool $lectura = false): array
     {
+        if ($lectura) {
+            $out = [];
+            foreach ($this->query("
+                SELECT f.fila AS matricula_id, ct.competencia_id, ct.conclusion
+                FROM (SELECT m.id AS fila,
+                             " . RetornoGradoModel::sqlDatosDelPeriodo('m', (string) $periodoId) . " AS datos
+                      FROM matriculas m
+                      WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . ") f
+                INNER JOIN conclusiones_transversales ct ON ct.matricula_id = f.datos AND ct.periodo_id = ?
+            ", [$periodoId]) as $f) {
+                $out[(int) $f['matricula_id']][(int) $f['competencia_id']] = $f['conclusion'];
+            }
+            return $out;
+        }
         $filas = $this->query("
             SELECT ct.matricula_id, ct.competencia_id, ct.conclusion
             FROM conclusiones_transversales ct

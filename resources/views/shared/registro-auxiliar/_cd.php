@@ -102,7 +102,7 @@ $notaHoja   = 'Logro del bimestre y conclusión descriptiva';
     $mid = (int) $al['matricula_id']; ?>
 <tr>
 <td class="ra-m__num"><?= $i + 1 ?></td>
-<td class="ra-m__izq"><?= e($al['apellido_paterno'] . ' ' . $al['apellido_materno'] . ', ' . $al['nombres']) ?></td>
+<td class="ra-m__izq"><?= e($al['apellido_paterno'] . ' ' . $al['apellido_materno'] . ', ' . $al['nombres']) ?><?php $sitChips = $al['situaciones'] ?? []; $sitImpreso = true; require VIEW_PATH . '/shared/_situacion-chips.php'; ?></td>
 <?php foreach ($propParte as $c):
     $a   = $c['alumnos'][$mid] ?? null;
     $exo = isset($c['exoSet'][$mid]); ?>

@@ -58,6 +58,71 @@ controladores sin login, así que **la ruta nueva aún no pasó por el router ni
 - [ ] **Decidir:** en secundaria, «Todas las áreas» incluye **Tutoría (TOE)** (lleva Ética) y
   los talleres. ¿Es lo esperado?
 
+### Roster de LECTURA + criterios de las transversales (28/10/2026, en `dev`, sin migración)
+Las vistas de SOLO LECTURA de un bimestre listan a quien lo **CURSÓ**: los trasladados y
+retirados con dato oficial (nota bloqueada, conducta o asistencia confirmadas) vuelven a los
+bimestres que cursaron, con chip «Trasladado»/«Retirado». Punto único
+`RetornoGradoModel::sqlRosterLecturaDelPeriodo`; flag `$lectura` en los 5 métodos de roster,
+que solo pasan el registro auxiliar, el historial del docente y `/consulta-notas`. Las
+transversales de la matriz llevan sus `Cr1…CrN` y se reparten por bloques de carga.
+Detalle: `docs/modulos/calificaciones.md` § «Roster de lectura».
+
+**Medido (BD local):** `verif_roster_lectura.php` OK (19 pares matrícula-bimestre recuperados,
+0 intrusos, lectura ⊇ evaluación, tramo del retorno intacto); sin el flag, las 5 consultas dan
+lo MISMO que `HEAD` byte a byte (120 competencias, 15 sección-bimestre);
+`verif_roster_evaluacion`, `verif_roster_asistencia` y `verif_matricula_documento` en verde;
+render del registro de 7 secciones sin avisos (5.º B II: BOCANEGRA trasladado, GONZÁLEZ y
+MEDINA retirados, con sus notas).
+
+**Ampliado el mismo día (decisiones del usuario):**
+- **Chips de situación estandarizados**: catálogo `SITUACIONES_ESTUDIANTE` +
+  `shared/_situacion-chips.php` + `SituacionEstudianteModel` (Trasladado, Retirado, Retorno de
+  grado, «Viene de / Pasó a» del cambio de sección, y los de tipo y rol de `/matriculas`). Los
+  colores son los de siempre; el gráfico de `/matriculas/resumen` pasa a usar los del chip.
+  `etiqueta_salida()` y `ra-tag--salida` desaparecen. Ver `docs/modulos/ui.md`.
+- **Retorno de grado en lectura**: solo la matrícula REAL. La operativa no sale nunca; la
+  oficial, en su tramo, lee de la operativa los logros, conclusiones (criterios fundidos en
+  «1° B»), transversales, conducta y asistencia. Ver `docs/modulos/retorno-grado.md`
+  § «Vistas de solo lectura». Límites (0 casos hoy): competencia sin columna (escenario 6; el
+  verificador falla si aparece), exoneraciones y extraordinarias de la operativa en el tramo.
+- Leyenda «Competencias del área»: cada CT una sola vez, con las cargas que la evalúan.
+- **Registro IMPRESO del retorno: «fila vacía + anexo»** (regla del registro: todas las
+  calificaciones de cada criterio). Su fila va vacía en la matriz y en la CD; un anexo por área
+  (hoja nueva, tras la CD) trae cada criterio de 1° B con su nota, logro, conclusión, quién la
+  registró y la leyenda de esos criterios; la hoja de transversales de la sección lo pone al pie
+  con el tutor de 1° B. Las pantallas siguen con el logro y «1° B». Medido: las **82** notas por
+  criterio del II, cada una una vez (`verif_roster_lectura.php` §10).
+
+**Medido tras la ampliación:** `verif_roster_lectura.php` TODO OK, 9 secciones (18 pares de
+trasladados/retirados: hoy hay 14 matrículas y no 15, porque una de las 582/586 pasó a
+continuador a las 11:00, no por el código; 39 logros del tramo del retorno #1 en la fila
+oficial; 59 notas propias fuera del tramo; chips iguales al control a mano en todas las filas).
+Sin el flag, las 6 consultas siguen idénticas a `HEAD` (400 competencias, 27 sección-bimestre).
+`/matriculas` (lista, filtros y 4 fichas) da el mismo HTML que `HEAD`. 16 verificadores de la
+zona en verde. **Fallan igual en `HEAD`** (previos, sin relación con este cambio):
+`verif_asistencia_fechas`, `verif_asistencia_presencias`, `verif_direccion_superficies`,
+`verif_ratificaciones`, `verif_rol_auxiliar` (choque `uq_seccion_desde` en la BD local) y
+`verif_stats_competencia` (muestra al azar; el contador de evaluados se desfasa en 1).
+
+**Pendiente:**
+- [ ] **Admin, navegador:** registro de 5.º B de secundaria (sección 23) del I y II Bimestre
+  impreso a PDF: chips, transversales con criterios, ninguna tabla desborda ni fila se parte.
+  Ojo: el chip hace que un nombre largo ocupe 2 renglones.
+- [ ] **Admin:** registro de 2.° B de primaria (sección 4) del II Bimestre impreso a PDF:
+  BALTAZAR con «Retorno de grado» y fila vacía; el anexo de cada área tras la CD y el de la hoja
+  de transversales al pie; en el de 1.° B (sección 2) ya no aparece. Registro de 4.° A y 4.° B:
+  «Viene de / Pasó a».
+- [ ] **Docentes de 2.° B** (tutora de aula y la de Inglés): su registro del II trae el anexo de
+  sus áreas.
+- [ ] **Admin:** `/consulta-notas/1/seccion/23` → pestañas de carga, transversales, conducta
+  (y «Criterios») y asistencia muestran a los trasladados/retirados del I con chip; y
+  `/consulta-notas/2/seccion/4`, a BALTAZAR con los datos de 1.° B.
+- [ ] **Docente de 5.º B:** su historial de carga del I Bimestre incluye a BOCANEGRA con chip.
+- [ ] **`/matriculas` y `/matriculas/resumen`:** a simple vista, iguales; el pie de «Tipo» con
+  trasladado gris y retirado rosa.
+- [ ] **Decidir (observación, sin tocar):** la asistencia de solo lectura pinta «0» en toda fila
+  SIN registro (antes y ahora). ¿Debería decir «—»?
+
 **Sin datos reales para probarlo** (lógica cubierta solo por pruebas de la función o por lectura):
 - una parte con SOLO Resumen y transversales (tope teórico; no hay área tan ancha);
 - la columna «Sin carga» (no hay subárea del plan sin carga en ninguna sección);

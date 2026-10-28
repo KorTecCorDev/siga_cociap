@@ -34,7 +34,10 @@ class RegistroAuxiliarModel extends BaseModel
     public const ANCHO_VACIA_MM = 7;
     /** Resumen: un par por competencia del área (una en blanco usa el mismo par), en la última parte. */
     public const ANCHO_RESUMEN_MM = self::ANCHO_NUMERAL_MM + self::ANCHO_LITERAL_MM;
-    /** Transversales: un par por columna, en la última parte (matriz y hoja CD). */
+    /**
+     * Transversales: un par por columna (matriz y hoja CD). En la matriz van
+     * además sus criterios (`anchoTransversal`), en bloques por carga.
+     */
     public const ANCHO_TRANSVERSAL_MM = self::ANCHO_NUMERAL_MM + self::ANCHO_LITERAL_MM;
 
     // ── Presupuesto de las CONCLUSIONES (hoja CD), en mm ────────────────────
@@ -182,7 +185,16 @@ class RegistroAuxiliarModel extends BaseModel
             $cid  = (int) $c['id'];
             $ids[] = $cid;
             $exo  = array_map('intval', $this->exoModel->getActivasParaCarga($cid, (int) $periodo['anio_id'], $periodoId));
-            $bloquesPorCarga[$cid] = ['carga' => $c, 'exo' => $exo, 'bloques' => $this->bloquesBloqueadosDeCarga($cid, $periodoId)];
+            $bloquesPorCarga[$cid] = [
+                'carga'   => $c,
+                'exo'     => $exo,
+                // En el DOCUMENTO la fila oficial del tramo de un retorno va vacía
+                // (todo lo cursado en la operativa, en `anexo_retorno`).
+                'bloques' => array_map(
+                    static fn(array $b): array => ['alumnos' => self::vaciarTramo($b['alumnos'])] + $b,
+                    $this->bloquesBloqueadosDeCarga($cid, $periodoId)
+                ),
+            ];
             foreach ($bloquesPorCarga[$cid]['bloques'] as $b) {
                 if (!empty($b['competencia']['es_transversal'])) {
                     $conTr++;
@@ -240,6 +252,9 @@ class RegistroAuxiliarModel extends BaseModel
                             : null,
                         'alumnos'     => $this->indexarPorMatricula($b['alumnos']),
                         'evaluada'    => !empty($b['criterios']),
+                        // Sus criterios y notas numerales en la matriz, como las
+                        // propias (28/10/2026).
+                        'criterios'   => criterios_ordinarios($b['criterios']),
                         'exo'         => $bc['exo'],
                     ];
                     $roster ??= $b['alumnos'];
@@ -305,18 +320,205 @@ class RegistroAuxiliarModel extends BaseModel
             'roster'          => $roster ?? [],
             'extraordinarias' => (new RectificacionModel())
                 ->getExtraordinariasDeCargas($ids, $periodoId, $paraDocente),
+            'anexo_retorno'   => $this->anexoRetorno($roster ?? [], $cargas, $periodoId, (int) $periodo['anio_id']),
         ];
     }
 
     /**
-     * Bloques read-only {competencia, criterios, alumnos} de las competencias
-     * OFICIALES (bloqueadas) de una carga en un periodo. Compartido por el
-     * registro auxiliar y por el histórico de carga, de área y de procedencia
-     * del docente (que delegan aquí).
+     * RETORNO DE GRADO en el DOCUMENTO (decisión del usuario, 28/10/2026: «fila
+     * vacía + anexo»). Las filas de lectura de la oficial en su tramo traen el
+     * logro de la operativa (`CalificacionModel::conDatosDelTramo`, para las
+     * pantallas); el registro impreso las deja VACÍAS —nombre, chip y «—»— y
+     * pone todo lo cursado en el anexo. Las demás filas no se tocan.
      */
-    public function bloquesBloqueadosDeCarga(int $cargaId, int $periodoId): array
+    private static function vaciarTramo(array $alumnos): array
     {
-        $bloqueadas = $this->query("
+        foreach ($alumnos as &$al) {
+            if (($al['cursado_en'] ?? null) === null) {
+                continue;
+            }
+            $al['promedio']               = null;
+            $al['literal']                = null;
+            $al['conclusion_descriptiva'] = null;
+            $al['cursado_en']             = null;   // sin celda fundida: «—» en cada criterio
+        }
+        unset($al);
+        return $alumnos;
+    }
+
+    /**
+     * ANEXO DEL RETORNO DE GRADO de una hoja (sección + área), 28/10/2026: por cada
+     * estudiante del roster que es la OFICIAL de un retorno en su tramo, TODAS las
+     * calificaciones que obtuvo en la operativa en las cargas EQUIVALENTES a las
+     * de la hoja (`CambioSeccionModel::cargasEquivalentes`): cada competencia
+     * BLOQUEADA, con sus criterios de esa carga, la nota de cada criterio, las
+     * omisiones, el logro y la conclusión. Regla del registro auxiliar: todas las
+     * calificaciones de cada criterio, aunque se hayan registrado en otra sección.
+     *
+     * @return list<array{matricula_id:int, nombre:string, seccion:string,
+     *                    cargas: list<array{nombre:string, docente:?string, competencias:list<array>}>}>
+     */
+    public function anexoRetorno(array $roster, array $cargas, int $periodoId, int $anioId): array
+    {
+        $tramos = (new RetornoGradoModel())->oficialesEnTramo(array_column($roster, 'matricula_id'), $periodoId);
+        if ($tramos === []) {
+            return [];
+        }
+        $cambio = new CambioSeccionModel();
+        $out    = [];
+        foreach ($roster as $al) {
+            $t = $tramos[(int) $al['matricula_id']] ?? null;
+            if ($t === null) {
+                continue;
+            }
+            $grupos = [];
+            $vistas = [];
+            foreach ($cargas as $c) {
+                $equivalentes = $cambio->cargasEquivalentes(
+                    ['area_resuelta_id' => (int) $c['area_id'], 'subarea_id' => $c['subarea_id'] ?? null],
+                    $t['seccion_id']
+                );
+                foreach ($equivalentes as $eq) {
+                    $eid = (int) $eq['id'];
+                    if (isset($vistas[$eid])) {
+                        continue;
+                    }
+                    $vistas[$eid] = true;
+                    $competencias = $this->bloquesDeMatricula($eid, $periodoId, $t['operativa'], $anioId);
+                    if ($competencias !== []) {
+                        $grupos[] = $this->rotuloCarga($eid) + ['competencias' => $competencias];
+                    }
+                }
+            }
+            $out[] = [
+                'matricula_id' => (int) $al['matricula_id'],
+                'nombre'       => $al['apellido_paterno'] . ' ' . $al['apellido_materno'] . ', ' . $al['nombres'],
+                'seccion'      => $t['seccion'],
+                'cargas'       => $grupos,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Las competencias BLOQUEADAS de una carga en un periodo, con la fila de UNA
+     * matrícula: criterios de esa carga, nota de cada criterio, omisiones, EXO,
+     * logro y conclusión. Lee con `getResumenCompetencia` SIN el flag de lectura:
+     * su roster es el de evaluación del bimestre (`sqlRosterDelPeriodo`), que es
+     * justo donde la operativa CURSÓ su tramo. Sin fila, la competencia no sale.
+     */
+    private function bloquesDeMatricula(int $cargaId, int $periodoId, int $matriculaId, int $anioId): array
+    {
+        $exo = in_array(
+            $matriculaId,
+            array_map('intval', $this->exoModel->getActivasParaCarga($cargaId, $anioId, $periodoId)),
+            true
+        );
+        $out = [];
+        foreach ($this->competenciasBloqueadas($cargaId, $periodoId) as $b) {
+            $resumen = $this->calModel->getResumenCompetencia($cargaId, (int) $b['id'], $periodoId);
+            $fila    = null;
+            foreach ($resumen['alumnos'] as $a) {
+                if ((int) $a['matricula_id'] === $matriculaId) {
+                    $fila = $a;
+                    break;
+                }
+            }
+            if ($fila === null) {
+                continue;
+            }
+            $criterios = criterios_ordinarios($resumen['criterios']);
+            $omisiones = [];
+            foreach ($criterios as $cr) {
+                $om = $this->omisionModel->getPorCriterio((int) $cr['id'])[$matriculaId] ?? null;
+                if ($om !== null) {
+                    $omisiones[(int) $cr['id']] = $om;
+                }
+            }
+            $out[] = [
+                'codigo'         => (string) $b['codigo_minedu'],
+                'nombre'         => (string) $b['nombre_completo'],
+                'es_transversal' => (bool) $b['es_transversal'],
+                'criterios'      => $criterios,
+                'alumno'         => ['omisiones_criterios' => $omisiones] + $fila,
+                'exo'            => $exo,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Rótulo de una carga para el anexo: su subárea (o su área) y el docente, con
+     * el nombre como en el resto del documento («Apellidos, Nombres»).
+     *
+     * @return array{nombre: string, docente: ?string}
+     */
+    private function rotuloCarga(int $cargaId): array
+    {
+        $r = $this->queryOne("
+            SELECT COALESCE(sa.nombre, a.nombre) AS nombre,
+                   TRIM(CONCAT(pu.apellido_paterno, ' ', pu.apellido_materno, ', ', pu.nombres)) AS docente
+            FROM cargas_academicas ca
+            LEFT JOIN subareas sa ON sa.id = ca.subarea_id
+            LEFT JOIN areas a     ON a.id  = COALESCE(ca.area_id, sa.area_id)
+            LEFT JOIN usuarios ud ON ud.id = ca.docente_id
+            LEFT JOIN personas pu ON pu.id = ud.persona_id
+            WHERE ca.id = ?
+        ", [$cargaId]);
+        return [
+            'nombre'  => (string) ($r['nombre'] ?? ''),
+            'docente' => ($r['docente'] ?? '') !== '' && $r['docente'] !== ',' ? $r['docente'] : null,
+        ];
+    }
+
+    /**
+     * ANEXO de la hoja «Competencias transversales de la sección» (decisión del
+     * usuario, 28/10/2026: «fila vacía + anexo al pie»). La fila oficial de un
+     * retorno en su tramo trae, por la lectura (`sqlDatosDelPeriodo`), el
+     * promedio y la conclusión que congeló el TUTOR de la sección operativa: se
+     * quitan de su fila y van al anexo, con la sección y el tutor DEL BIMESTRE
+     * (`TutorPeriodoModel`). Sin cierre vigente en la sección operativa, el anexo
+     * lo dice y no muestra notas.
+     *
+     * @param  array $ts  ConsultaNotasController::transversalesSeccion()
+     * @return array      $ts con `promedios`/`conclusiones` sin esas filas y `anexo`
+     */
+    public function conAnexoRetornoTransversales(array $ts, int $periodoId): array
+    {
+        $ts['anexo'] = [];
+        if ($ts['cierre'] === null || $ts['alumnos'] === []) {
+            return $ts;
+        }
+        $tramos = (new RetornoGradoModel())->oficialesEnTramo(array_column($ts['alumnos'], 'matricula_id'), $periodoId);
+        if ($tramos === []) {
+            return $ts;
+        }
+        $trans  = new TransversalModel();
+        $tutor  = new TutorPeriodoModel();
+        foreach ($ts['alumnos'] as $al) {
+            $mid = (int) $al['matricula_id'];
+            $t   = $tramos[$mid] ?? null;
+            if ($t === null) {
+                continue;
+            }
+            $cerrado = $trans->getCierreVigente($t['seccion_id'], $periodoId) !== null;
+            $ts['anexo'][] = [
+                'nombre'       => $al['nombre_completo'],
+                'seccion'      => $t['seccion'],
+                'tutor'        => $tutor->tutorDe($t['seccion_id'], $periodoId)['nombre'] ?? null,
+                'cerrado'      => $cerrado,
+                'promedios'    => $cerrado ? ($ts['promedios'][$mid] ?? []) : [],
+                'conclusiones' => $cerrado ? ($ts['conclusiones'][$mid] ?? []) : [],
+            ];
+            unset($ts['promedios'][$mid], $ts['conclusiones'][$mid]);
+        }
+        return $ts;
+    }
+
+    /** Competencias BLOQUEADAS (oficiales) de una carga en un periodo, en orden del plan. */
+    private function competenciasBloqueadas(int $cargaId, int $periodoId): array
+    {
+        return $this->query("
             SELECT comp.id,
                    comp.nombre_completo,
                    comp.codigo_minedu,
@@ -328,11 +530,24 @@ class RegistroAuxiliarModel extends BaseModel
               AND bc.periodo_id = ?
             ORDER BY comp.orden, comp.id
         ", [$cargaId, $periodoId]);
+    }
+
+    /**
+     * Bloques read-only {competencia, criterios, alumnos} de las competencias
+     * OFICIALES (bloqueadas) de una carga en un periodo. Compartido por el
+     * registro auxiliar y por el histórico de carga, de área y de procedencia
+     * del docente (que delegan aquí).
+     */
+    public function bloquesBloqueadosDeCarga(int $cargaId, int $periodoId): array
+    {
+        $bloqueadas = $this->competenciasBloqueadas($cargaId, $periodoId);
 
         $bloques = [];
         foreach ($bloqueadas as $b) {
             $competenciaId = (int) $b['id'];
-            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId);
+            // Roster de LECTURA: sus usuarios (registro, historial de carga y de
+            // área, procedencia) son de solo lectura.
+            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId, false, true);
 
             $omisionesPorCriterio = [];
             foreach ($resumen['criterios'] as $cr) {
@@ -365,23 +580,66 @@ class RegistroAuxiliarModel extends BaseModel
     }
 
     /**
-     * PARTES de la matriz: reparto goloso por competencias ENTERAS (nunca se
-     * corta una) en el ancho útil de la hoja, descontando N° y nombres, que se
-     * repiten en cada parte. El bloque final (Resumen + transversales) va en la
-     * última parte si cabe; si no, en una parte propia.
+     * PARTES de la matriz: reparto goloso por bloques ENTEROS (nunca se corta
+     * uno) en el ancho útil de la hoja, descontando N° y nombres, que se
+     * repiten en cada parte. Bloques, en orden: cada competencia y, después,
+     * las transversales de cada CARGA (28/10/2026: con sus criterios ya no
+     * caben siempre juntas al final). El Resumen va en la última parte si cabe;
+     * si no, en una parte propia.
      *
-     * @return list<array{columnas: int[], final: bool}> índices de `$columnas`
+     * @return list<array{columnas: int[], transversales: int[], final: bool}>
+     *         índices de `$columnas` y de `$transversales`
      */
-    public static function partesMatriz(array $columnas, int $nTransversales): array
+    public static function partesMatriz(array $columnas, array $transversales): array
     {
         $anchos = [];
-        foreach ($columnas as $c) {
-            $anchos[] = $c['tipo'] === 'propia'
+        $bloques = [];
+        foreach ($columnas as $i => $c) {
+            $anchos[]  = $c['tipo'] === 'propia'
                 ? count($c['criterios']) * self::ANCHO_CRITERIO_MM + self::ANCHO_LOGRO_MM
                 : self::ANCHO_VACIA_MM;
+            $bloques[] = ['c', [$i]];
         }
-        $final = count($columnas) * self::ANCHO_RESUMEN_MM + $nTransversales * self::ANCHO_TRANSVERSAL_MM;
-        return self::empaquetar($anchos, $final, PHP_INT_MAX);
+        // Transversales consecutivas de la misma carga = un bloque.
+        $ultima = null;
+        foreach ($transversales as $i => $t) {
+            $w = self::anchoTransversal($t);
+            if ($t['carga_id'] === $ultima) {
+                $anchos[count($anchos) - 1] += $w;
+                $bloques[count($bloques) - 1][1][] = $i;
+                continue;
+            }
+            $anchos[]  = $w;
+            $bloques[] = ['t', [$i]];
+            $ultima    = $t['carga_id'];
+        }
+        $final = count($columnas) * self::ANCHO_RESUMEN_MM;
+
+        $out = [];
+        foreach (self::empaquetar($anchos, $final, PHP_INT_MAX) as $parte) {
+            $cols = [];
+            $trs  = [];
+            foreach ($parte['columnas'] as $k) {
+                [$tipo, $idx] = $bloques[$k];
+                if ($tipo === 'c') {
+                    $cols = array_merge($cols, $idx);
+                } else {
+                    $trs = array_merge($trs, $idx);
+                }
+            }
+            $out[] = ['columnas' => $cols, 'transversales' => $trs, 'final' => $parte['final']];
+        }
+        return $out;
+    }
+
+    /**
+     * Ancho de una transversal en la matriz: sus criterios + el par del logro;
+     * sin evaluar, solo el par en blanco.
+     */
+    public static function anchoTransversal(array $t): float
+    {
+        return ($t['evaluada'] ? count($t['criterios']) * self::ANCHO_CRITERIO_MM : 0)
+            + self::ANCHO_TRANSVERSAL_MM;
     }
 
     /**

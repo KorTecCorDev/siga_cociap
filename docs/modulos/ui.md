@@ -1122,6 +1122,49 @@ dos vistas de notas de origen y en la bandeja de notificaciones.
 **El icono solo donde hay sitio** (cards y cabeceras); en las grillas densas el chip va con el
 nombre corto a 10px, como el badge de siempre. La variable `$procIcono` lo decide.
 
+## Chips de situación del estudiante (28/10/2026)
+
+> PUNTO ÚNICO del catálogo: `SITUACIONES_ESTUDIANTE` + `situacion_estudiante()` (`helpers.php`).
+> Markup: `resources/views/shared/_situacion-chips.php`.
+> Estilos: `.matricula-badge--*` (`resources/sass/pages/_matriculas.scss`).
+> Qué chip lleva cada fila de un bimestre: `SituacionEstudianteModel`.
+
+**Toda marca de la situación de un estudiante o de su matrícula sale de este catálogo** (decisión
+del usuario: «estandarizarlos desde ahora en adelante»). Una situación nueva es **una fila más del
+catálogo**, nunca una clase o un texto escritos en una vista. Lo vigila
+`verif_roster_lectura.php` §8: falla si una vista pinta a mano una clase de situación.
+
+| Clave | Texto | Aspecto | Dónde |
+|---|---|---|---|
+| `continuador` · `nuevo` | Continuador · Nuevo | azul · naranja (los de siempre) | `/matriculas` (lista y ficha) |
+| `trasladado` | Trasladado | gris liso | `/matriculas` y toda fila de lectura de esa matrícula |
+| `retirado` | Retirado | rosa | ídem |
+| `oficial` · `operativa` · `operativa_revertida` | Oficial · Operativa · Operativa · revertido | azul · púrpura · púrpura | `/matriculas` (rol en un retorno; con su tooltip de siempre) |
+| `retorno` | Retorno de grado | el azul de «Oficial» | fila oficial de un retorno en los bimestres de su tramo (vistas de lectura) |
+| `cambio_viene` | Viene de 4° B | **gris con borde punteado** | sección destino, desde el bimestre del cambio |
+| `cambio_paso` | Pasó a 4° A | **gris con borde punteado** | sección origen, en los bimestres anteriores |
+
+- **Colores: los que ya tenían los badges de matrícula** (decisión del usuario: «mantener colores
+  actuales» y estandarizarlos). El cambio de sección **no estrena color**: la forma punteada lo
+  distingue del trasladado (gris liso). El gráfico de `/matriculas/resumen` usa el color del
+  **texto** de trasladado (`#64748b`) y retirado (`#b91c4b`); antes los pintaba al revés (púrpura y
+  gris). Si cambia uno, cambia el otro.
+- **Dos tamaños, la misma familia:** pantalla (`.matricula-badge`) e impreso
+  (`.matricula-badge--impreso`, 6 pt, con borde del color del texto para que se lea aunque la
+  impresora no pinte fondos). El registro auxiliar pasa `$sitImpreso = true`. Sustituye al
+  `ra-tag--salida` que tuvo el registro unas horas.
+- **Sin cambio visual en `/matriculas`**: comparado contra `HEAD` (lista, filtros y fichas), el HTML
+  sale igual salvo por espacios en blanco.
+- **Fuera del catálogo, a propósito:** los ESTADOS (`--pendiente`, `--aprobada`, `--desactivado`),
+  el estado de un traslado o de un cambio de sección (vigente/anulado/revertido) y los usos de
+  `--continuador`/`--nuevo` como simple color (vínculo de apoderado, literal de notas externas y
+  autorizadas para SIAGIE). No son situaciones del estudiante. La **nómina impresa** describe el
+  retorno con una frase («↪ Retorno de grado · cursa en…»), no con un chip.
+- **Celda fundida del retorno (solo PANTALLAS):** en la fila oficial dentro del tramo, los
+  criterios se funden en una celda con la sección donde cursó («1° B»), en cursiva y en gris
+  (`.col-criterio--cursado`, `consulta-notas/_tabla.php`). El registro IMPRESO no funde: deja la
+  fila vacía y lo pone todo en un anexo (`.ra-anexo`). Ver `docs/modulos/retorno-grado.md`.
+
 ## Páginas de error (403 / 404 / 500): sueltas, con su propio CSS (21/09/2026)
 
 Son **documentos HTML completos** que se pintan con `require` directo, **sin layout**:

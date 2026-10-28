@@ -10,6 +10,9 @@
  * /consulta-notas/{p}/seccion/{s}/transversales, y con el mismo corte: solo con
  * el cierre vigente del tutor. NUNCA sale en el registro del docente.
  *
+ * Retorno de grado (28/10/2026): la fila de la oficial en su tramo va vacía y lo
+ * del tutor de la sección operativa, en un anexo al pie (`$ts['anexo']`).
+ *
  * @var array    $ts       ConsultaNotasController::transversalesSeccion()
  * @var array    $periodo
  * @var callable $par      celdas numeral | literal (documento.php)
@@ -81,7 +84,7 @@ $notaHoja   = 'Logro de la sección y conclusión descriptiva';
     $mid = (int) $al['matricula_id']; ?>
 <tr>
 <td class="ra-m__num"><?= $i + 1 ?></td>
-<td class="ra-m__izq"><?= e($al['nombre_completo']) ?></td>
+<td class="ra-m__izq"><?= e($al['nombre_completo']) ?><?php $sitChips = $al['situaciones'] ?? []; $sitImpreso = true; require VIEW_PATH . '/shared/_situacion-chips.php'; ?></td>
 <?php foreach ($competencias as $comp):
     $cid   = (int) $comp['id'];
     $nota  = $ts['promedios'][$mid][$cid] ?? null;
@@ -93,5 +96,48 @@ $notaHoja   = 'Logro de la sección y conclusión descriptiva';
 <?php endforeach; ?>
             </tbody>
         </table>
+
+        <?php // ANEXO del retorno de grado (28/10/2026): su fila de arriba va vacía; aquí,
+              // lo que congeló el tutor de la sección donde cursó el bimestre
+              // (RegistroAuxiliarModel::conAnexoRetornoTransversales). ?>
+        <?php foreach ($ts['anexo'] ?? [] as $ax): ?>
+        <table class="ra-m ra-anexo-ts">
+            <colgroup>
+                <col class="ra-m__c-nombre">
+                <?php foreach ($competencias as $comp): ?>
+                    <col class="ra-m__c-pnum"><col class="ra-m__c-plit"><col>
+                <?php endforeach; ?>
+            </colgroup>
+            <thead>
+                <tr class="ra-m__id">
+                    <th colspan="<?= 1 + 3 * count($competencias) ?>">
+                        Anexo &middot; Retorno de grado &middot; cursado en <?= e($ax['seccion']) ?>
+                        <?= $ax['tutor'] !== null ? '&middot; Tutor(a): ' . e($ax['tutor']) : '' ?>
+                    </th>
+                </tr>
+                <tr class="ra-m__cols">
+                    <th scope="col" class="ra-m__izq">Apellidos y nombres</th>
+                    <?php foreach ($competencias as $comp): ?>
+                        <th scope="colgroup" colspan="2"><?= e((string) $comp['codigo_minedu']) ?> &middot; Logro</th>
+                        <th scope="col" class="ra-m__izq">Conclusión descriptiva</th>
+                    <?php endforeach; ?>
+                </tr>
+            </thead>
+            <tbody>
+<tr>
+<td class="ra-m__izq"><?= e($ax['nombre']) ?><?php $sitChips = [['clave' => 'retorno']]; $sitImpreso = true; require VIEW_PATH . '/shared/_situacion-chips.php'; ?></td>
+<?php if (!$ax['cerrado']): ?>
+<td class="ra-m__izq" colspan="<?= 3 * count($competencias) ?>">Las competencias transversales de <?= e($ax['seccion']) ?> aún no están cerradas en el <?= e($periodo['nombre_display']) ?>.</td>
+<?php else: foreach ($competencias as $comp):
+    $cid   = (int) $comp['id'];
+    $nota  = $ax['promedios'][$cid] ?? null;
+    $texto = $ax['conclusiones'][$cid] ?? ''; ?>
+<?php $par($nota !== null ? ['promedio' => (int) $nota, 'literal' => nota_a_literal((int) $nota)] : null, false, 'ra-m__tr'); ?>
+<td class="ra-m__izq ra-cd__texto"><?= $texto !== '' ? e($texto) : '—' ?></td>
+<?php endforeach; endif; ?>
+</tr>
+            </tbody>
+        </table>
+        <?php endforeach; ?>
     <?php endif; ?>
 </section>

@@ -70,6 +70,9 @@ class ConsultaNotasController extends BaseController
      * tutor y la grilla del docente, y duplicar ese filtro a mano es exactamente
      * como nacieron los bugs de asistencia del 04/08/2026. Los campos de conducta
      * que trae de propina los usa F3; F2 solo necesita id y nombre.
+     *
+     * Con el roster de LECTURA (28/10/2026): quien CURSÓ el bimestre, trasladados
+     * y retirados con dato oficial incluidos (`sqlRosterLecturaDelPeriodo`).
      */
     private function rosterSeccion(int $seccionId, int $periodoId, int $nivelId, int $anioId): array
     {
@@ -78,7 +81,8 @@ class ConsultaNotasController extends BaseController
         return $this->conductaModel->getEstudiantesParaTutor(
             $seccionId,
             $periodoId,
-            $this->conductaModel->totalCriterios($nivelId, $anioId)
+            $this->conductaModel->totalCriterios($nivelId, $anioId),
+            true
         );
     }
 
@@ -430,7 +434,9 @@ class ConsultaNotasController extends BaseController
         $nivelId   = (int) $carga['nivel_id'];
         $cierre    = $this->transModel->getCierreVigente($seccionId, $periodoId);
 
-        return [
+        // Retorno de grado: su fila va vacía y lo del tutor de la sección
+        // operativa, en el anexo al pie (RegistroAuxiliarModel, 28/10/2026).
+        return (new RegistroAuxiliarModel())->conAnexoRetornoTransversales([
             'meta' => [
                 'grado_nombre'   => $carga['grado_nombre'],
                 'seccion_nombre' => $carga['seccion_nombre'],
@@ -440,9 +446,9 @@ class ConsultaNotasController extends BaseController
             'cierre'       => $cierre,
             'competencias' => $this->transModel->getCompetencias($nivelId),
             'alumnos'      => $cierre ? $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']) : [],
-            'promedios'    => $cierre ? $this->transModel->getPromediosSeccion($seccionId, $periodoId) : [],
-            'conclusiones' => $cierre ? $this->transModel->getConclusionesSeccion($seccionId, $periodoId) : [],
-        ];
+            'promedios'    => $cierre ? $this->transModel->getPromediosSeccion($seccionId, $periodoId, true) : [],
+            'conclusiones' => $cierre ? $this->transModel->getConclusionesSeccion($seccionId, $periodoId, true) : [],
+        ], $periodoId);
     }
 
     /**
@@ -498,8 +504,8 @@ class ConsultaNotasController extends BaseController
             'cierre'       => $cierre,
             'competencias' => $this->transModel->getCompetencias($nivelId),
             'alumnos'      => $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']),
-            'promedios'    => $this->transModel->getPromediosSeccion($seccionId, $periodoId),
-            'conclusiones' => $this->transModel->getConclusionesSeccion($seccionId, $periodoId),
+            'promedios'    => $this->transModel->getPromediosSeccion($seccionId, $periodoId, true),
+            'conclusiones' => $this->transModel->getConclusionesSeccion($seccionId, $periodoId, true),
         ]);
     }
 
@@ -602,7 +608,7 @@ class ConsultaNotasController extends BaseController
         $nivelId = (int) $primera['nivel_id'];
 
         // Solo lectura: Dirección ve lo OFICIAL (confirmado), nunca un borrador.
-        $estudiantes = $this->conductaModel->getEstudiantesParaRegistro($seccionId, $periodoId, true);
+        $estudiantes = $this->conductaModel->getEstudiantesParaRegistro($seccionId, $periodoId, true, true);
 
         // B1 legado (literal directo): no existe matriz de respuestas que mostrar.
         $hayRespuestas = false;
@@ -783,7 +789,9 @@ class ConsultaNotasController extends BaseController
         // EN VIVO pero solo lo CONFIRMADO (29/09/2026): un borrador del auxiliar
         // queda «al aire» y no es un dato para Dirección. Sigue sin exigir el
         // cierre, como decidió el usuario el 24/08.
-        $alumnos = $this->asistenciaModel->getEstudiantesConIncidencias($seccionId, $periodoId, true);
+        // Roster de LECTURA (28/10/2026): quien CURSÓ el bimestre, trasladados y
+        // retirados con dato oficial incluidos.
+        $alumnos = $this->asistenciaModel->getEstudiantesConIncidencias($seccionId, $periodoId, true, true);
 
         // Bimestre por fechas: las fechas de cada estudiante y, debajo de la tabla,
         // el anexo «Detalle de justificaciones» con sus motivos (solo lo confirmado).
@@ -795,7 +803,15 @@ class ConsultaNotasController extends BaseController
             $motivosM      = new \App\Models\AsistenciaMotivoModel();
             $nombreAnclaFj = $motivosM->nombreDe($motivosM->anclaDelPeriodo($periodoId));
             $fechasDetalle = [];
-            $incidencias   = $this->asistenciaModel->incidenciasDe(array_column($alumnos, 'matricula_id'), $periodoId, true);
+            // De la matrícula que tiene los datos (retorno de grado: la operativa
+            // en su tramo), devueltas a la fila (`matricula_id`) que las muestra.
+            $porDatos    = $this->asistenciaModel->incidenciasDe(array_column($alumnos, 'matricula_datos'), $periodoId, true);
+            $incidencias = [];
+            foreach ($alumnos as $a) {
+                if (isset($porDatos[(int) $a['matricula_datos']])) {
+                    $incidencias[(int) $a['matricula_id']] = $porDatos[(int) $a['matricula_datos']];
+                }
+            }
             foreach ($incidencias as $mid => $dias) {
                 $fechasDetalle[$mid] = AsistenciaModel::resumenFechas($dias);
             }
@@ -877,7 +893,7 @@ class ConsultaNotasController extends BaseController
                 WHERE c.id = ?
             ", [$competenciaId]);
 
-            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId);
+            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId, false, true);
 
             // Enriquecer cada alumno con sus omisiones por criterio (igual que el
             // resumen del docente: el badge "—" del casillero omitido).
@@ -912,7 +928,7 @@ class ConsultaNotasController extends BaseController
         // devuelve las mismas claves), asi que basta con anadirlas al array.
         foreach ($this->transversalesConContenido([$cargaId], $periodoId)[$cargaId] ?? [] as $t) {
             $competenciaId = (int) $t['competencia_id'];
-            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId);
+            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId, false, true);
 
             $competencias[] = [
                 'competencia'     => [

@@ -112,6 +112,39 @@
     // Rol dentro de un retorno de grado activo
     &--oficial     { background: #eef5fb; color: #1a5a8c; } // azul (SIAGIE)
     &--operativa   { background: #f5f0fe; color: #6d28d9; } // púrpura (cursa aquí)
+
+    // ── CHIPS DE SITUACIÓN (28/10/2026) ──────────────────────
+    // Catálogo y texto: `SITUACIONES_ESTUDIANTE` (helpers.php); se pintan con
+    // `shared/_situacion-chips.php`. Reglas: docs/modulos/ui.md.
+    // ⚠️ El gráfico de /matriculas/resumen copia el color del TEXTO de
+    // `--trasladado` y `--retirado`: si cambian aquí, cambian allí.
+
+    // Oficial de un retorno en un bimestre de su tramo: el azul de `--oficial`.
+    &--retorno     { background: #eef5fb; color: #1a5a8c; }
+    // Cambio de sección: el gris de `--trasladado` con borde PUNTEADO (sin color
+    // nuevo; la forma lo distingue). El padding resta el borde: mismo tamaño.
+    &--cambio {
+        padding: 2px 9px;
+        border: 1px dashed currentColor;
+        background: #f1f5f9;
+        color: #64748b;
+    }
+
+    // Tamaño de DOCUMENTO impreso (registro auxiliar): la misma familia a 6 pt,
+    // con borde del color del texto para que se lea aunque la impresora no
+    // pinte fondos. `--cambio` conserva su borde punteado.
+    &--impreso {
+        padding: 0 3px;
+        border: 1px solid currentColor;
+        border-radius: 2px;
+        font-size: 6pt;
+        white-space: nowrap;
+        vertical-align: baseline;
+        -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+
+        &.matricula-badge--cambio { border-style: dashed; }
+    }
 }
 
 // ── Fila de matrícula operativa (retorno de grado) ───────────

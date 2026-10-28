@@ -87,7 +87,8 @@ $urlCriterios ??= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (
                     <?php $lit = $a['literal_final']; ?>
                     <tr>
                         <td class="col-num"><?= $i + 1 ?></td>
-                        <td class="col-nombre"><?= e($a['nombre_completo']) ?></td>
+                        <td class="col-nombre"><?= e($a['nombre_completo']) ?>
+                            <?php $sitChips = $a['situaciones'] ?? []; require VIEW_PATH . '/shared/_situacion-chips.php'; ?></td>
 
                         <?php if ($esLegado): ?>
                             <td class="col-literal col-resultado col-resultado--inicio text-center">

@@ -129,6 +129,35 @@
 // Cada área, en hoja nueva (salvo la primera); sus conclusiones, también.
 .ra-hoja + .ra-hoja { break-before: page; }
 .ra-cd              { break-before: page; }
+
+// ── Anexo del RETORNO DE GRADO (28/10/2026) ──
+// En hoja nueva tras las conclusiones: todo lo que la estudiante cursó en su
+// matrícula operativa, criterio a criterio (`_anexo-retorno.php`). Reusa la
+// matriz (`.ra-m`) y la leyenda de criterios (`.ra-crit`); aquí solo lo propio.
+.ra-anexo {
+    break-before: page;
+
+    &__quien {
+        margin: 2mm 0 1.5mm;
+        font-size: 7.5pt;
+    }
+
+    &__c-comp { width: 11mm; }
+    &__c-cr   { width: 7mm; }
+
+    // Fila de grupo: la carga de la sección operativa y quien registró.
+    &__grupo th {
+        background: #eef2f7;
+        font-weight: 700;
+    }
+
+    &__grupo-crit { text-align: left; }
+
+    &__leyenda { margin-top: 2mm; }
+}
+
+// Anexo al pie de la hoja de transversales de la sección.
+.ra-anexo-ts { margin-top: 3mm; }
 // Partes de un área ancha (matriz o CD): cada una en hoja nueva. El reparto
 // lo calcula `RegistroAuxiliarModel::partesMatriz` con los anchos de `.ra-m__c-*`.
 .ra-parte + .ra-parte { break-before: page; }
@@ -220,6 +249,9 @@
     font-weight: 600;
     white-space: nowrap;
 
+    // La situación del ESTUDIANTE (trasladado, retorno, cambio de sección) no
+    // es un `ra-tag`: es el chip estándar `.matricula-badge--impreso`
+    // (shared/_situacion-chips.php, 28/10/2026).
     &--otra,
     &--pendiente,
     &--noeval {
