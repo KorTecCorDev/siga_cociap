@@ -112,7 +112,9 @@ $abreviaturas = [
                                        aria-label="<?= e($abreviaturas[$campo][1]) ?> de <?= e($est['nombre_completo']) ?>">
                             </td>
                         <?php else: ?>
-                            <td class="asistencia-td-valor"><?= $val ?></td>
+                            <?php // Solo lectura: sin registro (confirmado) no se afirma «0»,
+                                  // va guion (28/10/2026), como en el bloqueo forzado. ?>
+                            <td class="asistencia-td-valor"><?= !empty($inc['registrado']) ? $val : '—' ?></td>
                         <?php endif; ?>
                     <?php endforeach; ?>
 

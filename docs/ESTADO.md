@@ -126,8 +126,10 @@ zona en verde. **Fallan igual en `HEAD`** (previos, sin relación con este cambi
 - [ ] **Docente de 5.º B:** su historial de carga del I Bimestre incluye a BOCANEGRA con chip.
 - [ ] **`/matriculas` y `/matriculas/resumen`:** a simple vista, iguales; el pie de «Tipo» con
   trasladado gris y retirado rosa.
-- [ ] **Decidir (observación, sin tocar):** la asistencia de solo lectura pinta «0» en toda fila
-  SIN registro (antes y ahora). ¿Debería decir «—»?
+- [x] **Asistencia de solo lectura: «—» en las filas SIN registro confirmado** (decisión del
+  usuario, 28/10/2026; antes pintaba «0», que afirmaba «0 faltas»). En el parcial compartido
+  `_tabla-incidencias.php`, solo en modo lectura (el editable sigue con sus entradas). Medido:
+  3° B del I, 2 filas con guion y el contador «23 de 25 con registro».
 
 **Sin datos reales para probarlo** (lógica cubierta solo por pruebas de la función o por lectura):
 - una parte con SOLO Resumen y transversales (tope teórico; no hay área tan ancha);
