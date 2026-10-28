@@ -38,15 +38,21 @@ ningún `.sql`. Falta lo que exige sesión de cada rol:
 
 **Pendiente ANTES del deploy** (commit `61256c5`; todo lo medido se hizo llamando a los
 controladores sin login):
-- [ ] **Admin** (BD local): en `/consulta-notas/1/seccion/4`, el botón azul «Registro auxiliar
-  de calificaciones» de la CABECERA (con su ícono) abre en pestaña nueva y el documento termina
-  con la hoja «Competencias transversales de la sección»; «✕ Cerrar» la cierra; la pantalla de
-  espera no queda fija. «Imprimir» abre el diálogo y «Guardar como PDF» funciona.
-- [ ] **Admin:** en `/consulta-notas/1/carga/120` (Comunicación — Gramática), «Registro auxiliar
-  del área» imprime Comunicación ENTERA (sus 3 cargas): SIN la hoja de transversales, y CON ella
-  al marcar «Incluir transversales de la sección».
-- [ ] **Admin:** en el III Bimestre (activo), `/consulta-notas/3/seccion/4` y una carga NO
-  muestran los botones, y la URL directa da 404.
+**Probado el 28/10/2026 con la sesión ADMIN del usuario en Chrome (por HTTP, BD local):**
+- [x] **Admin:** en `/consulta-notas/2/seccion/23`, el botón «Registro auxiliar de calificaciones»
+  (con ícono, `target=_blank`) abre el documento: 13 hojas en el orden del plan + la de
+  transversales de la sección, «✕ Cerrar» e «🖨 Imprimir» presentes, la espera no queda fija,
+  0 avisos. **Falta** el diálogo de «Imprimir» → «Guardar como PDF» (no se dispara un diálogo
+  desde la herramienta: lo hace el usuario).
+- [x] **Admin:** `/consulta-notas/1/carga/120` → «Registro auxiliar del área» (GET `area_id=6`):
+  Comunicación sola, y con «Incluir transversales» + la hoja de la sección. ⚠️ Solo en local: el
+  `action` del formulario sale `http://localhost/...` sin el puerto 3000 (BrowserSync reescribe
+  `href`, no `action`); en producción no aplica.
+- [x] **Admin:** en el bimestre ACTIVO (hoy el IV) `/consulta-notas/4/seccion/4` no muestra el
+  botón y la URL directa da **404**.
+- [x] **Admin:** 2.° B II (retorno): fila de BALTAZAR vacía con chip, 8 anexos de área + el de
+  transversales; 1.° B ya no la lista; 4.° A/B con «Viene de / Pasó a»; las pestañas de
+  `/consulta-notas/2/seccion/4` con sus datos de 1.° B; asistencia con «—» sin registro.
 - [ ] **Íconos** (`checklist_icon.svg`) visibles en los 4 botones en el navegador (en las
   capturas headless de archivo no se dibujan por origen; no es prueba).
 - [ ] **Dirección** (`director_ebr` o `director_general`) y **RA**: las mismas entradas.
@@ -67,9 +73,9 @@ controladores sin login):
   `docs/modulos/calificaciones.md` § «El registro sigue el acta SIAGIE». Medido con
   `verif_registro_acta.php`: 33 hojas de Ed. Religiosa y 1.644 filas iguales al control; 12 hojas
   de réplica de GAMA y 444 logros iguales al promedio del control. PDF de 5.º B revisado.
-- [ ] **Admin, navegador:** registro «Todas las áreas» de **5.º B** (sección 23) del II impreso:
-  «Educación Religiosa» (sin Tutoría), «Arte y Cultura» y «Educación para el Trabajo» con la
-  tutora; ninguna mención a Ética.
+- [x] **Admin, navegador (28/10/2026):** registro «Todas las áreas» de **5.º B** del II:
+  «Educación Religiosa», «Arte y Cultura» y «Educación para el Trabajo» con la tutora; 0
+  menciones a Ética ni a Tutoría (por HTTP con la sesión del usuario).
 - [ ] **Docente tutor de secundaria:** su tarjeta dice «Educación Religiosa» y su documento igual.
 
 ### Roster de LECTURA + criterios de las transversales (28/10/2026, en `dev`, sin migración)
