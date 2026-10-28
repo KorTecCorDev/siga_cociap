@@ -12,8 +12,11 @@
  * tabla (`partesConclusiones`), cada parte en hoja nueva con «Parte X de Y»; las
  * transversales, en la última.
  *
- * @var array  $hoja
- * @var array  $periodo
+ * Logros (propios y transversales) en PAR numeral | literal, los dos niveles.
+ *
+ * @var array    $hoja
+ * @var array    $periodo
+ * @var callable $par      celdas numeral | literal (documento.php)
  */
 $propias = array_values(array_filter($hoja['columnas'], static fn(array $c): bool => $c['tipo'] === 'propia'));
 $transv  = array_values(array_filter($hoja['transversales'], static fn(array $t): bool => $t['evaluada']));
@@ -49,7 +52,7 @@ $notaHoja   = 'Logro del bimestre y conclusión descriptiva';
         $trParte = $parte['final'] ? $transv : [];
         // Logro = 2 columnas (numeral | literal, cada uno centrado en la suya y sin
         // línea entre ellas, 27/10/2026) + la conclusión.
-        $totalColumnas = 2 + 3 * count($propParte) + count($trParte);
+        $totalColumnas = 2 + 3 * count($propParte) + 2 * count($trParte);
         // Transversales de varias cargas: una fila más con el código de la
         // competencia de cada carga sobre sus CT, como en la matriz.
         $trGrupos   = \App\Models\RegistroAuxiliarModel::gruposTransversales($trParte);
@@ -61,7 +64,7 @@ $notaHoja   = 'Logro del bimestre y conclusión descriptiva';
             <?php foreach ($propParte as $c): ?>
                 <col class="ra-cd__c-num"><col class="ra-cd__c-lit"><col>
             <?php endforeach; ?>
-            <?php foreach ($trParte as $t): ?><col class="ra-m__c-tr"><?php endforeach; ?>
+            <?php foreach ($trParte as $t): ?><col class="ra-m__c-pnum"><col class="ra-m__c-plit"><?php endforeach; ?>
         </colgroup>
         <thead>
             <tr class="ra-m__id">
@@ -74,13 +77,13 @@ $notaHoja   = 'Logro del bimestre y conclusión descriptiva';
                     <th scope="colgroup" rowspan="<?= $filasGrupo ?>" colspan="3" class="ra-m__grupo"><?= e((string) $c['codigo']) ?></th>
                 <?php endforeach; ?>
                 <?php if ($trParte !== []): ?>
-                    <th scope="colgroup" colspan="<?= count($trParte) ?>" class="ra-m__grupo ra-m__grupo--tr">Comp. transv.</th>
+                    <th scope="colgroup" colspan="<?= 2 * count($trParte) ?>" class="ra-m__grupo ra-m__grupo--tr">Comp. transv.</th>
                 <?php endif; ?>
             </tr>
             <?php if ($trGrupos !== []): ?>
                 <tr class="ra-m__subgrupos">
                     <?php foreach ($trGrupos as $g): ?>
-                        <th scope="colgroup" colspan="<?= $g['span'] ?>" class="ra-m__grupo ra-m__grupo--tr"><?= e($g['grupo']) ?></th>
+                        <th scope="colgroup" colspan="<?= 2 * $g['span'] ?>" class="ra-m__grupo ra-m__grupo--tr"><?= e($g['grupo']) ?></th>
                     <?php endforeach; ?>
                 </tr>
             <?php endif; ?>
@@ -90,7 +93,7 @@ $notaHoja   = 'Logro del bimestre y conclusión descriptiva';
                     <th scope="col" class="ra-m__izq">Conclusión descriptiva</th>
                 <?php endforeach; ?>
                 <?php foreach ($trParte as $t): ?>
-                    <th scope="col" class="ra-m__tr"><?= e((string) $t['competencia']['codigo_minedu']) ?></th>
+                    <th scope="colgroup" colspan="2" class="ra-m__tr"><?= e((string) $t['competencia']['codigo_minedu']) ?></th>
                 <?php endforeach; ?>
             </tr>
         </thead>
@@ -103,20 +106,11 @@ $notaHoja   = 'Logro del bimestre y conclusión descriptiva';
 <?php foreach ($propParte as $c):
     $a   = $c['alumnos'][$mid] ?? null;
     $exo = isset($c['exoSet'][$mid]); ?>
-<?php if ($exo): ?>
-<td class="ra-cd__logro" colspan="2"><span class="exo-badge">EXO</span></td>
-<?php elseif ($a !== null && $a['promedio'] !== null): ?>
-<td class="ra-cd__logro ra-cd__num"><span class="nota-numeral nota-numeral--<?= e(strtolower((string) $a['literal'])) ?>"><?= fmt_nota((int) $a['promedio']) ?></span></td>
-<td class="ra-cd__logro ra-cd__lit"><span class="nota-literal nota-literal--<?= e(strtolower((string) $a['literal'])) ?>"><?= e($a['literal']) ?></span></td>
-<?php else: ?>
-<td class="ra-cd__logro" colspan="2">—</td>
-<?php endif; ?>
+<?php $par($a, $exo, 'ra-cd__logro'); ?>
 <td class="ra-m__izq ra-cd__texto"><?php if ($exo): ?><span class="ra-m__muted">Exonerado(a) — no aplica</span><?php elseif (!empty($a['conclusion_descriptiva'])): ?><?= e($a['conclusion_descriptiva']) ?><?php else: ?>—<?php endif; ?></td>
 <?php endforeach; ?>
-<?php foreach ($trParte as $t):
-    $a   = $t['alumnos'][$mid] ?? null;
-    $exo = isset($t['exoSet'][$mid]); ?>
-<td class="ra-m__tr"><?php if ($exo): ?><span class="exo-badge">EXO</span><?php elseif ($a !== null && $a['promedio'] !== null): ?><span class="nota-literal nota-literal--<?= e(strtolower((string) $a['literal'])) ?>"><?= e($a['literal']) ?></span><?php else: ?>—<?php endif; ?></td>
+<?php foreach ($trParte as $t): ?>
+<?php $par($t['alumnos'][$mid] ?? null, isset($t['exoSet'][$mid]), 'ra-m__tr'); ?>
 <?php endforeach; ?>
 </tr>
 <?php endforeach; ?>

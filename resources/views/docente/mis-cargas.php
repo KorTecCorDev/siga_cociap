@@ -28,7 +28,10 @@
     <?php endif; ?>
     <?php if ($periodo && !empty($cargas)): ?>
         <a href="<?= url('docente/registro-auxiliar?periodo_id=' . (int) $periodo['id']) ?>"
-           class="btn btn--secondary btn--sm">Registro auxiliar</a>
+           class="btn btn--registro btn--sm">
+            <span class="btn-icon btn-icon--registro" aria-hidden="true"></span>
+            Registro auxiliar
+        </a>
     <?php endif; ?>
 </div>
 

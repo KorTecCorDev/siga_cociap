@@ -58,6 +58,22 @@ foreach ($entradas as $en) {
             calificaciones aprobadas; las demás quedan en blanco.
         </p>
 
+        <?php // Acciones ARRIBA de las cards y con el estilo del registro auxiliar
+              // (27/10/2026): el docente reconoce el acceso sin leer. El id del
+              // botón lo usa registro-auxiliar.js para habilitarlo. ?>
+        <div class="card mb-md">
+            <div class="card__body ra-sel__acciones">
+                <button type="submit" formtarget="_blank" class="btn btn--registro" id="btnRaSeleccion" disabled>
+                    <span class="btn-icon btn-icon--registro" aria-hidden="true"></span>
+                    Imprimir seleccionadas
+                </button>
+                <button type="submit" name="todas" value="1" formtarget="_blank" class="btn btn--registro-linea">
+                    <span class="btn-icon btn-icon--registro" aria-hidden="true"></span>
+                    Imprimir todas mis cargas
+                </button>
+            </div>
+        </div>
+
         <?php // Cards = las de Mis cargas (`.carga-item`), pero como <label> con su
               // casilla VISIBLE: es lo que dice que se puede marcar más de una (mismo
               // criterio que las casillas del Acompañamiento). ?>
@@ -121,16 +137,5 @@ foreach ($entradas as $en) {
                 </div>
             </div>
         <?php endforeach; ?>
-
-        <div class="card">
-            <div class="card__body form-actions ra-sel__acciones">
-                <button type="submit" formtarget="_blank" class="btn btn--primary" id="btnRaSeleccion" disabled>
-                    Imprimir seleccionadas
-                </button>
-                <button type="submit" name="todas" value="1" formtarget="_blank" class="btn btn--secondary">
-                    Imprimir todas mis cargas
-                </button>
-            </div>
-        </div>
     </form>
 <?php endif; ?>

@@ -24,6 +24,7 @@
  * @var array  $periodo  con anio y lema_oficial
  * @var array  $hojas    RegistroAuxiliarModel::hoja() + `docentes`
  *                       [{nombre, detalle|null}] y `firmas` [{nombre|null, cargo}]
+ * @var array|null $transversalesSeccion  solo modo área: hoja final de la sección
  */
 $omisionSiglas = [
     'ausencia_injustificada' => 'AI',
@@ -32,23 +33,51 @@ $omisionSiglas = [
     'no_aplico'              => 'NA',
 ];
 
+// PAR numeral | literal (Logro, Resumen y transversales; 27/10/2026, los dos
+// niveles): dos celdas, cada valor centrado en la suya y sin línea entre ellas.
+// EXO, «—» y la celda en blanco ocupan las dos. `$a` = fila de alumno con
+// `promedio` y `literal` (getResumenCompetencia: literal ⟺ promedio).
+$par = static function (?array $a, bool $exo, string $clase, bool $enBlanco = false): void {
+    if ($enBlanco) {
+        echo '<td class="' . e($clase) . '" colspan="2"></td>';
+    } elseif ($exo) {
+        echo '<td class="' . e($clase) . '" colspan="2"><span class="exo-badge">EXO</span></td>';
+    } elseif ($a !== null && $a['promedio'] !== null) {
+        $lit = (string) $a['literal'];
+        $mod = e(strtolower($lit));
+        echo '<td class="' . e($clase) . ' ra-m__pn"><span class="nota-numeral nota-numeral--' . $mod . '">' . fmt_nota((int) $a['promedio']) . '</span></td>'
+           . '<td class="' . e($clase) . ' ra-m__pl"><span class="nota-literal nota-literal--' . $mod . '">' . e($lit) . '</span></td>';
+    } else {
+        echo '<td class="' . e($clase) . '" colspan="2">—</td>';
+    }
+};
+
 // Cada parcial en su propio ámbito: no ven ni pisan las variables del bucle.
-$pintarMatriz = static function (array $hoja, array $periodo, string $modo, array $omisionSiglas): void {
+$pintarMatriz = static function (array $hoja, array $periodo, string $modo, array $omisionSiglas, callable $par): void {
     require VIEW_PATH . '/shared/registro-auxiliar/_matriz.php';
 };
-$pintarConclusiones = static function (array $hoja, array $periodo): void {
+$pintarConclusiones = static function (array $hoja, array $periodo, callable $par): void {
     require VIEW_PATH . '/shared/registro-auxiliar/_cd.php';
 };
 $pintarExtraordinarias = static function (array $extraordinariasCarga): void {
     require VIEW_PATH . '/consulta-notas/_extraordinarias-carga.php';
 };
+$pintarTransversales = static function (array $ts, array $periodo, callable $par): void {
+    require VIEW_PATH . '/shared/registro-auxiliar/_transversales-seccion.php';
+};
+// Solo el registro del ÁREA COMPLETA la trae (ConsultaNotasController); el del
+// docente nunca: él solo ve sus propias notas.
+$transversalesSeccion = $modo === 'area' ? ($transversalesSeccion ?? null) : null;
 ?>
 <div class="ra-print">
     <?php foreach ($hojas as $hoja): ?>
         <section class="ra-hoja">
-            <?php $pintarMatriz($hoja, $periodo, $modo, $omisionSiglas); ?>
-            <?php $pintarConclusiones($hoja, $periodo); ?>
+            <?php $pintarMatriz($hoja, $periodo, $modo, $omisionSiglas, $par); ?>
+            <?php $pintarConclusiones($hoja, $periodo, $par); ?>
             <?php $pintarExtraordinarias($hoja['extraordinarias']); ?>
         </section>
     <?php endforeach; ?>
+    <?php if ($transversalesSeccion !== null): ?>
+        <?php $pintarTransversales($transversalesSeccion, $periodo, $par); ?>
+    <?php endif; ?>
 </div>

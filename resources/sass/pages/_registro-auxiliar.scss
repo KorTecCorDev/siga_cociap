@@ -319,10 +319,27 @@
     &__c-num    { width: 5mm; }
     // 58 mm: con 46 la mitad de los nombres partía en dos líneas y la fila doblaba su alto.
     &__c-nombre { width: 58mm; }
-    &__c-logro  { width: 8mm; }
     &__c-vacia  { width: 7mm; }
-    &__c-res    { width: 6.5mm; }
-    &__c-tr     { width: 9mm; }
+    // PAR numeral | literal de Logro, Resumen y transversales (27/10/2026).
+    // Espejo de `RegistroAuxiliarModel::ANCHO_NUMERAL_MM` / `ANCHO_LITERAL_MM`.
+    &__c-pnum   { width: 5mm; }
+    &__c-plit   { width: 5.5mm; }
+
+    // Sin línea entre el numeral y su literal: `hidden` gana al borde colapsado
+    // del vecino. (0,2,0): gana a `.ra-m td` (0,1,1) sin `!important`.
+    & &__pn { border-right-style: hidden; }
+
+    // 🔴 El par NO parte su valor: con el `overflow-wrap: anywhere` de la tabla,
+    // un «13» se partía en dos renglones en 5 mm y doblaba el alto de la fila
+    // (medido el 27/10/2026: 19 → 13 estudiantes por hoja). Relleno lateral
+    // mínimo para caber en 5 / 5,5 mm. (0,2,0), como arriba.
+    & &__pn,
+    & &__pl {
+        padding-left: .2mm;
+        padding-right: .2mm;
+        white-space: nowrap;
+        overflow-wrap: normal;
+    }
 
     th, td {
         border: 1px solid #888;
@@ -467,10 +484,6 @@
     &__c-lit { width: 7mm; }
 
     &__logro { white-space: nowrap; }
-
-    // Sin línea entre numeral y literal: `hidden` gana al borde colapsado del
-    // vecino. (0,2,0): gana a `.ra-m td` (0,1,1) sin `!important`.
-    &__tabla &__num { border-right-style: hidden; }
 
     &__texto {
         font-size: 6.5pt;

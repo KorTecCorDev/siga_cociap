@@ -401,6 +401,10 @@ class ConsultaNotasController extends BaseController
             $hojas[] = $hoja;
         }
 
+        // Hoja de transversales de la SECCIÓN (27/10/2026): siempre con la sección
+        // completa; con un área, solo si se pidió (`transversales=1`).
+        $incluirTr = $areaId === 0 || (string) ($this->query('transversales') ?? '') === '1';
+
         View::setLayout('print');
         $this->view('shared/registro-auxiliar/documento', [
             'titulo'    => 'Registro auxiliar de calificaciones',
@@ -408,7 +412,37 @@ class ConsultaNotasController extends BaseController
             'modo'      => 'area',
             'periodo'   => $periodo,
             'hojas'     => $hojas,
+            'transversalesSeccion' => $incluirTr ? $this->transversalesSeccion($cargas[0], $periodo) : null,
         ]);
+    }
+
+    /**
+     * Datos de la hoja «Competencias transversales de la sección» del registro
+     * auxiliar: los MISMOS que `transversales()` (cierre vigente del tutor,
+     * competencias del nivel, roster de la sección, promedios y conclusiones),
+     * para que el documento diga lo mismo que esa pantalla y que la boleta.
+     * Sin cierre vigente, la hoja lo indica y no muestra notas.
+     */
+    private function transversalesSeccion(array $carga, array $periodo): array
+    {
+        $seccionId = (int) $carga['seccion_id'];
+        $periodoId = (int) $periodo['id'];
+        $nivelId   = (int) $carga['nivel_id'];
+        $cierre    = $this->transModel->getCierreVigente($seccionId, $periodoId);
+
+        return [
+            'meta' => [
+                'grado_nombre'   => $carga['grado_nombre'],
+                'seccion_nombre' => $carga['seccion_nombre'],
+                'nivel_nombre'   => $carga['nivel_nombre'],
+                'nivel_codigo'   => $carga['nivel_codigo'],
+            ],
+            'cierre'       => $cierre,
+            'competencias' => $this->transModel->getCompetencias($nivelId),
+            'alumnos'      => $cierre ? $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']) : [],
+            'promedios'    => $cierre ? $this->transModel->getPromediosSeccion($seccionId, $periodoId) : [],
+            'conclusiones' => $cierre ? $this->transModel->getConclusionesSeccion($seccionId, $periodoId) : [],
+        ];
     }
 
     /**

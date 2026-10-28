@@ -1387,16 +1387,24 @@ blanco» de esos documentos no traen ningún dato.
   `Cr1…CrN` = los rótulos de la matriz, ancho fijo: el número o el largo de los criterios no
   la desacomoda); escala y omisiones (AI/AJ/AR/NA). Antes los criterios iban como texto
   corrido en media rejilla y descuadraban el bloque (27/10/2026).
-- **Matriz**: N° · estudiante · por competencia, `Cr1…CrN` + **Logro** (`.nota-numeral`) o una
-  columna en blanco · **Resumen** (`.nota-literal`) · **Comp. transv.**
+- **Matriz**: N° · estudiante · por competencia, `Cr1…CrN` + **Logro** o una columna en blanco ·
+  **Resumen** · **Comp. transv.** Logro, Resumen y transversales van en **PAR numeral | literal**
+  (decisión del usuario, 27/10/2026, **los dos niveles sin excepción**): dos columnas
+  (`.ra-m__c-pnum` 5 mm + `.ra-m__c-plit` 5,5 mm), cada valor centrado en la suya y **sin
+  línea entre ellas** (`.ra-m__pn`: `border-right-style: hidden`); EXO, «—» y la celda en
+  blanco abarcan las dos. Lo pinta UN closure, `$par` de `documento.php`, en las 3 tablas.
+  ⚠️ El Resumen repite el número del Logro de la misma fila: se pidió así a sabiendas.
+  🔴 El par lleva `white-space: nowrap` y casi sin relleno lateral: con el `overflow-wrap:
+  anywhere` de la tabla, un «13» se partía en dos renglones en 5 mm y la hoja bajaba de 19 a
+  13 estudiantes (medido). Al medir un cambio de ancho, mirar también el ALTO de las filas.
 - **Pie** (indivisible): estadísticas (proceso de logro y niveles de logro por competencia) a
   la izquierda; identificación del área, lugar y fecha (`fecha_es`) y las tres firmas
   (`.reporte-footer`, compartido) a la derecha.
 - **CD**: por estudiante, logro y conclusión de cada competencia propia. El logro ocupa **dos
   columnas** (numeral | literal, 7 + 7 mm), cada valor centrado en la suya y **sin línea entre
-  ellas** (`border-right-style: hidden`); EXO y «—» abarcan las dos;
-  de las transversales, solo el logro (su conclusión es del tutor). Después, las
-  extraordinarias de RA (`consulta-notas/_extraordinarias-carga.php`).
+  ellas** (el mismo `$par`); EXO y «—» abarcan las dos;
+  de las transversales, solo el logro en par numeral | literal (su conclusión es del tutor).
+  Después, las extraordinarias de RA (`consulta-notas/_extraordinarias-carga.php`).
 
 ### 🔴 Reglas de corte (medidas imprimiendo a PDF)
 - Los rótulos de la matriz van en un `<thead>` **bajo** (solo códigos y `Cr1…CrN`; los nombres
@@ -1428,9 +1436,11 @@ horizontal útil mide **277 mm**. Por eso (decisión del usuario):
   de al menos **45 mm** (con 55, un área de 3 competencias y 2 transversales que hoy se
   imprime entera se habría partido); las transversales, en la última.
 - 🔴 **Las medidas son constantes del Model que REFLEJAN el SASS** (`ANCHO_*_MM` ↔
-  `.ra-m__c-*`, `.ra-cd__c-logro` y `@page paisaje`). Si cambia una en el SASS, cambiarla en
-  el Model, o el reparto deja tablas que desbordan. Las `<col>` de criterio no tienen ancho
-  fijo: 5 mm es el **mínimo** legible que reserva el presupuesto.
+  `.ra-m__c-*`, `.ra-cd__c-num`/`-lit` y `@page paisaje`). Si cambia una en el SASS, cambiarla
+  en el Model, o el reparto deja tablas que desbordan. Las `<col>` de criterio no tienen ancho
+  fijo: 5 mm es el **mínimo** legible que reserva el presupuesto. Logro, Resumen y
+  transversales son un par de 10,5 mm (`ANCHO_NUMERAL_MM` + `ANCHO_LITERAL_MM`): simulado
+  sobre las 430 hojas de área de los bimestres I y II, **19 ganan una parte** (4 %).
 - Efecto en el registro del DOCENTE: la matriz no cambió en ningún caso medido (5 documentos,
   0 diferencias); solo la hoja CD de un área de 4 competencias pasa a 2 partes.
 
@@ -1442,6 +1452,19 @@ de 2.º B) sin ensancharla: chip a 5 pt con 0,15 mm de relleno, y la celda (`.ra
 0,1 mm de relleno lateral. Medido en Chrome headless: con el relleno general de 0,5 mm **no
 cabía ningún chip**; ajustado, caben los 120 de la sección. El margen es fino: subir la letra o
 el relleno obliga a volver a medir.
+
+### Botón del registro auxiliar (`.btn--registro`)
+Las **4 entradas** al registro auxiliar se ven iguales para reconocerse sin leer (decisión del
+usuario, 27/10/2026): `/docente/mis-cargas` («Registro auxiliar»), `/docente/registro-auxiliar`
+(«Imprimir seleccionadas» lleno + «Imprimir todas mis cargas» con contorno, **arriba** de las
+cards, sin fijar; antes iban al final), y la sección y la carga de `/consulta-notas`.
+- `.btn--registro` (fondo `$card-cargas-line`, el azul de «Académicas / Mis cargas» del
+  wayfinding: no es un color nuevo) y `.btn--registro-linea` (contorno), en
+  `components/_buttons.scss`;
+- ícono `.btn-icon--registro` = `public/assets/icons/checklist_icon.svg` (máscara, toma el
+  color del texto). ⚠️ El SVG debe estar **versionado**: el auto-deploy solo publica lo de git.
+- En una captura de Chrome headless de una página abierta como archivo, las máscaras de
+  ícono NO se dibujan (otro origen): no es un fallo. Se ven con el CSS del mismo origen.
 
 ### Registro del área completa (Dirección, RA y admin)
 - **Ruta:** `GET /consulta-notas/{periodo}/seccion/{seccion}/registro-auxiliar[?area_id=]`
@@ -1458,11 +1481,29 @@ el relleno obliga a volver a medir.
   (`RegistroAuxiliarModel::firmas`); con más de 3, filas de 3 (`.ra-firmas--varias`).
 - Una columna `otra` dice **«Sin carga»** (competencia del plan sin carga en la sección).
 - Extraordinarias **con** las reservadas a Dirección (`$paraDocente = false`).
-- **Entradas:** una fila «Registro auxiliar de calificaciones» en «Registros de la sección»
-  (`consulta-notas/seccion.php`) y el botón «Registro auxiliar del área» en el `.page-header`
-  de `consulta-notas/carga.php`, que imprime **el área entera** (todas sus cargas). Ambas en
-  ventana nueva. La lista «Áreas y cargas» no lleva enlace: lista cargas, no áreas, y cada fila
-  ya es un `<a>` entero.
+- **Entradas** (las dos con el botón del registro auxiliar, abajo), en ventana nueva:
+  - **la sección completa**: botón «Registro auxiliar de calificaciones» a la derecha del
+    `.page-header` de `consulta-notas/seccion.php` (la fila que tuvo en «Registros de la
+    sección» se retiró el mismo día: una sola entrada);
+  - **un área**: formulario GET en el `.page-header` de `consulta-notas/carga.php`, botón
+    «Registro auxiliar del área» (imprime **el área entera**, todas sus cargas) y debajo la
+    casilla **«Incluir transversales de la sección»** (`transversales=1`; el servidor solo
+    acepta 1). En columna, para no empujar el título: en una línea, «Solo lectura» bajaba.
+  - La lista «Áreas y cargas» no lleva enlace: lista cargas, no áreas, y cada fila ya es un `<a>`.
+- **Hoja «Competencias transversales de la sección»** (`_transversales-seccion.php`), al final:
+  - **siempre** con la sección completa; con un área, **solo si se marca la casilla**;
+    **NUNCA en el registro del docente** (`documento.php` la anula fuera de `$modo = 'area'`):
+    el docente solo ve sus propias notas;
+  - por estudiante y por CT: el **logro oficial de la sección** (promedio de las cargas, el
+    de la boleta) en par numeral | literal, y la **conclusión del tutor**. Son los MISMOS datos
+    que `/consulta-notas/{p}/seccion/{s}/transversales` (`ConsultaNotasController::
+    transversalesSeccion`: cierre vigente, `getPromediosSeccion`, `getConclusionesSeccion`,
+    roster `rosterSeccion`); sin cierre vigente, la hoja lo dice y no muestra notas;
+  - **sin firmas** (decisión del usuario: firman los documentos con toda la información);
+  - la conclusión de las transversales ya no es de cada carga: en el II Bimestre hay 0 por
+    carga y 94 del tutor (`conclusiones_transversales`), por eso sale de la sección.
+  - Medido: coincide con la pantalla de transversales en 2.º B (I), 6.º A (II) y 5.º B de
+    secundaria (II): 58 estudiantes, 0 diferencias, conclusiones incluidas.
 - Medido (BD local): las notas coinciden con el historial de cada carga en Matemática de 2.º B
   (I Bimestre, 36 criterios, 1 docente) y de 6.º A (II Bimestre, 30 criterios, 2 docentes):
   **148 filas, 0 diferencias**, conclusiones incluidas. Impreso a PDF: 4 hojas cada uno,

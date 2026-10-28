@@ -19,10 +19,14 @@
  * hoja nueva, repitiendo N° y nombres y diciendo «Parte X de Y». La leyenda va
  * una vez (arriba); Resumen y transversales, en la última parte, y el pie, tras ella.
  *
- * @var array  $hoja           con `firmas` [{nombre|null, cargo}]
- * @var array  $periodo
- * @var string $modo           'docente' | 'area'
- * @var array  $omisionSiglas
+ * Logro, Resumen y transversales en PAR numeral | literal, los dos niveles
+ * (27/10/2026).
+ *
+ * @var array    $hoja           con `firmas` [{nombre|null, cargo}]
+ * @var array    $periodo
+ * @var string   $modo           'docente' | 'area'
+ * @var array    $omisionSiglas
+ * @var callable $par            celdas numeral | literal (documento.php)
  */
 $columnas  = $hoja['columnas'];
 $transv    = $hoja['transversales'];
@@ -144,9 +148,10 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
         }
         $resParte = $parte['final'] ? $columnas : [];
         $trParte  = $parte['final'] ? $transv : [];
-        $totalColumnas = 2 + count($resParte) + count($trParte);
+        // Logro, Resumen y transversales: PAR numeral | literal (2 columnas).
+        $totalColumnas = 2 + 2 * count($resParte) + 2 * count($trParte);
         foreach ($colsParte as $c) {
-            $totalColumnas += $c['tipo'] === 'propia' ? count($c['criterios']) + 1 : 1;
+            $totalColumnas += $c['tipo'] === 'propia' ? count($c['criterios']) + 2 : 1;
         } ?>
     <table class="ra-m ra-parte">
         <colgroup>
@@ -155,13 +160,13 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
             <?php foreach ($colsParte as $c): ?>
                 <?php if ($c['tipo'] === 'propia'): ?>
                     <?php foreach ($c['criterios'] as $cr): ?><col><?php endforeach; ?>
-                    <col class="ra-m__c-logro">
+                    <col class="ra-m__c-pnum"><col class="ra-m__c-plit">
                 <?php else: ?>
                     <col class="ra-m__c-vacia">
                 <?php endif; ?>
             <?php endforeach; ?>
-            <?php foreach ($resParte as $c): ?><col class="ra-m__c-res"><?php endforeach; ?>
-            <?php foreach ($trParte as $t): ?><col class="ra-m__c-tr"><?php endforeach; ?>
+            <?php foreach ($resParte as $c): ?><col class="ra-m__c-pnum"><col class="ra-m__c-plit"><?php endforeach; ?>
+            <?php foreach ($trParte as $t): ?><col class="ra-m__c-pnum"><col class="ra-m__c-plit"><?php endforeach; ?>
         </colgroup>
         <thead>
             <tr class="ra-m__id">
@@ -176,22 +181,22 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
                 <th rowspan="<?= $filasGrupo + 1 ?>" scope="col">N°</th>
                 <th rowspan="<?= $filasGrupo + 1 ?>" scope="col" class="ra-m__izq">Apellidos y nombres</th>
                 <?php foreach ($colsParte as $i => $c): ?>
-                    <th scope="colgroup" rowspan="<?= $filasGrupo ?>" colspan="<?= $c['tipo'] === 'propia' ? count($c['criterios']) + 1 : 1 ?>"
+                    <th scope="colgroup" rowspan="<?= $filasGrupo ?>" colspan="<?= $c['tipo'] === 'propia' ? count($c['criterios']) + 2 : 1 ?>"
                         class="ra-m__grupo<?= $c['tipo'] !== 'propia' ? ' ra-m__grupo--vacio' : '' ?>">
                         <?= e($codigo($c, $i)) ?>
                     </th>
                 <?php endforeach; ?>
                 <?php if ($resParte !== []): ?>
-                    <th scope="colgroup" rowspan="<?= $filasGrupo ?>" colspan="<?= count($resParte) ?>" class="ra-m__grupo ra-m__grupo--res">Resumen</th>
+                    <th scope="colgroup" rowspan="<?= $filasGrupo ?>" colspan="<?= 2 * count($resParte) ?>" class="ra-m__grupo ra-m__grupo--res">Resumen</th>
                 <?php endif; ?>
                 <?php if ($trParte !== []): ?>
-                    <th scope="colgroup" colspan="<?= count($trParte) ?>" class="ra-m__grupo ra-m__grupo--tr">Comp. transv.</th>
+                    <th scope="colgroup" colspan="<?= 2 * count($trParte) ?>" class="ra-m__grupo ra-m__grupo--tr">Comp. transv.</th>
                 <?php endif; ?>
             </tr>
             <?php if ($trGrupos !== []): ?>
                 <tr class="ra-m__subgrupos">
                     <?php foreach ($trGrupos as $g): ?>
-                        <th scope="colgroup" colspan="<?= $g['span'] ?>" class="ra-m__grupo ra-m__grupo--tr"><?= e($g['grupo']) ?></th>
+                        <th scope="colgroup" colspan="<?= 2 * $g['span'] ?>" class="ra-m__grupo ra-m__grupo--tr"><?= e($g['grupo']) ?></th>
                     <?php endforeach; ?>
                 </tr>
             <?php endif; ?>
@@ -201,16 +206,16 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
                         <?php foreach ($c['criterios'] as $n => $cr): ?>
                             <th scope="col" class="ra-m__cr" title="<?= e($cr['nombre']) ?>"><span class="ra-cr">Cr<?= $n + 1 ?></span></th>
                         <?php endforeach; ?>
-                        <th scope="col" class="ra-m__logro">Logro</th>
+                        <th scope="colgroup" colspan="2" class="ra-m__logro">Logro</th>
                     <?php else: ?>
                         <th scope="col" class="ra-m__vacia"></th>
                     <?php endif; ?>
                 <?php endforeach; ?>
                 <?php foreach ($resParte as $i => $c): ?>
-                    <th scope="col" class="ra-m__res"><?= e($codigo($c, $i)) ?></th>
+                    <th scope="colgroup" colspan="2" class="ra-m__res"><?= e($codigo($c, $i)) ?></th>
                 <?php endforeach; ?>
                 <?php foreach ($trParte as $t): ?>
-                    <th scope="col" class="ra-m__tr"><?= e((string) $t['competencia']['codigo_minedu']) ?></th>
+                    <th scope="colgroup" colspan="2" class="ra-m__tr"><?= e((string) $t['competencia']['codigo_minedu']) ?></th>
                 <?php endforeach; ?>
             </tr>
         </thead>
@@ -232,20 +237,16 @@ require VIEW_PATH . '/shared/registro-auxiliar/_cabecera.php';
     $om = $a['omisiones_criterios'][$cr['id']] ?? null; ?>
 <td><?php if ($exo): ?><span class="exo-badge">EXO</span><?php elseif ($nc !== null): ?><?= fmt_nota((int) $nc) ?><?php elseif ($om !== null): ?><span class="omision-badge" title="<?= e(\App\Models\OmisionCriterioModel::etiqueta($om)) ?>"><?= e($omisionSiglas[$om] ?? '—') ?></span><?php else: ?>—<?php endif; ?></td>
 <?php endforeach; ?>
-<td class="ra-m__logro"><?php if ($exo): ?><span class="exo-badge">EXO</span><?php elseif ($a !== null && $a['promedio'] !== null): ?><span class="nota-numeral nota-numeral--<?= e(strtolower((string) $a['literal'])) ?>"><?= fmt_nota((int) $a['promedio']) ?></span><?php else: ?>—<?php endif; ?></td>
+<?php $par($a, $exo, 'ra-m__logro'); ?>
 <?php endforeach; ?>
 <?php foreach ($resParte as $c): ?>
 <?php if ($c['tipo'] !== 'propia'): ?>
-<td class="ra-m__res ra-m__vacia"></td>
-<?php continue; endif;
-    $a   = $c['alumnos'][$mid] ?? null;
-    $exo = isset($c['exoSet'][$mid]); ?>
-<td class="ra-m__res"><?php if ($exo): ?><span class="exo-badge">EXO</span><?php elseif ($a !== null && $a['literal'] !== null): ?><span class="nota-literal nota-literal--<?= e(strtolower((string) $a['literal'])) ?>"><?= e($a['literal']) ?></span><?php else: ?>—<?php endif; ?></td>
+<?php $par(null, false, 'ra-m__res ra-m__vacia', true); ?>
+<?php continue; endif; ?>
+<?php $par($c['alumnos'][$mid] ?? null, isset($c['exoSet'][$mid]), 'ra-m__res'); ?>
 <?php endforeach; ?>
-<?php foreach ($trParte as $t):
-    $a   = $t['alumnos'][$mid] ?? null;
-    $exo = isset($t['exoSet'][$mid]); ?>
-<td class="ra-m__tr"><?php if (!$t['evaluada']): ?><?php elseif ($exo): ?><span class="exo-badge">EXO</span><?php elseif ($a !== null && $a['literal'] !== null): ?><span class="nota-literal nota-literal--<?= e(strtolower((string) $a['literal'])) ?>"><?= e($a['literal']) ?></span><?php else: ?>—<?php endif; ?></td>
+<?php foreach ($trParte as $t): ?>
+<?php $par($t['alumnos'][$mid] ?? null, isset($t['exoSet'][$mid]), 'ra-m__tr', !$t['evaluada']); ?>
 <?php endforeach; ?>
 </tr>
 <?php endforeach; ?>

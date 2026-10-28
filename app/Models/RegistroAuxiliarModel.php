@@ -24,14 +24,18 @@ class RegistroAuxiliarModel extends BaseModel
     public const ANCHO_FIJO_MM = 63;
     /** Mínimo legible de una columna de criterio (sus `<col>` no llevan ancho fijo). */
     public const ANCHO_CRITERIO_MM = 5;
-    /** `.ra-m__c-logro`. */
-    public const ANCHO_LOGRO_MM = 8;
+    // Logro, Resumen y transversales van como PAR numeral | literal (27/10/2026,
+    // los dos niveles): `.ra-m__c-pnum` + `.ra-m__c-plit`.
+    public const ANCHO_NUMERAL_MM = 5;
+    public const ANCHO_LITERAL_MM = 5.5;
+    /** Logro de cada competencia propia: un par. */
+    public const ANCHO_LOGRO_MM = self::ANCHO_NUMERAL_MM + self::ANCHO_LITERAL_MM;
     /** `.ra-m__c-vacia`: competencia en blanco. */
     public const ANCHO_VACIA_MM = 7;
-    /** `.ra-m__c-res`: una por competencia del área, en la última parte. */
-    public const ANCHO_RESUMEN_MM = 6.5;
-    /** `.ra-m__c-tr`: una por transversal, en la última parte. */
-    public const ANCHO_TRANSVERSAL_MM = 9;
+    /** Resumen: un par por competencia del área (una en blanco usa el mismo par), en la última parte. */
+    public const ANCHO_RESUMEN_MM = self::ANCHO_NUMERAL_MM + self::ANCHO_LITERAL_MM;
+    /** Transversales: un par por columna, en la última parte (matriz y hoja CD). */
+    public const ANCHO_TRANSVERSAL_MM = self::ANCHO_NUMERAL_MM + self::ANCHO_LITERAL_MM;
 
     // ── Presupuesto de las CONCLUSIONES (hoja CD), en mm ────────────────────
     /** Logro de la hoja CD: `.ra-cd__c-num` + `.ra-cd__c-lit` (numeral y literal, 7 + 7). */
@@ -86,6 +90,7 @@ class RegistroAuxiliarModel extends BaseModel
                 s.nombre          AS seccion_nombre,
                 (s.es_unidocente = 1 AND s.tutor_id = ca.docente_id) AS es_aula,
                 g.nombre_display  AS grado_nombre,
+                n.id              AS nivel_id,
                 n.nombre          AS nivel_nombre,
                 n.codigo          AS nivel_codigo,
                 CASE

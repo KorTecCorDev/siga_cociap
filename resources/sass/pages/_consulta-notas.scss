@@ -453,3 +453,19 @@
         &__tabla tr { break-inside: avoid; }
     }
 }
+
+// Registro auxiliar del área en la cabecera de la carga (27/10/2026): botón
+// y, DEBAJO, la casilla «Incluir transversales de la sección». En columna para
+// no robar ancho al título (en una línea, «Solo lectura» bajaba de renglón).
+.cn-registro {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    margin: 0;
+
+    &__opcion {
+        padding: 0;
+        font-size: $font-size-sm;
+    }
+}

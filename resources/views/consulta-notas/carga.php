@@ -18,12 +18,6 @@ $nivelCodigo = $carga['nivel_codigo'];
 <div class="page-header">
     <a href="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $carga['seccion_id']) ?>"
        class="btn btn--secondary btn--sm">← Áreas</a>
-    <?php // El área ENTERA (todas sus cargas), no solo esta carga. Solo en un
-          // bimestre cerrado: en otro, la ruta responde 404. ?>
-    <?php if ($periodo['estado'] === 'cerrado' && $carga['area_id'] > 0): ?>
-        <a href="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $carga['seccion_id'] . '/registro-auxiliar?area_id=' . (int) $carga['area_id']) ?>"
-           class="btn btn--secondary btn--sm" target="_blank">Registro auxiliar del área</a>
-    <?php endif; ?>
     <div>
         <h1 class="page-title"><?= e($area) ?></h1>
         <p class="page-subtitle">
@@ -33,6 +27,24 @@ $nivelCodigo = $carga['nivel_codigo'];
             — Docente: <?= e($carga['docente'] ?: 'Sin docente') ?>
         </p>
     </div>
+    <?php // El área ENTERA (todas sus cargas), no solo esta carga, a la derecha
+          // como en la sección. Solo en un bimestre cerrado: en otro, la ruta
+          // responde 404. La hoja de transversales de la SECCIÓN va solo si se
+          // marca (decisión del usuario, 27/10/2026); el servidor solo acepta 1. ?>
+    <?php if ($periodo['estado'] === 'cerrado' && $carga['area_id'] > 0): ?>
+        <form method="GET" target="_blank" class="cn-registro"
+              action="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $carga['seccion_id'] . '/registro-auxiliar') ?>">
+            <input type="hidden" name="area_id" value="<?= (int) $carga['area_id'] ?>">
+            <button type="submit" class="btn btn--registro btn--sm">
+                <span class="btn-icon btn-icon--registro" aria-hidden="true"></span>
+                Registro auxiliar del área
+            </button>
+            <label class="form-check cn-registro__opcion">
+                <input type="checkbox" name="transversales" value="1">
+                Incluir transversales de la sección
+            </label>
+        </form>
+    <?php endif; ?>
     <span class="badge badge--activo">Solo lectura</span>
 </div>
 

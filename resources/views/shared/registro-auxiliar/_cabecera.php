@@ -34,11 +34,16 @@ $docentesCab = implode(' · ', array_map(
         <div><dt>Nivel</dt><dd><?= e($m['nivel_nombre']) ?></dd></div>
         <div><dt>Grado</dt><dd><?= e($m['grado_nombre']) ?></dd></div>
         <div><dt>Sección</dt><dd><?= e($m['seccion_nombre']) ?></dd></div>
-        <div><dt><?= $m['area_tipo'] === 'taller' ? 'Taller' : 'Área curricular' ?></dt><dd><?= e($hoja['area_nombre']) ?></dd></div>
+        <?php // Sin área: la hoja de transversales de la SECCIÓN. ?>
+        <?php if ($hoja['area_nombre'] !== null): ?>
+            <div><dt><?= $m['area_tipo'] === 'taller' ? 'Taller' : 'Área curricular' ?></dt><dd><?= e($hoja['area_nombre']) ?></dd></div>
+        <?php endif; ?>
         <?php if ($hoja['subareas'] !== []): ?>
             <div><dt>Sub-área</dt><dd><?= e(implode(', ', $hoja['subareas'])) ?></dd></div>
         <?php endif; ?>
         <div><dt>Bimestre</dt><dd><?= e($periodo['nombre_display']) ?></dd></div>
-        <div><dt><?= count($hoja['docentes']) > 1 ? 'Docentes' : 'Docente' ?></dt><dd><?= e($docentesCab) ?></dd></div>
+        <?php if ($hoja['docentes'] !== []): ?>
+            <div><dt><?= count($hoja['docentes']) > 1 ? 'Docentes' : 'Docente' ?></dt><dd><?= e($docentesCab) ?></dd></div>
+        <?php endif; ?>
     </dl>
 </header>
