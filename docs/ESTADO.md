@@ -1,8 +1,93 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **19/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **28/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
+
+## 🔜 RETOMAR AQUÍ (28/10/2026, fin del turno tarde: laptop de la oficina → escritorio de casa)
+
+**Situación:** el **registro auxiliar** y todo lo construido sobre él están en `dev`, **sin
+desplegar** y **sin migraciones**: 12 commits por delante de `main` (de `8dbdec3` a la entrada
+que cierra este turno). Lo que falta para el deploy son **solo pruebas con sesión** de roles que
+no son admin, más el diálogo de impresión. Lo de admin ya se probó por HTTP con la sesión real
+(entrada de abajo, «Probado el 28/10/2026»).
+
+Qué entra en el deploy (detalle en cada doc):
+- Registro auxiliar del docente y del área completa (`8dbdec3`, `61256c5`, `822b9ca`).
+- **Roster de lectura**: trasladados y retirados en los bimestres que cursaron, con chip
+  (`calificaciones.md` § «Roster de lectura»).
+- **Chips de situación** estandarizados en todo el sistema (`ui.md` § «Chips de situación»).
+- **Retorno de grado en lectura**: solo la matrícula real; en el registro impreso, fila vacía +
+  **anexo** con cada criterio (`retorno-grado.md` § «Vistas de solo lectura»).
+- **El registro sigue el acta SIAGIE**: Ética → Educación Religiosa; 5.º: GAMA → EPT y Arte
+  (`calificaciones.md` § «El registro sigue el acta SIAGIE»).
+- Asistencia de solo lectura con «—» en filas sin registro.
+
+### Al llegar al escritorio
+1. `git checkout dev && git pull`. **No hay migraciones**: la BD local no necesita nada.
+2. `git config core.hooksPath` debe responder `.githooks`; si sale vacío,
+   `git config core.hooksPath .githooks` (en la laptop se activó HOY: el primer push del día
+   salió sin verificar; se corrió a mano: OK).
+3. `npx gulp build` antes de mirar nada impreso. Si deja `public/js/*.js` como «M» con contenido
+   idéntico (solo fin de línea), descartarlo: `git checkout -- public/js`. Nunca commitearlos.
+4. Comprobar la BD local antes de probar (se resincroniza sola): en la laptop, hoy, el **III ya
+   estaba cerrado y el IV activo**, y la matrícula 582 o 586 había vuelto a continuador a las
+   11:00 (por eso `verif_roster_lectura.php` cuenta 18 pares de trasladados y no 19).
+5. Correr, en este orden, y esperar **TODO OK** en los tres:
+   `php database/verificaciones/verif_integridad_rutas.php`,
+   `php database/verificaciones/verif_roster_lectura.php` (≈2 min),
+   `php database/verificaciones/verif_registro_acta.php` (≈2 min).
+   Fallan **igual en `HEAD`** y no bloquean: `verif_asistencia_fechas`,
+   `verif_asistencia_presencias`, `verif_direccion_superficies`, `verif_ratificaciones`,
+   `verif_rol_auxiliar` y `verif_stats_competencia` (muestra al azar).
+
+### Pruebas que hace el USUARIO (antes de pedir el merge a `main`)
+Abrir siempre `http://localhost:3000/siga_cociap/public`. Datos de prueba: II Bimestre
+(`periodo 2`); 5.º B de secundaria = sección **23**; 2.° B de primaria = sección **4**.
+1. [ ] **Admin — imprimir:** `/consulta-notas/2/seccion/23` → «Registro auxiliar de
+   calificaciones» → «🖨 Imprimir» → «Guardar como PDF». Mirar a ojo: colores AD·A·B·C, chip
+   `Cr`, sin línea entre numeral y literal, ningún número partido, firmas en 2 filas (4 o más,
+   p. ej. Comunicación), fila «Docentes» larga, la hoja de transversales al final.
+   Hojas que deben estar: «Educación Religiosa» (nunca Tutoría ni Ética), «Arte y Cultura» y
+   «Educación para el Trabajo» con los criterios de GAMA por curso y la tutora como docente.
+2. [ ] **Admin — retorno:** `/consulta-notas/2/seccion/4` → registro: BALTAZAR con «Retorno de
+   grado», fila vacía; tras las conclusiones de cada área, el **anexo** con los criterios de
+   1° B; al pie de la hoja de transversales, el anexo con el tutor de 1° B.
+3. [ ] **Impresora del colegio (RICOH MP4054):** imprimir una hoja de matriz y un anexo.
+4. [ ] **Dirección** (`director_ebr` o `director_general`) y **Registro Académico:** las mismas
+   entradas de `/consulta-notas` (sección y carga) abren el registro.
+5. [ ] **Docente cualquiera:** la URL `/consulta-notas/2/seccion/23/registro-auxiliar` responde
+   **403**.
+6. [ ] **Docente — su registro** (`/docente/mis-cargas` → «Registro auxiliar»): botones ARRIBA
+   de las cards, «Imprimir seleccionadas» se habilita al marcar, «Imprimir todas», ventana nueva,
+   «✕ Cerrar» la cierra, la espera no queda fija; su documento NO trae la hoja de transversales
+   de la sección.
+7. [ ] **Docente con 2 cargas del área** (p. ej. Aritmética + Álgebra de 6.º A, II): fila de
+   grupos C21 · C22 sobre sus CT y C23/C24 en blanco «Otra carga».
+8. [ ] **Tutora de 5.º B (NUÑUVERO LIÑAN):** su tarjeta dice «Educación Religiosa» y su
+   documento también (sin Ética).
+9. [ ] **`/matriculas` y `/matriculas/resumen`:** a simple vista, iguales que antes.
+
+Con todo en verde: **preguntar** antes del merge `dev` → `main` (auto-deploy). Después del
+deploy: actualizar la CABECERA de cada doc tocado («en `dev`» → «desplegado») y repetir 1, 4 y 6
+en producción.
+
+### Observaciones abiertas (no bloquean)
+- En local, el formulario «Registro auxiliar del área» de la página de una carga lleva
+  `action="http://localhost/..."` sin el `:3000` (BrowserSync reescribe `href`, no `action`):
+  en el navegador del escritorio ese botón saca a XAMPP directo. En producción no aplica.
+- El criterio de GAMA de Pre-Cálculo de 5.º B dice «etermina metas…»: error de tipeo del
+  docente en la BD, no del código.
+- El pie de `/matriculas/resumen` cuenta solo matrículas vigentes, así que los colores nuevos
+  de trasladado y retirado no se ven ahí.
+
+### Solo en la laptop (NO viaja, y está bien que no viaje)
+- `public/REG_AUX_PRIMARIA_2026.xlsm` y `public/REG_AUX_SECUNDARIA_2026.xlsm` (modelo del
+  colegio): **NUNCA al repo** (sus hojas ocultas traen listas de estudiantes y el auto-deploy
+  publica todo lo versionado). Si los necesitas en el escritorio, cópialos por USB o unidad
+  personal, fuera de `public/`.
+- 11 íconos SVG sin seguimiento en `public/assets/icons/` (del 01/10, sin uso en el código).
+- `stash@{0}` «rediseno merito 19/10»: respaldo innecesario (todo está en `ba0e40b`).
 
 ## 🆕 REGISTRO AUXILIAR DE CALIFICACIONES: DOCENTE + ÁREA COMPLETA (27/10/2026, en `dev`, sin migración)
 
