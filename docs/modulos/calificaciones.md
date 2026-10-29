@@ -1500,6 +1500,22 @@ cards, sin fijar; antes iban al final), y la sección y la carga de `/consulta-n
     transversalesSeccion`: cierre vigente, `getPromediosSeccion`, `getConclusionesSeccion`,
     roster `rosterSeccion`); sin cierre vigente, la hoja lo dice y no muestra notas;
   - **sin firmas** (decisión del usuario: firman los documentos con toda la información);
+  - **debajo, el logro de cada curso que se promedia** (decisión del usuario, 29/10/2026):
+    una tabla por CT con una columna por carga, en **numeral simple** (estilo de nota de
+    criterio, nunca el par de logro), y al final el logro de la sección en par. Datos:
+    `TransversalModel::getLogrosPorCargaSeccion` (las MISMAS filas que el promedio de
+    lectura: su `ROUND(AVG)` ES el logro) vía `RegistroAuxiliarModel::conLogrosPorCurso`,
+    que corre DESPUÉS de `conAnexoRetornoTransversales`. Columnas: solo cursos con algún
+    logro de un estudiante **listado** (sin el filtro, la operativa de un retorno, que el
+    roster no lista, abría una columna vacía en 1.° B del I). Una carga de **otra sección**
+    (dato del modelo antiguo) se rotula con ella, p. ej. «Competencias Transversales (2° B)».
+    La fila de un retorno en su tramo va **vacía** (su logro está en el anexo). Se eligió el
+    logro por curso y no cada criterio (como GAMA en 5.º): en secundaria son 18 cursos y
+    los criterios ya están en la matriz de cada área. Medido por HTTP con sesión admin: las
+    69 hojas con cierre (23 secciones × I–III) responden 200; en las 3 142 filas, el promedio
+    redondeado de los cursos es igual al logro; 0 columnas vacías; hasta 19 cursos (el I trae
+    la carga «Competencias Transversales» del modelo antiguo); 5.º B (18 cursos, 24 filas) no
+    desborda el ancho.
   - la conclusión de las transversales ya no es de cada carga: en el II Bimestre hay 0 por
     carga y 94 del tutor (`conclusiones_transversales`), por eso sale de la sección.
   - Medido: coincide con la pantalla de transversales en 2.º B (I), 6.º A (II) y 5.º B de
