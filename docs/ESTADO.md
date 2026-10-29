@@ -4,16 +4,17 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **28/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
-## 🔜 RETOMAR AQUÍ (28/10/2026, noche: escritorio de casa) — REGISTRO AUXILIAR DESPLEGADO
+## ✅ CERRADO (28/10/2026, noche) — REGISTRO AUXILIAR DESPLEGADO Y COMPROBADO EN PRODUCCIÓN
 
 **Situación:** el **registro auxiliar** y todo lo construido sobre él están **DESPLEGADOS**
 (28/10/2026, merge `fe58abe`, sin migraciones; registro en la sección Git). El usuario comprobó
-en local las 9 pruebas y la impresión. Queda solo lo de producción:
-- [ ] Repetir en prod: admin (abrir e imprimir el registro de una sección), Dirección o RA (las
+en local las 9 pruebas y la impresión, y **en producción todo al 100 %** (dicho por el usuario
+el 28/10/2026). **Tema cerrado**; los docs del deploy también están en `main`.
+- [x] Repetir en prod: admin (abrir e imprimir el registro de una sección), Dirección o RA (las
   mismas entradas) y un docente (su registro; la URL de consulta da 403).
-- [ ] Que exista UN solo `director_general` activo y un Director EBR vigente (si no, la firma
+- [x] Que exista UN solo `director_general` activo y un Director EBR vigente (si no, la firma
   sale solo con el cargo).
-- [ ] Tiempo de carga de una sección completa de secundaria (local: 2 s, 612 KB).
+- [x] Tiempo de carga de una sección completa de secundaria (local: 2 s, 612 KB).
 - [x] Los `.xlsm` NO están en el servidor (`/REG_AUX_SECUNDARIA_2026.xlsm` → 404).
 
 Qué entró en el deploy (detalle en cada doc):
