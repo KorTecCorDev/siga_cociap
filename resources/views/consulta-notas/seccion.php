@@ -21,6 +21,16 @@
             <?= e($periodo['nombre_display']) ?> <?= e($periodo['anio']) ?> — solo notas oficiales
         </p>
     </div>
+    <?php // Registro auxiliar de TODAS las áreas (con la hoja de transversales de
+          // la sección). Estilo propio del registro auxiliar para reconocerlo sin
+          // leer. Solo en un bimestre cerrado: en otro, la ruta responde 404. ?>
+    <?php if ($seccion && $periodo['estado'] === 'cerrado'): ?>
+        <a class="btn btn--registro btn--sm" target="_blank"
+           href="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $seccion['seccion_id'] . '/registro-auxiliar') ?>">
+            <span class="btn-icon btn-icon--registro" aria-hidden="true"></span>
+            Registro auxiliar de calificaciones
+        </a>
+    <?php endif; ?>
 </div>
 
 <?php // Registros de nivel SECCION (no cuelgan de ninguna carga). Transversales

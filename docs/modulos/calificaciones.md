@@ -1300,6 +1300,322 @@ cualquier registro directo (el tooltip se volvió neutro: decía «I Bimestre»)
 `ConductaModel::getRegistroLegado` **excluye** las extraordinarias: si no, el banner del tutor del
 I Bimestre diría «registradas por RA, hoy».
 
+## Registro auxiliar de calificaciones — del docente y del área completa (27/10/2026)
+
+> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pendientes las pruebas en
+> navegador con sesión de DOCENTE y de Dirección/RA (ver `docs/ESTADO.md`).
+> Dos documentos, un solo armado (`RegistroAuxiliarModel`) y una sola vista
+> (`shared/registro-auxiliar/`): el del **docente** (abajo) y el del **área completa**
+> (§ «Registro del área completa»). Las áreas anchas se reparten en **partes** (§ «Partes»).
+
+El docente imprime, proyecta o guarda en PDF («Guardar como PDF» del navegador) el registro
+de sus cargas de un bimestre. Entrada: botón **«Registro auxiliar»** en `/docente/mis-cargas`,
+que lleva a `GET /docente/registro-auxiliar` (bimestre + una card por carga), y de ahí
+«Imprimir seleccionadas» / «Imprimir todas mis cargas» abren en ventana nueva
+`GET /docente/registro-auxiliar/imprimir` (layout `print`, A4 horizontal).
+
+**Formato = el del colegio.** Reproduce los libros que el colegio usaba
+(`REG_AUX_PRIMARIA_2026.xlsm` / `REG_AUX_SECUNDARIA_2026.xlsm`): la hoja **REG-NUM** (matriz
+del área) y la hoja **CD** (conclusiones descriptivas). Del Excel **no** se reproduce lo que el
+sistema no guarda: la «Evaluación diagnóstica», las «Unidades» y el «Cuadro de competencias,
+capacidades y desempeños» (no hay capacidades ni desempeños en la BD).
+
+### Decisiones del usuario (no re-preguntar)
+- **Solo lo OFICIAL**: competencias **bloqueadas** del bimestre, como el historial.
+- **UNA HOJA POR SECCIÓN + ÁREA**, con TODAS las competencias del plan del área en su orden.
+  Las de las cargas elegidas llevan sus notas; **las de otra carga (de otro docente o no
+  elegida) van EN BLANCO**: nunca se lee una nota de una carga que no esté en la hoja.
+- **Selección: una card por carga** (un área de Mi aula, una card con todas sus cargas). Al
+  imprimir, las cargas elegidas de la misma área y sección se juntan en una hoja; una carga
+  propia no elegida sale en blanco como cualquier otra.
+- **Conclusiones** en hoja aparte por área (modelo CD), después de la matriz.
+- **Firmas**: Docente, **Dirección EBR** (el titular vigente, `DirectorEbrModel::getVigenteEnFecha`)
+  y **Dirección General** (el único usuario activo con ese rol,
+  `UsuarioModel::nombreUnicoActivoPorRolCodigo`); sin usuario, solo el cargo. Sin imagen de
+  firma: es un documento de trabajo del docente.
+- **Un documento con numeración continua** (`@page paisaje`, «Página X de Y»; NO `doc-lote`).
+
+### De dónde salen los datos
+`RegistroAuxiliarModel::hoja($meta, $cargas, $periodo, $paraDocente)` arma cada hoja (lo
+usan los dos controladores; `$paraDocente` oculta las extraordinarias reservadas a Dirección,
+y el Model no lee la sesión). `bloquesBloqueadosDeCarga()` también vive ahí: el método del
+mismo nombre de `Docente\CalificacionController` es un delegado de una línea, así que
+`historial` e `historialArea` no cambiaron (medido byte a byte, 4 casos; `procedencia`,
+que usa el mismo delegado, con prueba de humo).
+- **Plan del área**: competencias directas y por subárea, en el orden de
+  `SiagieExportModel::competenciasDeArea` (aquí con `subarea_id`, para saber de qué carga es
+  cada una: misma regla que `getCargas`, por subárea o, en un área-curso, por área).
+- **Notas**: `bloquesBloqueadosDeCarga()` de cada carga elegida, **el mismo armado que el
+  historial** (roster de `getResumenCompetencia`, el del resumen del docente: retornos,
+  cambios de sección y reingresos salen igual que en pantalla). Cada competencia del plan es
+  `propia` (bloqueada con criterios), `noeval` («No evaluada»), `pendiente` (de una carga
+  elegida, aún sin aprobar) u `otra` (en blanco).
+- **Transversales**: las de cada carga elegida, en COMP-TRA (cada carga tiene su propio
+  registro de TIC/GAMA). Con varias cargas en la hoja, la cabecera (matriz y CD) lleva **una
+  fila de grupo por carga con el código de la competencia de su subárea** (C21, C22…) sobre
+  sus CT1/CT2, **sin el nombre del curso** (decisión del usuario, 27/10/2026; las 23 subáreas
+  tienen exactamente una competencia). Punto único: `RegistroAuxiliarModel::gruposTransversales`.
+  Con una sola carga, esa fila no se pinta. La leyenda sí nombra la carga: su subárea; sin
+  subárea, el **docente** (área completa) o el nombre de la carga (registro del docente).
+- **Estadísticas** del pie: `stats_competencia()` (punto único). ⚠️ «Aprobados» sigue la regla
+  del sistema (`nota_es_aprobatoria`: primaria AD+A), **no** la del Excel, que contaba ≥ 11
+  en los dos niveles.
+- Las claves pedidas (`c{carga}` / `a{sec}-{área}`) **solo sobreviven si coinciden con las
+  entradas del usuario en sesión** — ajenas se descartan y, si no queda ninguna, 404. Un
+  `periodo_id` fuera del año activo cae al bimestre activo.
+
+Medido el 27/10/2026 (BD local, II Bimestre): las notas de la matriz (criterios, logro y
+literal) coinciden con el historial en 3 casos —una subárea de un área de 4 competencias, un
+área de Mi aula y una carga con exonerados—: 133 filas, 0 diferencias. Las 778 celdas «en
+blanco» de esos documentos no traen ningún dato.
+
+### Pantalla de selección: cards seleccionables
+- Cada entrada es **la card de Mis cargas** (`.carga-item`), agrupada por grado y sección,
+  como `<label>` con la **casilla visible**. La marcada: borde `$brand-mid` y fondo
+  `$card-cargas-bg`. Atajo «Marcar todas / Desmarcar todas» por grupo (`registro-auxiliar.js`).
+- ⚠️ **El estado de la card es una COPIA** de las reglas de `docente/mis-cargas.php`
+  (`$avanceCarga`, `$estadoBadge`, `$transBadge` y la card de área), calculada en
+  `entradasRegistro()`. Si cambian allí, cambiar aquí. Medido: las cards de 4 docentes en 3
+  bimestres dicen lo mismo que en Mis cargas.
+
+### Presentación (`shared/registro-auxiliar/{documento,_cabecera,_matriz,_cd}.php`)
+- **Cabecera**: lema del año (`anios_academicos.lema_oficial`), título por nivel, nivel,
+  grado, sección, área, sub-área(s), bimestre y docente.
+- **Leyenda**, en bloques apilados a todo el ancho: competencias del área (código → nombre,
+  en dos columnas de texto, con «Otra carga» / «Aún no aprobada» / «No evaluada»); la
+  **tabla de criterios** (una fila por competencia propia, una columna por criterio
+  `Cr1…CrN` = los rótulos de la matriz, ancho fijo: el número o el largo de los criterios no
+  la desacomoda); escala y omisiones (AI/AJ/AR/NA). Antes los criterios iban como texto
+  corrido en media rejilla y descuadraban el bloque (27/10/2026).
+- **Matriz**: N° · estudiante · por competencia, `Cr1…CrN` + **Logro** o una columna en blanco ·
+  **Resumen** · **Comp. transv.** Logro, Resumen y transversales van en **PAR numeral | literal**
+  (decisión del usuario, 27/10/2026, **los dos niveles sin excepción**): dos columnas
+  (`.ra-m__c-pnum` 5 mm + `.ra-m__c-plit` 5,5 mm), cada valor centrado en la suya y **sin
+  línea entre ellas** (`.ra-m__pn`: `border-right-style: hidden`); EXO, «—» y la celda en
+  blanco abarcan las dos. Lo pinta UN closure, `$par` de `documento.php`, en las 3 tablas.
+  ⚠️ El Resumen repite el número del Logro de la misma fila: se pidió así a sabiendas.
+  🔴 El par lleva `white-space: nowrap` y casi sin relleno lateral: con el `overflow-wrap:
+  anywhere` de la tabla, un «13» se partía en dos renglones en 5 mm y la hoja bajaba de 19 a
+  13 estudiantes (medido). Al medir un cambio de ancho, mirar también el ALTO de las filas.
+- **Pie** (indivisible): estadísticas (proceso de logro y niveles de logro por competencia) a
+  la izquierda; identificación del área, lugar y fecha (`fecha_es`) y las tres firmas
+  (`.reporte-footer`, compartido) a la derecha.
+- **CD**: por estudiante, logro y conclusión de cada competencia propia. El logro ocupa **dos
+  columnas** (numeral | literal, 7 + 7 mm), cada valor centrado en la suya y **sin línea entre
+  ellas** (el mismo `$par`); EXO y «—» abarcan las dos;
+  de las transversales, solo el logro en par numeral | literal (su conclusión es del tutor).
+  Después, las extraordinarias de RA (`consulta-notas/_extraordinarias-carga.php`).
+
+### 🔴 Reglas de corte (medidas imprimiendo a PDF)
+- Los rótulos de la matriz van en un `<thead>` **bajo** (solo códigos y `Cr1…CrN`; los nombres
+  van en la leyenda): **Chrome NO repite un `<thead>` que ocupe ~¼ de la hoja** — medido con
+  la versión anterior, que ponía los nombres de 10 criterios en la cabecera.
+- La **primera fila del `<thead>` identifica el área** (área · grado y sección · nivel ·
+  bimestre): toda hoja de continuación dice de qué área es. El pie también la lleva.
+- Cada `<tr>` es indivisible; el pie (estadísticas + firmas) también: la firma nunca empieza
+  una hoja sola.
+- Pie en **dos columnas**: apilado medía ~50 mm y se iba solo a otra hoja. Medido con 12 áreas
+  de 18 a 24 estudiantes: sin la tabla de criterios, en 10 cabía en la hoja de la matriz;
+  **con la tabla (a 5,5 pt), en 7**. En el resto pasa entero a la hoja siguiente, identificado.
+  Es el costo aceptado de una tabla de criterios legible.
+- Nombres a 58 mm: con 46 la mitad partía en dos líneas y la fila doblaba su alto.
+- ⚠️ El área más ancha medida (Comunicación de 1.º A: 9 + 6 + 5 criterios) cabe en el ancho.
+
+### Partes: áreas que no caben en el ancho de la hoja
+Un área completa llega a **36 criterios** (Matemática de 2.º B de primaria, I Bimestre: 4
+competencias y 4 cargas); el tope teórico es 5 × 10 = 50. Con N° y nombres (63 mm), 36 × 5 +
+4 × 8 (logros) + 4 × 6,5 (resumen) + 8 × 9 (transversales) suman **373 mm**, y la hoja A4
+horizontal útil mide **277 mm**. Por eso (decisión del usuario):
+- **Mismo diseño, partido por competencias ENTERAS** (nunca se corta una):
+  `RegistroAuxiliarModel::partesMatriz()`, reparto goloso con un presupuesto en mm. Cada
+  parte es una tabla en hoja nueva (`.ra-parte + .ra-parte`), repite N° y nombres y dice
+  **«Parte X de Y»** en su fila de identificación. Si el área cabe, una sola tabla, sin rótulo.
+- La leyenda va una vez, arriba. **Resumen y transversales, en la última parte**; si no caben
+  con sus competencias, van en una parte propia. El pie (estadísticas y firmas), tras ella.
+- **Hoja CD**: `partesConclusiones()`, como máximo **3 competencias por parte**, con conclusión
+  de al menos **45 mm** (con 55, un área de 3 competencias y 2 transversales que hoy se
+  imprime entera se habría partido); las transversales, en la última.
+- 🔴 **Las medidas son constantes del Model que REFLEJAN el SASS** (`ANCHO_*_MM` ↔
+  `.ra-m__c-*`, `.ra-cd__c-num`/`-lit` y `@page paisaje`). Si cambia una en el SASS, cambiarla
+  en el Model, o el reparto deja tablas que desbordan. Las `<col>` de criterio no tienen ancho
+  fijo: 5 mm es el **mínimo** legible que reserva el presupuesto. Logro, Resumen y
+  transversales son un par de 10,5 mm (`ANCHO_NUMERAL_MM` + `ANCHO_LITERAL_MM`): simulado
+  sobre las 430 hojas de área de los bimestres I y II, **19 ganan una parte** (4 %).
+- Efecto en el registro del DOCENTE: la matriz no cambió en ningún caso medido (5 documentos,
+  0 diferencias); solo la hoja CD de un área de 4 competencias pasa a 2 partes.
+
+### Chip del código de criterio (`.ra-cr`)
+`Cr1…CrN` va en un chip **neutro con contorno** (decisión del usuario): el formato redondeado
+de `.competencia-card__codigo`, pero sin fondo y en gris (`$text-muted`/`$text-secondary`), en
+la tabla de criterios y en la matriz. Para caber en la columna más angosta (**5,04 mm**, parte 1
+de 2.º B) sin ensancharla: chip a 5 pt con 0,15 mm de relleno, y la celda (`.ra-m__cr`) con
+0,1 mm de relleno lateral. Medido en Chrome headless: con el relleno general de 0,5 mm **no
+cabía ningún chip**; ajustado, caben los 120 de la sección. El margen es fino: subir la letra o
+el relleno obliga a volver a medir.
+
+### Botón del registro auxiliar (`.btn--registro`)
+Las **4 entradas** al registro auxiliar se ven iguales para reconocerse sin leer (decisión del
+usuario, 27/10/2026): `/docente/mis-cargas` («Registro auxiliar»), `/docente/registro-auxiliar`
+(«Imprimir seleccionadas» lleno + «Imprimir todas mis cargas» con contorno, **arriba** de las
+cards, sin fijar; antes iban al final), y la sección y la carga de `/consulta-notas`.
+- `.btn--registro` (fondo `$card-cargas-line`, el azul de «Académicas / Mis cargas» del
+  wayfinding: no es un color nuevo) y `.btn--registro-linea` (contorno), en
+  `components/_buttons.scss`;
+- ícono `.btn-icon--registro` = `public/assets/icons/checklist_icon.svg` (máscara, toma el
+  color del texto). ⚠️ El SVG debe estar **versionado**: el auto-deploy solo publica lo de git.
+- En una captura de Chrome headless de una página abierta como archivo, las máscaras de
+  ícono NO se dibujan (otro origen): no es un fallo. Se ven con el CSS del mismo origen.
+
+### Registro del área completa (Dirección, RA y admin)
+- **Ruta:** `GET /consulta-notas/{periodo}/seccion/{seccion}/registro-auxiliar[?area_id=]`
+  (`ConsultaNotasController::registroAuxiliar`, hereda el `requireRole` del constructor).
+  Sin `area_id`, todas las áreas de la sección, cada una en hoja nueva; con él, una.
+- **Solo bimestres CERRADOS** (decisión del usuario): en otro, 404, y las entradas no se pintan.
+  Muestra lo bloqueado **sin esperar la publicación** (compuerta 044): es un documento interno.
+  El registro del DOCENTE no tiene esta restricción (bimestre activo + cerrados).
+- **Cargas:** `RegistroAuxiliarModel::cargasDeSeccion()` —activas del año del periodo, los
+  filtros de `getCargas()` (sin la carga transversal antigua; Tutoría/Ética solo con
+  competencias), en el orden de «Áreas y cargas»—, agrupadas por área.
+- **Cabecera:** «Docentes: Apellidos, Nombres (Aritmética, Álgebra) · …» cuando hay más de uno.
+- **Firmas:** cada docente del área + Dirección EBR + Dirección General
+  (`RegistroAuxiliarModel::firmas`); con más de 3, filas de 3 (`.ra-firmas--varias`).
+- Una columna `otra` dice **«Sin carga»** (competencia del plan sin carga en la sección).
+- Extraordinarias **con** las reservadas a Dirección (`$paraDocente = false`).
+- **Entradas** (las dos con el botón del registro auxiliar, abajo), en ventana nueva:
+  - **la sección completa**: botón «Registro auxiliar de calificaciones» a la derecha del
+    `.page-header` de `consulta-notas/seccion.php` (la fila que tuvo en «Registros de la
+    sección» se retiró el mismo día: una sola entrada);
+  - **un área**: formulario GET en el `.page-header` de `consulta-notas/carga.php`, botón
+    «Registro auxiliar del área» (imprime **el área entera**, todas sus cargas) y debajo la
+    casilla **«Incluir transversales de la sección»** (`transversales=1`; el servidor solo
+    acepta 1). En columna, para no empujar el título: en una línea, «Solo lectura» bajaba.
+  - La lista «Áreas y cargas» no lleva enlace: lista cargas, no áreas, y cada fila ya es un `<a>`.
+- **Hoja «Competencias transversales de la sección»** (`_transversales-seccion.php`), al final:
+  - **siempre** con la sección completa; con un área, **solo si se marca la casilla**;
+    **NUNCA en el registro del docente** (`documento.php` la anula fuera de `$modo = 'area'`):
+    el docente solo ve sus propias notas;
+  - por estudiante y por CT: el **logro oficial de la sección** (promedio de las cargas, el
+    de la boleta) en par numeral | literal, y la **conclusión del tutor**. Son los MISMOS datos
+    que `/consulta-notas/{p}/seccion/{s}/transversales` (`ConsultaNotasController::
+    transversalesSeccion`: cierre vigente, `getPromediosSeccion`, `getConclusionesSeccion`,
+    roster `rosterSeccion`); sin cierre vigente, la hoja lo dice y no muestra notas;
+  - **sin firmas** (decisión del usuario: firman los documentos con toda la información);
+  - **debajo, el logro de cada curso que se promedia** (decisión del usuario, 28/10/2026):
+    una tabla por CT con una columna por carga, en **numeral simple** (estilo de nota de
+    criterio, nunca el par de logro), y al final el logro de la sección en par. Datos:
+    `TransversalModel::getLogrosPorCargaSeccion` (las MISMAS filas que el promedio de
+    lectura: su `ROUND(AVG)` ES el logro) vía `RegistroAuxiliarModel::conLogrosPorCurso`,
+    que corre DESPUÉS de `conAnexoRetornoTransversales`. Columnas: solo cursos con algún
+    logro de un estudiante **listado** (sin el filtro, la operativa de un retorno, que el
+    roster no lista, abría una columna vacía en 1.° B del I). Una carga de **otra sección**
+    (dato del modelo antiguo) se rotula con ella, p. ej. «Competencias Transversales (2° B)».
+    La fila de un retorno en su tramo va **vacía** (su logro está en el anexo). Se eligió el
+    logro por curso y no cada criterio (como GAMA en 5.º): en secundaria son 18 cursos y
+    los criterios ya están en la matriz de cada área. Medido por HTTP con sesión admin: las
+    69 hojas con cierre (23 secciones × I–III) responden 200; en las 3 142 filas, el promedio
+    redondeado de los cursos es igual al logro; 0 columnas vacías; hasta 19 cursos (el I trae
+    la carga «Competencias Transversales» del modelo antiguo); 5.º B (18 cursos, 24 filas) no
+    desborda el ancho.
+  - la conclusión de las transversales ya no es de cada carga: en el II Bimestre hay 0 por
+    carga y 94 del tutor (`conclusiones_transversales`), por eso sale de la sección.
+  - Medido: coincide con la pantalla de transversales en 2.º B (I), 6.º A (II) y 5.º B de
+    secundaria (II): 58 estudiantes, 0 diferencias, conclusiones incluidas.
+- Medido (BD local, antes del roster de lectura del 28/10): las notas coinciden con el historial de cada carga en Matemática de 2.º B
+  (I Bimestre, 36 criterios, 1 docente) y de 6.º A (II Bimestre, 30 criterios, 2 docentes):
+  **148 filas, 0 diferencias**, conclusiones incluidas. Impreso a PDF: 4 hojas cada uno,
+  ninguna fila partida, «Parte X de Y» en cada continuación, firmas solo tras la última parte
+  y «Página X de Y» continua. Ninguna tabla ni celda desborda en la sección completa (19 tablas).
+
+### Roster de lectura: quien CURSÓ el bimestre (28/10/2026)
+> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pruebas pendientes en
+> `docs/ESTADO.md`.
+
+**Problema.** El registro, el historial del docente y `/consulta-notas` listaban un bimestre con
+el `tipo` y el `estado` de **HOY** (`matriculas_vigentes()` + `estado IN ('aprobada','pendiente')`
+en `getResumenCompetencia`). Un trasladado o retirado desaparecía de los bimestres que **sí**
+cursó, con sus notas oficiales: 15 matrículas y 19 pares matrícula-bimestre en la BD local (p. ej.
+la 204, trasladada en el III, con notas de I y II).
+
+**Regla (decisión del usuario):** un trasladado/retirado cursó un bimestre **por el DATO, siempre
+que esté bloqueado y aprobado**: una calificación de una competencia **bloqueada** de una carga
+de la sección, conducta **confirmada** (o `calificaciones_conducta` del cierre) o asistencia
+**confirmada** de ese periodo. La misma ancla para todas las vistas: aparece igual en todas las
+pestañas del bimestre. Sin dato oficial, no entra. Sin filtro de `estado` (el desactivado por deuda
+se evalúa). El cambio de sección no cambia (`sqlEnSeccionDelPeriodo`).
+
+**Retorno de grado (decisión del usuario, 28/10/2026: «solo es válida su matrícula real»).** En
+estas vistas la **operativa no sale nunca** y la **oficial sale siempre** en su sección. En los
+bimestres de su tramo, su fila **lee los datos de la operativa** en las pantallas. En el
+**registro auxiliar impreso** su fila va vacía y todo va a un **ANEXO** por área (cada criterio
+de la operativa con su nota, logro y conclusión), tras la hoja de conclusiones descriptivas.
+Detalle, escenarios y límites en `docs/modulos/retorno-grado.md` § «Vistas de solo lectura: la
+fila es la OFICIAL».
+- **PUNTO ÚNICO:** `RetornoGradoModel::sqlRosterLecturaDelPeriodo($m, $periodo, $seccion)`.
+- **Flag `$lectura = false`** (último parámetro) en `CalificacionModel::getResumenCompetencia`,
+  `ConductaModel::getEstudiantesParaTutor` / `getEstudiantesParaRegistro`,
+  `AsistenciaModel::getEstudiantesConIncidencias` y `TransversalModel::getPromediosSeccion`.
+  Lo pasan **solo** `RegistroAuxiliarModel::bloquesBloqueadosDeCarga` (registro, historial de
+  carga y de área, procedencia) y `ConsultaNotasController` (carga, transversales, conducta,
+  criterios de conducta, asistencia y la hoja de transversales del registro). Sin el flag, las
+  5 consultas devuelven lo mismo que antes, byte a byte (medido contra `HEAD`).
+- 🔴 **NUNCA en grillas de captura ni en validaciones** (omisiones, bloqueo, cierre): meter a un
+  trasladado exigiría su conclusión antes de bloquear. Allí siguen `roster_evaluacion()` /
+  `sqlRosterDelPeriodo()`.
+- **Chips junto al nombre** (Trasladado, Retirado, Retorno de grado, «Viene de 4° B», «Pasó a
+  4° A»): cada fila de lectura trae `situaciones` de `SituacionEstudianteModel::anotar()`, que
+  llaman los propios métodos con `$lectura`; se pintan con `shared/_situacion-chips.php`
+  (`$sitImpreso = true` en el registro). Catálogo y reglas: `docs/modulos/ui.md` § «Chips de
+  situación del estudiante». Un nombre largo con chip ocupa dos renglones (aceptado).
+- Verificador: `database/verificaciones/verif_roster_lectura.php` (solo lectura, 9 secciones).
+
+### El registro sigue el acta SIAGIE (28/10/2026)
+> **Estado: implementado en `dev`, sin desplegar.** Sin migración.
+
+Decisión del usuario: el registro auxiliar cumple las reglas del acta
+(`EQUIVALENCIAS_ACTA_SIAGIE`, resueltas por `SituacionFinalModel::equivalenciasActa()`, la misma
+resolución que usan el llenador y la situación final).
+
+- **Ética y Valores → EDUCACIÓN RELIGIOSA** (toda secundaria; registro del área completa y del
+  docente tutor). La hoja de la carga de tutoría se presenta como la del área destino
+  (`RegistroAuxiliarModel::comoAreaDestino`): cabecera «Educación Religiosa», orden del plan de
+  esa área, y **C51 y C52** con los criterios, las notas, el logro, la conclusión y los
+  exonerados de Ética **replicados**. **JAMÁS sale Ética con su competencia**: ni en la hoja, ni en
+  la leyenda, ni en el anexo del retorno. La tarjeta del tutor también se llama «Educación
+  Religiosa» (`nombreEnRegistro`). Las pantallas de consulta no cambian.
+- **5.º: GAMA → EPT y Arte y Cultura** (solo el registro del área completa, porque no tienen
+  carga). Hojas nuevas (`hojasReplicaTransversal`): en **todas** sus competencias, **todos** los
+  criterios de GAMA de cada carga que la tiene bloqueada, **agrupados por curso** (fila con el
+  nombre del curso; Cr1…CrN por curso; leyenda por curso), el **logro que congeló el tutor** y la
+  **conclusión de GAMA del tutor** (no la de réplica del acta: decisión del usuario). Docente y
+  firma: el **tutor del bimestre** (`TutorPeriodoModel`). Sin cierre vigente, «Aún no aprobada».
+  Las cargas fuente son **todas** las de la sección con GAMA bloqueada, activas o no: en el I
+  Bimestre 2026 vive en la carga transversal del modelo antiguo (desactivada por la 027).
+  Un criterio agrupado cuenta 9 mm en el reparto (`ANCHO_CRITERIO_GRUPO_MM`): cada competencia
+  va en su parte y el curso se lee entero.
+- **Talleres:** se quedan, sin marca (no tienen hoja en el SIAGIE; sí en el modelo del colegio).
+- Orden de las hojas en «Todas las áreas»: el del plan de áreas (`area_orden`).
+- Protegido por `database/verificaciones/verif_registro_acta.php` (controles a mano en SQL).
+
+### Transversales con sus criterios en la matriz (28/10/2026)
+- Cada CT evaluada lleva sus **`Cr1…CrN` con notas numerales** (EXO y omisiones como las propias)
+  y luego su **Logro** en par; una CT «No evaluada» sigue como el par en blanco. Sus criterios
+  van en la tabla «Criterios de evaluación» de la leyenda, tras las propias (con varias cargas,
+  precedidos del código de su grupo). Celdas: un solo closure, `$celdasCriterios` (`_matriz.php`).
+- Cabecera: «Comp. transv.» → (con varias cargas) código del grupo → **código de cada CT** sobre
+  sus criterios → `Cr` + Logro. Las demás celdas de grupo bajan las filas necesarias.
+- **Partes** (decisión del usuario): las transversales de **cada carga son un bloque** del
+  reparto (`partesMatriz($columnas, $transversales)`, `anchoTransversal()`), tras las
+  competencias; el **Resumen** va en la última parte, **antes** de las CT de esa parte (el orden
+  de siempre: competencias · Resumen · CT). Una carga puede quedar en una parte anterior.
+- La hoja CD no cambia: de las CT, solo el logro (su conclusión es del tutor).
+- **Leyenda «Competencias del área» sin redundancia** (decisión del usuario): cada CT sale
+  **una sola vez** con su descripción, y a continuación las cargas que la evalúan como chips con
+  el código de la cabecera y la subárea («C30 Historia»). Si una carga no la evaluó, el chip dice
+  «No evaluada: C32 Economía». Antes salía una línea por carga y CT: en Ciencias Sociales de
+  5.º B, la CT3 y la CT4 se repetían 3 veces. El agrupado se hace **solo en la vista**
+  (`$ctLeyenda`, `_matriz.php`). La matriz y la tabla de criterios siguen siendo por carga,
+  porque ahí los criterios y las notas de cada carga sí son distintos.
+
 ## Fixes importantes aplicados (sesión 2)
 - `periodos.nombre_display` es la columna correcta (no `nombre`). Si ves
   `Unknown column 'p.nombre'` en queries de periodos, verificar esto.

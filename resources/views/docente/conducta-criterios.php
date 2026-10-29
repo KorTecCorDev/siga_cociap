@@ -110,7 +110,8 @@ $tituloClase = $tituloClase ?? 'page-title page-title--wf page-title--conducta';
             ?>
                 <tr class="conducta-fila conducta-fila--guardada">
                     <td class="col-num"><?= $idx + 1 ?></td>
-                    <td class="col-nombre"><?= e($est['nombre_completo']) ?></td>
+                    <td class="col-nombre"><?= e($est['nombre_completo']) ?>
+                        <?php $sitChips = $est['situaciones'] ?? []; require VIEW_PATH . '/shared/_situacion-chips.php'; ?></td>
 
                     <?php foreach ($criterios as $c):
                         $val = $resp[(int) $c['id']] ?? null; // null | 0 | 1

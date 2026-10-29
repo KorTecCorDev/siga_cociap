@@ -1,8 +1,286 @@
 # ESTADO vivo del proyecto
 
 > Único lugar donde se registran pendientes, migraciones y planes con fecha.
-> Actualizar aquí (no en CLAUDE.md). Última revisión: **19/10/2026**.
+> Actualizar aquí (no en CLAUDE.md). Última revisión: **28/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
+
+## 🔜 RETOMAR AQUÍ (28/10/2026, fin del turno tarde: laptop de la oficina → escritorio de casa)
+
+**Situación:** el **registro auxiliar** y todo lo construido sobre él están en `dev`, **sin
+desplegar** y **sin migraciones**: 12 commits por delante de `main` (de `8dbdec3` a la entrada
+que cierra este turno). Lo que falta para el deploy son **solo pruebas con sesión** de roles que
+no son admin, más el diálogo de impresión. Lo de admin ya se probó por HTTP con la sesión real
+(entrada de abajo, «Probado el 28/10/2026»).
+
+Qué entra en el deploy (detalle en cada doc):
+- Registro auxiliar del docente y del área completa (`8dbdec3`, `61256c5`, `822b9ca`).
+- **Roster de lectura**: trasladados y retirados en los bimestres que cursaron, con chip
+  (`calificaciones.md` § «Roster de lectura»).
+- **Chips de situación** estandarizados en todo el sistema (`ui.md` § «Chips de situación»).
+- **Retorno de grado en lectura**: solo la matrícula real; en el registro impreso, fila vacía +
+  **anexo** con cada criterio (`retorno-grado.md` § «Vistas de solo lectura»).
+- **El registro sigue el acta SIAGIE**: Ética → Educación Religiosa; 5.º: GAMA → EPT y Arte
+  (`calificaciones.md` § «El registro sigue el acta SIAGIE»).
+- Asistencia de solo lectura con «—» en filas sin registro.
+- **Hoja de transversales de la sección: logro de cada curso que se promedia** (28/10/2026,
+  una tabla por CT debajo de la actual; `calificaciones.md` § Registro auxiliar).
+
+**28/10/2026, escritorio:** el usuario dio por comprobadas las 9 pruebas de abajo (100 %).
+Pendiente solo lo nuevo:
+- [x] **Admin — imprimir** (aprobado por el usuario el 28/10/2026) `/consulta-notas/2/seccion/23` → registro → «Guardar como PDF»: las
+  dos tablas «Logro de cada curso que se promedia» (CT3, CT4) bajo la de la sección, los 18
+  nombres de curso legibles y ninguna tabla desbordada.
+
+### Al llegar al escritorio
+1. `git checkout dev && git pull`. **No hay migraciones**: la BD local no necesita nada.
+2. `git config core.hooksPath` debe responder `.githooks`; si sale vacío,
+   `git config core.hooksPath .githooks` (en la laptop se activó HOY: el primer push del día
+   salió sin verificar; se corrió a mano: OK).
+3. `npx gulp build` antes de mirar nada impreso. Si deja `public/js/*.js` como «M» con contenido
+   idéntico (solo fin de línea), descartarlo: `git checkout -- public/js`. Nunca commitearlos.
+4. Comprobar la BD local antes de probar (se resincroniza sola): en la laptop, hoy, el **III ya
+   estaba cerrado y el IV activo**, y la matrícula 582 o 586 había vuelto a continuador a las
+   11:00 (por eso `verif_roster_lectura.php` cuenta 18 pares de trasladados y no 19).
+5. Correr, en este orden, y esperar **TODO OK** en los tres:
+   `php database/verificaciones/verif_integridad_rutas.php`,
+   `php database/verificaciones/verif_roster_lectura.php` (≈2 min),
+   `php database/verificaciones/verif_registro_acta.php` (≈2 min).
+   Fallan **igual en `HEAD`** y no bloquean: `verif_asistencia_fechas`,
+   `verif_asistencia_presencias`, `verif_direccion_superficies`, `verif_ratificaciones`,
+   `verif_rol_auxiliar` y `verif_stats_competencia` (muestra al azar).
+
+### Pruebas que hace el USUARIO (antes de pedir el merge a `main`)
+Abrir siempre `http://localhost:3000/siga_cociap/public`. Datos de prueba: II Bimestre
+(`periodo 2`); 5.º B de secundaria = sección **23**; 2.° B de primaria = sección **4**.
+1. [ ] **Admin — imprimir:** `/consulta-notas/2/seccion/23` → «Registro auxiliar de
+   calificaciones» → «🖨 Imprimir» → «Guardar como PDF». Mirar a ojo: colores AD·A·B·C, chip
+   `Cr`, sin línea entre numeral y literal, ningún número partido, firmas en 2 filas (4 o más,
+   p. ej. Comunicación), fila «Docentes» larga, la hoja de transversales al final.
+   Hojas que deben estar: «Educación Religiosa» (nunca Tutoría ni Ética), «Arte y Cultura» y
+   «Educación para el Trabajo» con los criterios de GAMA por curso y la tutora como docente.
+2. [ ] **Admin — retorno:** `/consulta-notas/2/seccion/4` → registro: BALTAZAR con «Retorno de
+   grado», fila vacía; tras las conclusiones de cada área, el **anexo** con los criterios de
+   1° B; al pie de la hoja de transversales, el anexo con el tutor de 1° B.
+3. [ ] **Impresora del colegio (RICOH MP4054):** imprimir una hoja de matriz y un anexo.
+4. [ ] **Dirección** (`director_ebr` o `director_general`) y **Registro Académico:** las mismas
+   entradas de `/consulta-notas` (sección y carga) abren el registro.
+5. [ ] **Docente cualquiera:** la URL `/consulta-notas/2/seccion/23/registro-auxiliar` responde
+   **403**.
+6. [ ] **Docente — su registro** (`/docente/mis-cargas` → «Registro auxiliar»): botones ARRIBA
+   de las cards, «Imprimir seleccionadas» se habilita al marcar, «Imprimir todas», ventana nueva,
+   «✕ Cerrar» la cierra, la espera no queda fija; su documento NO trae la hoja de transversales
+   de la sección.
+7. [ ] **Docente con 2 cargas del área** (p. ej. Aritmética + Álgebra de 6.º A, II): fila de
+   grupos C21 · C22 sobre sus CT y C23/C24 en blanco «Otra carga».
+8. [ ] **Tutora de 5.º B (NUÑUVERO LIÑAN):** su tarjeta dice «Educación Religiosa» y su
+   documento también (sin Ética).
+9. [ ] **`/matriculas` y `/matriculas/resumen`:** a simple vista, iguales que antes.
+
+Con todo en verde: **preguntar** antes del merge `dev` → `main` (auto-deploy). Después del
+deploy: actualizar la CABECERA de cada doc tocado («en `dev`» → «desplegado») y repetir 1, 4 y 6
+en producción.
+
+### Observaciones abiertas (no bloquean)
+- En local, el formulario «Registro auxiliar del área» de la página de una carga lleva
+  `action="http://localhost/..."` sin el `:3000` (BrowserSync reescribe `href`, no `action`):
+  en el navegador del escritorio ese botón saca a XAMPP directo. En producción no aplica.
+- El criterio de GAMA de Pre-Cálculo de 5.º B dice «etermina metas…»: error de tipeo del
+  docente en la BD, no del código.
+- El pie de `/matriculas/resumen` cuenta solo matrículas vigentes, así que los colores nuevos
+  de trasladado y retirado no se ven ahí.
+
+### Solo en la laptop (NO viaja, y está bien que no viaje)
+- `public/REG_AUX_PRIMARIA_2026.xlsm` y `public/REG_AUX_SECUNDARIA_2026.xlsm` (modelo del
+  colegio): **NUNCA al repo** (sus hojas ocultas traen listas de estudiantes y el auto-deploy
+  publica todo lo versionado). Si los necesitas en el escritorio, cópialos por USB o unidad
+  personal, fuera de `public/`.
+- 11 íconos SVG sin seguimiento en `public/assets/icons/` (del 01/10, sin uso en el código).
+- `stash@{0}` «rediseno merito 19/10»: respaldo innecesario (todo está en `ba0e40b`).
+
+## 🆕 REGISTRO AUXILIAR DE CALIFICACIONES: DOCENTE + ÁREA COMPLETA (27/10/2026, en `dev`, sin migración)
+
+Documento A4 horizontal en el **formato del colegio** (`REG_AUX_*_2026.xlsm`): una hoja por
+sección + área con la matriz REG-NUM, estadísticas, firmas y la hoja CD de conclusiones. Solo
+competencias **oficiales** (bloqueadas). Dos entradas, un armado (`RegistroAuxiliarModel`):
+- **Docente:** botón «Registro auxiliar» en `/docente/mis-cargas` (las competencias de otra
+  carga, en blanco).
+- **Área completa** (Dirección, RA y admin, **solo bimestres cerrados**): fila en «Registros
+  de la sección» de `/consulta-notas/{p}/seccion/{s}` y botón en la página de cada carga.
+  Firma cada docente del área.
+
+Las áreas anchas se parten por competencias enteras («Parte X de Y»). `Cr1…CrN` van en chip.
+Detalle y decisiones: `docs/modulos/calificaciones.md` § Registro auxiliar.
+
+**Hecho y medido (BD local):**
+- historial e historial de área **idénticos byte a byte** tras mudar el armado al Model (4 casos);
+  procedencia, solo prueba de humo (renderiza sin errores);
+- notas del registro idénticas al historial: docente 133 filas, área completa 148 filas, 0 diferencias;
+- 1.410 celdas en blanco del registro del docente sin ningún dato;
+- ninguna tabla ni celda desborda la hoja (Chrome headless, 277 mm) y caben los 120 chips;
+- 2 áreas impresas a PDF: ninguna fila partida, «Parte X de Y», firmas solo tras la última parte;
+- un bimestre abierto o una sección sin cargas dan 404.
+
+⚠️ Los dos `.xlsm` del colegio están en `public/` sin versionar y sus hojas ocultas tienen las
+listas de estudiantes: **no subirlos** (el auto-deploy publica todo lo versionado).
+
+**Preparación del deploy (28/10/2026, `ae2690f`):** las 3 rutas del registro y las pantallas
+tocadas ya pasan por el **router y HTTP**: sin sesión responden 302 a `/login` (ni 404 ni 500).
+`verif_integridad_rutas.php` TODO OK (293 rutas, 188 vistas, 406 archivos). Hook `pre-push`
+**activado en la laptop** (`core.hooksPath = .githooks`). Sin migraciones: `main..dev` no trae
+ningún `.sql`. Falta lo que exige sesión de cada rol:
+
+**Pendiente ANTES del deploy** (commit `61256c5`; todo lo medido se hizo llamando a los
+controladores sin login):
+**Probado el 28/10/2026 con la sesión ADMIN del usuario en Chrome (por HTTP, BD local):**
+- [x] **Admin:** en `/consulta-notas/2/seccion/23`, el botón «Registro auxiliar de calificaciones»
+  (con ícono, `target=_blank`) abre el documento: 13 hojas en el orden del plan + la de
+  transversales de la sección, «✕ Cerrar» e «🖨 Imprimir» presentes, la espera no queda fija,
+  0 avisos. **Falta** el diálogo de «Imprimir» → «Guardar como PDF» (no se dispara un diálogo
+  desde la herramienta: lo hace el usuario).
+- [x] **Admin:** `/consulta-notas/1/carga/120` → «Registro auxiliar del área» (GET `area_id=6`):
+  Comunicación sola, y con «Incluir transversales» + la hoja de la sección. ⚠️ Solo en local: el
+  `action` del formulario sale `http://localhost/...` sin el puerto 3000 (BrowserSync reescribe
+  `href`, no `action`); en producción no aplica.
+- [x] **Admin:** en el bimestre ACTIVO (hoy el IV) `/consulta-notas/4/seccion/4` no muestra el
+  botón y la URL directa da **404**.
+- [x] **Admin:** 2.° B II (retorno): fila de BALTAZAR vacía con chip, 8 anexos de área + el de
+  transversales; 1.° B ya no la lista; 4.° A/B con «Viene de / Pasó a»; las pestañas de
+  `/consulta-notas/2/seccion/4` con sus datos de 1.° B; asistencia con «—» sin registro.
+- [ ] **Íconos** (`checklist_icon.svg`) visibles en los 4 botones en el navegador (en las
+  capturas headless de archivo no se dibujan por origen; no es prueba).
+- [ ] **Dirección** (`director_ebr` o `director_general`) y **RA**: las mismas entradas.
+- [ ] **Docente:** la URL de consulta responde 403 por HTTP.
+- [ ] **Docente:** su registro (pendiente desde la mañana): botones ARRIBA de las cards,
+  «Imprimir seleccionadas» se habilita al marcar, «Imprimir todas», ventana nueva, «✕ Cerrar» y
+  que la espera no quede fija. El botón de `/docente/mis-cargas` con el estilo nuevo. Su
+  documento NO trae la hoja de transversales de la sección.
+- [ ] **Docente con 2 cargas del área** (p. ej. Aritmética + Álgebra de 6.º A, II Bimestre): fila
+  de grupos C21 · C22 sobre sus CT y C23/C24 en blanco «Otra carga».
+- [ ] **Revisión a ojo en papel o PDF del navegador:** colores AD·A·B·C; chip `Cr` a 5 pt;
+  que no se vea línea entre numeral y literal (Logro, Resumen, transversales y CD) y que ningún
+  número se parta; la hoja de transversales de la sección; **firmas en 2 filas** (4 o más,
+  p. ej. Comunicación de 5.º B de secundaria); fila «Docentes» larga en secundaria.
+- [x] **Decidido (28/10/2026): el registro sigue el acta SIAGIE.** Tutoría/Ética sale como
+  **Educación Religiosa** (C51 y C52 replicadas, nunca Ética); en 5.º, **GAMA en EPT y Arte**
+  (todos sus criterios por curso, logro del tutor); los talleres se quedan sin marca. Detalle en
+  `docs/modulos/calificaciones.md` § «El registro sigue el acta SIAGIE». Medido con
+  `verif_registro_acta.php`: 33 hojas de Ed. Religiosa y 1.644 filas iguales al control; 12 hojas
+  de réplica de GAMA y 444 logros iguales al promedio del control. PDF de 5.º B revisado.
+- [x] **Admin, navegador (28/10/2026):** registro «Todas las áreas» de **5.º B** del II:
+  «Educación Religiosa», «Arte y Cultura» y «Educación para el Trabajo» con la tutora; 0
+  menciones a Ética ni a Tutoría (por HTTP con la sesión del usuario).
+- [ ] **Docente tutor de secundaria:** su tarjeta dice «Educación Religiosa» y su documento igual.
+
+### Roster de LECTURA + criterios de las transversales (28/10/2026, en `dev`, sin migración)
+Las vistas de SOLO LECTURA de un bimestre listan a quien lo **CURSÓ**: los trasladados y
+retirados con dato oficial (nota bloqueada, conducta o asistencia confirmadas) vuelven a los
+bimestres que cursaron, con chip «Trasladado»/«Retirado». Punto único
+`RetornoGradoModel::sqlRosterLecturaDelPeriodo`; flag `$lectura` en los 5 métodos de roster,
+que solo pasan el registro auxiliar, el historial del docente y `/consulta-notas`. Las
+transversales de la matriz llevan sus `Cr1…CrN` y se reparten por bloques de carga.
+Detalle: `docs/modulos/calificaciones.md` § «Roster de lectura».
+
+**Medido (BD local):** `verif_roster_lectura.php` OK (19 pares matrícula-bimestre recuperados,
+0 intrusos, lectura ⊇ evaluación, tramo del retorno intacto); sin el flag, las 5 consultas dan
+lo MISMO que `HEAD` byte a byte (120 competencias, 15 sección-bimestre);
+`verif_roster_evaluacion`, `verif_roster_asistencia` y `verif_matricula_documento` en verde;
+render del registro de 7 secciones sin avisos (5.º B II: BOCANEGRA trasladado, GONZÁLEZ y
+MEDINA retirados, con sus notas).
+
+**Ampliado el mismo día (decisiones del usuario):**
+- **Chips de situación estandarizados**: catálogo `SITUACIONES_ESTUDIANTE` +
+  `shared/_situacion-chips.php` + `SituacionEstudianteModel` (Trasladado, Retirado, Retorno de
+  grado, «Viene de / Pasó a» del cambio de sección, y los de tipo y rol de `/matriculas`). Los
+  colores son los de siempre; el gráfico de `/matriculas/resumen` pasa a usar los del chip.
+  `etiqueta_salida()` y `ra-tag--salida` desaparecen. Ver `docs/modulos/ui.md`.
+- **Retorno de grado en lectura**: solo la matrícula REAL. La operativa no sale nunca; la
+  oficial, en su tramo, lee de la operativa los logros, conclusiones (criterios fundidos en
+  «1° B»), transversales, conducta y asistencia. Ver `docs/modulos/retorno-grado.md`
+  § «Vistas de solo lectura». Límites (0 casos hoy): competencia sin columna (escenario 6; el
+  verificador falla si aparece), exoneraciones y extraordinarias de la operativa en el tramo.
+- Leyenda «Competencias del área»: cada CT una sola vez, con las cargas que la evalúan.
+- **Registro IMPRESO del retorno: «fila vacía + anexo»** (regla del registro: todas las
+  calificaciones de cada criterio). Su fila va vacía en la matriz y en la CD; un anexo por área
+  (hoja nueva, tras la CD) trae cada criterio de 1° B con su nota, logro, conclusión, quién la
+  registró y la leyenda de esos criterios; la hoja de transversales de la sección lo pone al pie
+  con el tutor de 1° B. Las pantallas siguen con el logro y «1° B». Medido: las **82** notas por
+  criterio del II, cada una una vez (`verif_roster_lectura.php` §10).
+
+**Medido tras la ampliación:** `verif_roster_lectura.php` TODO OK, 9 secciones (18 pares de
+trasladados/retirados: hoy hay 14 matrículas y no 15, porque una de las 582/586 pasó a
+continuador a las 11:00, no por el código; 39 logros del tramo del retorno #1 en la fila
+oficial; 59 notas propias fuera del tramo; chips iguales al control a mano en todas las filas).
+Sin el flag, las 6 consultas siguen idénticas a `HEAD` (400 competencias, 27 sección-bimestre).
+`/matriculas` (lista, filtros y 4 fichas) da el mismo HTML que `HEAD`. 16 verificadores de la
+zona en verde. **Fallan igual en `HEAD`** (previos, sin relación con este cambio):
+`verif_asistencia_fechas`, `verif_asistencia_presencias`, `verif_direccion_superficies`,
+`verif_ratificaciones`, `verif_rol_auxiliar` (choque `uq_seccion_desde` en la BD local) y
+`verif_stats_competencia` (muestra al azar; el contador de evaluados se desfasa en 1).
+
+**Pendiente:**
+- [ ] **Admin, navegador:** registro de 5.º B de secundaria (sección 23) del I y II Bimestre
+  impreso a PDF: chips, transversales con criterios, ninguna tabla desborda ni fila se parte.
+  Ojo: el chip hace que un nombre largo ocupe 2 renglones.
+- [ ] **Admin:** registro de 2.° B de primaria (sección 4) del II Bimestre impreso a PDF:
+  BALTAZAR con «Retorno de grado» y fila vacía; el anexo de cada área tras la CD y el de la hoja
+  de transversales al pie; en el de 1.° B (sección 2) ya no aparece. Registro de 4.° A y 4.° B:
+  «Viene de / Pasó a».
+- [ ] **Docentes de 2.° B** (tutora de aula y la de Inglés): su registro del II trae el anexo de
+  sus áreas.
+- [ ] **Admin:** `/consulta-notas/1/seccion/23` → pestañas de carga, transversales, conducta
+  (y «Criterios») y asistencia muestran a los trasladados/retirados del I con chip; y
+  `/consulta-notas/2/seccion/4`, a BALTAZAR con los datos de 1.° B.
+- [ ] **Docente de 5.º B:** su historial de carga del I Bimestre incluye a BOCANEGRA con chip.
+- [ ] **`/matriculas` y `/matriculas/resumen`:** a simple vista, iguales; el pie de «Tipo» con
+  trasladado gris y retirado rosa.
+- [x] **Asistencia de solo lectura: «—» en las filas SIN registro confirmado** (decisión del
+  usuario, 28/10/2026; antes pintaba «0», que afirmaba «0 faltas»). En el parcial compartido
+  `_tabla-incidencias.php`, solo en modo lectura (el editable sigue con sus entradas). Medido:
+  3° B del I, 2 filas con guion y el contador «23 de 25 con registro».
+
+**Sin datos reales para probarlo** (lógica cubierta solo por pruebas de la función o por lectura):
+- una parte con SOLO Resumen y transversales (tope teórico; no hay área tan ancha);
+- la columna «Sin carga» (no hay subárea del plan sin carga en ninguna sección);
+- extraordinarias reservadas a Dirección visibles en el modo área;
+- rótulo por docente de dos cargas sin subárea en la misma área (0 casos);
+- la hoja de transversales SIN cierre del tutor (las 23 secciones tienen cierre en I y II).
+
+**En producción, tras el deploy** (los ids difieren de la BD local):
+- [ ] que exista UN solo usuario activo `director_general` (si no, la firma sale solo con el
+  cargo) y un Director EBR vigente;
+- [ ] tiempo de carga de una sección completa de secundaria (local: 2 s, 612 KB);
+- [ ] los `.xlsm` NO deben estar en el servidor.
+- [ ] Desplegar (preguntar antes de mergear `dev` → `main`).
+
+## 🔜 RETOMAR AQUÍ (19/10/2026, noche: laptop → escritorio de casa) — GESTOR DEL MÉRITO DESPLEGADO
+
+**Situación:** el gestor del orden de mérito con impresión filtrada está **en producción**
+(merge `ebb376c`, sin migraciones; entrada «GESTOR DEL ORDEN DE MÉRITO» de abajo). `dev` va
+por delante de `main` **solo con commits de docs**, que suben en el próximo deploy.
+
+### Al llegar al escritorio de casa
+1. `git pull` en `dev`. **No hay migraciones nuevas**: la BD local no necesita nada para esto.
+2. Comprobar que el hook pre-push esté activo: `git config core.hooksPath` debe responder
+   `.githooks`. Si sale vacío, ejecutar `git config core.hooksPath .githooks` (en la laptop
+   **no estaba activado** y el push del 19/10 salió sin verificación; se corrió a mano: OK).
+3. Recompilar con `gulp build` antes de mirar nada impreso en local.
+
+### Pendiente
+- [ ] **Probar en producción con sesión**: el gestor y los dos imprimibles, con admin y
+  con un director (no debe ver «Resolver empate»), y la ruta vieja
+  `/director/ranking-seccion/{p}` (debe redirigir al gestor).
+- [ ] **Prueba de control** de «la firma nunca sola» en el reporte de mérito (con
+  `.merito-cierre` desactivado DEBE fallar). La tanda positiva ya pasó. Hacerla **liviana**:
+  ver la advertencia de carga en `docs/modulos/ui.md` § «Firma y sello» (la del 19/10
+  recalentó la laptop y obligó a reiniciarla).
+- [ ] **Fase 2 de «firma nunca sola»**: seguir con el resto del inventario (entrada «LA
+  FIRMA/SELLO NUNCA SOLA» de abajo), uno por uno.
+
+### Solo en la laptop (no viaja)
+- `stash@{0}` «rediseno merito 19/10»: respaldo ya innecesario (todo está en `ba0e40b`).
+- 12 íconos SVG sin seguimiento en `public/assets/icons/` (del 01/10, sin uso en el código).
+- `gulp` reescribe `public/js/*.js` con otros finales de línea: salen «M» con contenido
+  idéntico. Descartar con `git checkout -- public/js`, nunca commitearlos.
 
 ## 🔜 RETOMAR AQUÍ (19/10/2026) — DESPLEGADO; QUEDAN LAS PRUEBAS EN LA OFICINA
 
@@ -153,7 +431,7 @@ solos en una hoja».
   - Bajo riesgo, porque son de una hoja por diseño:
     - boleta A4 (`boleta/alumno.php`);
     - horario;
-    - ~~cada hoja del reporte de mérito~~ — hecho en `dev` el 19/10 (`.merito-cierre`).
+    - ~~cada hoja del reporte de mérito~~ — desplegado el 19/10 (`.merito-cierre`, `ebb376c`).
   - Largo variable. Ninguno ata hoy la firma al contenido:
     - asistencia y conducta imprimibles (`.reporte-footer`, `_firmas-registro.php`);
     - acta de desempates;
@@ -293,7 +571,7 @@ Pasos, en orden:
 7. [ ] Pasar a «desplegado» las cabeceras de los docs de módulo del lote (bloqueos/plazos,
    asistencia por estudiante, rectificaciones, auxiliar, matrículas, usuarios).
 
-## 🆕 GESTOR DEL ORDEN DE MÉRITO (19/10/2026, en `dev`, sin migración), SIN DESPLEGAR
+## 🆕 GESTOR DEL ORDEN DE MÉRITO (19/10/2026, sin migración) — DESPLEGADO el 19/10/2026 (merge `ebb376c`)
 
 `/director/orden-merito/{p}` pasa a ser un gestor como el del Acompañamiento: chips de
 sección, mérito por grado + ranking por sección en una pantalla, e impresión de lo
@@ -311,7 +589,7 @@ mismo alto). Detalle en `docs/modulos/orden-merito.md` § Visibilidad y § Impre
 - [x] Firma nunca sola (Fase 2 para este reporte): `.merito-cierre` = últimas 3 filas +
   firmas, indivisible. 0 fallas en 71 altos × 3 documentos.
   - [ ] Falta la prueba de control (con el bloque desactivado debe fallar).
-- [ ] Desplegar con el resto de `dev`.
+- [x] Desplegado el 19/10/2026 (merge `ebb376c`); prueba con sesión en prod pendiente (ver § Git).
 
 ## 🆕 RATIFICACIÓN DE MATRÍCULA — DESPLEGADO el 17/10/2026 (merge `bf885dd`, migración 080)
 
@@ -6059,6 +6337,16 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **19/10/2026 (3.º) — DEPLOY, sigue v1.0.5.** `main` pasó de `ba70357` a `ebb376c` (merge
+  `--no-ff` de `dev`, 3 commits, 11 archivos): gestor del orden de mérito con impresión
+  filtrada (`ba0e40b`) y 2 commits de docs. **Sin migraciones.** Verificado antes:
+  `verif_integridad_rutas.php` TODO OK, ya en `main` y a mano (⚠️ el hook pre-push **no
+  estaba activado** en esta laptop: falta `git config core.hooksPath .githooks`), merge sin
+  conflictos, árbol de `main` idéntico a `dev`, ningún archivo sensible. Después: prod
+  sirve el `app.css` nuevo (`.merito-cierre`, 1.er intento), `/login` 200 y
+  `/director/ranking-seccion/2` 302 a login (sin sesión).
+  - [ ] Probar con sesión en prod: el gestor y los dos imprimibles, con admin y con un
+    director (no debe ver «Resolver empate»).
 - 🟢 **19/10/2026 (2.º) — DEPLOY, sigue v1.0.5.** `main` pasó de `65ca112` a `ba70357` (merge
   `--no-ff` de `dev`, 5 commits, 10 archivos): fix del 500 de `/admin/cuadros` (pantalla y A4),
   `verif_integridad_rutas.php` y hook `pre-push`. **Sin migraciones.** Verificado antes: el hook

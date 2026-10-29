@@ -63,6 +63,7 @@ activo **o revertido**), `nombresDelTramo()` y `bloqueoGestion()`.
 | Orden de mérito | grado **oficial** | grado **operativo** |
 | **Boleta y token público** | **SIEMPRE matrícula oficial** | **SIEMPRE matrícula oficial** |
 | **Acompañamiento pedagógico** (informe y banda «Estudiantes en riesgo» del tablero) | **SIEMPRE matrícula oficial** | **SIEMPRE matrícula oficial** |
+| **Vistas de SOLO LECTURA de notas** (registro auxiliar, historial del docente, `/consulta-notas`; 28/10/2026) | fila **oficial**, sus datos | fila **oficial**, datos **leídos de la operativa**; la operativa no sale nunca (ver § «Vistas de solo lectura») |
 
 **El acompañamiento pedagógico cuenta por la matrícula OFICIAL (23/09/2026, decisión del usuario:
 «el retorno es un proceso interno del colegio»).** No se recalcula nada: las cifras son las
@@ -80,6 +81,63 @@ boleta lee cada bimestre de la matrícula que lo cursó (`RetornoGradoModel::mat
 Se descartó la alternativa B (recalcular todo el año en el grado operativo):
 obligaba a mantener datos duplicados o a que el mérito uniera fuentes, y dejaba
 a la estudiante rankeada en un grado con notas obtenidas en otro.
+
+## Vistas de solo lectura: la fila es la OFICIAL (28/10/2026)
+
+> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pruebas en `docs/ESTADO.md`.
+
+**Decisión del usuario:** «solo es válida su matrícula real, nunca la operativa; todas sus
+calificaciones deben aparecer en el registro auxiliar de su matrícula real. En todas». Rige en
+**todas las vistas y documentos de solo lectura por bimestre**: registro auxiliar (docente y
+área), historial del docente (carga, área, procedencia) y las pestañas de `/consulta-notas`.
+
+**Regla.** El estudiante aparece **una sola vez**, en la sección de su matrícula **OFICIAL**. En
+los bimestres de su **tramo**, sus datos se **leen** de la operativa: no se copian ni se mueven, así
+que la Regla A sigue intacta (la boleta ya hacía esto mismo). Las competencias son del **nivel**
+(`areas.nivel_id`) y un retorno no cambia de nivel, así que la C5 de 1° B es la misma C5 de 2° B.
+
+**Dos presentaciones, la misma fuente** (decisiones del usuario del 28/10/2026):
+
+| Qué | **Pantallas** (`/consulta-notas`, historial del docente) | **Registro auxiliar IMPRESO** (docente y área) |
+|---|---|---|
+| Logro y conclusión de cada competencia | en su fila: los de la operativa, en la carga **equivalente** (`CambioSeccionModel::cargasEquivalentes`: misma subárea si la hay; si no, la misma área), solo si está **bloqueada** | **fila VACÍA** (nombre, chip y «—») en la matriz y en la CD; todo va al **ANEXO** |
+| Criterios (Cr1…CrN) | **una celda fundida** con la sección donde cursó («1° B», `cursado_en`) | en el anexo, **cada criterio de la carga de 1° B con su nota**, más su leyenda: regla del registro auxiliar, «todas las calificaciones de cada criterio» |
+| Transversales | logro de la carga equivalente; el promedio y la conclusión del tutor, de la operativa | en el anexo del área (por carga); la hoja «Competencias transversales de la sección» deja la fila vacía y pone **al pie** lo que congeló el **tutor de la sección operativa**, con su nombre (`TutorPeriodoModel`) |
+| Conducta y asistencia | de la operativa (`sqlDatosDelPeriodo`) | (el registro no las lleva) |
+| Estadísticas | cuenta como **evaluada** con su nivel real | «No evaluados 1» (aceptado: su fila va vacía) |
+
+- **Chip** «Retorno de grado» («a secas»): solo en los bimestres del tramo, en los dos casos.
+- **Fuera del tramo**, sus propias notas, sin fundir ni anexo.
+- **El anexo** (`_anexo-retorno.php`, `RegistroAuxiliarModel::anexoRetorno`) va en hoja nueva tras
+  las conclusiones de cada área. Lleva el encabezado del documento sin la fila de docentes (cada
+  carga dice «Registró: …»), una fila por competencia (Cr1…CrN, el par del Logro y la conclusión)
+  y la leyenda «Criterios de evaluación de 1° B». Lee cada competencia con
+  `getResumenCompetencia` **sin** el flag de lectura: su roster es el de evaluación, justo donde la
+  operativa cursó. El documento vacía la fila con `vaciarTramo()`, solo en `hoja()`; las
+  pantallas no pasan por ahí.
+
+**Puntos únicos:**
+- `RetornoGradoModel::sqlRosterLecturaDelPeriodo`: la operativa nunca entra al roster.
+- `RetornoGradoModel::oficialesEnTramo()`: en PHP y en lote, qué oficiales están en su tramo y dónde cursaron.
+- `RetornoGradoModel::sqlDatosDelPeriodo()`: en SQL, de qué matrícula se leen los datos de esa fila.
+- `CalificacionModel::conDatosDelTramo()`: el logro por competencia.
+
+**Consecuencia aceptada:** la sección **operativa** (1° B) ya no la lista en sus vistas de lectura,
+así que su docente no la ve en su registro ni en su historial aunque la evaluó. Las grillas de
+captura no cambian: allí se evalúa en la operativa, como siempre.
+
+**Límites conocidos** (medidos el 28/10/2026 sobre el retorno #1: 0 casos de cada uno):
+- **Escenario 6**: una competencia de la operativa **sin columna** en la sección oficial. Decisión
+  del usuario: va en la columna «Sin carga». **No está implementado** porque no había ningún caso.
+  `verif_roster_lectura.php` §9 **falla** si aparece uno.
+- **Exoneraciones** de la operativa en el tramo: la fila usa la lista de la carga oficial.
+- **Extraordinarias de RA** sobre la operativa: su logro sale (pantallas y anexo), pero no su
+  detalle en la sección «Extraordinarias» del registro (que lista las de las cargas oficiales).
+- **Omisiones**: van con los criterios. Si toda una competencia fue omisión, no hay logro y sale «—».
+- **Retorno en secundaria** (decisión del usuario, 28/10/2026; 0 casos): en su anexo, la carga de
+  tutoría sale como **Educación Religiosa** (C51 y C52 replicadas, nunca Ética), como su hoja. Las
+  hojas de **EPT y Arte de 5.º** (GAMA replicada) no tienen carga de origen: su fila del tramo va
+  vacía y **sin anexo**.
 
 ## Las dos exclusiones, que son INVERSAS entre sí
 

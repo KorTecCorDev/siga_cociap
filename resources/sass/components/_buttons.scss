@@ -45,6 +45,22 @@
         &:hover { background: darken($color-warning, 8%); }
     }
 
+    // REGISTRO AUXILIAR (27/10/2026): el azul de «Académicas / Mis cargas»
+    // (wayfinding, docs/modulos/ui.md), con `.btn-icon--registro`, para que el
+    // acceso se reconozca sin leer. Lleno = acción principal; línea = secundaria.
+    &--registro {
+        background: $card-cargas-line;
+        color: $text-white;
+        &:hover { background: darken($card-cargas-line, 8%); color: $text-white; }
+    }
+
+    &--registro-linea {
+        background: $bg-white;
+        color: $card-cargas-line;
+        border: 1px solid $card-cargas-line;
+        &:hover { background: $card-cargas-bg; color: $card-cargas-ink; }
+    }
+
     &--sm { padding: 5px $spacing-sm; font-size: $font-size-sm; }
     &--lg { padding: 12px $spacing-lg; font-size: $font-size-lg; }
 }
@@ -128,5 +144,12 @@
     &--back {
         -webkit-mask-image: url('../assets/icons/round-arrow-left.svg');
                 mask-image: url('../assets/icons/round-arrow-left.svg');
+    }
+
+    // Registro auxiliar de calificaciones (las 4 entradas: Mis cargas, su
+    // pantalla de selección, la sección y la carga de /consulta-notas).
+    &--registro {
+        -webkit-mask-image: url('../assets/icons/checklist_icon.svg');
+                mask-image: url('../assets/icons/checklist_icon.svg');
     }
 }

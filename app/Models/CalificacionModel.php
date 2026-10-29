@@ -949,7 +949,8 @@ class CalificacionModel extends BaseModel
         int $cargaId,
         int $competenciaId,
         int $periodoId,
-        bool $soloConfirmados = false
+        bool $soloConfirmados = false,
+        bool $lectura = false
     ): array {
         // Obtener criterios activos (excluye eliminados). Con $soloConfirmados
         // se restringe a los confirmados: la vista de resumen solo debe mostrar
@@ -976,6 +977,17 @@ class CalificacionModel extends BaseModel
         $seccionCarga = (int) ($this->queryOne(
             "SELECT seccion_id FROM cargas_academicas WHERE id = ?", [$cargaId]
         )['seccion_id'] ?? 0);
+
+        // Con $lectura (vistas y documentos de SOLO LECTURA: historial, registro
+        // auxiliar, /consulta-notas; 28/10/2026), el roster es quien CURSÓ el
+        // bimestre, trasladados y retirados con dato oficial incluidos, y del
+        // retorno solo la oficial (RetornoGradoModel::sqlRosterLecturaDelPeriodo);
+        // cada fila trae sus chips en `situaciones`. Sin él, el de siempre:
+        // lo usan la validación de omisiones y la del bloqueo.
+        $filtroRoster = $lectura
+            ? RetornoGradoModel::sqlRosterLecturaDelPeriodo('m', (string) $periodoId, $seccionCarga)
+            : "AND (m.estado IN ('aprobada', 'pendiente') OR " . RetornoGradoModel::sqlOperativaRevertida('m') . ")
+            " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId);
 
         // Obtener alumnos con sus notas
         $alumnos = $this->query("
@@ -1014,8 +1026,7 @@ class CalificacionModel extends BaseModel
             -- se hace aquí y se borra este comentario.
             -- Retorno de grado (05/10/2026): roster DEL BIMESTRE por el tramo, y la
             -- operativa revertida (`desactivado`) cuenta en los bimestres que cursó.
-            AND (m.estado IN ('aprobada', 'pendiente') OR " . RetornoGradoModel::sqlOperativaRevertida('m') . ")
-            " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
+            {$filtroRoster}
             ORDER BY " . orden_alfabetico('p', 2) . "
         ", [$cargaId, $competenciaId, $periodoId]);
 
@@ -1038,11 +1049,89 @@ class CalificacionModel extends BaseModel
                 ? nota_a_literal((int) $alumno['promedio'])
                 : null;
         }
+        unset($alumno);
+
+        if ($lectura) {
+            // Retorno de grado: la fila OFICIAL en su tramo lee el logro de la
+            // operativa; luego, el chip de situación de cada fila.
+            $alumnos = $this->conDatosDelTramo($alumnos, $cargaId, $competenciaId, $periodoId);
+            $alumnos = (new SituacionEstudianteModel())->anotar($alumnos, $seccionCarga, $periodoId);
+        }
 
         return [
             'criterios' => $criterios,
             'alumnos'   => $alumnos,
         ];
+    }
+
+    /**
+     * VISTAS DE LECTURA — retorno de grado (decisión del usuario, 28/10/2026):
+     * la fila de la matrícula OFICIAL, en un bimestre de su tramo, muestra el
+     * LOGRO y la CONCLUSIÓN que obtuvo en la operativa, en la MISMA competencia
+     * (las competencias son del nivel, y un retorno no cambia de nivel) y en la
+     * carga EQUIVALENTE de la sección operativa
+     * (`CambioSeccionModel::cargasEquivalentes`: misma subárea si la hay; si no,
+     * la misma área). Solo lo OFICIAL: competencia bloqueada en esa carga.
+     *
+     * Nada se copia ni se mueve (Regla A). Los criterios NO se trasladan —son de
+     * otra carga—: sus celdas quedan en null y la vista las funde con
+     * `cursado_en` (SituacionEstudianteModel::anotar).
+     */
+    private function conDatosDelTramo(array $alumnos, int $cargaId, int $competenciaId, int $periodoId): array
+    {
+        $tramos = (new RetornoGradoModel())->oficialesEnTramo(array_column($alumnos, 'matricula_id'), $periodoId);
+        if ($tramos === []) {
+            return $alumnos;
+        }
+        $carga = $this->queryOne("
+            SELECT ca.subarea_id, COALESCE(ca.area_id, sa.area_id) AS area_resuelta_id
+            FROM cargas_academicas ca
+            LEFT JOIN subareas sa ON sa.id = ca.subarea_id
+            WHERE ca.id = ?
+        ", [$cargaId]);
+        if ($carga === null) {
+            return $alumnos;
+        }
+        $cambio = new CambioSeccionModel();
+        foreach ($alumnos as &$al) {
+            $t = $tramos[(int) $al['matricula_id']] ?? null;
+            if ($t === null) {
+                continue;
+            }
+            // El tramo es la verdad: lo que la oficial tenga aquí no es de ese bimestre.
+            $al['promedio']               = null;
+            $al['conclusion_descriptiva'] = null;
+            $al['literal']                = null;
+            foreach ($al['notas_criterios'] as $critId => $_) {
+                $al['notas_criterios'][$critId] = null;
+            }
+            $equivalentes = array_map('intval', array_column($cambio->cargasEquivalentes($carga, $t['seccion_id']), 'id'));
+            if ($equivalentes === []) {
+                continue;
+            }
+            $in  = implode(',', array_fill(0, count($equivalentes), '?'));
+            $cal = $this->queryOne("
+                SELECT cal.nota_numerica, cal.conclusion_descriptiva
+                FROM calificaciones cal
+                INNER JOIN bloqueos_competencia bc
+                        ON bc.carga_id       = cal.carga_id
+                       AND bc.competencia_id = cal.competencia_id
+                       AND bc.periodo_id     = cal.periodo_id
+                WHERE cal.matricula_id   = ?
+                  AND cal.competencia_id = ?
+                  AND cal.periodo_id     = ?
+                  AND cal.carga_id IN ({$in})
+                ORDER BY FIELD(cal.carga_id, {$in})
+                LIMIT 1
+            ", array_merge([$t['operativa'], $competenciaId, $periodoId], $equivalentes, $equivalentes));
+            if ($cal !== null && $cal['nota_numerica'] !== null) {
+                $al['promedio']               = $cal['nota_numerica'];
+                $al['conclusion_descriptiva'] = $cal['conclusion_descriptiva'];
+                $al['literal']                = nota_a_literal((int) $cal['nota_numerica']);
+            }
+        }
+        unset($al);
+        return $alumnos;
     }
 }
 

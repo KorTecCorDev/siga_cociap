@@ -197,12 +197,26 @@ class AsistenciaModel extends BaseModel
      *   - false → el EDITOR (grilla y vista por estudiante): ve su BORRADOR.
      *   - true  → SOLO LECTURA (imprimible, Dirección): un borrador cuenta como
      *     «sin registro» (en 0, `registrado` = false), porque aún no es oficial.
+     *
+     * $lectura (28/10/2026): roster de quien CURSÓ el bimestre, trasladados y
+     * retirados con dato oficial incluidos (`sqlRosterLecturaDelPeriodo`), con sus
+     * chips en `situaciones`. Solo /consulta-notas; las grillas y los imprimibles
+     * del auxiliar no lo pasan.
      */
-    public function getEstudiantesConIncidencias(int $seccionId, int $periodoId, bool $soloConfirmadas = false): array
+    public function getEstudiantesConIncidencias(int $seccionId, int $periodoId, bool $soloConfirmadas = false, bool $lectura = false): array
     {
+        $roster = $lectura
+            ? RetornoGradoModel::sqlRosterLecturaDelPeriodo('m', (string) $periodoId, $seccionId)
+            : RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId);
+        // Lectura: la oficial de un retorno, en su tramo, lee la asistencia de la
+        // operativa (`matricula_datos`, sqlDatosDelPeriodo).
+        $colDatos = $lectura
+            ? RetornoGradoModel::sqlDatosDelPeriodo('m', (string) $periodoId) . ' AS matricula_datos,'
+            : '';
         $alumnos = $this->query("
             SELECT
                 m.id  AS matricula_id,
+                {$colDatos}
                 CONCAT(
                     p.apellido_paterno, ' ',
                     p.apellido_materno, ', ',
@@ -217,7 +231,7 @@ class AsistenciaModel extends BaseModel
               -- Roster de evaluacion (punto unico en helpers.php): el registro
               -- de asistencia debe cubrir exactamente a quien se evalua. El
               -- porque de cada condicion vive en el docblock del helper.
-              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
+              {$roster}
               AND m.anio_id    = (SELECT id FROM anios_academicos WHERE estado = 'activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
         ");
@@ -226,7 +240,9 @@ class AsistenciaModel extends BaseModel
             return [];
         }
 
-        $matriculaIds = array_column($alumnos, 'matricula_id');
+        // Los registros, de la matrícula que tiene los datos (lectura: retorno).
+        $clave        = $lectura ? 'matricula_datos' : 'matricula_id';
+        $matriculaIds = array_column($alumnos, $clave);
         $placeholders = implode(',', array_fill(0, count($matriculaIds), '?'));
 
         $registros = $this->query("
@@ -259,7 +275,7 @@ class AsistenciaModel extends BaseModel
         }
 
         foreach ($alumnos as &$a) {
-            $mid = (int) $a['matricula_id'];
+            $mid = (int) $a[$clave];
             $a['incidencias'] = $index[$mid] ?? [
                 'faltas'                 => 0,
                 'faltas_justificadas'    => 0,
@@ -270,8 +286,10 @@ class AsistenciaModel extends BaseModel
                 'confirmado'             => false,
             ];
         }
+        unset($a);
 
-        return $alumnos;
+        // Lectura: chip de situación de cada fila (SituacionEstudianteModel).
+        return $lectura ? (new SituacionEstudianteModel())->anotar($alumnos, $seccionId, $periodoId) : $alumnos;
     }
 
     // ── Guardar / actualizar ─────────────────────────────────────

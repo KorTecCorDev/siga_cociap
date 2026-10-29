@@ -254,12 +254,25 @@ class ConductaModel extends BaseModel
      *     su BORRADOR, que es lo que tiene que seguir editando.
      *   - true  → las grillas de SOLO LECTURA (tutor, Dirección, imprimible): ven
      *     solo lo oficial (`RESPUESTAS_OFICIALES`); un borrador sale vacío.
+     *
+     * $lectura (28/10/2026): roster de quien CURSÓ el bimestre, trasladados y
+     * retirados con dato oficial incluidos (`sqlRosterLecturaDelPeriodo`), con sus
+     * chips en `situaciones`. Solo para /consulta-notas; las grillas de captura y
+     * del tutor no lo pasan.
      */
-    public function getEstudiantesParaRegistro(int $seccionId, int $periodoId, bool $soloConfirmadas = false): array
+    public function getEstudiantesParaRegistro(int $seccionId, int $periodoId, bool $soloConfirmadas = false, bool $lectura = false): array
     {
+        $roster = $lectura
+            ? RetornoGradoModel::sqlRosterLecturaDelPeriodo('m', (string) $periodoId, $seccionId)
+            : RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId);
+        // Lectura: la oficial de un retorno, en su tramo, lee los datos de la
+        // operativa (sqlDatosDelPeriodo). Sin lectura, `m.id`: la consulta de siempre.
+        $dm       = $lectura ? RetornoGradoModel::sqlDatosDelPeriodo('m', (string) $periodoId) : 'm.id';
+        $colDatos = $lectura ? "{$dm} AS matricula_datos," : '';
         $alumnos = $this->query("
             SELECT
                 m.id AS matricula_id,
+                {$colDatos}
                 CONCAT(p.apellido_paterno,' ',p.apellido_materno,', ',p.nombres) AS nombre_completo,
                 -- Literal directo SIN matriz: el de la via extraordinaria de un
                 -- bimestre cerrado (migracion 063). El historial de RA lo pinta
@@ -271,15 +284,15 @@ class ConductaModel extends BaseModel
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
             LEFT JOIN calificaciones_conducta cc
-                   ON cc.matricula_id = m.id AND cc.periodo_id = ?
+                   ON cc.matricula_id = {$dm} AND cc.periodo_id = ?
             LEFT JOIN conducta_confirmaciones cf
-                   ON cf.matricula_id = m.id AND cf.periodo_id = ?
+                   ON cf.matricula_id = {$dm} AND cf.periodo_id = ?
             WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               -- Mismo roster que el docente al ingresar notas (getAlumnosSeccion):
               -- TODOS los matriculados de la seccion (aprobada, pendiente e incluso
               -- desactivado por baja administrativa/deuda: siguen asistiendo). El
               -- Roster de evaluacion (punto unico en helpers.php).
-              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
+              {$roster}
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
         ", [$periodoId, $periodoId]);
@@ -289,7 +302,9 @@ class ConductaModel extends BaseModel
         }
 
         $origen = $soloConfirmadas ? self::RESPUESTAS_OFICIALES : 'conducta_respuestas';
-        $ids = array_column($alumnos, 'matricula_id');
+        // Las respuestas, de la matrícula que tiene los datos (lectura: retorno).
+        $clave = $lectura ? 'matricula_datos' : 'matricula_id';
+        $ids = array_column($alumnos, $clave);
         $ph  = implode(',', array_fill(0, count($ids), '?'));
         $resp = $this->query("
             SELECT r.matricula_id, r.criterio_id, r.respuesta
@@ -303,10 +318,12 @@ class ConductaModel extends BaseModel
         }
 
         foreach ($alumnos as &$a) {
-            $a['respuestas'] = $idx[(int) $a['matricula_id']] ?? [];
+            $a['respuestas'] = $idx[(int) $a[$clave]] ?? [];
             $a['confirmado'] = $a['confirmado_en'] !== null;
         }
-        return $alumnos;
+        unset($a);
+        // Lectura: chip de situación de cada fila (SituacionEstudianteModel).
+        return $lectura ? (new SituacionEstudianteModel())->anotar($alumnos, $seccionId, $periodoId) : $alumnos;
     }
 
     /**
@@ -876,9 +893,19 @@ class ConductaModel extends BaseModel
     /**
      * Alumnos de la seccion con nota RA derivada, nota del tutor y vista previa de
      * la final/literal. Para el panel del tutor.
+     *
+     * $lectura (28/10/2026): roster de quien CURSÓ el bimestre
+     * (`sqlRosterLecturaDelPeriodo`), con sus chips en `situaciones`. Solo
+     * /consulta-notas; el tutor no lo pasa.
      */
-    public function getEstudiantesParaTutor(int $seccionId, int $periodoId, int $totalCriterios): array
+    public function getEstudiantesParaTutor(int $seccionId, int $periodoId, int $totalCriterios, bool $lectura = false): array
     {
+        $roster = $lectura
+            ? RetornoGradoModel::sqlRosterLecturaDelPeriodo('m', (string) $periodoId, $seccionId)
+            : RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId);
+        // Lectura: la oficial de un retorno, en su tramo, lee los datos de la
+        // operativa (sqlDatosDelPeriodo). Sin lectura, `m.id`: la consulta de siempre.
+        $dm = $lectura ? RetornoGradoModel::sqlDatosDelPeriodo('m', (string) $periodoId) : 'm.id';
         $rows = $this->query("
             SELECT
                 m.id AS matricula_id,
@@ -886,16 +913,16 @@ class ConductaModel extends BaseModel
                 cc.nota_tutor,
                 cc.literal AS literal_legado,
                 (SELECT COUNT(*) FROM " . self::RESPUESTAS_OFICIALES . " r
-                  WHERE r.matricula_id = m.id AND r.periodo_id = ? AND r.respuesta = 1) AS si,
+                  WHERE r.matricula_id = {$dm} AND r.periodo_id = ? AND r.respuesta = 1) AS si,
                 (SELECT COUNT(*) FROM " . self::RESPUESTAS_OFICIALES . " r
-                  WHERE r.matricula_id = m.id AND r.periodo_id = ?) AS respondidos
+                  WHERE r.matricula_id = {$dm} AND r.periodo_id = ?) AS respondidos
             FROM matriculas m
             INNER JOIN estudiantes e ON e.id = m.estudiante_id
             INNER JOIN personas    p ON p.id = e.persona_id
-            LEFT JOIN calificaciones_conducta cc ON cc.matricula_id = m.id AND cc.periodo_id = ?
+            LEFT JOIN calificaciones_conducta cc ON cc.matricula_id = {$dm} AND cc.periodo_id = ?
             WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . "
               -- Roster de evaluacion (punto unico en helpers.php).
-              " . RetornoGradoModel::sqlRosterDelPeriodo('m', (string) $periodoId) . "
+              {$roster}
               AND m.anio_id = (SELECT id FROM anios_academicos WHERE estado='activo' LIMIT 1)
             ORDER BY " . orden_alfabetico('p') . "
         ", [$periodoId, $periodoId, $periodoId]);
@@ -930,7 +957,8 @@ class ConductaModel extends BaseModel
             }
         }
         unset($r);
-        return $rows;
+        // Lectura: chip de situación de cada fila (SituacionEstudianteModel).
+        return $lectura ? (new SituacionEstudianteModel())->anotar($rows, $seccionId, $periodoId) : $rows;
     }
 
     // ── Calculo de la nota final ─────────────────────────────────

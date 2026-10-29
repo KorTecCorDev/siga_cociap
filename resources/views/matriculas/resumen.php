@@ -40,8 +40,11 @@ foreach ($porTipo as $t) {
 $tipoColor  = [
     'continuador' => '#1e6fa8',
     'nuevo'       => '#0d9488',
-    'trasladado'  => '#7c3aed',
-    'retirado'    => '#9ca3af',   // gris: ya no asiste, igual que el "Sin dato" del pie de género
+    // Trasladado y retirado: el color del TEXTO de su chip de situación
+    // (`.matricula-badge--trasladado` / `--retirado`, _matriculas.scss;
+    // 28/10/2026). Si cambia allí, cambia aquí.
+    'trasladado'  => '#64748b',
+    'retirado'    => '#b91c4b',
 ];
 $tipoLabels = [];
 $tipoValues = [];

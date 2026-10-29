@@ -1,0 +1,558 @@
+// ============================================================
+// Registro auxiliar de calificaciones (27/10/2026)
+// Pantalla de selección (`.ra-sel`) y documento A4 horizontal (`.ra-print`).
+// El documento usa `@page paisaje` vía `body.doc-landscape` (_boleta.scss):
+// margen 1 cm y «Página X de Y» continuo. NO crea `@page` propia.
+// Reglas de corte: docs/modulos/calificaciones.md § Registro auxiliar.
+// ============================================================
+
+// ── Pantalla de selección ───────────────────────────────────
+// Las cards son las de Mis cargas (`.carga-item`, pages/_dashboard.scss) usadas
+// como <label>. La casilla queda VISIBLE y el estado marcado se pinta con
+// `:has()`, como las casillas del Acompañamiento (_cuadros-riesgo.scss).
+.ra-sel {
+    &__ayuda { margin: 0 0 $spacing-md; }
+
+    &__acciones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-sm;
+    }
+
+    // El atajo de cada grupo, a la derecha de su cabecera.
+    .card--grado .card__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-sm;
+    }
+}
+
+.ra-card {
+    cursor: pointer;
+
+    &__cab {
+        display: flex;
+        align-items: flex-start;
+        gap: $spacing-sm;
+    }
+
+    &__check {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        margin: 2px 0 0;
+        accent-color: $brand-mid;
+        cursor: pointer;
+    }
+
+    // Dentro de un <label> la card usa <span> (solo admite contenido en línea):
+    // la barra de avance necesita ser bloque para tener alto.
+    .carga-progreso,
+    .carga-progreso__track,
+    .carga-progreso__fill { display: block; }
+
+    // Fondo = el azul claro de la identidad «Mis cargas» (`$card-cargas-bg`): en
+    // las cards de aula, que ya llevan borde azul, el anillo solo no distinguía
+    // la marcada (captura del 27/10/2026).
+    &:has(.ra-card__check:checked) {
+        border-color: $brand-mid;
+        background: $card-cargas-bg;
+        box-shadow: 0 0 0 1px $brand-mid;
+    }
+
+    &:has(.ra-card__check:focus-visible) {
+        outline: 2px solid $brand-accent;
+        outline-offset: 2px;
+    }
+}
+
+// La card de aula conserva su barra izquierda también marcada.
+.ra-card.carga-item--aula:has(.ra-card__check:checked) {
+    border-left-color: $card-cargas-line;
+}
+
+// ── Documento A4 horizontal (modelo REG-NUM / CD del colegio) ─
+// Una hoja por sección + área: matriz → pie (estadísticas + firmas) → hoja CD.
+.ra-print {
+    color: #111;
+    font-size: 7pt;
+
+    // Colores de los chips también en papel (AD·A·B·C, EXO, código).
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+
+    &__vacio {
+        margin: 4mm 0;
+        color: $text-secondary;
+        font-style: italic;
+    }
+
+    // El chip de código es el del proyecto; aquí solo su métrica de papel.
+    .competencia-card__codigo {
+        padding: 0 3px;
+        font-size: 6.5pt;
+        white-space: nowrap;
+    }
+
+    .nota-literal {
+        font-size: 6.5pt;
+        padding: 0 3px;
+        border-radius: 2px;
+    }
+
+    .nota-numeral {
+        min-width: 0;
+        padding: 0 2px;
+        font-size: 6.5pt;
+        border-width: 1px;
+        border-radius: 2px;
+    }
+
+    .exo-badge {
+        padding: 0 2px;
+        font-size: 5.5pt;
+        letter-spacing: 0;
+        border-radius: 2px;
+    }
+
+    .omision-badge { font-size: 6pt; border-bottom: 0; }
+
+    // Extraordinarias de RA (parcial compartido de pantalla): escala de papel.
+    .extraordinaria-info {
+        margin-top: 3mm;
+        font-size: 7pt;
+        break-inside: auto;
+    }
+}
+
+// Cada área, en hoja nueva (salvo la primera); sus conclusiones, también.
+.ra-hoja + .ra-hoja { break-before: page; }
+.ra-cd              { break-before: page; }
+
+// ── Anexo del RETORNO DE GRADO (28/10/2026) ──
+// En hoja nueva tras las conclusiones: todo lo que la estudiante cursó en su
+// matrícula operativa, criterio a criterio (`_anexo-retorno.php`). Reusa la
+// matriz (`.ra-m`) y la leyenda de criterios (`.ra-crit`); aquí solo lo propio.
+.ra-anexo {
+    break-before: page;
+
+    &__quien {
+        margin: 2mm 0 1.5mm;
+        font-size: 7.5pt;
+    }
+
+    &__c-comp { width: 11mm; }
+    &__c-cr   { width: 7mm; }
+
+    // Fila de grupo: la carga de la sección operativa y quien registró.
+    &__grupo th {
+        background: #eef2f7;
+        font-weight: 700;
+    }
+
+    &__grupo-crit { text-align: left; }
+
+    &__leyenda { margin-top: 2mm; }
+}
+
+// Anexo al pie de la hoja de transversales de la sección.
+.ra-anexo-ts { margin-top: 3mm; }
+
+// Hoja de transversales de la sección: el logro de cada curso que se promedia
+// (28/10/2026), una tabla por competencia. Hasta 19 cursos en ~11 mm cada uno:
+// el nombre del curso se parte por palabras.
+.ra-ts__detalle { margin-top: 3mm; }
+
+.ra-m thead .ra-ts__curso {
+    font-size: 5pt;
+    font-weight: 600;
+    line-height: 1.05;
+    // Solo parte una palabra si no cabe entera («Trigonometría» en 11 mm).
+    overflow-wrap: break-word;
+    hyphens: auto;
+    vertical-align: bottom;
+}
+// Partes de un área ancha (matriz o CD): cada una en hoja nueva. El reparto
+// lo calcula `RegistroAuxiliarModel::partesMatriz` con los anchos de `.ra-m__c-*`.
+.ra-parte + .ra-parte { break-before: page; }
+
+// Código de criterio (Cr1…CrN), en la tabla de criterios y en la matriz.
+// Mismo formato redondeado que `.competencia-card__codigo`, pero neutro y solo
+// con contorno: se distingue del código de competencia y no depende de que se
+// impriman los fondos. Métrica de papel: «Cr10» cabe en la columna de criterio
+// más angosta (5 mm, `RegistroAuxiliarModel::ANCHO_CRITERIO_MM`).
+.ra-cr {
+    display: inline-block;
+    padding: 0 .15mm;
+    border: .5px solid $text-muted;
+    border-radius: 20px;
+    color: $text-secondary;
+    font-size: 5pt;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -.03em;
+    white-space: nowrap;
+}
+
+// ── Cabecera de la hoja ──
+.ra-cab {
+    margin-bottom: 2mm;
+
+    &__lema {
+        margin: 0 0 1mm;
+        text-align: center;
+        font-size: 7pt;
+        font-style: italic;
+        color: $text-secondary;
+    }
+
+    &__fila {
+        display: flex;
+        align-items: center;
+        gap: 4mm;
+        border-bottom: 2px solid $brand-accent;
+        padding-bottom: 1.5mm;
+    }
+
+    &__logo { height: 10mm; }
+
+    &__titulo {
+        flex: 1 1 auto;
+
+        h1 {
+            margin: 0;
+            font-size: 10.5pt;
+            text-transform: uppercase;
+            letter-spacing: .02em;
+        }
+
+        p { margin: 0; font-size: 7.5pt; color: $text-secondary; }
+    }
+
+    &__nota {
+        margin: 0;
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: $text-secondary;
+        text-align: right;
+    }
+
+    &__datos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .8mm 5mm;
+        margin: 1.5mm 0 0;
+        font-size: 7.5pt;
+
+        div { display: flex; gap: 1.2mm; }
+        dt  { font-weight: 700; }
+        dt::after { content: ':'; }
+        dd  { margin: 0; }
+    }
+}
+
+.ra-tag {
+    display: inline-block;
+    margin-left: 2px;
+    padding: 0 3px;
+    border: 1px solid $color-info;
+    border-radius: 2px;
+    color: $color-info;
+    font-size: 6pt;
+    font-weight: 600;
+    white-space: nowrap;
+
+    // La situación del ESTUDIANTE (trasladado, retorno, cambio de sección) no
+    // es un `ra-tag`: es el chip estándar `.matricula-badge--impreso`
+    // (shared/_situacion-chips.php, 28/10/2026).
+    &--otra,
+    &--pendiente,
+    &--noeval {
+        border-color: $text-secondary;
+        color: $text-secondary;
+        background: $bg-secondary;
+    }
+}
+
+// ── Leyenda: competencias del área, criterios, escala ──
+// Bloques APILADOS a todo el ancho (27/10/2026): en dos columnas de rejilla, los
+// criterios como texto corrido crecían más que la lista de competencias y
+// descuadraban el bloque.
+.ra-leyenda {
+    display: flex;
+    flex-direction: column;
+    gap: 1mm;
+    margin-bottom: 1.5mm;
+    padding: .8mm 1.5mm;
+    border: 1px solid $border-color;
+    font-size: 6pt;
+    break-inside: avoid;
+
+    &__tit { margin: 0 0 .6mm; font-weight: 700; font-size: 7pt; }
+
+    // Las competencias, en dos columnas de texto para no crecer en alto; una
+    // competencia nunca se parte entre las dos.
+    &__lista {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        columns: 2;
+        column-gap: 6mm;
+
+        li {
+            margin: 0 0 .5mm;
+            break-inside: avoid;
+        }
+    }
+
+    &__escala {
+        margin: 0;
+        color: $text-secondary;
+    }
+
+    &__item { white-space: nowrap; margin-right: 2mm; }
+}
+
+// Criterios de evaluación: una fila por competencia, una columna por criterio
+// (Cr1…CrN, los rótulos de la matriz). Ancho fijo: el número o el largo de los
+// criterios no mueve la tabla; el texto parte en líneas dentro de su celda.
+.ra-crit {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 5.5pt;
+
+    &__c-comp { width: 11mm; }
+    // Filas por curso (criterios de GAMA en EPT y Arte de 5.º): el nombre del
+    // curso, sin partirse letra a letra.
+    &__c-curso { width: 34mm; }
+
+    th, td {
+        border: 1px solid #bbb;
+        padding: .15mm .7mm;
+        vertical-align: top;
+        text-align: left;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+    }
+
+    thead th {
+        font-size: inherit;
+        font-weight: 700;
+        text-align: center;
+        background: #f3f4f6;
+    }
+
+    tbody th {
+        vertical-align: middle;
+        text-align: center;
+        background: #fafafa;
+    }
+
+    &__vacia { background: #fafafa; }
+
+    tr { break-inside: avoid; }
+}
+
+// ── Matriz (y tabla de conclusiones) ──
+// `table-layout: fixed` + `colgroup`: nada sale de la hoja; las columnas de
+// criterio se reparten el ancho que dejan las fijas.
+.ra-m {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin: 0 0 2mm;
+    font-size: 6.5pt;
+
+    &__c-num    { width: 5mm; }
+    // 58 mm: con 46 la mitad de los nombres partía en dos líneas y la fila doblaba su alto.
+    &__c-nombre { width: 58mm; }
+    &__c-vacia  { width: 7mm; }
+    // PAR numeral | literal de Logro, Resumen y transversales (27/10/2026).
+    // Espejo de `RegistroAuxiliarModel::ANCHO_NUMERAL_MM` / `ANCHO_LITERAL_MM`.
+    &__c-pnum   { width: 5mm; }
+    &__c-plit   { width: 5.5mm; }
+
+    // Sin línea entre el numeral y su literal: `hidden` gana al borde colapsado
+    // del vecino. (0,2,0): gana a `.ra-m td` (0,1,1) sin `!important`.
+    & &__pn { border-right-style: hidden; }
+
+    // 🔴 El par NO parte su valor: con el `overflow-wrap: anywhere` de la tabla,
+    // un «13» se partía en dos renglones en 5 mm y doblaba el alto de la fila
+    // (medido el 27/10/2026: 19 → 13 estudiantes por hoja). Relleno lateral
+    // mínimo para caber en 5 / 5,5 mm. (0,2,0), como arriba.
+    & &__pn,
+    & &__pl {
+        padding-left: .2mm;
+        padding-right: .2mm;
+        white-space: nowrap;
+        overflow-wrap: normal;
+    }
+
+    th, td {
+        border: 1px solid #888;
+        padding: .2mm .5mm;
+        text-align: center;
+        vertical-align: middle;
+        overflow-wrap: anywhere;
+    }
+
+    // 🔴 Reseteo de impresión (ui.md § imprimible): el `th` hereda la métrica
+    // de su tabla, nunca la de un componente de pantalla.
+    thead th {
+        font-size: inherit;
+        color: #111;
+        white-space: normal;
+        background: #f3f4f6;
+        font-weight: 700;
+    }
+
+    // Fila de identificación: se repite arriba de cada hoja de continuación.
+    thead .ra-m__id th {
+        padding: .3mm 1mm;
+        background: #fff;
+        border-color: #fff #fff #888;
+        text-align: left;
+        font-weight: 600;
+        font-size: 6pt;
+        color: $text-secondary;
+    }
+
+    &__parte { color: #111; font-weight: 700; }
+
+    // Rótulo de criterio con su chip: casi sin relleno lateral, para que «Cr10»
+    // quepa en la columna más angosta (5 mm) sin ensancharla (medido el 27/10/2026:
+    // con el relleno general de .5 mm no cabía ningún chip). (0,2,1) como los grupos.
+    thead .ra-m__cr { padding-left: .1mm; padding-right: .1mm; }
+
+    // (0,2,1): gana al `thead th` de arriba (0,1,2) sin `!important`.
+    thead .ra-m__grupo {
+        background: #e5e9f0;
+
+        &--vacio { background: #f3f4f6; color: $text-secondary; }
+        &--res,
+        &--tr    { background: #eef2f7; }
+        // Curso sobre sus criterios (GAMA replicada en EPT y Arte de 5.º,
+        // 28/10/2026): pocas columnas para nombres largos, así que se parte.
+        &--cr {
+            font-size: 5pt;
+            font-weight: 600;
+            line-height: 1.05;
+            overflow-wrap: anywhere;
+        }
+    }
+
+    &__izq { text-align: left !important; }
+
+    &__num { color: $text-secondary; }
+
+    &__logro { background: #fafafa; }
+
+    // Competencia de otra carga, sin aprobar o no evaluada: EN BLANCO.
+    &__vacia { background: #fafafa; }
+
+    &__res,
+    &__tr { white-space: nowrap; }
+
+    &__muted { color: $text-secondary; }
+
+    // Un estudiante nunca se parte entre dos hojas.
+    tr { break-inside: avoid; }
+}
+
+// ── Pie de la matriz: estadísticas + lugar y fecha + firmas ──
+// UN bloque indivisible: la firma nunca empieza una hoja sola (ui.md).
+// Dos columnas (estadísticas | lugar, fecha y firmas): apiladas medían ~50 mm y
+// el pie se iba solo a otra hoja (medido el 27/10/2026 con secciones de 22-24).
+.ra-cierre {
+    display: flex;
+    align-items: flex-end;
+    gap: 6mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+
+    &__stats {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: flex-start;
+        gap: 3mm;
+    }
+
+    &__firmas { flex: 1 1 auto; min-width: 0; }
+
+    &__fecha {
+        display: flex;
+        justify-content: space-between;
+        gap: 4mm;
+        margin: 0;
+        font-size: 7pt;
+    }
+
+    &__id { color: $text-secondary; font-size: 6.5pt; }
+
+    // Las tres firmas en UNA fila, repartidas en el ancho que dejan las estadísticas.
+    .ra-firmas {
+        flex-wrap: nowrap;
+        gap: 4mm;
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    .ra-firmas .reporte-footer__bloque { flex: 1 1 0; min-width: 0; }
+    .ra-firmas .reporte-footer__linea  { width: auto; max-width: 50mm; }
+
+    // Área completa con varios docentes (más de 3 firmas): filas de 3.
+    .ra-firmas--varias { flex-wrap: wrap; row-gap: 1mm; }
+    .ra-firmas--varias .reporte-footer__bloque { flex: 0 0 calc((100% - 8mm) / 3); }
+
+    .reporte-footer__nombre { font-size: 7pt; }
+    .reporte-footer__cargo  { font-size: 6.5pt; }
+    .reporte-footer__espacio-firma { height: 11mm; }
+}
+
+.ra-stats {
+    border-collapse: collapse;
+    font-size: 6.5pt;
+
+    th, td {
+        border: 1px solid #888;
+        padding: .3mm 1.5mm;
+        text-align: center;
+    }
+
+    thead th { font-size: inherit; background: #f3f4f6; }
+
+    &__rot {
+        text-align: left !important;
+        font-weight: 600;
+        white-space: nowrap;
+        background: #fafafa;
+    }
+}
+
+// ── Conclusiones descriptivas ──
+.ra-cd {
+    &__c-nombre { width: 58mm; }
+    // Logro en DOS columnas, numeral | literal, cada uno centrado en la suya
+    // (27/10/2026). Suman los 14 mm de `RegistroAuxiliarModel::ANCHO_CD_LOGRO_MM`.
+    &__c-num { width: 7mm; }
+    &__c-lit { width: 7mm; }
+
+    &__logro { white-space: nowrap; }
+
+    &__texto {
+        font-size: 6.5pt;
+        line-height: 1.2;
+        text-align: left !important;
+    }
+
+    &__nota {
+        margin: 1mm 0 0;
+        font-size: 6.5pt;
+        color: $text-secondary;
+    }
+}
+

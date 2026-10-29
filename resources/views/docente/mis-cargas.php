@@ -26,6 +26,13 @@
     <?php else: ?>
         <span class="badge badge--warning">Sin periodo activo</span>
     <?php endif; ?>
+    <?php if ($periodo && !empty($cargas)): ?>
+        <a href="<?= url('docente/registro-auxiliar?periodo_id=' . (int) $periodo['id']) ?>"
+           class="btn btn--registro btn--sm">
+            <span class="btn-icon btn-icon--registro" aria-hidden="true"></span>
+            Registro auxiliar
+        </a>
+    <?php endif; ?>
 </div>
 
 <?php if (count($periodos) > 1): ?>

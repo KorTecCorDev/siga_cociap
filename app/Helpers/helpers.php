@@ -523,6 +523,60 @@ function matriculas_vigentes(string $alias = 'm'): string
 }
 
 /**
+ * CHIPS DE SITUACIÓN DEL ESTUDIANTE — PUNTO ÚNICO del catálogo (28/10/2026).
+ *
+ * Toda marca de la situación de un estudiante o de su matrícula (tipo, retorno
+ * de grado, cambio de sección) sale de aquí y se pinta con
+ * `shared/_situacion-chips.php`. Ninguna vista escribe el texto ni la clase a
+ * mano: una situación nueva es una fila más de este catálogo.
+ *
+ *  - `texto`:  lo que dice el chip; `%s` se reemplaza por el `dato` de la fila
+ *              (la sección, en los cambios de sección).
+ *  - `clase`:  modificador de `.matricula-badge` (resources/sass/pages/_matriculas.scss),
+ *              donde viven los COLORES. El gráfico de `/matriculas/resumen` copia
+ *              el del texto de trasladado y retirado: si cambian aquí, allí también.
+ *  - `titulo`: tooltip opcional (dice QUÉ es, nunca el flujo interno).
+ *
+ * Qué chip lleva cada fila de un bimestre lo decide `SituacionEstudianteModel`.
+ * Reglas y muestra visual: `docs/modulos/ui.md` § «Chips de situación».
+ */
+const SITUACIONES_ESTUDIANTE = [
+    // Tipo de matrícula.
+    'continuador' => ['texto' => 'Continuador', 'clase' => 'continuador', 'titulo' => null],
+    'nuevo'       => ['texto' => 'Nuevo',       'clase' => 'nuevo',       'titulo' => null],
+    'trasladado'  => ['texto' => 'Trasladado',  'clase' => 'trasladado',  'titulo' => null],
+    'retirado'    => ['texto' => 'Retirado',    'clase' => 'retirado',    'titulo' => null],
+    // Rol en un retorno de grado (/matriculas).
+    'oficial'     => ['texto' => 'Oficial', 'clase' => 'oficial',
+                      'titulo' => 'Matrícula oficial de SIAGIE: la boleta usa este grado/sección.'],
+    'operativa'   => ['texto' => 'Operativa', 'clase' => 'operativa',
+                      'titulo' => 'Matrícula operativa de un retorno: el estudiante cursa aquí. Solo informativa.'],
+    'operativa_revertida' => ['texto' => 'Operativa · revertido', 'clase' => 'operativa',
+                      'titulo' => 'Matrícula operativa de un retorno ya revertido: conserva los bimestres que cursó aquí. No es una baja. Solo informativa.'],
+    // Filas de un bimestre en las vistas de solo lectura de notas.
+    'retorno'      => ['texto' => 'Retorno de grado', 'clase' => 'retorno',
+                       'titulo' => 'Este bimestre lo cursó en otro grado por retorno de grado.'],
+    'cambio_viene' => ['texto' => 'Viene de %s', 'clase' => 'cambio', 'titulo' => null],
+    'cambio_paso'  => ['texto' => 'Pasó a %s',   'clase' => 'cambio', 'titulo' => null],
+];
+
+/**
+ * Datos listos para pintar un chip de situación, o null si la clave no existe
+ * (la vista no pinta nada en vez de reventar).
+ *
+ * @return array{texto: string, clase: string, titulo: ?string}|null
+ */
+function situacion_estudiante(string $clave, ?string $dato = null): ?array
+{
+    $s = SITUACIONES_ESTUDIANTE[$clave] ?? null;
+    if ($s === null) {
+        return null;
+    }
+    $s['texto'] = str_contains($s['texto'], '%s') ? sprintf($s['texto'], (string) $dato) : $s['texto'];
+    return $s;
+}
+
+/**
  * Criterio DOCUMENTO del RETORNO DE GRADO — PUNTO ÚNICO de la condición SQL.
  *
  * La matrícula OPERATIVA de un retorno NUNCA figura en un documento ni en una

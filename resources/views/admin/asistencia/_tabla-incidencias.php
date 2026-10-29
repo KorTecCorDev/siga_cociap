@@ -88,6 +88,8 @@ $abreviaturas = [
                     <td class="col-num"><?= $i + 1 ?></td>
                     <td class="col-nombre">
                         <?= e($est['nombre_completo']) ?>
+                        <?php // Solo llega con el roster de lectura de /consulta-notas (28/10/2026). ?>
+                        <?php $sitChips = $est['situaciones'] ?? []; require VIEW_PATH . '/shared/_situacion-chips.php'; ?>
                         <?php // Fila de la via extraordinaria de RA (migracion 063). ?>
                         <?php if (!empty($inc['extraordinaria'])): ?>
                             <?php $proc = PROCEDENCIA_EXTRAORDINARIA; require VIEW_PATH . '/shared/_procedencia-chip.php'; ?>
@@ -110,7 +112,9 @@ $abreviaturas = [
                                        aria-label="<?= e($abreviaturas[$campo][1]) ?> de <?= e($est['nombre_completo']) ?>">
                             </td>
                         <?php else: ?>
-                            <td class="asistencia-td-valor"><?= $val ?></td>
+                            <?php // Solo lectura: sin registro (confirmado) no se afirma «0»,
+                                  // va guion (28/10/2026), como en el bloqueo forzado. ?>
+                            <td class="asistencia-td-valor"><?= !empty($inc['registrado']) ? $val : '—' ?></td>
                         <?php endif; ?>
                     <?php endforeach; ?>
 

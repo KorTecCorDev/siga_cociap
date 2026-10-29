@@ -330,6 +330,7 @@ $router->get('/consulta-notas/criterios',                         'Consulta\Cons
 // Las dos de nivel SECCION van ANTES que la de 4 segmentos: mas especificas
 // primero, el router ancla por orden de registro.
 $router->get('/consulta-notas/{periodo_id}/seccion/{seccion_id}/transversales', 'Consulta\ConsultaNotasController@transversales');
+$router->get('/consulta-notas/{periodo_id}/seccion/{seccion_id}/registro-auxiliar', 'Consulta\ConsultaNotasController@registroAuxiliar');
 // La grilla Si/No va ANTES que /conducta: mas segmentos, y el router ancla por
 // orden de registro. Reusa la vista del tutor (ver conductaCriterios).
 $router->get('/consulta-notas/{periodo_id}/seccion/{seccion_id}/conducta/criterios', 'Consulta\ConsultaNotasController@conductaCriterios');
@@ -378,6 +379,9 @@ $router->get( '/docente/ranking-seccion/{periodo_id}',  'Docente\OrdenMeritoCont
 
 // ─── Calificaciones ──────────────────────────────────────────
 $router->get( '/docente/mis-cargas',                        'Docente\CalificacionController@misCargas');
+// Registro auxiliar de calificaciones (27/10/2026): selección + documento A4.
+$router->get( '/docente/registro-auxiliar/imprimir',        'Docente\CalificacionController@registroAuxiliarImprimir');
+$router->get( '/docente/registro-auxiliar',                 'Docente\CalificacionController@registroAuxiliar');
 // Vista de AREA (solo secciones unidocente): una pantalla por area con TODAS
 // las subarea-cargas del area + transversales. La literal "area" distingue del
 // patron base {carga_id}; las literales/largas van ANTES por orden de lectura.

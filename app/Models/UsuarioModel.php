@@ -380,6 +380,24 @@ class UsuarioModel extends BaseModel
         ", [$id]);
     }
 
+    /**
+     * Nombre («Apellidos, Nombres») del ÚNICO usuario activo con ese rol, o null
+     * si no hay ninguno o hay más de uno (no se adivina a quién corresponde).
+     * Lo usa la línea de firma del registro auxiliar (27/10/2026).
+     */
+    public function nombreUnicoActivoPorRolCodigo(string $codigoRol): ?string
+    {
+        $filas = $this->query("
+            SELECT CONCAT(p.apellido_paterno, ' ', p.apellido_materno, ', ', p.nombres) AS nombre
+            FROM usuarios u
+            INNER JOIN roles r    ON r.id = u.rol_id
+            INNER JOIN personas p ON p.id = u.persona_id
+            WHERE r.codigo = ? AND u.estado = 'activo'
+            LIMIT 2
+        ", [$codigoRol]);
+        return count($filas) === 1 ? $filas[0]['nombre'] : null;
+    }
+
     public function contarPorRolCodigo(string $codigoRol): int
     {
         $r = $this->queryOne("

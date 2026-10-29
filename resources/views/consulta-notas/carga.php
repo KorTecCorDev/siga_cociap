@@ -4,7 +4,7 @@
  * una carga. Reutiliza el mismo lenguaje visual del resumen del docente vía el
  * parcial _tabla.php; aqui NO hay inputs ni botones (solo lo oficial).
  * @var array $periodo
- * @var array $carga         [id, grado_nombre, seccion_nombre, nivel_nombre, nivel_codigo, area_nombre, subarea_nombre, docente]
+ * @var array $carga         [id, grado_nombre, seccion_nombre, nivel_nombre, nivel_codigo, area_nombre, subarea_nombre, docente, area_id]
  * @var array $competencias  [{competencia, criterios, alumnos, bloqueado_en}]
  * @var array $exonerados    matricula_ids exonerados de la carga
  * @var array $extraordinariasCarga  extraordinarias de RA de la carga (sección final)
@@ -27,6 +27,24 @@ $nivelCodigo = $carga['nivel_codigo'];
             — Docente: <?= e($carga['docente'] ?: 'Sin docente') ?>
         </p>
     </div>
+    <?php // El área ENTERA (todas sus cargas), no solo esta carga, a la derecha
+          // como en la sección. Solo en un bimestre cerrado: en otro, la ruta
+          // responde 404. La hoja de transversales de la SECCIÓN va solo si se
+          // marca (decisión del usuario, 27/10/2026); el servidor solo acepta 1. ?>
+    <?php if ($periodo['estado'] === 'cerrado' && $carga['area_id'] > 0): ?>
+        <form method="GET" target="_blank" class="cn-registro"
+              action="<?= url('consulta-notas/' . (int) $periodo['id'] . '/seccion/' . (int) $carga['seccion_id'] . '/registro-auxiliar') ?>">
+            <input type="hidden" name="area_id" value="<?= (int) $carga['area_id'] ?>">
+            <button type="submit" class="btn btn--registro btn--sm">
+                <span class="btn-icon btn-icon--registro" aria-hidden="true"></span>
+                Registro auxiliar del área
+            </button>
+            <label class="form-check cn-registro__opcion">
+                <input type="checkbox" name="transversales" value="1">
+                Incluir transversales de la sección
+            </label>
+        </form>
+    <?php endif; ?>
     <span class="badge badge--activo">Solo lectura</span>
 </div>
 

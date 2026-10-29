@@ -248,7 +248,8 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   de las notas**: PUNTO ÚNICO `RetornoGradoModel` (`matriculaDelPeriodo`,
   `sqlCursoElPeriodo`, `identidad`, `sqlColumnasRol`, `bloqueoGestion`). Toda
   lectura POR BIMESTRE —boleta, mérito, alerta, situación final, cuadros, lote,
-  SIAGIE— lee de la matrícula que lo cursó. Un retorno por matrícula y año.
+  SIAGIE— lee de la matrícula que lo cursó. Un retorno por matrícula y año. Las vistas de
+  SOLO LECTURA de notas lo leen por la fila OFICIAL (28/10/2026; ver el invariante de lectura).
   ⚠️ Las dos exclusiones son **INVERSAS**, y **cada una tiene
   su PUNTO ÚNICO en `helpers.php`** (27/08 y 02/09/2026): `roster_evaluacion()`
   excluye la **oficial** (los rosters de evaluación) y `matricula_documento()`
@@ -272,6 +273,22 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   `ControlOperativoModel` y `OrdenMeritoModel::ROSTER_MERITO` (universo del mérito,
   que es su propio punto único). Protegido por `verif_roster_evaluacion.php`.
   Ver `docs/modulos/matriculas.md`.
+- **Toda vista o documento de SOLO LECTURA de un bimestre lista a quien lo CURSÓ**
+  (28/10/2026), nunca el `tipo`/`estado` de HOY: un trasladado o retirado entra en los
+  bimestres donde tiene un **dato oficial** (nota bloqueada, conducta o asistencia
+  confirmadas). **Del retorno de grado, solo la matrícula REAL**: la operativa no sale nunca;
+  la oficial sale siempre en su sección y, en su tramo, **lee** los datos de la operativa
+  (pantallas: logro y conclusión, criterios fundidos en «1° B»; **registro impreso: fila
+  vacía + ANEXO con cada criterio**, `RegistroAuxiliarModel::anexoRetorno`). PUNTO ÚNICO
+  `RetornoGradoModel::sqlRosterLecturaDelPeriodo` (+ `oficialesEnTramo`, `sqlDatosDelPeriodo`),
+  vía el flag `$lectura` de los métodos de roster. **NUNCA en grillas de captura ni en
+  validaciones** (exigiría conclusión a quien ya no está). Un reporte nuevo por bimestre lo
+  usa. Protegido por `verif_roster_lectura.php`. Ver `docs/modulos/calificaciones.md`
+  § «Roster de lectura» y `docs/modulos/retorno-grado.md` § «Vistas de solo lectura».
+- **Chips de situación del estudiante: PUNTO ÚNICO `SITUACIONES_ESTUDIANTE`** (`helpers.php`,
+  28/10/2026) + `shared/_situacion-chips.php`. Tipo, rol de retorno, «Retorno de grado» y
+  cambio de sección; ninguna vista los escribe a mano (lo barre `verif_roster_lectura.php`).
+  Qué chip lleva cada fila: `SituacionEstudianteModel`. Ver `docs/modulos/ui.md`.
 - **Los 4 contadores de `inasistencias` son INDEPENDIENTES**, no un total y su
   subconjunto: `faltas`/`tardanzas` YA son las **sin justificación**. NUNCA restar
   (159 filas tienen `faltas_justificadas > faltas`). Ver `docs/modulos/admin.md`.
@@ -320,7 +337,8 @@ Versión de una línea; el porqué completo está en el doc del módulo.
   en secundaria. Deroga la regla del 04/08 que la sacaba de 5.º —aquella listaba «Ética y
   Valores» y «Educación Religiosa» como áreas distintas, siendo la misma—.
   El **vínculo Ética↔Ed. Religiosa vive en 3 sitios y ninguno es un dato estructural**:
-  `EQUIVALENCIAS_ACTA_SIAGIE` (hoja `035-EREL`, que leen el acta **y la situación final**),
+  `EQUIVALENCIAS_ACTA_SIAGIE` (hoja `035-EREL`, que leen el acta, la situación final **y el
+  registro auxiliar**: Ética sale como Educación Religiosa y JAMÁS con su competencia),
   excepción del mérito y `alias_boleta` del área; al tocar uno, revisar los otros dos. Se identifica por `nombre_boleta`
   (`AREA_ETICA_NOMBRE_BOLETA`), **NUNCA por id** (difiere entre entornos; el id 57 es GAMA
   y el código C57 es Ética). ⚠️ El área *Ed. Religiosa* de secundaria debe seguir **sin

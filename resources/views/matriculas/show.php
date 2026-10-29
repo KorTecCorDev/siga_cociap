@@ -38,7 +38,7 @@ $labelDoc = [
         <h1 class="page-title"><?= e($matricula['nombre_completo']) ?></h1>
         <p class="page-subtitle">
             <span class="matricula-badge matricula-badge--<?= e($matricula['estado']) ?>"><?= $labelEstado($matricula['estado']) ?></span>
-            <span class="matricula-badge matricula-badge--<?= e($matricula['tipo']) ?>"><?= ucfirst(e($matricula['tipo'])) ?></span>
+            <?php $sitChips = [['clave' => $matricula['tipo']]]; require VIEW_PATH . '/shared/_situacion-chips.php'; ?>
             <?php if (!empty($matricula['motivo_estado'])): ?>
             <span class="matricula-motivo">Motivo: <?= e($matricula['motivo_estado']) ?></span>
             <?php endif; ?>

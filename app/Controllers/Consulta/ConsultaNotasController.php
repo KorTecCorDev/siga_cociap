@@ -11,6 +11,7 @@ use App\Models\ExoneracionModel;
 use App\Models\TransversalModel;
 use App\Models\ConductaModel;
 use App\Models\ControlOperativoModel;
+use App\Models\RegistroAuxiliarModel;
 use Core\View;
 
 /**
@@ -69,6 +70,9 @@ class ConsultaNotasController extends BaseController
      * tutor y la grilla del docente, y duplicar ese filtro a mano es exactamente
      * como nacieron los bugs de asistencia del 04/08/2026. Los campos de conducta
      * que trae de propina los usa F3; F2 solo necesita id y nombre.
+     *
+     * Con el roster de LECTURA (28/10/2026): quien CURSÓ el bimestre, trasladados
+     * y retirados con dato oficial incluidos (`sqlRosterLecturaDelPeriodo`).
      */
     private function rosterSeccion(int $seccionId, int $periodoId, int $nivelId, int $anioId): array
     {
@@ -77,7 +81,8 @@ class ConsultaNotasController extends BaseController
         return $this->conductaModel->getEstudiantesParaTutor(
             $seccionId,
             $periodoId,
-            $this->conductaModel->totalCriterios($nivelId, $anioId)
+            $this->conductaModel->totalCriterios($nivelId, $anioId),
+            true
         );
     }
 
@@ -334,6 +339,134 @@ class ConsultaNotasController extends BaseController
     }
 
     /**
+     * GET /consulta-notas/{periodo_id}/seccion/{seccion_id}/registro-auxiliar[?area_id=]
+     * REGISTRO AUXILIAR DEL ÁREA COMPLETA (27/10/2026): el mismo documento A4
+     * horizontal del docente, pero con TODAS las cargas y docentes de cada área.
+     * Sin `area_id`, todas las áreas de la sección (cada una en hoja nueva).
+     * Solo bimestres CERRADOS (decisión del usuario): en uno abierto, 404 —la
+     * URL queda en marcadores, no basta con ocultar el enlace—. Solo lo oficial
+     * (bloqueado), sin esperar la publicación: es un documento interno.
+     * Reglas: docs/modulos/calificaciones.md § Registro auxiliar.
+     */
+    public function registroAuxiliar(string $periodoId, string $seccionId): void
+    {
+        $registro = new RegistroAuxiliarModel();
+        $periodo  = $registro->periodo((int) $periodoId);
+        if (!$periodo || $periodo['estado'] !== 'cerrado') {
+            $this->notFound();
+        }
+
+        $cargas = $registro->cargasDeSeccion((int) $seccionId, (int) $periodo['id']);
+        $areaId = (int) ($this->query('area_id') ?? 0);
+        if ($areaId > 0) {
+            $cargas = array_values(array_filter($cargas, static fn(array $c): bool => (int) $c['area_id'] === $areaId));
+        }
+        if ($cargas === []) {
+            $this->notFound();
+        }
+
+        $porArea = [];
+        foreach ($cargas as $c) {
+            $porArea[(int) $c['area_id']][] = $c;
+        }
+
+        $hojas = [];
+        foreach ($porArea as $grupo) {
+            $c0   = $grupo[0];
+            $meta = [
+                'area_nombre'    => $c0['area_nombre'],
+                'area_tipo'      => $c0['area_tipo'],
+                'grado_nombre'   => $c0['grado_nombre'],
+                'seccion_nombre' => $c0['seccion_nombre'],
+                'nivel_nombre'   => $c0['nivel_nombre'],
+                'nivel_codigo'   => $c0['nivel_codigo'],
+                'es_aula'        => !empty($c0['es_aula']),
+            ];
+            $hoja = $registro->hoja($meta, $grupo, $periodo, false);
+
+            // Docentes del área, en el orden de sus cargas. Con más de uno, cada
+            // nombre lleva sus subáreas para saber quién registró qué.
+            $porDocente = [];
+            foreach ($grupo as $c) {
+                $porDocente[(int) $c['docente_id']]['nombre'] = $c['docente'];
+                if (!empty($c['subarea_nombre'])) {
+                    $porDocente[(int) $c['docente_id']]['subareas'][] = $c['subarea_nombre'];
+                }
+            }
+            $hoja['docentes'] = [];
+            foreach ($porDocente as $d) {
+                $hoja['docentes'][] = [
+                    'nombre'  => $d['nombre'],
+                    'detalle' => count($porDocente) > 1 && !empty($d['subareas']) ? implode(', ', $d['subareas']) : null,
+                ];
+            }
+            // Firmas: cada docente del área + Dirección EBR + Dirección General.
+            $hoja['firmas'] = $registro->firmas(array_column($hoja['docentes'], 'nombre'), (int) $periodo['anio_id']);
+            $hojas[] = $hoja;
+        }
+
+        // Acta SIAGIE (28/10/2026): con TODAS las áreas, las hojas de las áreas que
+        // el acta llena con una transversal (5.º: GAMA → EPT y Arte y Cultura). No
+        // tienen carga: figura y firma el tutor del bimestre.
+        if ($areaId === 0) {
+            foreach ($registro->hojasReplicaTransversal($cargas, $periodo) as $hoja) {
+                $hoja['firmas'] = $registro->firmas(array_column($hoja['docentes'], 'nombre'), (int) $periodo['anio_id']);
+                $hojas[] = $hoja;
+            }
+        }
+        // Orden del plan de áreas: Ética va donde le toca a Educación Religiosa, y
+        // EPT y Arte de 5.º en su lugar (usort es estable: el resto no se mueve).
+        usort($hojas, static fn(array $a, array $b): int => $a['area_orden'] <=> $b['area_orden']);
+
+        // Hoja de transversales de la SECCIÓN (27/10/2026): siempre con la sección
+        // completa; con un área, solo si se pidió (`transversales=1`).
+        $incluirTr = $areaId === 0 || (string) ($this->query('transversales') ?? '') === '1';
+
+        View::setLayout('print');
+        $this->view('shared/registro-auxiliar/documento', [
+            'titulo'    => 'Registro auxiliar de calificaciones',
+            'bodyClass' => 'doc-landscape',
+            'modo'      => 'area',
+            'periodo'   => $periodo,
+            'hojas'     => $hojas,
+            'transversalesSeccion' => $incluirTr ? $this->transversalesSeccion($cargas[0], $periodo) : null,
+        ]);
+    }
+
+    /**
+     * Datos de la hoja «Competencias transversales de la sección» del registro
+     * auxiliar: los MISMOS que `transversales()` (cierre vigente del tutor,
+     * competencias del nivel, roster de la sección, promedios y conclusiones),
+     * para que el documento diga lo mismo que esa pantalla y que la boleta.
+     * Sin cierre vigente, la hoja lo indica y no muestra notas.
+     */
+    private function transversalesSeccion(array $carga, array $periodo): array
+    {
+        $seccionId = (int) $carga['seccion_id'];
+        $periodoId = (int) $periodo['id'];
+        $nivelId   = (int) $carga['nivel_id'];
+        $cierre    = $this->transModel->getCierreVigente($seccionId, $periodoId);
+
+        // Retorno de grado: su fila va vacía y lo del tutor de la sección
+        // operativa, en el anexo al pie (RegistroAuxiliarModel, 28/10/2026).
+        // Después, el logro de cada curso que se promedia (28/10/2026).
+        $registro = new RegistroAuxiliarModel();
+        return $registro->conLogrosPorCurso($registro->conAnexoRetornoTransversales([
+            'meta' => [
+                'grado_nombre'   => $carga['grado_nombre'],
+                'seccion_nombre' => $carga['seccion_nombre'],
+                'nivel_nombre'   => $carga['nivel_nombre'],
+                'nivel_codigo'   => $carga['nivel_codigo'],
+            ],
+            'cierre'       => $cierre,
+            'competencias' => $this->transModel->getCompetencias($nivelId),
+            'alumnos'      => $cierre ? $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']) : [],
+            'promedios'    => $cierre ? $this->transModel->getPromediosSeccion($seccionId, $periodoId, true) : [],
+            'conclusiones' => $cierre ? $this->transModel->getConclusionesSeccion($seccionId, $periodoId, true) : [],
+        ], $periodoId), $seccionId, $periodoId);
+    }
+
+    /**
      * GET /consulta-notas/{periodo_id}/seccion/{seccion_id}/transversales
      * Agregado transversal de la seccion: el promedio por competencia que
      * EFECTIVAMENTE llega a la boleta, con la conclusion del tutor.
@@ -386,8 +519,8 @@ class ConsultaNotasController extends BaseController
             'cierre'       => $cierre,
             'competencias' => $this->transModel->getCompetencias($nivelId),
             'alumnos'      => $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']),
-            'promedios'    => $this->transModel->getPromediosSeccion($seccionId, $periodoId),
-            'conclusiones' => $this->transModel->getConclusionesSeccion($seccionId, $periodoId),
+            'promedios'    => $this->transModel->getPromediosSeccion($seccionId, $periodoId, true),
+            'conclusiones' => $this->transModel->getConclusionesSeccion($seccionId, $periodoId, true),
         ]);
     }
 
@@ -490,7 +623,7 @@ class ConsultaNotasController extends BaseController
         $nivelId = (int) $primera['nivel_id'];
 
         // Solo lectura: Dirección ve lo OFICIAL (confirmado), nunca un borrador.
-        $estudiantes = $this->conductaModel->getEstudiantesParaRegistro($seccionId, $periodoId, true);
+        $estudiantes = $this->conductaModel->getEstudiantesParaRegistro($seccionId, $periodoId, true, true);
 
         // B1 legado (literal directo): no existe matriz de respuestas que mostrar.
         $hayRespuestas = false;
@@ -671,7 +804,9 @@ class ConsultaNotasController extends BaseController
         // EN VIVO pero solo lo CONFIRMADO (29/09/2026): un borrador del auxiliar
         // queda «al aire» y no es un dato para Dirección. Sigue sin exigir el
         // cierre, como decidió el usuario el 24/08.
-        $alumnos = $this->asistenciaModel->getEstudiantesConIncidencias($seccionId, $periodoId, true);
+        // Roster de LECTURA (28/10/2026): quien CURSÓ el bimestre, trasladados y
+        // retirados con dato oficial incluidos.
+        $alumnos = $this->asistenciaModel->getEstudiantesConIncidencias($seccionId, $periodoId, true, true);
 
         // Bimestre por fechas: las fechas de cada estudiante y, debajo de la tabla,
         // el anexo «Detalle de justificaciones» con sus motivos (solo lo confirmado).
@@ -683,7 +818,15 @@ class ConsultaNotasController extends BaseController
             $motivosM      = new \App\Models\AsistenciaMotivoModel();
             $nombreAnclaFj = $motivosM->nombreDe($motivosM->anclaDelPeriodo($periodoId));
             $fechasDetalle = [];
-            $incidencias   = $this->asistenciaModel->incidenciasDe(array_column($alumnos, 'matricula_id'), $periodoId, true);
+            // De la matrícula que tiene los datos (retorno de grado: la operativa
+            // en su tramo), devueltas a la fila (`matricula_id`) que las muestra.
+            $porDatos    = $this->asistenciaModel->incidenciasDe(array_column($alumnos, 'matricula_datos'), $periodoId, true);
+            $incidencias = [];
+            foreach ($alumnos as $a) {
+                if (isset($porDatos[(int) $a['matricula_datos']])) {
+                    $incidencias[(int) $a['matricula_id']] = $porDatos[(int) $a['matricula_datos']];
+                }
+            }
             foreach ($incidencias as $mid => $dias) {
                 $fechasDetalle[$mid] = AsistenciaModel::resumenFechas($dias);
             }
@@ -743,6 +886,13 @@ class ConsultaNotasController extends BaseController
             'area_nombre'    => $primera['area_nombre'],
             'subarea_nombre' => $primera['subarea_nombre'],
             'docente'        => $this->nombreDocente($primera),
+            // Para el botón «Registro auxiliar del área» (imprime el área entera).
+            'area_id'        => (int) ($this->calModel->queryOne("
+                SELECT COALESCE(ca.area_id, sa.area_id) AS area_id
+                FROM cargas_academicas ca
+                LEFT JOIN subareas sa ON sa.id = ca.subarea_id
+                WHERE ca.id = ?
+            ", [$cargaId])['area_id'] ?? 0),
         ];
 
         $exonerados   = $this->exoModel->getActivasParaCarga($cargaId, (int) $periodo['anio_id'], (int) $periodo['id']);
@@ -758,7 +908,7 @@ class ConsultaNotasController extends BaseController
                 WHERE c.id = ?
             ", [$competenciaId]);
 
-            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId);
+            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId, false, true);
 
             // Enriquecer cada alumno con sus omisiones por criterio (igual que el
             // resumen del docente: el badge "—" del casillero omitido).
@@ -793,7 +943,7 @@ class ConsultaNotasController extends BaseController
         // devuelve las mismas claves), asi que basta con anadirlas al array.
         foreach ($this->transversalesConContenido([$cargaId], $periodoId)[$cargaId] ?? [] as $t) {
             $competenciaId = (int) $t['competencia_id'];
-            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId);
+            $resumen = $this->calModel->getResumenCompetencia($cargaId, $competenciaId, $periodoId, false, true);
 
             $competencias[] = [
                 'competencia'     => [
