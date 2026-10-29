@@ -22,12 +22,12 @@ Qué entra en el deploy (detalle en cada doc):
 - **El registro sigue el acta SIAGIE**: Ética → Educación Religiosa; 5.º: GAMA → EPT y Arte
   (`calificaciones.md` § «El registro sigue el acta SIAGIE»).
 - Asistencia de solo lectura con «—» en filas sin registro.
-- **Hoja de transversales de la sección: logro de cada curso que se promedia** (29/10/2026,
+- **Hoja de transversales de la sección: logro de cada curso que se promedia** (28/10/2026,
   una tabla por CT debajo de la actual; `calificaciones.md` § Registro auxiliar).
 
-**29/10/2026, escritorio:** el usuario dio por comprobadas las 9 pruebas de abajo (100 %).
+**28/10/2026, escritorio:** el usuario dio por comprobadas las 9 pruebas de abajo (100 %).
 Pendiente solo lo nuevo:
-- [x] **Admin — imprimir** (aprobado por el usuario el 29/10/2026) `/consulta-notas/2/seccion/23` → registro → «Guardar como PDF»: las
+- [x] **Admin — imprimir** (aprobado por el usuario el 28/10/2026) `/consulta-notas/2/seccion/23` → registro → «Guardar como PDF»: las
   dos tablas «Logro de cada curso que se promedia» (CT3, CT4) bajo la de la sección, los 18
   nombres de curso legibles y ninguna tabla desbordada.
 

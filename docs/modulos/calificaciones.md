@@ -1500,7 +1500,7 @@ cards, sin fijar; antes iban al final), y la sección y la carga de `/consulta-n
     transversalesSeccion`: cierre vigente, `getPromediosSeccion`, `getConclusionesSeccion`,
     roster `rosterSeccion`); sin cierre vigente, la hoja lo dice y no muestra notas;
   - **sin firmas** (decisión del usuario: firman los documentos con toda la información);
-  - **debajo, el logro de cada curso que se promedia** (decisión del usuario, 29/10/2026):
+  - **debajo, el logro de cada curso que se promedia** (decisión del usuario, 28/10/2026):
     una tabla por CT con una columna por carga, en **numeral simple** (estilo de nota de
     criterio, nunca el par de logro), y al final el logro de la sección en par. Datos:
     `TransversalModel::getLogrosPorCargaSeccion` (las MISMAS filas que el promedio de

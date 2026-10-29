@@ -228,7 +228,7 @@ class TransversalModel extends BaseModel
     }
 
     /**
-     * Lo que PROMEDIA getPromediosSeccion() de lectura (29/10/2026, hoja de
+     * Lo que PROMEDIA getPromediosSeccion() de lectura (28/10/2026, hoja de
      * transversales del registro auxiliar): el logro de cada CARGA, con las MISMAS
      * filas, así que su AVG redondeado es el logro de la sección. Las cargas, en el
      * orden del plan; una carga de OTRA sección (dato del modelo antiguo) lleva

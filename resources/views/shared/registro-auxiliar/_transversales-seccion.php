@@ -97,7 +97,7 @@ $notaHoja   = 'Logro de la sección y conclusión descriptiva';
             </tbody>
         </table>
 
-        <?php // LOGRO DE CADA CURSO que se promedia (29/10/2026): una tabla por
+        <?php // LOGRO DE CADA CURSO que se promedia (28/10/2026): una tabla por
               // competencia, el logro de cada carga en numeral simple y al final el
               // de la sección (RegistroAuxiliarModel::conLogrosPorCurso). ?>
         <?php foreach ($competencias as $comp):

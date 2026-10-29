@@ -449,7 +449,7 @@ class ConsultaNotasController extends BaseController
 
         // Retorno de grado: su fila va vacía y lo del tutor de la sección
         // operativa, en el anexo al pie (RegistroAuxiliarModel, 28/10/2026).
-        // Después, el logro de cada curso que se promedia (29/10/2026).
+        // Después, el logro de cada curso que se promedia (28/10/2026).
         $registro = new RegistroAuxiliarModel();
         return $registro->conLogrosPorCurso($registro->conAnexoRetornoTransversales([
             'meta' => [

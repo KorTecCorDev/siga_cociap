@@ -796,7 +796,7 @@ class RegistroAuxiliarModel extends BaseModel
 
     /**
      * Hoja «Competencias transversales de la sección» (decisión del usuario,
-     * 29/10/2026): debajo del logro, una tabla por competencia con el LOGRO DE
+     * 28/10/2026): debajo del logro, una tabla por competencia con el LOGRO DE
      * CADA CURSO que se promedia (`TransversalModel::getLogrosPorCargaSeccion`).
      * Columnas: solo los cursos con algún logro de esa competencia. La fila de un
      * retorno en su tramo va vacía, como en la tabla de arriba (su logro está en
