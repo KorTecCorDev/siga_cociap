@@ -449,7 +449,9 @@ class ConsultaNotasController extends BaseController
 
         // Retorno de grado: su fila va vacía y lo del tutor de la sección
         // operativa, en el anexo al pie (RegistroAuxiliarModel, 28/10/2026).
-        return (new RegistroAuxiliarModel())->conAnexoRetornoTransversales([
+        // Después, el logro de cada curso que se promedia (29/10/2026).
+        $registro = new RegistroAuxiliarModel();
+        return $registro->conLogrosPorCurso($registro->conAnexoRetornoTransversales([
             'meta' => [
                 'grado_nombre'   => $carga['grado_nombre'],
                 'seccion_nombre' => $carga['seccion_nombre'],
@@ -461,7 +463,7 @@ class ConsultaNotasController extends BaseController
             'alumnos'      => $cierre ? $this->rosterSeccion($seccionId, $periodoId, $nivelId, (int) $periodo['anio_id']) : [],
             'promedios'    => $cierre ? $this->transModel->getPromediosSeccion($seccionId, $periodoId, true) : [],
             'conclusiones' => $cierre ? $this->transModel->getConclusionesSeccion($seccionId, $periodoId, true) : [],
-        ], $periodoId);
+        ], $periodoId), $seccionId, $periodoId);
     }
 
     /**

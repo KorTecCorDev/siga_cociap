@@ -227,6 +227,54 @@ class TransversalModel extends BaseModel
         return $out;
     }
 
+    /**
+     * Lo que PROMEDIA getPromediosSeccion() de lectura (29/10/2026, hoja de
+     * transversales del registro auxiliar): el logro de cada CARGA, con las MISMAS
+     * filas, así que su AVG redondeado es el logro de la sección. Las cargas, en el
+     * orden del plan; una carga de OTRA sección (dato del modelo antiguo) lleva
+     * su sección para rotularla.
+     *
+     * @return array{cargas: array<int, array{nombre:string, seccion:?string}>,
+     *               logros: array<int, array<int, array<int, int>>>}
+     *         logros: [fila => [competencia_id => [carga_id => nota]]]
+     */
+    public function getLogrosPorCargaSeccion(int $seccionId, int $periodoId): array
+    {
+        $filas = $this->query("
+            SELECT f.fila AS matricula_id,
+                   cal.competencia_id,
+                   cal.carga_id,
+                   cal.nota_numerica,
+                   COALESCE(sa.nombre, ar.nombre) AS curso,
+                   IF(ca.seccion_id = ?, NULL, CONCAT(g.nombre_display, ' ', s.nombre)) AS otra_seccion
+            FROM (SELECT m.id AS fila,
+                         " . RetornoGradoModel::sqlDatosDelPeriodo('m', (string) $periodoId) . " AS datos
+                  FROM matriculas m
+                  WHERE " . CambioSeccionModel::sqlEnSeccionDelPeriodo('m', $seccionId, $periodoId) . ") f
+            INNER JOIN calificaciones cal ON cal.matricula_id = f.datos AND cal.periodo_id = ?
+            INNER JOIN bloqueos_competencia bc
+                ON  bc.carga_id       = cal.carga_id
+                AND bc.competencia_id = cal.competencia_id
+                AND bc.periodo_id     = cal.periodo_id
+            INNER JOIN competencias comp   ON comp.id = cal.competencia_id
+            INNER JOIN areas a             ON a.id = comp.area_id AND a.tipo = 'transversal'
+            INNER JOIN cargas_academicas ca ON ca.id = cal.carga_id
+            INNER JOIN secciones s         ON s.id = ca.seccion_id
+            INNER JOIN grados g            ON g.id = s.grado_id
+            LEFT  JOIN subareas sa         ON sa.id = ca.subarea_id
+            LEFT  JOIN areas ar            ON ar.id = COALESCE(ca.area_id, sa.area_id)
+            ORDER BY ar.orden, sa.orden, ca.id
+        ", [$seccionId, $periodoId]);
+
+        $out = ['cargas' => [], 'logros' => []];
+        foreach ($filas as $f) {
+            $cid = (int) $f['carga_id'];
+            $out['cargas'][$cid] ??= ['nombre' => (string) $f['curso'], 'seccion' => $f['otra_seccion']];
+            $out['logros'][(int) $f['matricula_id']][(int) $f['competencia_id']][$cid] = (int) $f['nota_numerica'];
+        }
+        return $out;
+    }
+
     // ── Conclusiones ─────────────────────────────────────────────
 
     /**

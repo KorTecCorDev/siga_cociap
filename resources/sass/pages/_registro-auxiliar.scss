@@ -158,6 +158,21 @@
 
 // Anexo al pie de la hoja de transversales de la sección.
 .ra-anexo-ts { margin-top: 3mm; }
+
+// Hoja de transversales de la sección: el logro de cada curso que se promedia
+// (29/10/2026), una tabla por competencia. Hasta 19 cursos en ~11 mm cada uno:
+// el nombre del curso se parte por palabras.
+.ra-ts__detalle { margin-top: 3mm; }
+
+.ra-m thead .ra-ts__curso {
+    font-size: 5pt;
+    font-weight: 600;
+    line-height: 1.05;
+    // Solo parte una palabra si no cabe entera («Trigonometría» en 11 mm).
+    overflow-wrap: break-word;
+    hyphens: auto;
+    vertical-align: bottom;
+}
 // Partes de un área ancha (matriz o CD): cada una en hoja nueva. El reparto
 // lo calcula `RegistroAuxiliarModel::partesMatriz` con los anchos de `.ra-m__c-*`.
 .ra-parte + .ra-parte { break-before: page; }

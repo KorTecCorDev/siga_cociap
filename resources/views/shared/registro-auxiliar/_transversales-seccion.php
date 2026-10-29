@@ -97,6 +97,56 @@ $notaHoja   = 'Logro de la sección y conclusión descriptiva';
             </tbody>
         </table>
 
+        <?php // LOGRO DE CADA CURSO que se promedia (29/10/2026): una tabla por
+              // competencia, el logro de cada carga en numeral simple y al final el
+              // de la sección (RegistroAuxiliarModel::conLogrosPorCurso). ?>
+        <?php foreach ($competencias as $comp):
+            $cid = (int) $comp['id'];
+            $det = $ts['detalle'][$cid] ?? null;
+            if ($det === null || $det['columnas'] === []) {
+                continue;
+            } ?>
+        <table class="ra-m ra-ts__detalle">
+            <colgroup>
+                <col class="ra-m__c-num">
+                <col class="ra-m__c-nombre">
+                <?php foreach ($det['columnas'] as $col): ?><col><?php endforeach; ?>
+                <col class="ra-m__c-pnum"><col class="ra-m__c-plit">
+            </colgroup>
+            <thead>
+                <tr class="ra-m__id">
+                    <th colspan="<?= 4 + count($det['columnas']) ?>">
+                        <?= e((string) $comp['codigo_minedu']) ?> &middot; Logro de cada curso que se promedia &middot; <?= e($identificacion) ?>
+                    </th>
+                </tr>
+                <tr class="ra-m__cols">
+                    <th scope="col">N°</th>
+                    <th scope="col" class="ra-m__izq">Apellidos y nombres</th>
+                    <?php foreach ($det['columnas'] as $col): ?>
+                        <th scope="col" class="ra-ts__curso"><?= e($col['nombre']) ?><?= $col['seccion'] !== null ? ' (' . e($col['seccion']) . ')' : '' ?></th>
+                    <?php endforeach; ?>
+                    <th scope="colgroup" colspan="2" class="ra-m__grupo ra-m__grupo--tr">Logro</th>
+                </tr>
+            </thead>
+            <tbody>
+<?php // ⚠️ Filas SIN INDENTAR: se repiten por estudiante y curso. ?>
+<?php foreach ($ts['alumnos'] as $i => $al):
+    $mid  = (int) $al['matricula_id'];
+    $nota = $ts['promedios'][$mid][$cid] ?? null; ?>
+<tr>
+<td class="ra-m__num"><?= $i + 1 ?></td>
+<td class="ra-m__izq"><?= e($al['nombre_completo']) ?><?php $sitChips = $al['situaciones'] ?? []; $sitImpreso = true; require VIEW_PATH . '/shared/_situacion-chips.php'; ?></td>
+<?php foreach (array_keys($det['columnas']) as $cargaId):
+    $logro = $det['logros'][$mid][$cargaId] ?? null; ?>
+<td><?= $logro !== null ? fmt_nota($logro) : '—' ?></td>
+<?php endforeach; ?>
+<?php $par($nota !== null ? ['promedio' => (int) $nota, 'literal' => nota_a_literal((int) $nota)] : null, false, 'ra-m__tr'); ?>
+</tr>
+<?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endforeach; ?>
+
         <?php // ANEXO del retorno de grado (28/10/2026): su fila de arriba va vacía; aquí,
               // lo que congeló el tutor de la sección donde cursó el bimestre
               // (RegistroAuxiliarModel::conAnexoRetornoTransversales). ?>

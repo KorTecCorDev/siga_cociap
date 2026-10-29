@@ -781,6 +781,7 @@ class RegistroAuxiliarModel extends BaseModel
             }
             $cerrado = $trans->getCierreVigente($t['seccion_id'], $periodoId) !== null;
             $ts['anexo'][] = [
+                'matricula_id' => $mid,
                 'nombre'       => $al['nombre_completo'],
                 'seccion'      => $t['seccion'],
                 'tutor'        => $tutor->tutorDe($t['seccion_id'], $periodoId)['nombre'] ?? null,
@@ -789,6 +790,50 @@ class RegistroAuxiliarModel extends BaseModel
                 'conclusiones' => $cerrado ? ($ts['conclusiones'][$mid] ?? []) : [],
             ];
             unset($ts['promedios'][$mid], $ts['conclusiones'][$mid]);
+        }
+        return $ts;
+    }
+
+    /**
+     * Hoja «Competencias transversales de la sección» (decisión del usuario,
+     * 29/10/2026): debajo del logro, una tabla por competencia con el LOGRO DE
+     * CADA CURSO que se promedia (`TransversalModel::getLogrosPorCargaSeccion`).
+     * Columnas: solo los cursos con algún logro de esa competencia. La fila de un
+     * retorno en su tramo va vacía, como en la tabla de arriba (su logro está en
+     * el anexo). Va DESPUÉS de conAnexoRetornoTransversales(), que marca esas filas.
+     *
+     * @param  array $ts  conAnexoRetornoTransversales()
+     * @return array      $ts con `detalle` [competencia_id => {columnas, logros}]
+     */
+    public function conLogrosPorCurso(array $ts, int $seccionId, int $periodoId): array
+    {
+        $ts['detalle'] = [];
+        if ($ts['cierre'] === null || $ts['alumnos'] === []) {
+            return $ts;
+        }
+        $datos = (new TransversalModel())->getLogrosPorCargaSeccion($seccionId, $periodoId);
+        // Solo las filas de la hoja: la consulta trae a toda matrícula que cursó en
+        // la sección, también las que el roster de lectura no lista (la operativa
+        // de un retorno), y sus cursos abrirían columnas vacías.
+        $datos['logros'] = array_intersect_key($datos['logros'], array_flip(array_map('intval', array_column($ts['alumnos'], 'matricula_id'))));
+        foreach ($ts['anexo'] as $ax) {
+            unset($datos['logros'][$ax['matricula_id']]);
+        }
+        foreach ($ts['competencias'] as $comp) {
+            $compId = (int) $comp['id'];
+            $logros = [];
+            $usadas = [];
+            foreach ($datos['logros'] as $mid => $porComp) {
+                if (isset($porComp[$compId])) {
+                    $logros[$mid] = $porComp[$compId];
+                    $usadas      += $porComp[$compId];
+                }
+            }
+            // En el orden del plan (el de `cargas`), no en el de aparición.
+            $ts['detalle'][$compId] = [
+                'columnas' => array_intersect_key($datos['cargas'], $usadas),
+                'logros'   => $logros,
+            ];
         }
         return $ts;
     }
