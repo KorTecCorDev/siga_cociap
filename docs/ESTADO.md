@@ -4,15 +4,19 @@
 > Actualizar aquí (no en CLAUDE.md). Última revisión: **28/10/2026**.
 > **Versión desplegada: v1.0.5** (`config/app.php` + tag anotado `v1.0.5`, 30/09/2026).
 
-## 🔜 RETOMAR AQUÍ (28/10/2026, fin del turno tarde: laptop de la oficina → escritorio de casa)
+## 🔜 RETOMAR AQUÍ (28/10/2026, noche: escritorio de casa) — REGISTRO AUXILIAR DESPLEGADO
 
-**Situación:** el **registro auxiliar** y todo lo construido sobre él están en `dev`, **sin
-desplegar** y **sin migraciones**: 12 commits por delante de `main` (de `8dbdec3` a la entrada
-que cierra este turno). Lo que falta para el deploy son **solo pruebas con sesión** de roles que
-no son admin, más el diálogo de impresión. Lo de admin ya se probó por HTTP con la sesión real
-(entrada de abajo, «Probado el 28/10/2026»).
+**Situación:** el **registro auxiliar** y todo lo construido sobre él están **DESPLEGADOS**
+(28/10/2026, merge `fe58abe`, sin migraciones; registro en la sección Git). El usuario comprobó
+en local las 9 pruebas y la impresión. Queda solo lo de producción:
+- [ ] Repetir en prod: admin (abrir e imprimir el registro de una sección), Dirección o RA (las
+  mismas entradas) y un docente (su registro; la URL de consulta da 403).
+- [ ] Que exista UN solo `director_general` activo y un Director EBR vigente (si no, la firma
+  sale solo con el cargo).
+- [ ] Tiempo de carga de una sección completa de secundaria (local: 2 s, 612 KB).
+- [x] Los `.xlsm` NO están en el servidor (`/REG_AUX_SECUNDARIA_2026.xlsm` → 404).
 
-Qué entra en el deploy (detalle en cada doc):
+Qué entró en el deploy (detalle en cada doc):
 - Registro auxiliar del docente y del área completa (`8dbdec3`, `61256c5`, `822b9ca`).
 - **Roster de lectura**: trasladados y retirados en los bimestres que cursaron, con chip
   (`calificaciones.md` § «Roster de lectura»).
@@ -6337,6 +6341,16 @@ La competencia **C57** (área 24) nunca fue ensayo: la crea la migración `036`.
 
 ## Git
 
+- 🟢 **28/10/2026 — DEPLOY, sigue v1.0.5.** `main` pasó de `ebb376c` a `fe58abe` (merge
+  `--no-ff` de `dev`, 18 commits): registro auxiliar del docente y del área completa, roster de
+  lectura, chips de situación, retorno de grado en lectura (fila vacía + anexo), el registro
+  según el acta SIAGIE, asistencia de solo lectura con «—» y el logro de cada curso en la hoja
+  de transversales. **Sin migraciones.** Verificado antes: los 3 verificadores del deploy TODO
+  OK (`verif_integridad_rutas`, `verif_roster_lectura`, `verif_registro_acta`), hook
+  `pre-push` en verde en cada push, árbol de `main` idéntico a `dev`, ningún `.xlsm`
+  versionado. Después: prod sirve el `app.css` nuevo (`.ra-ts__detalle`, 1.er intento),
+  `/login` 200, el registro sin sesión 302 a login y el `.xlsm` 404. Pruebas con sesión en
+  prod: «RETOMAR AQUÍ».
 - 🟢 **19/10/2026 (3.º) — DEPLOY, sigue v1.0.5.** `main` pasó de `ba70357` a `ebb376c` (merge
   `--no-ff` de `dev`, 3 commits, 11 archivos): gestor del orden de mérito con impresión
   filtrada (`ba0e40b`) y 2 commits de docs. **Sin migraciones.** Verificado antes:
