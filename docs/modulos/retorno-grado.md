@@ -84,7 +84,7 @@ a la estudiante rankeada en un grado con notas obtenidas en otro.
 
 ## Vistas de solo lectura: la fila es la OFICIAL (28/10/2026)
 
-> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pruebas en `docs/ESTADO.md`.
+> **Estado: DESPLEGADO el 28/10/2026** (merge `fe58abe`). Sin migración.
 
 **Decisión del usuario:** «solo es válida su matrícula real, nunca la operativa; todas sus
 calificaciones deben aparecer en el registro auxiliar de su matrícula real. En todas». Rige en

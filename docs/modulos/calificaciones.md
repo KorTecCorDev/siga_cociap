@@ -1302,8 +1302,8 @@ I Bimestre diría «registradas por RA, hoy».
 
 ## Registro auxiliar de calificaciones — del docente y del área completa (27/10/2026)
 
-> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pendientes las pruebas en
-> navegador con sesión de DOCENTE y de Dirección/RA (ver `docs/ESTADO.md`).
+> **Estado: DESPLEGADO el 28/10/2026** (merge `fe58abe`). Sin migración. Probado por el usuario en
+> local con todos los roles; en producción, ver `docs/ESTADO.md`.
 > Dos documentos, un solo armado (`RegistroAuxiliarModel`) y una sola vista
 > (`shared/registro-auxiliar/`): el del **docente** (abajo) y el del **área completa**
 > (§ «Registro del área completa»). Las áreas anchas se reparten en **partes** (§ «Partes»).
@@ -1527,8 +1527,7 @@ cards, sin fijar; antes iban al final), y la sección y la carga de `/consulta-n
   y «Página X de Y» continua. Ninguna tabla ni celda desborda en la sección completa (19 tablas).
 
 ### Roster de lectura: quien CURSÓ el bimestre (28/10/2026)
-> **Estado: implementado en `dev`, sin desplegar.** Sin migración. Pruebas pendientes en
-> `docs/ESTADO.md`.
+> **Estado: DESPLEGADO el 28/10/2026** (merge `fe58abe`). Sin migración.
 
 **Problema.** El registro, el historial del docente y `/consulta-notas` listaban un bimestre con
 el `tipo` y el `estado` de **HOY** (`matriculas_vigentes()` + `estado IN ('aprobada','pendiente')`
@@ -1569,7 +1568,7 @@ fila es la OFICIAL».
 - Verificador: `database/verificaciones/verif_roster_lectura.php` (solo lectura, 9 secciones).
 
 ### El registro sigue el acta SIAGIE (28/10/2026)
-> **Estado: implementado en `dev`, sin desplegar.** Sin migración.
+> **Estado: DESPLEGADO el 28/10/2026** (merge `fe58abe`). Sin migración.
 
 Decisión del usuario: el registro auxiliar cumple las reglas del acta
 (`EQUIVALENCIAS_ACTA_SIAGIE`, resueltas por `SituacionFinalModel::equivalenciasActa()`, la misma
